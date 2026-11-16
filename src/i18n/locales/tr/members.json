@@ -585,7 +585,12 @@
       "ended": "Önizleme sona erdi: bu üye veya rol artık mevcut değil",
       "failed": "Önizleme yüklenemedi",
       "needsBusiness": "\"Şu olarak görüntüle\" Business planına dahildir",
-      "readOnly": "Salt okunur önizleme"
+      "readOnly": "Salt okunur önizleme",
+      "lacksPermission": "Bu üyenin rolü buna izin vermiyor",
+      "locked": {
+        "auditLog": "Denetim günlüğü bu üye için kilitli",
+        "sessions": "Terminal oturumları bu üye için kilitli"
+      }
     }
   }
 }

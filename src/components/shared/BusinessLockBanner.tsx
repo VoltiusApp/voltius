@@ -27,7 +27,7 @@ export function UpgradeAction({ teamId, look }: { teamId: string; look: "button"
 }
 
 export function BusinessLapseNotice({ teamId, message, removeLabel, onRemove }: {
-  teamId: string; message: string; removeLabel: string; onRemove?: () => Promise<void>;
+  teamId: string; message: string; removeLabel: string; onRemove?: () => unknown;
 }) {
   const { t } = useTranslation();
   const { locked } = useBusinessLock(teamId);

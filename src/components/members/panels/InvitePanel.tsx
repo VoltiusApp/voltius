@@ -13,6 +13,7 @@ import { RoleToggleChip } from "@/components/members/roleChips";
 import { MemberNameInput } from "@/components/members/MemberNameInput";
 import { useUserSearch, type UserSearchResult } from "@/hooks/useUserSearch";
 import { inviteUserWithRoles, inviteByEmailAddress, inviteFailureReason, emailNotSentWarning } from "@/services/vaultShare";
+import { whenWritable } from "@/services/previewGuard";
 import { invitationRoleName, isOwnerRole } from "@/components/vault-share/vaultShareModel";
 import { useInviteRoleOptions, useOwnerInviteConfirm } from "@/components/members/ownerInvite";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
@@ -131,7 +132,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
     } finally { setAdding(null); }
   };
 
-  const handleAdd = (user: UserSearchResult) => confirmOwnerInvite(grantsOwner, user.handle, () => void addUser(user));
+  const handleAdd = whenWritable((user: UserSearchResult) => confirmOwnerInvite(grantsOwner, user.handle, () => void addUser(user)));
 
   const inviteEmail = async () => {
     if (isAtSeatLimit) { onSeatLimit(null); return; }
@@ -160,10 +161,10 @@ export function InvitePanel({ teamId, existingIds, teamRoles, canNameMembers, on
     } finally { setSendingInvite(false); }
   };
 
-  const handleEmailInvite = () => {
+  const handleEmailInvite = whenWritable(() => {
     if (!isValidEmail(query) || !hasRoleSelected) return;
     confirmOwnerInvite(grantsOwner, query, () => void inviteEmail());
-  };
+  });
 
   const noticeColor = success?.warn ? "var(--t-status-warning)" : "#34d399";
   const showEmailInviteOption = open && results.length === 0 && !searching && isValidEmail(query);

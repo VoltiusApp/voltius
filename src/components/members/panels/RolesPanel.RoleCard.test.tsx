@@ -36,7 +36,7 @@ beforeEach(() => {
   Object.values(api).forEach((f) => (f as ReturnType<typeof vi.fn>).mockReset?.());
   api.updateRole.mockResolvedValue(undefined);
   api.deleteRole.mockResolvedValue(undefined);
-  api.getMyUserId.mockResolvedValue("");
+  api.getMyUserId.mockResolvedValue("me");
   useTeamStore.setState({
     teams: [], membersByTeam: {}, rolesByTeam: {},
     pendingInvitationsByTeam: {}, myPendingInvitations: [], activeTeamId: null, loading: false,
@@ -48,7 +48,7 @@ afterEach(() => cleanup());
 test("delete is two-step: first click confirms (no service call), second click deletes", async () => {
   api.listRoles.mockResolvedValue([managerRole, role("custom1", 0, 100)]);
   api.listMembers.mockResolvedValue([member("me", ["mgr"])]);
-  render(<TeamRolesPanel teamId="t1" myUserId="me" />);
+  render(<TeamRolesPanel teamId="t1" />);
 
   const del = await screen.findByTitle("settings.vaults.rolesPanel.deleteRoleTitle");
   fireEvent.click(del);
@@ -63,7 +63,7 @@ test("delete failure surfaces error and does not remove the role", async () => {
   api.listRoles.mockResolvedValue([managerRole, role("custom1", 0, 100)]);
   api.listMembers.mockResolvedValue([member("me", ["mgr"])]);
   api.deleteRole.mockRejectedValue(new Error("del-boom"));
-  render(<TeamRolesPanel teamId="t1" myUserId="me" />);
+  render(<TeamRolesPanel teamId="t1" />);
 
   fireEvent.click(await screen.findByTitle("settings.vaults.rolesPanel.deleteRoleTitle"));
   fireEvent.click(await screen.findByTitle("settings.vaults.rolesPanel.clickToConfirm"));
@@ -75,7 +75,7 @@ test("delete failure surfaces error and does not remove the role", async () => {
 test("edit button opens the RoleModal editor", async () => {
   api.listRoles.mockResolvedValue([managerRole, role("custom1", 0, 100)]);
   api.listMembers.mockResolvedValue([member("me", ["mgr"])]);
-  render(<TeamRolesPanel teamId="t1" myUserId="me" />);
+  render(<TeamRolesPanel teamId="t1" />);
 
   fireEvent.click(await screen.findByTitle("settings.vaults.rolesPanel.editRole"));
   expect(await screen.findByText("settings.vaults.rolesPanel.saveChanges")).toBeTruthy();
@@ -84,7 +84,7 @@ test("edit button opens the RoleModal editor", async () => {
 test("canEdit=false (no MANAGE_ROLES): edit/delete controls hidden on custom role", async () => {
   api.listRoles.mockResolvedValue([role("viewer", PERM_BITS.VIEW_SECRETS, 0, true), role("custom1", 0, 100)]);
   api.listMembers.mockResolvedValue([member("me", ["viewer"])]);
-  render(<TeamRolesPanel teamId="t1" myUserId="me" />);
+  render(<TeamRolesPanel teamId="t1" />);
 
   // custom role list renders (business), but no edit/delete affordances
   await waitFor(() => expect(useTeamStore.getState().rolesByTeam.t1).toBeTruthy());
@@ -98,7 +98,7 @@ test("built-in roles render as read-only builtin cards, never as editable custom
     role("admin", PERM_BITS.MANAGE_ROLES, 0, true),
   ]);
   api.listMembers.mockResolvedValue([member("me", ["mgr"])]);
-  render(<TeamRolesPanel teamId="t1" myUserId="me" />);
+  render(<TeamRolesPanel teamId="t1" />);
 
   expect((await screen.findAllByText("settings.vaults.rolesPanel.builtinBadge")).length).toBe(2);
   // No custom roles exist → empty custom state, and no delete control for the builtin
@@ -113,7 +113,7 @@ test("drag-reorder rewrites positions via updateRole for moved custom roles", as
     role("b", 0, 200),
   ]);
   api.listMembers.mockResolvedValue([member("me", ["mgr"])]);
-  render(<TeamRolesPanel teamId="t1" myUserId="me" />);
+  render(<TeamRolesPanel teamId="t1" />);
 
   const grips = await screen.findAllByTitle("settings.vaults.rolesPanel.dragToReorder");
   expect(grips.length).toBe(2);

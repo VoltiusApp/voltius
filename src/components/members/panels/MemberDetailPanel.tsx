@@ -33,6 +33,9 @@ import { MemberNameInput } from "@/components/members/MemberNameInput";
 import { inviterLabel, memberLabel, secondaryHandle } from "@/services/memberLabel";
 import { memberOwnership } from "@/services/teamOwnership";
 import { useOwnershipContext } from "@/hooks/useOwnershipContext";
+import { useHeldPermissionBits } from "@/hooks/usePermission";
+import { usePreviewActive } from "@/hooks/previewScope";
+import { whenWritable } from "@/services/previewGuard";
 
 export interface MemberDetailPanelProps {
   member: TeamMember;
@@ -61,6 +64,8 @@ export function MemberDetailPanel({
   const { t } = useTranslation();
   const push = useHistoryStore((s) => s.push);
   const { locked } = useBusinessLock(teamId);
+  const previewing = usePreviewActive() !== null;
+  const lacks = t("members.viewAs.lacksPermission");
 
   const setStoredName = useTeamStore((s) => s.setMemberName);
   const roster = useTeamStore((s) => s.membersByTeam[teamId]);
@@ -172,7 +177,7 @@ export function MemberDetailPanel({
     }
   };
 
-  const handleToggleRole = async (role: TeamRole, confirmed = false) => {
+  const handleToggleRole = whenWritable(async (role: TeamRole, confirmed = false) => {
     const hasRole = member.role_ids.includes(role.id);
     if (isOwnerRole(role) && hasRole && ownership.isPrimaryOwner) {
       setError(t("members.error.cannotRemoveOwnerRole"));
@@ -195,11 +200,11 @@ export function MemberDetailPanel({
       }
     }
     await applyRoleToggle(role, !hasRole, false);
-  };
+  });
 
   const allow = member.permission_allow ?? 0;
   const deny = member.permission_deny ?? 0;
-  const viewerEffective = viewer ? effectivePermissions(viewer, teamRoles, locked) : 0;
+  const viewerEffective = useHeldPermissionBits(teamId);
   const memberEffective = effectivePermissions(member, teamRoles, locked);
 
   // A server predating overrides omits both masks; a zero mask serializes as 0.
@@ -267,14 +272,14 @@ export function MemberDetailPanel({
     }
   };
 
-  const clearOverrides = async () => {
+  const clearOverrides = whenWritable(async () => {
     const cleared = { allow: 0, deny: 0 };
     if (await wouldLoseKey({ role_ids: member.role_ids, ...cleared }, setOverriding)) {
       setPendingRevoke("clear");
       return;
     }
     await applyMasks(cleared, false);
-  };
+  });
 
   const commitOverride = async (permission: Permission, next: OverrideState, rotate: boolean) => {
     const updated = applyOverrideState(permission, allow, deny, next);
@@ -296,7 +301,7 @@ export function MemberDetailPanel({
     });
   };
 
-  const handleOverride = async (permission: Permission, next: OverrideState) => {
+  const handleOverride = whenWritable(async (permission: Permission, next: OverrideState) => {
     if (next === "allow" && (viewerEffective & PERM_BITS[permission]) === 0) {
       setError(t("members.permissions.readOnlyNotHeld"));
       return;
@@ -307,7 +312,7 @@ export function MemberDetailPanel({
       return;
     }
     await commitOverride(permission, next, false);
-  };
+  });
 
   const joinedDate = formatDate(member.joined_at, { year: "numeric", month: "long", day: "numeric" });
 
@@ -336,7 +341,7 @@ export function MemberDetailPanel({
               aria-label={t("members.detail.nameLabel")}
               value={draftName}
               placeholder={member.handle ? `@${member.handle}` : ""}
-              onChange={(e) => { markDirty(); setDraftName(e.target.value); }}
+              onChange={whenWritable((e: React.ChangeEvent<HTMLInputElement>) => { markDirty(); setDraftName(e.target.value); })}
               onBlur={flush}
               onKeyDown={(e) => {
                 if (e.key === "Enter") flush();
@@ -350,7 +355,7 @@ export function MemberDetailPanel({
 
         {/* Roles */}
         <FormSection label={t("members.roles")}>
-          {canChangeRoles ? (
+          {canChangeRoles || previewing ? (
             <div className="flex flex-wrap items-start gap-2">
               {[...teamRoles]
                 .filter((r) => !isOwnerRole(r) || ownership.canGrantOwner)
@@ -365,8 +370,8 @@ export function MemberDetailPanel({
                   <div key={role.id} className="flex flex-col gap-1">
                   <button
                     onClick={() => void handleToggleRole(role)}
-                    disabled={toggling === role.id || lockedOut}
-                    title={lockedOut ? t("shared.businessLock.title") : undefined}
+                    disabled={toggling === role.id || lockedOut || !canChangeRoles}
+                    title={lockedOut ? t("shared.businessLock.title") : canChangeRoles ? undefined : lacks}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                     style={{
                       background: justToggled === role.id ? "rgba(52,211,153,0.15)" : hasRole ? bg : "var(--t-bg-elevated)",
@@ -396,7 +401,9 @@ export function MemberDetailPanel({
               })}
               {!locked && (
               <button
-                onClick={() => setCreatingRole(true)}
+                onClick={whenWritable(() => setCreatingRole(true))}
+                disabled={!canChangeRoles}
+                title={canChangeRoles ? undefined : lacks}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
                 style={{ color: "var(--t-accent)", border: "1px dashed var(--t-accent)", background: "transparent", opacity: 0.7 }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
@@ -489,7 +496,7 @@ export function MemberDetailPanel({
               </div>
             ) : (
               <button
-                onClick={() => setConfirmingPrimary(true)}
+                onClick={whenWritable(() => setConfirmingPrimary(true))}
                 className="btn btn-secondary w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
               >
                 <Icon icon="lucide:crown" width={13} />
@@ -520,10 +527,12 @@ export function MemberDetailPanel({
         )}
 
         {/* Danger zone */}
-        {(canRemove || canLeave) && (
+        {(canRemove || canLeave || previewing) && (
           <FormSection label={t("members.dangerZone")}>
             <button
-              onClick={() => setOffboarding(canLeave ? "leave" : "remove")}
+              onClick={whenWritable(() => setOffboarding(canLeave ? "leave" : "remove"))}
+              disabled={!(canRemove || canLeave)}
+              title={canRemove || canLeave ? undefined : lacks}
               className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
               style={{
                 background: "var(--t-bg-elevated)",

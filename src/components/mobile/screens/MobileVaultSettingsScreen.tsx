@@ -8,7 +8,6 @@ import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useVaultContents } from "@/hooks/useVaultContents";
-import { useMyUserId } from "@/hooks/useMyUserId";
 import { useAutosave } from "@/hooks/useAutosave";
 import { useBackInterceptor } from "@/hooks/useBackInterceptor";
 import { ContentCounts } from "@/components/shared/ContentCounts";
@@ -86,7 +85,6 @@ export default function MobileVaultSettingsScreen({ vaultId, page }: { vaultId: 
 function VaultSettingsSubPage({ vaultId, target, page, onLeave }: {
   vaultId: string; target: VaultAdminTarget; page: VaultSettingsPage; onLeave: () => void;
 }) {
-  const myUserId = useMyUserId();
   const teamId = target.teamId;
   // These panels were laid out for a 320 px desktop side panel: every button inside
   // gets a 48 dp hit area on the phone (C7).
@@ -95,7 +93,7 @@ function VaultSettingsSubPage({ vaultId, target, page, onLeave }: {
       {(page === "share" || page === "members") && (
         <VaultShareSheet vaultId={vaultId} variant="page" initialTab={page === "members" ? "people" : "invite"} onRequestFull={onLeave} />
       )}
-      {page === "roles" && teamId && myUserId && <TeamRolesPanel teamId={teamId} myUserId={myUserId} />}
+      {page === "roles" && teamId && <TeamRolesPanel teamId={teamId} />}
       {page === "security" && teamId && <SecurityPolicyPanel teamId={teamId} />}
     </div>
   );

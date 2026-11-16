@@ -82,6 +82,11 @@ export function usePermissions(): Can {
   return session && !result ? denyAll : can;
 }
 
+export function useHeldPermissionBits(vaultId: string): number {
+  const can = usePermissions();
+  return (Object.keys(PERM_BITS) as Permission[]).reduce((bits, p) => (can(p, vaultId) ? bits | PERM_BITS[p] : bits), 0);
+}
+
 export function usePermissionSubjectId(): string {
   const me = useMyUserId();
   const session = usePreviewActive();

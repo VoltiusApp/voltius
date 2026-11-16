@@ -581,7 +581,12 @@
       "ended": "The preview ended: this member or role is no longer available",
       "failed": "Could not load the preview",
       "needsBusiness": "View as is part of Business",
-      "readOnly": "Read-only preview"
+      "readOnly": "Read-only preview",
+      "lacksPermission": "This member's role does not allow this",
+      "locked": {
+        "auditLog": "Audit log locked for this member",
+        "sessions": "Terminal sessions locked for this member"
+      }
     }
   }
 }

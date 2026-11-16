@@ -1,7 +1,7 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import type { TeamMember, TeamRole } from "@/stores/teamStore";
-import { PERM_BITS } from "@/services/permissions";
+import { PERM_BITS, effectivePermissions } from "@/services/permissions";
 
 const h = vi.hoisted(() => ({
   assign: vi.fn(),
@@ -72,8 +72,14 @@ vi.mock("@/services/serverCapabilities", async (orig) => ({
 }));
 
 const lock = vi.hoisted(() => ({ value: { locked: false, isOwner: true } }));
+const held = vi.hoisted(() => ({ value: 0 }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => lock.value }));
 vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn() }));
+
+vi.mock("@/hooks/usePermission", async (orig) => ({
+  ...(await orig<typeof import("@/hooks/usePermission")>()),
+  useHeldPermissionBits: () => held.value,
+}));
 
 import { MemberDetailPanel } from "./panels/MemberDetailPanel";
 import { useTeamStore } from "@/stores/teamStore";
@@ -125,6 +131,7 @@ beforeEach(() => {
   mockStore.membersByTeam = {};
   mockStore.rolesByTeam = { t1: teamRoles };
   lock.value = { locked: false, isOwner: true };
+  held.value = 0;
   baseProps.onClose = vi.fn();
   baseProps.onUpdated = vi.fn();
 });
@@ -267,7 +274,7 @@ function permProps(overrides: Partial<{
   canManageMembers: boolean; isTargetOwner: boolean; viewer: TeamMember;
   onUpdated: () => void;
 }> = {}) {
-  return {
+  const props = {
     member: targetMember,
     isMe: false,
     teamId: "t1",
@@ -280,6 +287,8 @@ function permProps(overrides: Partial<{
     onUpdated: vi.fn(),
     ...overrides,
   };
+  held.value = props.viewer ? effectivePermissions(props.viewer, props.teamRoles, lock.value.locked) : 0;
+  return props;
 }
 
 test("permission overrides: renders one row per permission and sends the new masks", async () => {

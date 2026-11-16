@@ -4,7 +4,8 @@ import { useTranslation } from "react-i18next";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamRole } from "@/stores/teamStore";
 import { ColorSwatches } from "@/components/shared/ColorSwatches";
-import { type Permission, PERM_BITS, effectivePermissions } from "@/hooks/usePermission";
+import { type Permission, PERM_BITS, usePermissions } from "@/hooks/usePermission";
+import { whenWritable } from "@/services/previewGuard";
 import { PERMISSION_GROUPS, type PermissionGroupKey } from "@/services/permissions";
 import { permissionLabel, roleLabel } from "@/components/members/roleChips";
 import { CheckboxBox } from "@/components/shared/Checkbox";
@@ -287,7 +288,7 @@ function RoleCard({
   const [deleteError, setDeleteError] = useState("");
   const [editing, setEditing] = useState(false);
 
-  const handleDelete = async () => {
+  const handleDelete = whenWritable(async () => {
     if (!confirmDelete) { setConfirmDelete(true); return; }
     setDeleting(true); setDeleteError("");
     try {
@@ -297,7 +298,7 @@ function RoleCard({
       setDeleting(false);
       setConfirmDelete(false);
     }
-  };
+  });
 
   return (
     <>
@@ -330,7 +331,7 @@ function RoleCard({
           </button>
           {canEdit && (
             <button
-              onClick={() => setEditing(true)}
+              onClick={whenWritable(() => setEditing(true))}
               className="p-1.5 rounded-lg transition-colors"
               style={{ color: "var(--t-text-dim)" }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
@@ -376,9 +377,10 @@ function RoleCard({
 
 // ─── Team roles panel ─────────────────────────────────────────────────────────
 
-export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId: string }) {
+export function TeamRolesPanel({ teamId }: { teamId: string }) {
   const { t } = useTranslation();
-  const { rolesByTeam, loadRoles, membersByTeam, loadMembers, updateRole } = useTeamStore();
+  const { rolesByTeam, loadRoles, loadMembers, updateRole } = useTeamStore();
+  const can = usePermissions();
   const { locked } = useBusinessLock(teamId);
   const [creating, setCreating] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -387,12 +389,7 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
   const dragCounter = useRef(0);
 
   const roles = rolesByTeam[teamId] ?? [];
-  const members = membersByTeam[teamId] ?? [];
-  const myMember = members.find((m) => m.user_id === myUserId);
-
-  const canEdit = myMember
-    ? (effectivePermissions(myMember, roles, locked) & PERM_BITS.MANAGE_ROLES) !== 0
-    : false;
+  const canEdit = can("MANAGE_ROLES", teamId);
 
   const editable = canEdit && !locked;
 
@@ -402,11 +399,11 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
     ? localOrder.map((id) => rawCustomRoles.find((r) => r.id === id)).filter(Boolean) as typeof rawCustomRoles
     : rawCustomRoles;
 
-  function handleDragStart(idx: number) {
+  const handleDragStart = whenWritable((idx: number) => {
     setDragIdx(idx);
     setDropIdx(idx);
     setLocalOrder(customRoles.map((r) => r.id));
-  }
+  });
 
   function handleDragOver(e: React.DragEvent, idx: number) {
     e.preventDefault();
@@ -463,7 +460,7 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
           </h4>
           {editable && (
             <button
-              onClick={() => setCreating(true)}
+              onClick={whenWritable(() => setCreating(true))}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-colors"
               style={{ color: "var(--t-accent)", border: "1px solid var(--t-accent)", background: "transparent" }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(var(--t-accent-rgb, 99,102,241), 0.1)"; }}

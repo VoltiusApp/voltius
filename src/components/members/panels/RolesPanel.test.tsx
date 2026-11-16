@@ -19,6 +19,7 @@ vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn() }));
 import { TeamRolesPanel, RoleModal } from "@/components/members/panels/RolesPanel";
 import { PERM_BITS } from "@/hooks/usePermission";
 import { useTeamStore } from "@/stores/teamStore";
+import { makeTeam } from "@/test/team";
 
 const role = (id: string, permissions: number, is_builtin = false): TeamRole =>
   ({ id, team_id: "t1", name: id, permissions, is_builtin, position: 0 } as TeamRole);
@@ -31,6 +32,7 @@ beforeEach(() => {
   api.updateRole.mockResolvedValue(undefined);
   api.deleteRole.mockResolvedValue(undefined);
   api.createRole.mockResolvedValue({} as TeamRole);
+  api.getMyUserId.mockResolvedValue("me");
   useTeamStore.setState({ teams: [], membersByTeam: {}, rolesByTeam: {}, pendingInvitationsByTeam: {}, myPendingInvitations: [], activeTeamId: null, loading: false });
   lock.value = { locked: false, isOwner: true };
 });
@@ -39,14 +41,14 @@ afterEach(() => cleanup());
 test("business + MANAGE_ROLES → 'New role' button renders", async () => {
   api.listRoles.mockResolvedValue([role("r1", PERM_BITS.MANAGE_ROLES)]);
   api.listMembers.mockResolvedValue([member("me", ["r1"])]);
-  render(<TeamRolesPanel teamId="t1" myUserId="me" />);
+  render(<TeamRolesPanel teamId="t1" />);
   expect(await screen.findByText("settings.vaults.rolesPanel.newRoleBtn")).toBeTruthy();
 });
 
 test("business but NO MANAGE_ROLES → no 'New role' button, read-only empty state", async () => {
   api.listRoles.mockResolvedValue([role("r1", PERM_BITS.VIEW_SECRETS)]);
   api.listMembers.mockResolvedValue([member("me", ["r1"])]);
-  render(<TeamRolesPanel teamId="t1" myUserId="me" />);
+  render(<TeamRolesPanel teamId="t1" />);
   expect(await screen.findByText("settings.vaults.rolesPanel.noCustomRoles")).toBeTruthy();
   expect(screen.queryByText("settings.vaults.rolesPanel.newRoleBtn")).toBeNull();
 });
@@ -55,7 +57,7 @@ test("a locked team lists custom roles under the Business card, delete-only", as
   lock.value = { locked: true, isOwner: true };
   api.listRoles.mockResolvedValue([role("r1", PERM_BITS.MANAGE_ROLES, true), role("auditor", PERM_BITS.VIEW_SECRETS)]);
   api.listMembers.mockResolvedValue([member("me", ["r1"])]);
-  render(<TeamRolesPanel teamId="t1" myUserId="me" />);
+  render(<TeamRolesPanel teamId="t1" />);
   expect(await screen.findByText("auditor")).toBeTruthy();
   expect(screen.getByText("shared.businessLock.rolesBody")).toBeTruthy();
   expect(screen.getByText("shared.businessLock.upgrade")).toBeTruthy();
@@ -70,9 +72,10 @@ test("a locked team lists custom roles under the Business card, delete-only", as
 
 test("a locked team without Manage roles lists custom roles with no Delete", async () => {
   lock.value = { locked: true, isOwner: false };
+  useTeamStore.setState({ teams: [makeTeam("t1", { owner_tier: "free" })] });
   api.listRoles.mockResolvedValue([role("r1", PERM_BITS.VIEW, true), role("auditor", PERM_BITS.MANAGE_ROLES)]);
   api.listMembers.mockResolvedValue([member("me", ["r1", "auditor"])]);
-  render(<TeamRolesPanel teamId="t1" myUserId="me" />);
+  render(<TeamRolesPanel teamId="t1" />);
   expect(await screen.findByText("auditor")).toBeTruthy();
   expect(screen.queryByTitle("settings.vaults.rolesPanel.deleteRoleTitle")).toBeNull();
 });
@@ -81,7 +84,7 @@ test("a locked team with no custom roles shows the card, not the empty state", a
   lock.value = { locked: true, isOwner: false };
   api.listRoles.mockResolvedValue([role("r1", PERM_BITS.MANAGE_ROLES, true)]);
   api.listMembers.mockResolvedValue([member("me", ["r1"])]);
-  render(<TeamRolesPanel teamId="t1" myUserId="me" />);
+  render(<TeamRolesPanel teamId="t1" />);
   expect(await screen.findByText("shared.businessLock.rolesBody")).toBeTruthy();
   expect(screen.getByText("shared.businessLock.ownerOnly")).toBeTruthy();
   expect(screen.queryByText("settings.vaults.rolesPanel.noCustomRolesCanEdit")).toBeNull();

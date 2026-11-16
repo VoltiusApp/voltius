@@ -50,6 +50,11 @@ export function refuseWhilePreviewing(target?: PreviewTarget): boolean {
   return true;
 }
 
+export const whenWritable =
+  <A extends unknown[], R>(fn: (...args: A) => R) =>
+  (...args: A): R | undefined =>
+    refuseWhilePreviewing() ? undefined : fn(...args);
+
 export function refuseOrThrow(target?: PreviewTarget): void {
   if (refuseWhilePreviewing(target)) throw new PreviewReadOnlyError();
 }

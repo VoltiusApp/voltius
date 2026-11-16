@@ -8,6 +8,7 @@ import { BusinessLockLine } from "@/components/shared/BusinessLockBanner";
 import { Toggle } from "@/components/shared/Toggle";
 import { roleChipColors, roleLabel } from "@/components/members/roleChips";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
+import { whenWritable } from "@/services/previewGuard";
 import { enrollmentApi, enrollmentRefusal, type CreatedEnrollmentToken, type EnrollmentTokenInfo } from "@/services/enrollment/enrollmentApi";
 import { runEnrollmentAction } from "@/services/enrollment/enrollmentAction";
 import { buildDeepLink } from "@/services/deepLinkUrl";
@@ -110,11 +111,11 @@ export function EnrolmentSection({ teamId, roles }: Props) {
     refreshInfo();
   }, [joinRequests, refreshInfo]);
 
-  const run = async (action: () => Promise<void>, toast: "create" | "rotate" | "revoke") => {
+  const run = whenWritable(async (action: () => Promise<void>, toast: "create" | "rotate" | "revoke") => {
     setBusy(true);
     await runEnrollmentAction(t, { toast: `members.enrollment.toast.${toast}`, bare402: "lapsed", run: action });
     setBusy(false);
-  };
+  });
 
   const create = (s: Settings, toast: "create" | "rotate" = "create") =>
     run(async () => {

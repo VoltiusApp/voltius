@@ -1,14 +1,14 @@
 import { useTeamStore, type TeamMember, type TeamRole } from "@/stores/teamStore";
 import { hasBuiltinRole, isPrimaryOwner } from "@/services/permissions";
 import { useServerBillingEnabled, useServerMultiOwner } from "@/services/serverCapabilities";
-import { useMyUserId } from "@/hooks/useMyUserId";
+import { usePermissionSubjectId } from "@/hooks/usePermission";
 import type { OwnershipContext } from "@/services/teamOwnership";
 
 export function useOwnershipContext(teamId: string | null, viewer: TeamMember | undefined, roles: TeamRole[]): OwnershipContext {
   const multiOwner = useServerMultiOwner();
   const billingEnabled = useServerBillingEnabled();
   const team = useTeamStore((s) => s.teams.find((t) => t.id === teamId));
-  const myUserId = useMyUserId();
+  const myUserId = usePermissionSubjectId();
   return {
     multiOwner,
     billingEnabled,

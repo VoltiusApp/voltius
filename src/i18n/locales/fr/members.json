@@ -598,7 +598,12 @@
       "ended": "L'aperçu est terminé : ce membre ou ce rôle n'est plus disponible",
       "failed": "Impossible de charger l'aperçu",
       "needsBusiness": "« Voir en tant que » fait partie du forfait Business",
-      "readOnly": "Aperçu en lecture seule"
+      "readOnly": "Aperçu en lecture seule",
+      "lacksPermission": "Le rôle de ce membre ne l'autorise pas",
+      "locked": {
+        "auditLog": "Journal d'audit verrouillé pour ce membre",
+        "sessions": "Sessions de terminal verrouillées pour ce membre"
+      }
     }
   }
 }

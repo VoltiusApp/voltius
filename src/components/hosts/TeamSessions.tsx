@@ -15,12 +15,16 @@ import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
 import { sessionDisplayName } from "@/services/teamSharing";
 import { avatarLabel, usePeerResolver } from "@/services/peerName";
 import { formatRelative } from "@/utils/localeFormat";
+import { usePermissions } from "@/hooks/usePermission";
+import { usePreviewActive } from "@/hooks/previewScope";
 
-function JoinByCodeButton({ onClick }: { onClick: () => void }) {
+function JoinByCodeButton({ onClick, disabledReason }: { onClick: () => void; disabledReason?: string }) {
   const { t } = useTranslation();
   return (
     <button
-      className="flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-medium transition-colors border border-(--t-border) text-(--t-text-dim) hover:text-(--t-text-primary)"
+      disabled={!!disabledReason}
+      title={disabledReason}
+      className="disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-medium transition-colors border border-(--t-border) text-(--t-text-dim) hover:text-(--t-text-primary)"
       onClick={onClick}
     >
       <Icon icon="lucide:link" width={11} />
@@ -36,6 +40,11 @@ export function TeamSessions() {
   const setActive = useSessionStore((s) => s.setActive);
   const homeView = useUIStore((s) => s.homeView);
   const accessibleVaultIds = useAccessibleVaultIds();
+  const can = usePermissions();
+  const preview = usePreviewActive();
+  const sessionsLocked = !!preview && !can("VIEW_TERMINAL_SESSIONS", preview.vaultId);
+  const joinLocked = !!preview && !can("JOIN_TERMINAL_SESSION", preview.vaultId);
+  const joinLockedReason = joinLocked ? t("members.viewAs.lacksPermission") : undefined;
   const [myUserId, setMyUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -92,6 +101,7 @@ export function TeamSessions() {
   };
 
   const handleJoinCard = async (session: (typeof activeSessions)[0]) => {
+    if (joinLocked) return;
     if (myMpSessionIds.has(session.id)) {
       const localId = Object.entries(useMpStore.getState().connections).find(
         ([, v]) => v.multiplayerSessionId === session.id,
@@ -130,6 +140,20 @@ export function TeamSessions() {
     }
   };
 
+  if (sessionsLocked) {
+    return (
+      <div className="mb-6">
+        <h2 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
+          {t("hosts.teamSessions.title")}
+        </h2>
+        <p className="flex items-center gap-1.5 text-xs opacity-60 text-(--t-text-dim)">
+          <Icon icon="lucide:lock" width={12} />
+          {t("members.viewAs.locked.sessions")}
+        </p>
+      </div>
+    );
+  }
+
   if (activeSessions.length === 0) {
     // Show minimal "Join by code" entry point even when no public sessions visible
     return (
@@ -138,7 +162,7 @@ export function TeamSessions() {
           <h2 className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
             {t("hosts.teamSessions.title")}
           </h2>
-          <JoinByCodeButton onClick={() => setShowJoinModal(true)} />
+          <JoinByCodeButton onClick={() => setShowJoinModal(true)} disabledReason={joinLockedReason} />
         </div>
         <p className="text-xs mb-3 text-(--t-text-dim)">
           {t("hosts.teamSessions.emptyHint")}
@@ -217,7 +241,7 @@ export function TeamSessions() {
           {t("hosts.teamSessions.live")}
         </span>
         <div className="ml-auto">
-          <JoinByCodeButton onClick={() => setShowJoinModal((v) => !v)} />
+          <JoinByCodeButton onClick={() => setShowJoinModal((v) => !v)} disabledReason={joinLockedReason} />
         </div>
       </div>
 
@@ -285,7 +309,9 @@ export function TeamSessions() {
                 {/* Join / Resume */}
                 <button
                   onClick={(e) => { e.stopPropagation(); void handleJoinCard(session); }}
-                  className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  disabled={joinLocked}
+                  title={joinLockedReason}
+                  className={`disabled:opacity-40 disabled:cursor-not-allowed shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                     alreadyIn
                       ? "border border-(--t-border) bg-(--t-bg-terminal) text-(--t-accent)"
                       : "bg-(--t-accent) text-(--t-on-accent) hover:brightness-110"

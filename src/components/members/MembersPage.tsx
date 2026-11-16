@@ -15,7 +15,6 @@ import { membersPanelPage } from "@/components/mobile/screens/vaultSettingsCore"
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { avatarColor } from "@/components/shared/AvatarStack";
-import { useMyUserId } from "@/hooks/useMyUserId";
 import { getMyHandle } from "@/services/account";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
@@ -23,13 +22,13 @@ import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { PanelShell, PanelHeader } from "@/components/shared/Panel";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
-import { effectivePermissions, hasBuiltinRole, PERM_BITS } from "@/hooks/usePermission";
+import { hasBuiltinRole, usePermissionSubjectId, usePermissions } from "@/hooks/usePermission";
+import { refuseWhilePreviewing, whenWritable } from "@/services/previewGuard";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { isOwnerRole } from "@/components/vault-share/vaultShareModel";
 import { TeamRolesPanel } from "@/components/members/panels/RolesPanel";
 import { SecurityPolicyPanel } from "@/components/members/panels/SecurityPolicyPanel";
-import { VAULT_MANAGER_BITS } from "@/services/permissions";
 import { guestCapFor, inviteSessionOf, memberHasAccess, seatUsage, sessionDisplayName } from "@/services/teamSharing";
 import { RoleToggleChip, roleLabel } from "@/components/members/roleChips";
 import { ConvertToTeamGate } from "@/components/vault-share/ConvertToTeamGate";
@@ -70,13 +69,15 @@ export default function MembersPage() {
   const clearMembersPanelPending = useUIStore((s) => s.clearMembersPanelPending);
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
 
-  const myUserId = useMyUserId();
+  const myUserId = usePermissionSubjectId();
+  const can = usePermissions();
   const [myHandle, setMyHandle] = useState<string | null>(null);
   const [primaryVaultId, setPrimaryVaultId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string[]>([]);
   const [panel, setPanel] = useState<MembersPanel | "detail" | null>(null);
   const togglePanel = (next: MembersPanel) => {
+    if (next === "invite" && refuseWhilePreviewing()) return;
     // Android: a 320 px side panel is most of the phone; the vault settings sub-page is the same panel full-screen.
     if (isMobileShell() && primaryVaultId) {
       useMobileNavStore.getState().push({ kind: "vault-settings", vaultId: primaryVaultId, page: membersPanelPage(next) });
@@ -121,13 +122,12 @@ export default function MembersPage() {
   const { locked: businessLocked } = useBusinessLock(teamId);
   const myMember = members.find((m) => m.user_id === myUserId);
 
-  // Compute effective permissions from role bits
-  const myEffectivePerms = myMember ? effectivePermissions(myMember, teamRoles, businessLocked) : 0;
-  const canManageMembers = (myEffectivePerms & PERM_BITS.MANAGE_MEMBERS) !== 0;
+  const gateVaultId = primaryVaultId ?? "";
+  const canManageMembers = can("MANAGE_MEMBERS", gateVaultId);
   const canNameMembers = canManageMembers && memberNamingSupported(members);
-  const canManageRoles = (myEffectivePerms & PERM_BITS.MANAGE_ROLES) !== 0;
-  const canManageVault = (myEffectivePerms & VAULT_MANAGER_BITS) !== 0;
-  const canInvite = (myEffectivePerms & PERM_BITS.INVITE_MEMBERS) !== 0;
+  const canManageRoles = can("MANAGE_ROLES", gateVaultId);
+  const canManageVault = can("MANAGE_VAULT", gateVaultId) || can("ADMINISTRATOR", gateVaultId);
+  const canInvite = can("INVITE_MEMBERS", gateVaultId);
 
   const isOwnerMember = (member: TeamMember) =>
     hasBuiltinRole(member, "owner", teamRoles);
@@ -226,9 +226,9 @@ export default function MembersPage() {
     }), [connections, activeSessions, tier]);
 
   type RoleOp = (teamId: string, userId: string, roleId: string) => Promise<unknown>;
-  const runRoleChange = (
+  const runRoleChange = whenWritable((
     targets: TeamMember[], roleId: string, apply: RoleOp, revert: RoleOp,
-    label: string, toast = { pending: label, success: label },
+    label: string, toast: { pending: string; success: string } = { pending: label, success: label },
   ) => {
     const each = (op: RoleOp) => Promise.all(targets.map((m) => op(teamId!, m.user_id, roleId)));
     void runTeamAction({ ...toast, run: () => each(apply) }).then(() => {
@@ -239,7 +239,8 @@ export default function MembersPage() {
       });
       reload();
     }).catch(() => { /* toast already reports the failure */ });
-  };
+  });
+  const askOffboarding = whenWritable(setOffboardingMembers);
 
   // Context menu builders
   const buildContextMenuItems = (member: TeamMember): ContextMenuItem[] => {
@@ -303,13 +304,13 @@ export default function MembersPage() {
         children: invitable.length > 0
           ? invitable.map(({ localSessionId, connectionName }) => ({
               label: connectionName,
-              onClick: () => {
+              onClick: whenWritable(() => {
                 void runTeamAction({
                   pending: t("members.toast.invitingToSession", { name: memberLabel(member) }),
                   success: t("members.toast.invitedToSession", { name: memberLabel(member) }),
                   run: () => useTeamSessionStore.getState().inviteToActiveSession(localSessionId, { ...member, handle: member.handle ?? "" }),
                 }).catch(() => { /* toast already reports the failure */ });
-              },
+              }),
             }))
           : [{
               label: t(hostedSessions.length > 0 ? "members.contextMenu.noInvitableSessions" : "members.contextMenu.noActiveSessions"),
@@ -324,7 +325,7 @@ export default function MembersPage() {
         icon: "lucide:user-minus",
         danger: true,
         divider: true,
-        onClick: () => setOffboardingMembers([member]),
+        onClick: () => askOffboarding([member]),
       });
     }
 
@@ -380,7 +381,7 @@ export default function MembersPage() {
         icon: "lucide:user-minus",
         danger: true,
         divider: items.length > 0,
-        onClick: () => setOffboardingMembers(selectedMembers),
+        onClick: () => askOffboarding(selectedMembers),
       });
     }
 
@@ -551,8 +552,8 @@ const vaultTabs = selectedVaultIds.length > 1
                 onMemberAdded={reload}
               />
             )
-            : shownPanel === "roles" && myUserId
-              ? toolbarPanel(t("members.roles"), "lucide:shield", <TeamRolesPanel teamId={teamId} myUserId={myUserId} />)
+            : shownPanel === "roles"
+              ? toolbarPanel(t("members.roles"), "lucide:shield", <TeamRolesPanel teamId={teamId} />)
               : shownPanel === "security"
                 ? toolbarPanel(t("members.security.title"), "lucide:shield-check", <SecurityPolicyPanel teamId={teamId} />)
                 : null

@@ -581,7 +581,12 @@
       "ended": "预览已结束：该成员或角色已不可用",
       "failed": "无法加载预览",
       "needsBusiness": "“以成员身份查看”是 Business 套餐的功能",
-      "readOnly": "只读预览"
+      "readOnly": "只读预览",
+      "lacksPermission": "该成员的角色不允许此操作",
+      "locked": {
+        "auditLog": "审计日志对该成员已锁定",
+        "sessions": "终端会话对该成员已锁定"
+      }
     }
   }
 }

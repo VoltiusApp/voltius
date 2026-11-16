@@ -7,6 +7,7 @@ import { DevicePolicyCard } from "@/components/members/panels/DevicePolicyCard";
 import { VaultKeyHealthCard } from "@/components/members/panels/VaultKeyHealthCard";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { runTeamAction } from "@/services/teamActionFeedback";
+import { whenWritable } from "@/services/previewGuard";
 import type { TeamLockPolicy } from "@/services/teamService";
 import { useTeamStore } from "@/stores/teamStore";
 import { IMMEDIATELY, sessionTimeoutOptions } from "@/utils/sessionTimeout";
@@ -21,7 +22,7 @@ export function SecurityPolicyPanel({ teamId }: { teamId: string }) {
   const { locked } = useBusinessLock(teamId);
   const [busy, setBusy] = useState(false);
 
-  const save = async (next: TeamLockPolicy | null) => {
+  const save = whenWritable(async (next: TeamLockPolicy | null) => {
     setBusy(true);
     try {
       await runTeamAction({
@@ -34,7 +35,7 @@ export function SecurityPolicyPanel({ teamId }: { teamId: string }) {
     } finally {
       setBusy(false);
     }
-  };
+  });
 
   const health = <VaultKeyHealthCard key={teamId} teamId={teamId} />;
   if (locked && !policy && !team?.policy) {
