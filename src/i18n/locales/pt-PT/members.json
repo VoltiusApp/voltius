@@ -93,11 +93,11 @@
         "inherit": "Herdar",
         "allow": "Permitir"
       },
-      "readOnlyNoManage": "Você precisa da permissão Gerenciar membros",
-      "readOnlyOwner": "As permissões de um proprietário não podem ser sobrescritas",
-      "readOnlySelf": "Você não pode alterar suas próprias permissões",
-      "readOnlyHigherRole": "Este membro detém uma função igual ou superior à sua",
-      "readOnlyNotHeld": "Você não pode conceder uma permissão que não detém",
+      "readOnlyNoManage": "Precisa da permissão Gerir membros",
+      "readOnlyOwner": "As permissões de um proprietário não podem ser substituídas",
+      "readOnlySelf": "Não pode alterar as suas próprias permissões",
+      "readOnlyHigherRole": "Este membro tem uma função igual ou superior à sua",
+      "readOnlyNotHeld": "Não pode conceder uma permissão que não tem",
       "overrideMarker": "Tem sobrescritas de permissão",
       "filterPlaceholder": "Filtrar permissões…",
       "group": {

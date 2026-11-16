@@ -237,8 +237,8 @@ export function RoleModal({
   );
 }
 
-// The name keeps a minimum and the Preview label truncates first, so the name never collapses.
-const ROLE_NAME = "flex-1 min-w-10 truncate text-sm font-medium";
+const ROLE_NAME_BUTTON = "flex items-center gap-3 flex-auto min-w-0 text-left";
+const ROLE_NAME = "flex-1 min-w-0 truncate text-sm font-medium";
 
 function PreviewAsRoleButton({ teamId, roleId }: { teamId: string; roleId: string }) {
   const { t } = useTranslation();
@@ -248,7 +248,7 @@ function PreviewAsRoleButton({ teamId, roleId }: { teamId: string; roleId: strin
     <button
       type="button"
       {...entry.button}
-      className="min-w-0 flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs whitespace-nowrap transition-colors text-(--t-text-dim) hover:text-(--t-text-primary) disabled:opacity-40"
+      className="shrink-[1000] min-w-7 flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs whitespace-nowrap transition-colors text-(--t-text-dim) hover:text-(--t-text-primary) disabled:opacity-40"
     >
       <Icon icon="lucide:scan-eye" width={12} className="shrink-0" />
       <span className="truncate">{t("members.viewAs.previewAsRole")}</span>
@@ -267,7 +267,7 @@ function BuiltinRoleCard({ teamId, roleId, name, permissions }: { teamId: string
       style={{ border: "1px solid var(--t-border)" }}
     >
       <div className="flex items-center gap-3 px-4 py-3" style={{ background: "var(--t-bg-elevated)" }}>
-        <button className="flex items-center gap-3 flex-1 text-left" onClick={() => setExpanded((v) => !v)}>
+        <button className={ROLE_NAME_BUTTON} onClick={() => setExpanded((v) => !v)}>
           <Icon icon="lucide:lock" width={13} className="shrink-0" style={{ color: "var(--t-text-dim)" }} />
           <span className={`${ROLE_NAME} capitalize`} style={{ color: "var(--t-text-primary)" }}>{roleLabel(t, name)}</span>
           <span className="shrink-0 whitespace-nowrap text-[10px] px-2 py-0.5 rounded-sm" style={{ background: "var(--t-bg-card)", color: "var(--t-text-dim)" }}>{t("settings.vaults.rolesPanel.builtinBadge")}</span>
@@ -349,7 +349,7 @@ function RoleCard({
             </div>
           )}
           <button
-            className="flex items-center gap-3 flex-1 text-left"
+            className={ROLE_NAME_BUTTON}
             onClick={() => setExpanded((v) => !v)}
           >
             <Icon icon="lucide:shield" width={13} className="shrink-0" style={{ color: "var(--t-accent)" }} />

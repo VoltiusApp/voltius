@@ -131,18 +131,18 @@ test("drag-reorder rewrites positions via updateRole for moved custom roles", as
   expect(api.updateRole).toHaveBeenCalledWith("t1", "a", { position: 200 });
 });
 
-test("role names keep a minimum width and the Built-in badge never wraps beside Preview as role", async () => {
+test("role names truncate inside a shrinkable button and Preview as role gives way first", async () => {
   api.listRoles.mockResolvedValue([managerRole, role("Contractor", 0, 100)]);
   api.listMembers.mockResolvedValue([member("me", ["mgr"])]);
   render(<TeamRolesPanel teamId="t1" />);
 
   for (const name of [await screen.findByText("Contractor"), screen.getByText("mgr")]) {
-    expect(name.className).toContain("min-w-10");
     expect(name.className).toContain("truncate");
+    expect(name.closest("button")!.className).toContain("min-w-0");
   }
   expect(screen.getByText("settings.vaults.rolesPanel.builtinBadge").className).toContain("whitespace-nowrap");
   for (const label of screen.getAllByText("members.viewAs.previewAsRole")) {
     expect(label.className).toContain("truncate");
-    expect(label.closest("button")!.className).toContain("min-w-0");
+    expect(label.closest("button")!.className).toContain("shrink-[1000]");
   }
 });
