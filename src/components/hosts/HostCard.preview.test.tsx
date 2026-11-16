@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import type { Connection } from "@/types";
 
 vi.mock("react-i18next", () => ({
@@ -112,6 +112,7 @@ describe("HostCard while previewing", () => {
     renderCard("grid");
     const tile = screen.getByTitle("members.viewAs.level.view") as HTMLButtonElement;
     expect(tile.disabled).toBe(true);
+    expect(within(tile).getByText("members.viewAs.level.view")).toBeTruthy();
   });
 });
 

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ToolbarViewControls } from "@/components/shared/ToolbarViewControls";
 import type { LayoutMode, SortMode } from "@/components/shared/ToolbarViewControls";
 import type { MembersPanel } from "@/stores/uiStore";
-import { useGreyedUnless, type Greyed } from "@/hooks/useGreyedUnless";
+import { GREYED_CLASS, useGreyedUnless, type Greyed } from "@/hooks/useGreyedUnless";
 
 export interface MembersToolbarProps {
   search: string;
@@ -92,7 +92,7 @@ export function MembersToolbar({
         <button
           onClick={() => onTogglePanel("invite")}
           {...greyedUnless(canInvite)}
-          className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0"
+          className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${GREYED_CLASS}`}
           style={{
             background: activePanel === "invite" ? "var(--t-accent-hover)" : "var(--t-accent)",
             color: "var(--t-on-accent, #fff)",
@@ -123,7 +123,7 @@ function PanelButton({ active, icon, label, onClick, disabled, title }: { active
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0"
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${GREYED_CLASS}`}
       style={{
         background: active ? "color-mix(in srgb, var(--t-accent) 15%, transparent)" : "var(--t-bg-elevated)",
         color: active ? "var(--t-accent)" : "var(--t-text-primary)",

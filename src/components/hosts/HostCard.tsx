@@ -394,10 +394,11 @@ function HostCardBody({
                 style={{ fontFamily: "var(--t-terminal-font-family)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.07), inset 1px 0 0 rgba(255,255,255,0.07)" }}
                 title={connectTitle}
               >
-                <div className="flex gap-1 mb-1.5 shrink-0">
+                <div className="flex items-center gap-1 mb-1.5 shrink-0">
                   <span className="w-2 h-2 rounded-full bg-[#ff5f56]" />
                   <span className="w-2 h-2 rounded-full bg-[#ffbd2e]" />
                   <span className="w-2 h-2 rounded-full bg-[#27c93f]" />
+                  {viewOnly && <span className="ml-1 text-[10px] leading-2 font-sans font-semibold">{t("members.viewAs.level.view")}</span>}
                 </div>
                 <div className="flex items-center min-w-0 w-full">
                   {fileOnly ? (
