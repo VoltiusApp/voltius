@@ -6,7 +6,7 @@ import { openBillingCheckout } from "@/services/billingCheckout";
 import { whenWritable } from "@/services/previewGuard";
 import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
 
-export function UpgradeAction({ teamId, look }: { teamId: string; look: "button" | "link" }) {
+export function UpgradeAction({ teamId, look, className = "" }: { teamId: string; look: "button" | "link"; className?: string }) {
   const { t } = useTranslation();
   const { isOwner } = useBusinessLock(teamId);
   const upgrade = whenWritable(() => void openBillingCheckout("business"));
@@ -18,7 +18,7 @@ export function UpgradeAction({ teamId, look }: { teamId: string; look: "button"
     return look === "link" ? null : <p className="text-xs text-(--t-text-dim)">{t("shared.availableWith", { plan: "Business" })}</p>;
   }
   if (look === "link") {
-    return <button type="button" onClick={upgrade} className="text-(--t-accent)">{t("shared.businessLock.upgrade")}</button>;
+    return <button type="button" onClick={upgrade} className={`text-(--t-accent) ${className}`}>{t("shared.businessLock.upgrade")}</button>;
   }
   return (
     <button type="button" onClick={upgrade} className="text-xs px-3 py-1.5 rounded-lg font-medium bg-(--t-accent) text-(--t-on-accent)">

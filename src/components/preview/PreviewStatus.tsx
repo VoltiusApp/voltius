@@ -1,6 +1,7 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { usePreviewStore } from "@/stores/previewStore";
+import { touchHeight } from "@/components/mobile/touch";
 
 export function PreviewStatus() {
   const { t } = useTranslation();
@@ -21,7 +22,7 @@ export function PreviewStatus() {
       <span data-testid="view-as-error" className="min-w-0 max-w-64 truncate" title={detail ?? undefined} style={{ color: "var(--t-status-error)" }}>
         {error ?? t("members.viewAs.failed")}
       </span>
-      <button data-testid="view-as-retry" className="btn btn-ghost" onClick={() => void usePreviewStore.getState().refetch()}>
+      <button data-testid="view-as-retry" className={`btn btn-ghost ${touchHeight()}`} onClick={() => void usePreviewStore.getState().refetch()}>
         {t("common.action.retry")}
       </button>
     </>
