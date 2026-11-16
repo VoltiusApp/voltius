@@ -13,7 +13,6 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { isMobileShell } from "@/utils/platform";
 import { membersPanelPage } from "@/components/mobile/screens/vaultSettingsCore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
-import { useHistoryStore } from "@/stores/historyStore";
 import { avatarColor } from "@/components/shared/AvatarStack";
 import { getMyHandle } from "@/services/account";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
@@ -22,12 +21,9 @@ import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { PanelShell, PanelHeader } from "@/components/shared/Panel";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
-import { hasBuiltinRole, usePermissionSubjectId, usePermissions } from "@/hooks/usePermission";
 import { useLackReason } from "@/hooks/useGreyedUnless";
 import { refuseWhilePreviewing, whenWritable } from "@/services/previewGuard";
-import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { runTeamAction } from "@/services/teamActionFeedback";
-import { isOwnerRole } from "@/components/vault-share/vaultShareModel";
 import { TeamRolesPanel } from "@/components/members/panels/RolesPanel";
 import { SecurityPolicyPanel } from "@/components/members/panels/SecurityPolicyPanel";
 import { guestCapFor, inviteSessionOf, memberHasAccess, seatUsage, sessionDisplayName } from "@/services/teamSharing";
@@ -43,11 +39,8 @@ import { SelfCard } from "@/components/members/cards/SelfCard";
 import { MemberDetailPanel } from "@/components/members/panels/MemberDetailPanel";
 import { InvitePanel } from "@/components/members/panels/InvitePanel";
 import { SignInToCloudCTA, UpgradeToTeamsCTA } from "@/components/members/panels/MembersCTA";
-import { compareStrings } from "@/utils/localeFormat";
-import { searchMatcher } from "@/utils/search";
-import { memberLabel, memberSortKey, memberNamingSupported } from "@/services/memberLabel";
-import { memberOwnership } from "@/services/teamOwnership";
-import { useOwnershipContext } from "@/hooks/useOwnershipContext";
+import { memberLabel, memberNamingSupported } from "@/services/memberLabel";
+import { useMembersModel } from "@/components/members/useMembersModel";
 import { useViewAsGate } from "@/components/preview/useViewAsEntry";
 
 // ─── Main page ────────────────────────────────────────────────────────────────
@@ -56,11 +49,8 @@ export default function MembersPage() {
   const { t } = useTranslation();
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const vaults = useVaultStore((s) => s.vaults);
-  const { teams, loadTeams, membersByTeam, loadMembers, rolesByTeam, loadRoles, pendingInvitationsByTeam, loadPendingInvitations } = useTeamStore();
+  const { teams, loadPendingInvitations } = useTeamStore();
   const { tier, ownsTeamsPlan, accountMode } = useSubscriptionStore();
-  const assignMemberRole = useTeamStore((s) => s.assignMemberRole);
-  const removeMemberRole = useTeamStore((s) => s.removeMemberRole);
-  const push = useHistoryStore((s) => s.push);
   const { activeSessions, connections } = useTeamSessionStore();
 
   const layoutMode = useUIStore((s) => s.membersLayoutMode);
@@ -71,8 +61,6 @@ export default function MembersPage() {
   const clearMembersPanelPending = useUIStore((s) => s.clearMembersPanelPending);
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
 
-  const myUserId = usePermissionSubjectId();
-  const can = usePermissions();
   const noPermission = useLackReason();
   const [myHandle, setMyHandle] = useState<string | null>(null);
   const [primaryVaultId, setPrimaryVaultId] = useState<string | null>(null);
@@ -102,8 +90,7 @@ export default function MembersPage() {
     // getMyHandle() resolves to "" (never rejects) on a keychain miss with no
     // server to fall back to, so this always settles the loading skeleton.
     getMyHandle().then(setMyHandle).catch(() => setMyHandle(""));
-    loadTeams().catch(() => {});
-  }, [loadTeams]);
+  }, []);
 
   useEffect(() => {
     if (selectedVaultIds.length > 0) {
@@ -115,81 +102,20 @@ export default function MembersPage() {
     }
   }, [selectedVaultIds]);
 
-  const localVault = primaryVaultId ? vaults.find((v) => v.id === primaryVaultId) : null;
-  const standaloneTeam = !localVault && primaryVaultId ? teams.find((t) => t.id === primaryVaultId) : null;
-  const teamId = localVault?.teamId ?? standaloneTeam?.id ?? null;
-  const pendingInvites = pendingInvitationsByTeam[teamId ?? ""] ?? [];
+  const model = useMembersModel(primaryVaultId);
+  const {
+    teamId, localVault, members, roles: teamRoles, pending: pendingInvites, myUserId, myMember,
+    canManageMembers, canManageRoles, canInvite, canManageVault, canNameMembers,
+    isOwnerMember, canActOn, canEditMember, outOfReach, reload,
+  } = model;
   const viewAsGate = useViewAsGate(teamId ?? "");
-
-  const members = useMemo(() => (teamId ? (membersByTeam[teamId] ?? []) : []), [teamId, membersByTeam]);
-  const teamRoles = useMemo(() => (teamId ? (rolesByTeam[teamId] ?? []) : []), [teamId, rolesByTeam]);
-  const { locked: businessLocked } = useBusinessLock(teamId);
-  const myMember = members.find((m) => m.user_id === myUserId);
-
-  const gateVaultId = primaryVaultId ?? "";
-  const canManageMembers = can("MANAGE_MEMBERS", gateVaultId);
-  const canNameMembers = canManageMembers && memberNamingSupported(members);
-  const canManageRoles = can("MANAGE_ROLES", gateVaultId);
-  const canManageVault = can("MANAGE_VAULT", gateVaultId) || can("ADMINISTRATOR", gateVaultId);
-  const canInvite = can("INVITE_MEMBERS", gateVaultId);
-
-  const isOwnerMember = (member: TeamMember) =>
-    hasBuiltinRole(member, "owner", teamRoles);
-  const ownershipCtx = useOwnershipContext(teamId, myMember, teamRoles);
-  const outOfReach = (member: TeamMember) =>
-    memberOwnership(ownershipCtx, { userId: member.user_id, isMe: member.user_id === myUserId, isOwner: isOwnerMember(member) })
-      .protectedFromViewer;
-  const canActOn = (member: TeamMember) =>
-    canManageMembers && !outOfReach(member) && member.user_id !== myUserId;
-  const canEditMember = (member: TeamMember) => canNameMembers || canActOn(member);
 
   const existingMemberIds = useMemo(() => new Set(members.map((m) => m.user_id)), [members]);
 
-  const reload = () => {
-    if (!teamId) return;
-    loadMembers(teamId).catch(() => {});
-    if (canManageMembers) {
-      loadPendingInvitations(teamId).catch(() => {});
-    }
-  };
-
-  useEffect(() => {
-    if (!teamId) return;
-    loadMembers(teamId).catch(() => {});
-    loadRoles(teamId).catch(() => {});
-  }, [teamId, loadMembers, loadRoles]);
-
-  useEffect(() => {
-    if (!teamId || !canManageMembers) return;
-    loadPendingInvitations(teamId).catch(() => {});
-  }, [teamId, canManageMembers, loadPendingInvitations]);
-
-  // Filter + sort
   const searchLower = search.trim();
-  const filteredMembers = useMemo(() => {
-    let result = members;
-    if (searchLower) { const match = searchMatcher(searchLower); result = result.filter((m) => match(m.handle, m.member_name)); }
-    if (roleFilter.length > 0) result = result.filter((m) => roleFilter.some((rid) => m.role_ids.includes(rid)));
-    return result;
-  }, [members, searchLower, roleFilter]);
-
-  const sortedMembers = useMemo(() => {
-    return [...filteredMembers].sort((a, b) => {
-      switch (sortMode) {
-        case "name-asc":  return compareStrings(memberSortKey(a), memberSortKey(b));
-        case "name-desc": return compareStrings(memberSortKey(b), memberSortKey(a));
-        case "newest":    return b.joined_at.localeCompare(a.joined_at);
-        case "oldest":    return a.joined_at.localeCompare(b.joined_at);
-        case "role-asc": {
-          const posA = Math.min(...(a.role_ids.map((rid) => teamRoles.find((r) => r.id === rid)?.position ?? 9999)));
-          const posB = Math.min(...(b.role_ids.map((rid) => teamRoles.find((r) => r.id === rid)?.position ?? 9999)));
-          if (posA !== posB) return posA - posB;
-          return compareStrings(memberSortKey(a), memberSortKey(b));
-        }
-        default: return 0;
-      }
-    });
-  }, [filteredMembers, sortMode, teamRoles]);
+  const sortedMembers = useMemo(() => model.visible(search, roleFilter, sortMode),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [members, teamRoles, search, roleFilter, sortMode]);
 
   const orderedIds = useMemo(() => sortedMembers.map((m) => m.user_id), [sortedMembers]);
 
@@ -229,21 +155,6 @@ export default function MembersPage() {
       return [{ localSessionId, connectionName: sessionDisplayName(active), session, atCap }];
     }), [connections, activeSessions, tier]);
 
-  type RoleOp = (teamId: string, userId: string, roleId: string) => Promise<unknown>;
-  const runRoleChange = whenWritable((
-    targets: TeamMember[], roleId: string, apply: RoleOp, revert: RoleOp,
-    label: string, toast: { pending: string; success: string } = { pending: label, success: label },
-  ) => {
-    const each = (op: RoleOp) => Promise.all(targets.map((m) => op(teamId!, m.user_id, roleId)));
-    void runTeamAction({ ...toast, run: () => each(apply) }).then(() => {
-      push({
-        label,
-        undo: async () => { await each(revert); reload(); },
-        redo: async () => { await each(apply); reload(); },
-      });
-      reload();
-    }).catch(() => { /* toast already reports the failure */ });
-  });
   const askOffboarding = whenWritable(setOffboardingMembers);
 
   // Context menu builders
@@ -258,34 +169,20 @@ export default function MembersPage() {
     if (!canManageMembers) {
       items.push({ label: t("members.roles"), icon: "lucide:shield", disabledReason: noPermission, onClick: () => {} });
     } else if (canActOnMember && teamRoles.length > 0) {
-      const sortedRoles = [...teamRoles]
-        .filter((r) => !isOwnerRole(r))
-        .sort((a, b) => a.position - b.position);
-      const assignedRoles = sortedRoles.filter((r) => member.role_ids.includes(r.id));
-      const unassignedRoles = sortedRoles.filter((r) => !member.role_ids.includes(r.id) && !(businessLocked && !r.is_builtin));
-
-      const toggleRole = (roleId: string, roleName: string, has: boolean) => {
-        const vars = { role: roleLabel(t, roleName), name: memberLabel(member) };
-        runRoleChange(
-          [member], roleId, has ? removeMemberRole : assignMemberRole, has ? assignMemberRole : removeMemberRole,
-          t(has ? "members.history.removeRole" : "members.history.assignRole", { name: vars.name }),
-          has
-            ? { pending: t("members.toast.removingRoleFrom", vars), success: t("members.toast.roleRemovedFrom", vars) }
-            : { pending: t("members.toast.assigningRoleTo", vars), success: t("members.toast.roleAssignedTo", vars) },
-        );
-      };
+      const assignedRoles = model.roleOptions([member], "remove").filter((r) => member.role_ids.includes(r.id));
+      const unassignedRoles = model.roleOptions([member], "assign").filter((r) => !member.role_ids.includes(r.id));
 
       const assignedItems: ContextMenuItem[] = assignedRoles.map((r) => ({
         label: roleLabel(t, r.name),
         icon: "lucide:square-check-big",
-        onClick: () => toggleRole(r.id, r.name, true),
+        onClick: () => void model.changeRole([member], r, "remove"),
       }));
 
       const unassignedItems: ContextMenuItem[] = unassignedRoles.map((r, i) => ({
         label: roleLabel(t, r.name),
         icon: "lucide:square",
         divider: i === 0 && assignedItems.length > 0,
-        onClick: () => toggleRole(r.id, r.name, false),
+        onClick: () => void model.changeRole([member], r, "assign"),
       }));
 
       const roleChildren = [...assignedItems, ...unassignedItems];
@@ -365,36 +262,16 @@ export default function MembersPage() {
         items.push({ label: t(`members.contextMenu.${label}`, { count: selectedMembers.length }), icon, disabledReason: noPermission, onClick: () => {} });
       }
     } else if (teamRoles.length > 0) {
-      const sortedBulkRoles = [...teamRoles]
-        .filter((r) => !isOwnerRole(r))
-        .sort((a, b) => a.position - b.position);
-      items.push({
-        label: t("members.contextMenu.assignRoleBulk", { count: selectedMembers.length }),
-        icon: "lucide:shield",
-        children: sortedBulkRoles
-          .filter((r) => !(businessLocked && !r.is_builtin && !selectedMembers.every((m) => m.role_ids.includes(r.id))))
-          .map((r) => ({
-          label: roleLabel(t, r.name),
-          onClick: () => runRoleChange(
-            selectedMembers.filter((m) => !m.role_ids.includes(r.id)),
-            r.id, assignMemberRole, removeMemberRole,
-            t("members.history.assignRoleBulk", { count: selectedMembers.length }),
-          ),
-        })),
-      });
-
-      items.push({
-        label: t("members.contextMenu.removeRoleBulk", { count: selectedMembers.length }),
-        icon: "lucide:shield-off",
-        children: sortedBulkRoles.map((r) => ({
-          label: roleLabel(t, r.name),
-          onClick: () => runRoleChange(
-            selectedMembers.filter((m) => m.role_ids.includes(r.id)),
-            r.id, removeMemberRole, assignMemberRole,
-            t("members.history.removeRoleBulk", { count: selectedMembers.length }),
-          ),
-        })),
-      });
+      for (const [mode, icon] of [["assign", "lucide:shield"], ["remove", "lucide:shield-off"]] as const) {
+        items.push({
+          label: t(`members.contextMenu.${mode}RoleBulk`, { count: selectedMembers.length }),
+          icon,
+          children: model.roleOptions(selectedMembers, mode).map((r) => ({
+            label: roleLabel(t, r.name),
+            onClick: () => void model.changeRole(selectedMembers, r, mode),
+          })),
+        });
+      }
     }
 
     items.push({
@@ -408,7 +285,7 @@ export default function MembersPage() {
 
     return items.length > 0 ? items : undefined;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIdSet, sortedMembers, myUserId, canManageMembers, noPermission, teamRoles, teamId, t, businessLocked, ownershipCtx.multiOwner, ownershipCtx.billingOwnerId, ownershipCtx.viewerIsOwner, ownershipCtx.viewerIsPrimary]);
+  }, [selectedIdSet, sortedMembers, myUserId, canManageMembers, noPermission, teamRoles, teamId, t, outOfReach, model.roleOptions, model.changeRole]);
 
 const vaultTabs = selectedVaultIds.length > 1
     ? selectedVaultIds.map((vid) => {
