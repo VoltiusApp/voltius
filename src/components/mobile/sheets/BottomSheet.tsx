@@ -34,10 +34,11 @@ interface Gesture {
  * downward fling (continuing at the release speed), else springs back. The drag writes
  * the panel / scrim styles directly (no re-render per move); React owns them at rest.
  */
-export default function BottomSheet({ onClose, children, title }: {
+export default function BottomSheet({ onClose, children, title, footer }: {
   onClose: () => void;
   children: ReactNode;
   title?: string;
+  footer?: ReactNode;
 }) {
   const { usableHeight, offsetTop } = useVisualViewport();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -297,6 +298,7 @@ export default function BottomSheet({ onClose, children, title }: {
         <div ref={bodyRef} className="overflow-y-auto overscroll-contain px-2 pb-2" data-mobile-sheet-body>
           {children}
         </div>
+        {footer && <div className="shrink-0" data-mobile-sheet-footer>{footer}</div>}
       </div>
     </div>,
     document.body,

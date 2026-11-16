@@ -283,6 +283,7 @@
       }
     },
     "viewAs": {
+      "editAccess": "编辑访问权限",
       "areas": {
         "hosts": "主机",
         "keychain": "密钥链",

@@ -288,6 +288,7 @@
       }
     },
     "viewAs": {
+      "editAccess": "Modifier l'accès",
       "areas": {
         "hosts": "Hôtes",
         "keychain": "Trousseau",

@@ -284,6 +284,7 @@
       }
     },
     "viewAs": {
+      "editAccess": "Erişimi düzenle",
       "areas": {
         "hosts": "Sunucular",
         "keychain": "Anahtar zinciri",

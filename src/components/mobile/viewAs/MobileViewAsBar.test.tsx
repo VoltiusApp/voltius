@@ -39,3 +39,13 @@ test("bar_not_rendered_outside_a_preview", () => {
   render(<MobileViewAsBar />);
   expect(document.querySelector("[data-mobile-view-as-bar]")).toBeNull();
 });
+
+test("bar_access_button_shows_access", () => {
+  startPreview();
+  render(<MobileViewAsBar />);
+  const btn = document.querySelector<HTMLElement>("[data-view-as-access]")!;
+  expect(btn.getAttribute("aria-label")).toBe("mobile.viewAs.editAccess");
+  expect(btn.querySelector("[data-icon='lucide:sliders-horizontal']")).not.toBeNull();
+  fireEvent.click(btn);
+  expect(usePreviewStore.getState().side).toEqual({ kind: "access" });
+});

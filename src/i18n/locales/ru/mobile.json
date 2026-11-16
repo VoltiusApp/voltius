@@ -292,6 +292,7 @@
       }
     },
     "viewAs": {
+      "editAccess": "Изменить доступ",
       "areas": {
         "hosts": "Хосты",
         "keychain": "Связка ключей",

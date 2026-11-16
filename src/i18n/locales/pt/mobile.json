@@ -288,6 +288,7 @@
       }
     },
     "viewAs": {
+      "editAccess": "Editar acesso",
       "areas": {
         "hosts": "Hosts",
         "keychain": "Keychain",

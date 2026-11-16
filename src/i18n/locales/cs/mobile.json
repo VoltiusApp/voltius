@@ -292,6 +292,7 @@
       }
     },
     "viewAs": {
+      "editAccess": "Upravit přístup",
       "areas": {
         "hosts": "Hosty",
         "keychain": "Klíčenka",

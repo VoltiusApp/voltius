@@ -17,6 +17,7 @@ import {
   memberReadOnly, isEditablePermission, type Permission,
 } from "@/services/permissions";
 import { useTeamStore } from "@/stores/teamStore";
+import { isMobileShell } from "@/utils/platform";
 import type { TeamRole } from "@/stores/teamStore";
 import { saveNeedsConfirm, usePreviewStore } from "@/stores/previewStore";
 import { unsavedChangeCount, type SaveFailure } from "@/services/viewAsSave";
@@ -145,6 +146,7 @@ export function MemberAccessPanel() {
             <PermissionOverrideRow
               key={p}
               permission={p}
+              toggleSize={isMobileShell() ? "touch" : "sm"}
               state={overrideStateOf(p, shown.allow, shown.deny)}
               inheritedFrom={grantingRoles(p)}
               granted={(memberEffective & PERM_BITS[p]) !== 0}

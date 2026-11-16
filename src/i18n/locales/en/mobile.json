@@ -284,6 +284,7 @@
       }
     },
     "viewAs": {
+      "editAccess": "Edit access",
       "areas": {
         "hosts": "Hosts",
         "keychain": "Keychain",
