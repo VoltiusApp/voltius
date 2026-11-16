@@ -1,6 +1,6 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import { tapOrExplain } from "./tapOrExplain";
+import { greyedTapProps } from "./tapOrExplain";
 
 export interface BarAction {
   attr: string;
@@ -14,8 +14,8 @@ export interface BarAction {
 function BarButton({ action, pressed }: { action: BarAction; pressed?: boolean }) {
   const { attr, icon, label, onTap, danger, disabledReason } = action;
   return (
-    <button {...{ [attr]: "" }} onClick={tapOrExplain(disabledReason, onTap)} aria-label={disabledReason ?? label} title={disabledReason ?? label}
-      aria-pressed={pressed} aria-disabled={!!disabledReason || undefined}
+    <button {...{ [attr]: "" }} {...greyedTapProps(disabledReason, onTap)} aria-label={disabledReason ?? label} title={disabledReason ?? label}
+      aria-pressed={pressed}
       className="w-12 h-12 shrink-0 flex items-center justify-center rounded-full aria-disabled:opacity-35"
       style={{ color: danger ? "var(--t-status-error)" : "var(--t-text-primary)" }}>
       <Icon icon={icon} width={20} />

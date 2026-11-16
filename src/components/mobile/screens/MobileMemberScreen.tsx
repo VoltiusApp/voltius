@@ -21,7 +21,7 @@ import { formatDate, LONG_DATE } from "@/utils/localeFormat";
 import MobilePanelHeader from "../panels/MobilePanelHeader";
 import MobileSectionHeading from "../MobileSectionHeading";
 import RolePickerSheet from "../sheets/RolePickerSheet";
-import { tapOrExplain } from "../tapOrExplain";
+import { greyedTapProps } from "../tapOrExplain";
 import { NavRow } from "./members/MembersRows";
 
 const PAGE = "absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)";
@@ -69,8 +69,7 @@ function GreyedButton({ attr, reason, onTap, className, style, children }: {
   attr: string; reason?: string | null; onTap: () => void; className: string; style?: CSSProperties; children: ReactNode;
 }) {
   return (
-    <button {...{ [`data-${attr}`]: "" }} aria-disabled={!!reason || undefined} title={reason ?? undefined}
-      onClick={tapOrExplain(reason, onTap)} className={`${className} ${ACTION}`} style={style}>
+    <button {...{ [`data-${attr}`]: "" }} {...greyedTapProps(reason, onTap)} className={`${className} ${ACTION}`} style={style}>
       {children}
     </button>
   );
