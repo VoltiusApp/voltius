@@ -13,6 +13,8 @@ import { CheckboxBox } from "@/components/shared/Checkbox";
 import { BusinessLockCard } from "@/components/shared/BusinessLockBanner";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { useViewAsEntry } from "@/components/preview/useViewAsEntry";
+import { greyedTapProps } from "@/components/mobile/tapOrExplain";
+import { isMobileShell } from "@/utils/platform";
 
 // ─── Permission metadata ──────────────────────────────────────────────────────
 
@@ -243,13 +245,15 @@ function PreviewAsRoleButton({ teamId, roleId, compact = false }: { teamId: stri
   const { t } = useTranslation();
   const entry = useViewAsEntry(teamId, { type: "role", role_id: roleId });
   const label = t("members.viewAs.previewAsRole");
+  const mobile = isMobileShell();
+  const action = mobile ? greyedTapProps(entry.reasonText, entry.enter) : entry.button;
   return (
     <button
       type="button"
-      {...entry.button}
-      title={entry.button.title ?? (compact ? label : undefined)}
+      {...action}
+      title={action.title ?? (compact ? label : undefined)}
       aria-label={compact ? label : undefined}
-      className={`flex items-center gap-1.5 rounded-lg text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary) disabled:opacity-40 ${compact ? "shrink-0 p-1.5" : "mb-2 px-2 py-1"}`}
+      className={`flex items-center justify-center gap-1.5 rounded-lg text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary) disabled:opacity-40 aria-disabled:opacity-40 ${compact ? "shrink-0 p-1.5" : "mb-2 px-2 py-1"} ${mobile ? "min-h-12 min-w-12" : ""}`}
     >
       <Icon icon="lucide:scan-eye" width={compact ? 13 : 12} />
       {!compact && label}

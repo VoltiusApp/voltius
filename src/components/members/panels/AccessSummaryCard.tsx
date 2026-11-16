@@ -7,6 +7,7 @@ import { useViewAsEntry } from "@/components/preview/useViewAsEntry";
 import { previewPermissions, type Preview } from "@/services/permissionPreview";
 import { memberLabel } from "@/services/memberLabel";
 import { useTeamObjectAccessStore, type TeamAccessEntries } from "@/stores/teamObjectAccessStore";
+import { isMobileShell } from "@/utils/platform";
 import type { TeamMember } from "@/stores/teamStore";
 
 const NO_ENTRIES: TeamAccessEntries = {};
@@ -38,7 +39,7 @@ export function AccessSummaryCard({ teamId, member }: { teamId: string; member: 
         type="button"
         data-testid="access-summary-card"
         {...entry.button}
-        className="w-full min-h-12 flex items-center gap-3 px-4 py-3 rounded-[var(--r-md)] text-left bg-(--t-bg-card) disabled:opacity-60"
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-[var(--r-md)] text-left bg-(--t-bg-card) disabled:opacity-60 ${isMobileShell() ? "min-h-12" : ""}`}
         style={{ boxShadow: "var(--t-ring)" }}
       >
         <Icon icon="lucide:scan-eye" width={16} className="shrink-0 text-(--t-accent)" />

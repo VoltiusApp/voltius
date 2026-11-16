@@ -2,7 +2,7 @@ import { test, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import type { TeamMember, TeamRole } from "@/services/teamService";
 
-const h = vi.hoisted(() => ({ mobile: false, capable: true, enter: vi.fn() }));
+const h = vi.hoisted(() => ({ mobile: false, capable: true, enter: vi.fn(), toast: vi.fn() }));
 const api = vi.hoisted(() => ({
   listRoles: vi.fn(async () => [] as TeamRole[]),
   listMembers: vi.fn(async () => [] as TeamMember[]),
@@ -17,6 +17,7 @@ vi.mock("react-i18next", () => ({
 vi.mock("@iconify/react", () => ({ Icon: ({ icon }: { icon: string }) => <i data-icon={icon} /> }));
 vi.mock("@/components/theme-creator/ColorPicker", () => ({ ColorPicker: () => null }));
 vi.mock("@/utils/platform", async (orig) => ({ ...(await orig<typeof import("@/utils/platform")>()), isMobileShell: () => h.mobile }));
+vi.mock("@/services/appToast", () => ({ appToast: h.toast }));
 vi.mock("@/services/serverCapabilities", async (orig) => ({
   ...(await orig<typeof import("@/services/serverCapabilities")>()),
   useServerPermissionPreview: () => h.capable,
@@ -36,6 +37,7 @@ beforeEach(() => {
   h.mobile = false;
   h.capable = true;
   h.enter.mockReset();
+  h.toast.mockReset();
   api.getMyUserId.mockResolvedValue("me");
   api.listRoles.mockResolvedValue([
     makeRole("mgr", PERM_BITS.MANAGE_ROLES, { is_builtin: true, position: 0 }),
@@ -88,5 +90,18 @@ test("the_expanded_card_offers_the_labelled_button_with_the_same_entry", async (
 test("preview_as_role_renders_on_mobile", async () => {
   h.mobile = true;
   render(<TeamRolesPanel teamId="t1" />);
-  expect((await buttons()).length).toBeGreaterThan(0);
+  const found = await buttons();
+  expect(found.length).toBeGreaterThan(0);
+  for (const b of found) expect(b.className).toContain("min-h-12 min-w-12");
+});
+
+test("greyed_mobile_preview_as_role_toasts_the_reason_without_entering", async () => {
+  h.mobile = true;
+  h.capable = false;
+  render(<TeamRolesPanel teamId="t1" />);
+  const [first] = await buttons();
+  expect(first.getAttribute("aria-disabled")).toBe("true");
+  fireEvent.click(first);
+  expect(h.toast).toHaveBeenCalledWith("info", "members.viewAs.reason.serverTooOld");
+  expect(h.enter).not.toHaveBeenCalled();
 });
