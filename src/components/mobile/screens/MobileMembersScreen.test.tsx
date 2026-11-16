@@ -250,6 +250,21 @@ describe("MobileMembersScreen", () => {
     expect(screen.getByText("members.empty.vaultNotFound")).toBeTruthy();
   });
 
+  test("the_filter_applies_to_pending_invites", () => {
+    const named: PendingInvitation = { ...INV, id: "inv2", display_name: "kim@example.com", member_name: "Kimberly" };
+    h.model = makeModel({ pending: [INV, named] });
+    const { container } = render(<MobileMembersScreen vaultId="t1" />);
+    const ids = () => [...container.querySelectorAll("[data-mobile-invite]")].map((e) => e.getAttribute("data-mobile-invite"));
+    const filter = container.querySelector<HTMLInputElement>("input[data-members-filter]")!;
+    fireEvent.change(filter, { target: { value: "jade" } });
+    expect(ids()).toEqual(["inv1"]);
+    fireEvent.change(filter, { target: { value: "kimber" } });
+    expect(ids()).toEqual(["inv2"]);
+    fireEvent.change(filter, { target: { value: "nobody" } });
+    expect(ids()).toEqual([]);
+    expect(q(container, "[data-members-section='pending']")!.textContent).not.toContain("members.heading.pendingInvitations");
+  });
+
   test("pending_row_opens_resend_and_revoke", async () => {
     const { container } = render(<MobileMembersScreen vaultId="t1" />);
     fireEvent.click(q(container, "[data-mobile-invite='inv1'] button")!);

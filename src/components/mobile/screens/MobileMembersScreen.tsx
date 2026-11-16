@@ -7,6 +7,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useBackInterceptor } from "@/hooks/useBackInterceptor";
 import { useGreyedUnless, useLackReason } from "@/hooks/useGreyedUnless";
 import { whenWritable } from "@/services/previewGuard";
+import { searchMatcher } from "@/utils/search";
 import { ROLE_MODE_ICONS, useMembersModel, type RoleChangeMode } from "@/components/members/useMembersModel";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";
 import { JoinRequestsSection } from "@/components/members/cards/JoinRequests";
@@ -68,6 +69,8 @@ export default function MobileMembersScreen({ vaultId }: { vaultId: string | nul
   if (!teamId) return shell(<>{header}<MembersEmptyState kind="vaultNotFound" /></>);
 
   const visible = model.visible(search, [], sortMode);
+  const matches = searchMatcher(search);
+  const visiblePending = pending.filter((inv) => matches(inv.member_name, inv.display_name));
   const me = visible.find((m) => m.user_id === myUserId);
   const others = visible.filter((m) => m.user_id !== myUserId);
   const selectableIds = visible.filter(canActOn).map((m) => m.user_id);
@@ -125,8 +128,8 @@ export default function MobileMembersScreen({ vaultId }: { vaultId: string | nul
           {others.map(memberRow)}
         </section>
         <section data-members-section="pending">
-          {pending.length > 0 && <MobileSectionHeading label={t("members.heading.pendingInvitations")} />}
-          {pending.map((inv) => <InviteRow key={inv.id} inv={inv} onTap={() => setInviteFor(inv)} />)}
+          {visiblePending.length > 0 && <MobileSectionHeading label={t("members.heading.pendingInvitations")} />}
+          {visiblePending.map((inv) => <InviteRow key={inv.id} inv={inv} onTap={() => setInviteFor(inv)} />)}
           {canInvite && <div data-vt-hit-scope className="px-4 pt-4"><JoinRequestsSection teamId={teamId} /></div>}
         </section>
         <div aria-hidden className="h-24" />
