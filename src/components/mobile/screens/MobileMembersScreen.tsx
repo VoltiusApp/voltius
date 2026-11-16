@@ -114,11 +114,11 @@ export default function MobileMembersScreen({ vaultId }: { vaultId: string | nul
       onLong={() => toggle(m)} />
   );
   const security = greyed(canManageVault);
-  const holders = (r: TeamRole) => selected.filter((m) => m.role_ids.includes(r.id)).length;
-  const heldByAll = (r: TeamRole) => holders(r) === selected.length;
+  const holderCount = (r: TeamRole) => selected.filter((m) => m.role_ids.includes(r.id)).length;
+  const heldByAll = (r: TeamRole) => holderCount(r) === selected.length;
   const pickReason = (r: TeamRole) =>
     picker === "assign" ? (heldByAll(r) ? t("mobile.members.alreadyAssigned") : null)
-      : holders(r) === 0 ? t("mobile.members.notAssigned") : null;
+      : holderCount(r) === 0 ? t("mobile.members.notAssigned") : null;
 
   return shell(
     <>
