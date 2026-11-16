@@ -476,7 +476,7 @@
           "teamVaults": "共享团队保险库与邀请",
           "builtInRoles": "内置角色",
           "teamAuditLogs": "团队审计日志",
-          "granularPermissions": "自定义角色、按成员和按对象的权限",
+          "granularPermissions": "自定义角色、按成员和按对象的权限，并可通过“以成员身份查看”预览",
           "teamPolicy": "团队策略：为所有成员锁定任意设置",
           "enrolment": "用于批量部署的设备注册令牌",
           "commercialLicense": "自托管商业许可",
