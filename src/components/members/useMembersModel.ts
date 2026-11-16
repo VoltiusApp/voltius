@@ -41,7 +41,7 @@ export interface MembersModel {
   canEditMember(m: TeamMember): boolean;
   visible(search: string, roleFilter: string[], sort: SortMode): TeamMember[];
   roleOptions(targets: TeamMember[], mode: RoleChangeMode): TeamRole[];
-  changeRole(targets: TeamMember[], role: TeamRole, mode: RoleChangeMode): Promise<void>;
+  changeRole(targets: TeamMember[], role: TeamRole, mode: RoleChangeMode, opts?: { bulk?: boolean }): Promise<void>;
   reload(): Promise<void>;
 }
 
@@ -137,7 +137,7 @@ export function useMembersModel(vaultId: string | null): MembersModel {
     [roles, businessLocked],
   );
 
-  const changeRole = useCallback(async (targets: TeamMember[], role: TeamRole, mode: RoleChangeMode) => {
+  const changeRole = useCallback(async (targets: TeamMember[], role: TeamRole, mode: RoleChangeMode, opts?: { bulk?: boolean }) => {
     if (!teamId || refuseWhilePreviewing()) return;
     const assigning = mode === "assign";
     const apply = assigning ? assignMemberRole : removeMemberRole;
@@ -145,7 +145,7 @@ export function useMembersModel(vaultId: string | null): MembersModel {
     const each = (op: typeof apply) =>
       Promise.all(targets.filter((m) => m.role_ids.includes(role.id) !== assigning).map((m) => op(teamId, m.user_id, role.id)));
 
-    const single = targets.length === 1 ? targets[0] : null;
+    const single = !opts?.bulk && targets.length === 1 ? targets[0] : null;
     const vars = { role: roleLabel(t, role.name), name: single ? memberLabel(single) : "" };
     const label = single
       ? t(assigning ? "members.history.assignRole" : "members.history.removeRole", { name: vars.name })

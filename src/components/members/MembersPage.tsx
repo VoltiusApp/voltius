@@ -268,7 +268,7 @@ export default function MembersPage() {
           icon,
           children: model.roleOptions(selectedMembers, mode).map((r) => ({
             label: roleLabel(t, r.name),
-            onClick: () => void model.changeRole(selectedMembers, r, mode),
+            onClick: () => void model.changeRole(selectedMembers, r, mode, { bulk: true }),
           })),
         });
       }

@@ -94,6 +94,8 @@ test("can_act_on_excludes_self_and_out_of_reach", () => {
   expect(result.current.canActOn(ME)).toBe(false);
   expect(result.current.isOwnerMember(BOSS)).toBe(true);
   expect(result.current.myMember?.user_id).toBe("me");
+  expect(result.current.outOfReach(BOSS)).toBe(true);
+  expect(result.current.canActOn(BOSS)).toBe(false);
   expect(result.current.canEditMember(ME)).toBe(result.current.canNameMembers);
 });
 
@@ -126,4 +128,11 @@ test("change_role_pushes_one_undo_entry_and_reloads", async () => {
   expect(assignMemberRole).toHaveBeenCalledTimes(2);
   expect(useHistoryStore.getState().past).toHaveLength(1);
   expect(loadMembers).toHaveBeenCalledWith("t1");
+});
+
+test("change_role_with_the_bulk_flag_keeps_bulk_copy_for_one_effective_target", async () => {
+  const { result } = renderHook(() => useMembersModel("v1"));
+  await act(async () => { await result.current.changeRole([U2], EDITOR, "assign", { bulk: true }); });
+  await act(async () => { await result.current.changeRole([U1], VIEWER, "assign"); });
+  expect(useHistoryStore.getState().past.map((e) => e.label)).toEqual(["members.history.assignRoleBulk", "members.history.assignRole"]);
 });
