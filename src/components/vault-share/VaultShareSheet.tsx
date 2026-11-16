@@ -6,15 +6,15 @@ import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useTeamSeatReadout } from "@/hooks/useTeamSeatReadout";
-import { getMyUserId, getVaultKeyHolders } from "@/services/teamService";
+import { getMyUserId } from "@/services/teamService";
 import { ConvertToTeamGate } from "./ConvertToTeamGate";
 import { InviteControl } from "./InviteControl";
 import { JoinLinksTab } from "./JoinLinksTab";
 import { PeopleList, type Person } from "./PeopleList";
 import { canManageShare, canMintLink } from "./vaultShareModel";
+import { useVaultKeyHolders } from "./useVaultKeyHolders";
 import {
   addressedInviteLink,
-  grantVaultKeyToMember,
   removeTeamMember,
   revokeInvitation,
 } from "@/services/vaultShare";
@@ -63,27 +63,19 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = 
     return () => { cancelled = true; };
   }, []);
 
-  // Null while unknown. `statusByTeamId` is the *viewer's* own status, so it
-  // cannot say who is waiting.
-  const [keyHolders, setKeyHolders] = useState<Set<string> | null>(null);
+  // `statusByTeamId` is the *viewer's* own status, so it cannot say who is waiting.
+  const { holders: keyHolders, reload: reloadKeyHolders, grant: grantKey } = useVaultKeyHolders(teamId);
 
   useEffect(() => {
     if (!teamId) return;
     setError("");
-    setKeyHolders(null);
     const { loadMembers, loadRoles, loadPendingInvitations } = useTeamStore.getState();
     void Promise.allSettled([loadMembers(teamId), loadRoles(teamId), loadPendingInvitations(teamId)]).then(
       (results) => {
         if (results.some((r) => r.status === "rejected")) setError(t("members.share.loadFailed"));
       },
     );
-    // Best-effort: a member without MANAGE permission is refused this list.
-    let cancelled = false;
-    void getVaultKeyHolders(teamId)
-      .then((ids) => { if (!cancelled) setKeyHolders(new Set(ids)); })
-      .catch(() => {});
     void useSubscriptionStore.getState().load();
-    return () => { cancelled = true; };
     // t intentionally omitted: this loads once per teamId, not once per render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId]);
@@ -145,8 +137,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = 
   const reloadMembers = () => {
     void useTeamStore.getState().loadMembers(teamId);
     void useTeamStore.getState().loadPendingInvitations(teamId);
-    // So a member who just received their key stops reading as waiting.
-    void getVaultKeyHolders(teamId).then((ids) => setKeyHolders(new Set(ids))).catch(() => {});
+    reloadKeyHolders();
   };
 
   const handleRemove = (p: Person) =>
@@ -161,14 +152,7 @@ export function VaultShareSheet({ vaultId, variant, onRequestFull, initialTab = 
       .catch(() => {});
 
   const handleGrantKey = (p: Person) =>
-    void grantVaultKeyToMember({
-      teamId,
-      userId: p.userId,
-      label: p.label,
-      publicKey: p.publicKey ?? "",
-    })
-      .then(reloadMembers)
-      .catch(() => {});
+    void grantKey({ userId: p.userId, label: p.label, publicKey: p.publicKey ?? "" });
 
   const handleCopyInviteLink = (p: Person) => {
     if (!p.invitationId) return;
