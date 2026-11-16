@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { isUnresolvedParent, pointerForSave, setOfParent, isSynced, syncedSubtree } from "./ruleSetPointers";
+import { isUnresolvedParent, pointerForSave, ruleSetOwner, setOfParent, isSynced, syncedSubtree } from "./ruleSetPointers";
 import type { ObjectAccess, TeamAccessEntries } from "@/stores/teamObjectAccessStore";
 import { PERM_BITS } from "./permissions";
 
@@ -70,4 +70,11 @@ test("synced helpers", () => {
   expect(isSynced(tree, "cSynced")).toBe(true);
   expect(isSynced(tree, "cOwn")).toBe(false);
   expect(syncedSubtree(tree, "fA").sort()).toEqual(["cDeep", "cLocked", "cSynced", "fSub"]);
+});
+
+test("ruleSetOwner_returns_the_topmost_object_with_the_set", () => {
+  expect(ruleSetOwner(tree, "sA")).toBe("fA");
+  expect(ruleSetOwner(tree, "sOwn")).toBe("cOwn");
+  expect(ruleSetOwner(tree, "sT")).toBeNull();
+  expect(ruleSetOwner(tree, "missing")).toBeNull();
 });

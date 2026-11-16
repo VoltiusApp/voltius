@@ -679,6 +679,35 @@
       "secrets": {
         "yes": "Tajné údaje viditelné",
         "no": "Tajné údaje skryté"
+      },
+      "why": {
+        "as": "Jako {{name}}",
+        "gets": "Co zde {{name}} získá",
+        "addsUp": "Jak se to sčítá",
+        "order": "Použito v pořadí: všichni, pak role uživatele {{name}}, pak {{name}}. V každém kroku může povolení zrušit předchozí zákaz; vlastní celotýmový zákaz uživatele {{name}} vždy vyhrává.",
+        "decidedByServer": "Rozhodl server",
+        "notGranted": "Žádná role uživatele {{name}} to nepovoluje",
+        "someRole": "Jedna z jeho rolí",
+        "thisItem": "tato položka",
+        "editRules": "Upravit pravidla na {{folder}}",
+        "editRulesLocked": "K úpravě pravidel na {{folder}} potřebujete oprávnění Spravovat role",
+        "editAccess": "Upravit přístup uživatele {{name}}",
+        "step": {
+          "roles": "Povoleno rolí {{roles}}",
+          "teamAllow": "{{name}} to má povoleno v celém týmu",
+          "teamDeny": "{{name}} to má zakázáno v celém týmu",
+          "administrator": "{{name}} má Administrátora",
+          "everyoneDeny": "Všem je to zakázáno na {{folder}}",
+          "everyoneAllow": "Všem je to povoleno na {{folder}}",
+          "rolesDeny": "{{roles}} má zákaz na {{folder}}",
+          "rolesAllow": "{{roles}} má povolení na {{folder}}",
+          "memberDeny": "{{name}} má zákaz na {{folder}}",
+          "memberAllow": "{{name}} má povolení na {{folder}}",
+          "teamDenyLast": "Vlastní celotýmový zákaz uživatele {{name}} má přednost před {{folder}}",
+          "noView": "Skryto před {{name}}, takže nic jiného neplatí",
+          "needsConnect": "Tajné údaje vyžadují Připojovat se, které zde {{name}} nemá",
+          "ruleNotShown": "Rozhodlo pravidlo na {{folder}}"
+        }
       }
     }
   }

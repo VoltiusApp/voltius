@@ -655,6 +655,35 @@
       "secrets": {
         "yes": "Secrets visibles",
         "no": "Secrets masqués"
+      },
+      "why": {
+        "as": "En tant que {{name}}",
+        "gets": "Ce que {{name}} obtient ici",
+        "addsUp": "Comment ça s'additionne",
+        "order": "Appliqué dans l'ordre : tout le monde, puis les rôles de {{name}}, puis {{name}}. À chaque étape, une autorisation peut annuler le refus qui la précède ; le refus propre à {{name}} pour toute l'équipe l'emporte toujours.",
+        "decidedByServer": "Décidé par le serveur",
+        "notGranted": "Aucun rôle de {{name}} ne l'autorise",
+        "someRole": "Un de ses rôles",
+        "thisItem": "cet élément",
+        "editRules": "Modifier les règles de {{folder}}",
+        "editRulesLocked": "Il vous faut Gérer les rôles sur {{folder}} pour modifier ses règles",
+        "editAccess": "Modifier l'accès de {{name}}",
+        "step": {
+          "roles": "Autorisé par le rôle {{roles}}",
+          "teamAllow": "{{name}} y est autorisé pour toute l'équipe",
+          "teamDeny": "{{name}} en est privé pour toute l'équipe",
+          "administrator": "{{name}} a Administrateur",
+          "everyoneDeny": "Tout le monde est refusé sur {{folder}}",
+          "everyoneAllow": "Tout le monde est autorisé sur {{folder}}",
+          "rolesDeny": "{{roles}} est refusé sur {{folder}}",
+          "rolesAllow": "{{roles}} est autorisé sur {{folder}}",
+          "memberDeny": "{{name}} est refusé sur {{folder}}",
+          "memberAllow": "{{name}} est autorisé sur {{folder}}",
+          "teamDenyLast": "Le refus propre à {{name}} pour toute l'équipe l'emporte sur {{folder}}",
+          "noView": "Masqué pour {{name}}, donc rien d'autre ne s'applique",
+          "needsConnect": "Les secrets exigent Se connecter, que {{name}} n'a pas ici",
+          "ruleNotShown": "Décidé par une règle sur {{folder}}"
+        }
       }
     }
   }

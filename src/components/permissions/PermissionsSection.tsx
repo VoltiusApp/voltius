@@ -9,6 +9,7 @@ import { permissionLabel, roleLabel, ruleSubjectLabel } from "@/components/membe
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { useRuleSet } from "@/hooks/useRuleSet";
 import { saveObjectRules, syncWithFolder, type RuleEdit } from "@/services/ruleSetEditing";
+import { withControlAuthority } from "@/services/previewGuard";
 import { isSynced, setOfParent } from "@/services/ruleSetPointers";
 import {
   OBJECT_RULE_ROWS, PERM_BITS, applyOverrideState, hasNarrowerException, overrideStateOf, resolveObjectPermissions, ruleSubjectKey, ruleSubjectOf,
@@ -101,13 +102,14 @@ interface PermissionsSectionProps {
   objectId: string;
   vaultId?: string;
   type: TeamObjectType;
+  controlAuthority?: boolean;
 }
 
 export function PermissionsSection(props: PermissionsSectionProps) {
   return <ObjectPermissions key={props.objectId} {...props} />;
 }
 
-function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps) {
+function ObjectPermissions({ objectId, vaultId, type, controlAuthority = false }: PermissionsSectionProps) {
   const { t } = useTranslation();
   const teams = useTeamStore((s) => s.teams);
   const teamId = useVaultStore((s) => resolveTeamIdFromCollections(vaultId, teams, s.vaults));
@@ -149,6 +151,7 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
   const synced = isSynced(entries, objectId);
   const parentSet = setOfParent(entries, access.parentId);
   const target = { teamId, objectId, type };
+  const write = <T,>(run: () => Promise<T>) => (controlAuthority ? withControlAuthority(run) : run());
   const isCredential = type === "key" || type === "identity";
   const listed = listedSubjects(draft, roles, added);
   const nameOf = (s: RuleSubject) => ruleSubjectLabel(t, s, roles, members);
@@ -186,7 +189,7 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
     chain.current = chain.current.then(async () => {
       try {
         if (gen !== generation.current) return;
-        const saved = await saveObjectRules(target, edit);
+        const saved = await write(() => saveObjectRules(target, edit));
         if (saved) lastSaved.current = saved;
       } catch (e) {
         generation.current += 1;
@@ -240,7 +243,7 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
               <button
                 type="button"
                 className="text-(--t-accent)"
-                onClick={() => void syncWithFolder(target).catch((e) => setError(errorText(e)))}
+                onClick={() => void write(() => syncWithFolder(target)).catch((e) => setError(errorText(e)))}
               >
                 {t(parentSet === null ? "shared.permissions.section.useTeams" : "shared.permissions.section.syncNow")}
               </button>

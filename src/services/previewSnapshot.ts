@@ -1,6 +1,6 @@
 import type { PermissionSnapshot } from "@/services/permissions";
-import type { PreviewDraft, PreviewResponse, PreviewSubject } from "@/services/permissionPreview";
-import type { TeamMember } from "@/services/teamService";
+import type { Preview, PreviewDraft, PreviewResponse, PreviewSubject } from "@/services/permissionPreview";
+import type { TeamMember, TeamRole } from "@/services/teamService";
 import type { TeamAccessEntries } from "@/stores/teamObjectAccessStore";
 
 export const PREVIEW_ROLE_USER_ID = "preview:role";
@@ -14,7 +14,10 @@ export interface PreviewSession {
 export const previewSubjectUserId = (subject: PreviewSubject): string =>
   subject.type === "member" ? subject.user_id : PREVIEW_ROLE_USER_ID;
 
-function subjectMembers(teamId: string, members: TeamMember[], subject: PreviewSubject, draft: PreviewDraft | null): TeamMember[] {
+export const previewSideOf = (result: PreviewResponse, objectId: string): Preview =>
+  result.draft?.objects[objectId] ? result.draft : result.current;
+
+export function subjectMembers(teamId: string, members: TeamMember[], subject: PreviewSubject, draft: PreviewDraft | null): TeamMember[] {
   if (subject.type === "role") {
     return [...members, {
       team_id: teamId, user_id: PREVIEW_ROLE_USER_ID, invited_by_display_name: null, joined_at: "", public_key: "",
@@ -27,12 +30,17 @@ function subjectMembers(teamId: string, members: TeamMember[], subject: PreviewS
     : m);
 }
 
+export function subjectRoles(roles: TeamRole[], subject: PreviewSubject, draft: PreviewDraft | null): TeamRole[] {
+  return subject.type === "role" && draft && "permissions" in draft
+    ? roles.map((r) => (r.id === subject.role_id ? { ...r, permissions: draft.permissions } : r))
+    : roles;
+}
+
 export function previewSnapshot<S extends Omit<PermissionSnapshot, "vaults">>(
   base: S, session: PreviewSession, draft: PreviewDraft | null, result: PreviewResponse,
 ): S {
   const { teamId, subject } = session;
   const shown = result.draft ?? result.current;
-  const roles = base.rolesByTeam[teamId] ?? [];
   const access: TeamAccessEntries = {};
   for (const [id, entry] of Object.entries(base.objectAccess?.[teamId] ?? {})) {
     const object = shown.objects[id];
@@ -42,12 +50,7 @@ export function previewSnapshot<S extends Omit<PermissionSnapshot, "vaults">>(
     ...base,
     myUserId: previewSubjectUserId(subject),
     membersByTeam: { ...base.membersByTeam, [teamId]: subjectMembers(teamId, base.membersByTeam[teamId] ?? [], subject, draft) },
-    rolesByTeam: {
-      ...base.rolesByTeam,
-      [teamId]: subject.type === "role" && draft && "permissions" in draft
-        ? roles.map((r) => (r.id === subject.role_id ? { ...r, permissions: draft.permissions } : r))
-        : roles,
-    },
+    rolesByTeam: { ...base.rolesByTeam, [teamId]: subjectRoles(base.rolesByTeam[teamId] ?? [], subject, draft) },
     objectAccess: { ...base.objectAccess, [teamId]: access },
     teamBits: { ...base.teamBits, [teamId]: shown.team_bits },
   };

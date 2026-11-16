@@ -639,6 +639,35 @@
       "secrets": {
         "yes": "Gizli bilgiler görünür",
         "no": "Gizli bilgiler gizli"
+      },
+      "why": {
+        "as": "{{name}} olarak",
+        "gets": "{{name}} burada neler alıyor",
+        "addsUp": "Nasıl toplanıyor",
+        "order": "Sırayla uygulanır: herkes, sonra {{name}} kullanıcısının rolleri, sonra {{name}}. Her adımda bir izin, önceki reddi geri alabilir; {{name}} kullanıcısının kendi ekip genelindeki reddi her zaman kazanır.",
+        "decidedByServer": "Sunucu tarafından belirlendi",
+        "notGranted": "{{name}} kullanıcısının hiçbir rolü buna izin vermiyor",
+        "someRole": "Rollerinden biri",
+        "thisItem": "bu öğe",
+        "editRules": "{{folder}} kurallarını düzenle",
+        "editRulesLocked": "{{folder}} kurallarını düzenlemek için Rolleri yönet izni gerekir",
+        "editAccess": "{{name}} erişimini düzenle",
+        "step": {
+          "roles": "{{roles}} rolüyle izin verildi",
+          "teamAllow": "{{name}} için ekip genelinde izinli",
+          "teamDeny": "{{name}} için ekip genelinde reddedildi",
+          "administrator": "{{name}} Yönetici iznine sahip",
+          "everyoneDeny": "{{folder}} üzerinde herkes reddedildi",
+          "everyoneAllow": "{{folder}} üzerinde herkese izin verildi",
+          "rolesDeny": "{{folder}} üzerinde {{roles}} reddedildi",
+          "rolesAllow": "{{folder}} üzerinde {{roles}} için izin verildi",
+          "memberDeny": "{{folder}} üzerinde {{name}} reddedildi",
+          "memberAllow": "{{folder}} üzerinde {{name}} için izin verildi",
+          "teamDenyLast": "{{name}} kullanıcısının kendi ekip genelindeki reddi {{folder}} kuralına üstün gelir",
+          "noView": "{{name}} için gizli, bu yüzden başka hiçbir şey uygulanmaz",
+          "needsConnect": "Gizli bilgiler Bağlan gerektirir; {{name}} burada buna sahip değil",
+          "ruleNotShown": "{{folder}} üzerindeki bir kuralla belirlendi"
+        }
       }
     }
   }

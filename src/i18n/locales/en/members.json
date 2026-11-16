@@ -635,6 +635,35 @@
       "secrets": {
         "yes": "Secrets visible",
         "no": "Secrets hidden"
+      },
+      "why": {
+        "as": "As {{name}}",
+        "gets": "What {{name}} gets here",
+        "addsUp": "How it adds up",
+        "order": "Applied in order: everyone, then {{name}}'s roles, then {{name}}. At each step an allow can undo the deny before it; {{name}}'s own team-wide deny always wins.",
+        "decidedByServer": "Decided by the server",
+        "notGranted": "None of {{name}}'s roles allow it",
+        "someRole": "One of their roles",
+        "thisItem": "this item",
+        "editRules": "Edit rules on {{folder}}",
+        "editRulesLocked": "You need Manage roles on {{folder}} to edit its rules",
+        "editAccess": "Edit {{name}}'s access",
+        "step": {
+          "roles": "Allowed by the role {{roles}}",
+          "teamAllow": "{{name}} is allowed it team-wide",
+          "teamDeny": "{{name}} is denied it team-wide",
+          "administrator": "{{name}} has Administrator",
+          "everyoneDeny": "Everyone is denied on {{folder}}",
+          "everyoneAllow": "Everyone is allowed on {{folder}}",
+          "rolesDeny": "{{roles}} is denied on {{folder}}",
+          "rolesAllow": "{{roles}} is allowed on {{folder}}",
+          "memberDeny": "{{name}} is denied on {{folder}}",
+          "memberAllow": "{{name}} is allowed on {{folder}}",
+          "teamDenyLast": "{{name}}'s own team-wide deny wins over {{folder}}",
+          "noView": "Hidden from {{name}}, so nothing else applies",
+          "needsConnect": "Secrets need Connect, which {{name}} doesn't have here",
+          "ruleNotShown": "Decided by a rule on {{folder}}"
+        }
       }
     }
   }

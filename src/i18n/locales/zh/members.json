@@ -635,6 +635,35 @@
       "secrets": {
         "yes": "可见密钥",
         "no": "密钥已隐藏"
+      },
+      "why": {
+        "as": "以 {{name}} 身份",
+        "gets": "{{name}} 在此获得的权限",
+        "addsUp": "如何叠加",
+        "order": "按顺序应用：所有人，然后是 {{name}} 的角色，然后是 {{name}}。每一步中，允许可以撤销之前的拒绝；{{name}} 自己的全团队拒绝始终优先。",
+        "decidedByServer": "由服务器决定",
+        "notGranted": "{{name}} 的角色均不允许",
+        "someRole": "其某个角色",
+        "thisItem": "此项目",
+        "editRules": "编辑 {{folder}} 的规则",
+        "editRulesLocked": "需要 {{folder}} 的“管理角色”权限才能编辑其规则",
+        "editAccess": "编辑 {{name}} 的访问权限",
+        "step": {
+          "roles": "由角色 {{roles}} 允许",
+          "teamAllow": "{{name}} 在全团队范围内被允许",
+          "teamDeny": "{{name}} 在全团队范围内被拒绝",
+          "administrator": "{{name}} 拥有管理员权限",
+          "everyoneDeny": "所有人在 {{folder}} 上被拒绝",
+          "everyoneAllow": "所有人在 {{folder}} 上被允许",
+          "rolesDeny": "{{roles}} 在 {{folder}} 上被拒绝",
+          "rolesAllow": "{{roles}} 在 {{folder}} 上被允许",
+          "memberDeny": "{{name}} 在 {{folder}} 上被拒绝",
+          "memberAllow": "{{name}} 在 {{folder}} 上被允许",
+          "teamDenyLast": "{{name}} 自己的全团队拒绝优先于 {{folder}}",
+          "noView": "对 {{name}} 隐藏，因此其他规则均不适用",
+          "needsConnect": "密钥需要“连接”权限，而 {{name}} 在此没有",
+          "ruleNotShown": "由 {{folder}} 上的规则决定"
+        }
       }
     }
   }
