@@ -1,18 +1,21 @@
 import { useState } from "react";
 import { usePreviewStore } from "@/stores/previewStore";
 
-export function useViewAsExit() {
+export function useViewAsExit({ afterExit }: { afterExit?: () => void } = {}) {
   const [confirming, setConfirming] = useState(false);
+  const exit = () => {
+    usePreviewStore.getState().exit();
+    afterExit?.();
+  };
   return {
     confirming,
     requestExit: () => {
-      const { draft, exit } = usePreviewStore.getState();
-      if (draft) setConfirming(true);
+      if (usePreviewStore.getState().draft) setConfirming(true);
       else exit();
     },
     confirm: () => {
       setConfirming(false);
-      usePreviewStore.getState().exit();
+      exit();
     },
     cancel: () => setConfirming(false),
   };

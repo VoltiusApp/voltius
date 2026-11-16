@@ -1,17 +1,32 @@
+import { useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
+import { useBackInterceptor } from "@/hooks/useBackInterceptor";
+import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { usePreviewStore } from "@/stores/previewStore";
 import { useSubjectLabel } from "@/components/preview/PreviewScope";
 import { PreviewStatus } from "@/components/preview/PreviewStatus";
 import { ViewAsExitConfirm } from "@/components/preview/ViewAsExitConfirm";
 import { useViewAsExit } from "@/components/preview/useViewAsExit";
 
+function restoreReturn() {
+  const { previewReturn, setTab } = useMobileNavStore.getState();
+  if (!previewReturn) return;
+  setTab(previewReturn.tab);
+  useMobileNavStore.setState({ stack: previewReturn.stack, previewReturn: null });
+}
+
 export default function MobileViewAsBar() {
   const { t } = useTranslation();
   const previewing = usePreviewStore((s) => s.session !== null);
   const name = useSubjectLabel();
   const showAccess = usePreviewStore((s) => s.showAccess);
-  const exitFlow = useViewAsExit();
+  const exitFlow = useViewAsExit({ afterExit: restoreReturn });
+  // Registered on entering, at the Hosts root, so pushed pages, other tabs and sheets take back first.
+  useBackInterceptor(previewing, exitFlow.requestExit);
+  useEffect(() => {
+    if (!previewing) useMobileNavStore.getState().setPreviewReturn(null);
+  }, [previewing]);
   if (!previewing) return null;
   return (
     <>

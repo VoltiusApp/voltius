@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { test, expect, afterEach } from "vitest";
+import { test, expect, afterEach, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { usePreviewStore } from "@/stores/previewStore";
 import { startPreview, stopPreview } from "@/test/preview";
@@ -31,4 +31,25 @@ test("exit_with_draft_asks_first", () => {
   act(() => result.current.requestExit());
   act(() => result.current.confirm());
   expect(usePreviewStore.getState().session).toBeNull();
+});
+
+test("after_exit_runs_only_after_a_voluntary_exit", () => {
+  const afterExit = vi.fn(() => expect(usePreviewStore.getState().session).toBeNull());
+  startPreview();
+  const { result } = renderHook(() => useViewAsExit({ afterExit }));
+  act(() => result.current.requestExit());
+  expect(afterExit).toHaveBeenCalledOnce();
+
+  startPreview();
+  usePreviewStore.setState({ draft: { permissions: 1 } });
+  act(() => result.current.requestExit());
+  act(() => result.current.cancel());
+  expect(afterExit).toHaveBeenCalledOnce();
+  act(() => result.current.requestExit());
+  act(() => result.current.confirm());
+  expect(afterExit).toHaveBeenCalledTimes(2);
+
+  startPreview();
+  act(() => usePreviewStore.getState().exit());
+  expect(afterExit).toHaveBeenCalledTimes(2);
 });
