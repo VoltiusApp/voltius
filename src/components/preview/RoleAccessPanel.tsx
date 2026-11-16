@@ -12,6 +12,7 @@ import { unsavedChangeCount } from "@/services/viewAsSave";
 import { subjectRecord } from "@/services/previewSnapshot";
 import { touchSize } from "@/components/mobile/touch";
 import { DisclosureToggle } from "@/components/shared/DisclosureToggle";
+import { AccessHeading } from "@/components/preview/AccessHeading";
 
 export function RoleAccessPanel() {
   const { t } = useTranslation();
@@ -40,7 +41,7 @@ export function RoleAccessPanel() {
 
   return (
     <div data-testid="role-access-panel" className="p-4 space-y-3">
-      <p className="text-sm font-semibold text-(--t-text-primary)">{t("members.viewAs.roleTitle", { name: roleLabel(t, role.name) })}</p>
+      <AccessHeading title={t("members.viewAs.roleTitle", { name: roleLabel(t, role.name) })} subtitleOnDesktop={false} />
       {reason && <p className="text-[11px] text-(--t-text-dim)">{reason}</p>}
       {!reason && locked && <BusinessLockLine teamId={teamId} label={t("shared.businessLock.rolesBody")} />}
       <div title={reason ?? undefined} className={editable ? undefined : "opacity-60"}>

@@ -17,6 +17,7 @@ export interface MemberRoleChipsProps {
   ownerReason?: string;
   busyRoleId?: string | null;
   flashRoleId?: string | null;
+  size?: "sm" | "touch";
   children?: ReactNode;
 }
 
@@ -32,10 +33,11 @@ export const visibleMemberRoles = (roles: TeamRole[], showOwner: boolean) =>
   roles.filter((r) => !isOwnerRole(r) || showOwner).sort((a, b) => a.position - b.position);
 
 export function MemberRoleChips({
-  teamId, roles, roleIds, readOnlyReason, onToggle, showOwner, ownerReason, busyRoleId = null, flashRoleId = null, children,
+  teamId, roles, roleIds, readOnlyReason, onToggle, showOwner, ownerReason, busyRoleId = null, flashRoleId = null, size = "sm", children,
 }: MemberRoleChipsProps) {
   const { t } = useTranslation();
   const { locked } = useBusinessLock(teamId);
+  const touch = size === "touch";
 
   return (
     <div data-chip-group className="flex flex-wrap items-start gap-2">
@@ -53,7 +55,7 @@ export function MemberRoleChips({
                 onClick={() => onToggle(role)}
                 disabled={busy || blockReason !== null}
                 title={blockReason ?? undefined}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all${touch ? " min-h-12" : ""}`}
                 style={{
                   background: flashed ? "rgba(52,211,153,0.15)" : hasRole ? bg : "var(--t-bg-elevated)",
                   color: flashed ? "#34d399" : hasRole ? color : "var(--t-text-dim)",
@@ -76,7 +78,7 @@ export function MemberRoleChips({
                   : <Icon icon="lucide:sparkles" width={9} style={{ color: "var(--t-text-dim)", opacity: 0.7 }} />
                 }
               </button>
-              {hasRole && <RoleBlurb name={role.name} />}
+              {hasRole && !touch && <RoleBlurb name={role.name} />}
             </div>
           );
         })}

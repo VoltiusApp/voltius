@@ -3,7 +3,7 @@ import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import type { PreviewResponse } from "@/services/permissionPreview";
 import { PERM_BITS } from "@/services/permissions";
 
-const h = vi.hoisted(() => ({ me: { value: "admin" }, locked: { value: false }, can: { value: ((_p: string) => true) as (p: string) => boolean } }));
+const h = vi.hoisted(() => ({ me: { value: "admin" }, locked: { value: false }, mobile: { value: false }, can: { value: ((_p: string) => true) as (p: string) => boolean } }));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string, o?: Record<string, unknown>) => (o ? `${k}:${Object.values(o).join("|")}` : k) }),
@@ -11,6 +11,7 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
+vi.mock("@/utils/platform", async (orig) => ({ ...(await orig<typeof import("@/utils/platform")>()), isMobileShell: () => h.mobile.value }));
 vi.mock("@/hooks/useMyUserId", () => ({ useMyUserId: () => h.me.value }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => ({ locked: h.locked.value, isOwner: true }) }));
 vi.mock("@/hooks/usePermission", async (orig) => ({
@@ -48,6 +49,7 @@ const setRoles = vi.fn();
 beforeEach(() => {
   h.me.value = "admin";
   h.locked.value = false;
+  h.mobile.value = false;
   h.can.value = () => true;
   setDraft.mockReset();
   setRoles.mockReset();
@@ -126,4 +128,25 @@ test("a_business_locked_member_shows_the_lock_line_instead_of_greyed_rows", () =
 test("desktop_keeps_the_compact_all_permissions_toggle", () => {
   render(<MemberAccessPanel />);
   expect(screen.getByRole("button", { name: /allPermissions/ }).className).not.toContain("min-h-12");
+});
+
+test("desktop_subtitle_points_left_and_mobile_points_behind_the_sheet", () => {
+  render(<MemberAccessPanel />);
+  expect(screen.getByText("members.viewAs.access.subtitle")).toBeTruthy();
+  cleanup();
+  h.mobile.value = true;
+  render(<MemberAccessPanel />);
+  expect(screen.getByText("mobile.viewAs.accessSubtitle")).toBeTruthy();
+  expect(screen.queryByText("members.viewAs.access.subtitle")).toBeNull();
+});
+
+test("role_chips_stay_compact_on_mobile_and_keep_the_blurb_on_desktop", () => {
+  const chip = () => screen.getByRole("button", { name: "members.roleName.member" });
+  render(<MemberAccessPanel />);
+  expect(chip().parentElement!.childElementCount).toBe(2);
+  cleanup();
+  h.mobile.value = true;
+  render(<MemberAccessPanel />);
+  expect(chip().parentElement!.childElementCount).toBe(1);
+  expect(chip().className).toContain("min-h-12");
 });

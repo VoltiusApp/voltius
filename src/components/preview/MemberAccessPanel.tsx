@@ -8,6 +8,7 @@ import { MemberRoleChips } from "@/components/members/panels/MemberRoleChips";
 import { PermissionOverrideRow, overrideStateOf, applyOverrideState, type OverrideState } from "@/components/members/panels/PermissionOverrideRow";
 import { permissionLabel, readOnlyReasonText, roleLabel, rolesGranting } from "@/components/members/roleChips";
 import { useSubjectLabel } from "@/components/preview/PreviewScope";
+import { AccessHeading } from "@/components/preview/AccessHeading";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { useMyUserId } from "@/hooks/useMyUserId";
 import { heldBits, useOwnPermissions } from "@/hooks/usePermission";
@@ -98,10 +99,7 @@ export function MemberAccessPanel() {
 
   return (
     <div data-testid="member-access-panel" className="p-4 space-y-3">
-      <div>
-        <p className="text-sm font-semibold text-(--t-text-primary)">{t("members.viewAs.access.title", { name })}</p>
-        <p className="text-[11px] text-(--t-text-dim)">{t("members.viewAs.access.subtitle")}</p>
-      </div>
+      <AccessHeading title={t("members.viewAs.access.title", { name })} />
 
       <FormSection label={t("members.viewAs.access.can", { name })}>
         {groups.map((g) => (
@@ -133,6 +131,7 @@ export function MemberAccessPanel() {
           roleIds={shown.role_ids}
           readOnlyReason={roleReadOnlyReason}
           showOwner
+          size={touchSize()}
           ownerReason={t("members.viewAs.ownerElsewhere")}
           onToggle={(role) => update({ ...shown, role_ids: shown.role_ids.includes(role.id) ? shown.role_ids.filter((id) => id !== role.id) : [...shown.role_ids, role.id] })}
         />
