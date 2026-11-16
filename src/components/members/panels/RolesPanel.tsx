@@ -237,21 +237,24 @@ export function RoleModal({
   );
 }
 
-const ROLE_NAME_BUTTON = "flex items-center gap-3 flex-auto min-w-0 text-left";
+const ROLE_NAME_BUTTON = "flex items-center gap-3 flex-1 min-w-0 text-left";
 const ROLE_NAME = "flex-1 min-w-0 truncate text-sm font-medium";
 
-function PreviewAsRoleButton({ teamId, roleId }: { teamId: string; roleId: string }) {
+function PreviewAsRoleButton({ teamId, roleId, compact = false }: { teamId: string; roleId: string; compact?: boolean }) {
   const { t } = useTranslation();
   const entry = useViewAsEntry(teamId, { type: "role", role_id: roleId });
   if (isMobileShell()) return null;
+  const label = t("members.viewAs.previewAsRole");
   return (
     <button
       type="button"
       {...entry.button}
-      className="shrink-[1000] min-w-7 flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs whitespace-nowrap transition-colors text-(--t-text-dim) hover:text-(--t-text-primary) disabled:opacity-40"
+      title={entry.button.title ?? (compact ? label : undefined)}
+      aria-label={compact ? label : undefined}
+      className={`flex items-center gap-1.5 rounded-lg text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary) disabled:opacity-40 ${compact ? "shrink-0 p-1.5" : "mb-2 px-2 py-1"}`}
     >
-      <Icon icon="lucide:scan-eye" width={12} className="shrink-0" />
-      <span className="truncate">{t("members.viewAs.previewAsRole")}</span>
+      <Icon icon="lucide:scan-eye" width={compact ? 13 : 12} />
+      {!compact && label}
     </button>
   );
 }
@@ -272,13 +275,14 @@ function BuiltinRoleCard({ teamId, roleId, name, permissions }: { teamId: string
           <span className={`${ROLE_NAME} capitalize`} style={{ color: "var(--t-text-primary)" }}>{roleLabel(t, name)}</span>
           <span className="shrink-0 whitespace-nowrap text-[10px] px-2 py-0.5 rounded-sm" style={{ background: "var(--t-bg-card)", color: "var(--t-text-dim)" }}>{t("settings.vaults.rolesPanel.builtinBadge")}</span>
         </button>
-        <PreviewAsRoleButton teamId={teamId} roleId={roleId} />
+        <PreviewAsRoleButton teamId={teamId} roleId={roleId} compact />
         <button onClick={() => setExpanded((v) => !v)}>
           <Icon icon={expanded ? "lucide:chevron-up" : "lucide:chevron-down"} width={13} style={{ color: "var(--t-text-dim)" }} />
         </button>
       </div>
       {expanded && (
         <div className="px-4 py-3 border-t border-t-(--t-border)">
+          <PreviewAsRoleButton teamId={teamId} roleId={roleId} />
           <PermissionGrid value={permissions} readOnly />
         </div>
       )}
@@ -355,7 +359,7 @@ function RoleCard({
             <Icon icon="lucide:shield" width={13} className="shrink-0" style={{ color: "var(--t-accent)" }} />
             <span className={ROLE_NAME} style={{ color: "var(--t-text-primary)" }}>{role.name}</span>
           </button>
-          <PreviewAsRoleButton teamId={teamId} roleId={role.id} />
+          <PreviewAsRoleButton teamId={teamId} roleId={role.id} compact />
           {!editLocked && (
             <button
               onClick={whenWritable(() => setEditing(true))}
@@ -393,6 +397,7 @@ function RoleCard({
         )}
         {expanded && (
           <div className="px-4 py-3 border-t border-t-(--t-border)">
+            <PreviewAsRoleButton teamId={teamId} roleId={role.id} />
             <PermissionGrid value={role.permissions} readOnly />
           </div>
         )}

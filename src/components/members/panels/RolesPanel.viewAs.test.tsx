@@ -54,12 +54,13 @@ afterEach(() => {
   usePreviewStore.setState({ enter: originalEnter });
 });
 
-const buttons = () => screen.findAllByText("members.viewAs.previewAsRole").then((els) => els.map((el) => el.closest("button")!));
+const buttons = () => screen.findAllByRole("button", { name: "members.viewAs.previewAsRole" }) as Promise<HTMLButtonElement[]>;
 
 test("role_card_has_preview_as_role", async () => {
   render(<TeamRolesPanel teamId="t1" />);
   const [builtin, custom] = await buttons();
   expect(builtin.disabled).toBe(false);
+  expect(builtin.title).toBe("members.viewAs.previewAsRole");
   fireEvent.click(custom);
   expect(h.enter).toHaveBeenCalledWith({ teamId: "t1", vaultId: "v1", subject: { type: "role", role_id: "custom1" } });
   fireEvent.click(builtin);
@@ -75,9 +76,19 @@ test("role_cards_grey_out_with_the_reason_when_the_server_lacks_preview", async 
   }
 });
 
+test("the_expanded_card_offers_the_labelled_button_with_the_same_entry", async () => {
+  h.capable = false;
+  render(<TeamRolesPanel teamId="t1" />);
+  fireEvent.click(await screen.findByText("custom1"));
+  const labelled = screen.getByText("members.viewAs.previewAsRole").closest("button")!;
+  expect(labelled.disabled).toBe(true);
+  expect(labelled.title).toBe("members.viewAs.reason.serverTooOld");
+});
+
 test("no_preview_as_role_on_the_mobile_shell", async () => {
   h.mobile = true;
   render(<TeamRolesPanel teamId="t1" />);
   await screen.findByText("custom1");
-  await waitFor(() => expect(screen.queryByText("members.viewAs.previewAsRole")).toBeNull());
+  fireEvent.click(screen.getByText("custom1"));
+  await waitFor(() => expect(screen.queryAllByRole("button", { name: "members.viewAs.previewAsRole" })).toHaveLength(0));
 });
