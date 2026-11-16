@@ -605,6 +605,7 @@
       "hiddenFrom": "对 {{name}} 隐藏",
       "cannotEdit": "该成员的角色不允许编辑",
       "draftBadge": "草稿",
+      "draftTag": "（草稿）",
       "draftChange": "草稿：{{from}} → {{to}}",
       "ownerElsewhere": "所有者变更需在别处进行",
       "keyLoss": "保存后，{{name}}将失去保险库密钥，并为其他成员轮换密钥。",

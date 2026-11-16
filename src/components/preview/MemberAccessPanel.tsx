@@ -3,10 +3,10 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { FormSection } from "@/components/shared/Panel";
+import { MemberPermissionsLock } from "@/components/shared/BusinessLockBanner";
 import { MemberRoleChips } from "@/components/members/panels/MemberRoleChips";
 import { PermissionOverrideRow, overrideStateOf, applyOverrideState, type OverrideState } from "@/components/members/panels/PermissionOverrideRow";
-import { READONLY_REASON_KEYS, permissionLabel, roleLabel } from "@/components/members/roleChips";
-import { unsavedChangeCount } from "@/components/preview/ViewAsPill";
+import { READONLY_REASON_KEYS, permissionLabel, roleLabel, rolesGranting } from "@/components/members/roleChips";
 import { useSubjectLabel } from "@/components/preview/PreviewScope";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { useMyUserId } from "@/hooks/useMyUserId";
@@ -14,12 +14,12 @@ import { heldBits, useOwnPermissions } from "@/hooks/usePermission";
 import type { MemberDraft } from "@/services/permissionPreview";
 import {
   PERM_BITS, PERMISSION_GROUPS, effectivePermissions, hasBuiltinRole, overrideRowLocked,
-  resolveMemberReadOnlyReason, type Permission,
+  resolveMemberReadOnlyReason, roleChangeBlock, isEditablePermission, type Permission,
 } from "@/services/permissions";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamRole } from "@/stores/teamStore";
 import { saveNeedsConfirm, usePreviewStore } from "@/stores/previewStore";
-import type { SaveFailure } from "@/services/viewAsSave";
+import { unsavedChangeCount, type SaveFailure } from "@/services/viewAsSave";
 
 const NO_ROLES: TeamRole[] = [];
 
@@ -79,18 +79,19 @@ export function MemberAccessPanel() {
     offendingBits,
   });
   const readOnlyReason = readOnlyKind ? t(READONLY_REASON_KEYS[readOnlyKind]) : null;
+  const roleBlock = roleChangeBlock(can("MANAGE_MEMBERS", session.vaultId), member.user_id === myUserId);
+  const roleReadOnlyReason = roleBlock ? t(READONLY_REASON_KEYS[roleBlock]) : null;
+  const lockedEmpty = locked && (allow | deny) === 0;
 
   const currentBits = result.current.team_bits;
   const shownBits = (result.draft ?? result.current).team_bits;
   const memberEffective = effectivePermissions({ ...member, role_ids: shown.role_ids, permission_allow: shown.allow, permission_deny: shown.deny }, roles, locked);
-  const rolesGranting = (permission: Permission) =>
-    roles.filter((r) => (!locked || r.is_builtin) && shown.role_ids.includes(r.id) && (r.permissions & PERM_BITS[permission]) !== 0)
-      .map((r) => roleLabel(t, r.name));
+  const grantingRoles = (permission: Permission) => rolesGranting(t, roles, shown.role_ids, locked, permission);
 
   const groups = PERMISSION_GROUPS.map((g) => ({ key: g.key, permissions: g.permissions.filter((p) => (PERM_BITS[p] & (currentBits | shownBits)) !== 0) }))
     .filter((g) => g.permissions.length > 0);
 
-  const rows = PERMISSION_GROUPS.flatMap((g) => g.permissions).filter((p) => p !== "CREATE_CUSTOM_ROLES" || ((allow | deny | shown.allow | shown.deny) & PERM_BITS[p]) !== 0);
+  const rows = PERMISSION_GROUPS.flatMap((g) => g.permissions).filter((p) => isEditablePermission(p, allow | deny | shown.allow | shown.deny));
   const overrideRows = (showAll ? rows : rows.filter((p) => overrideStateOf(p, allow, deny) !== "inherit" || overrideStateOf(p, shown.allow, shown.deny) !== "inherit"));
 
   const loseKey = saveNeedsConfirm(result) === "memberKeyLoss";
@@ -115,7 +116,7 @@ export function MemberAccessPanel() {
                   <Icon icon={has ? "lucide:check" : "lucide:x"} width={11} />
                   {permissionLabel(t, p)}
                   {changedFrom((currentBits & PERM_BITS[p]) !== 0, has) && (
-                    <span className="text-[10px] text-(--t-accent)">({t("members.viewAs.draftBadge").toLowerCase()})</span>
+                    <span className="text-[10px] text-(--t-accent)">{t("members.viewAs.draftTag")}</span>
                   )}
                 </p>
               );
@@ -130,7 +131,7 @@ export function MemberAccessPanel() {
           teamId={teamId}
           roles={roles}
           roleIds={shown.role_ids}
-          readOnlyReason={readOnlyReason}
+          readOnlyReason={roleReadOnlyReason}
           showOwner
           ownerReason={t("members.viewAs.ownerElsewhere")}
           onToggle={(role) => update({ ...shown, role_ids: shown.role_ids.includes(role.id) ? shown.role_ids.filter((id) => id !== role.id) : [...shown.role_ids, role.id] })}
@@ -138,28 +139,33 @@ export function MemberAccessPanel() {
       </FormSection>
 
       <FormSection label={t("members.permissions.title")}>
-        {readOnlyReason && <p className="text-[10px] text-(--t-text-dim)">{readOnlyReason}</p>}
-        {overrideRows.map((p) => (
-          <PermissionOverrideRow
-            key={p}
-            permission={p}
-            state={overrideStateOf(p, shown.allow, shown.deny)}
-            inheritedFrom={rolesGranting(p)}
-            granted={(memberEffective & PERM_BITS[p]) !== 0}
-            disabled={locked || overrideRowLocked(readOnlyKind, p, offendingBits)}
-            note={draftNote(t, overrideStateOf(p, allow, deny), overrideStateOf(p, shown.allow, shown.deny))}
-            onChange={(next) => update({ ...shown, ...applyOverrideState(p, shown.allow, shown.deny, next) })}
-          />
-        ))}
-        <button
-          type="button"
-          aria-expanded={showAll}
-          onClick={() => setShowAll((v) => !v)}
-          className="flex items-center gap-1 text-[11px] text-(--t-text-secondary)"
-        >
-          <Icon icon={showAll ? "lucide:chevron-down" : "lucide:chevron-right"} width={11} />
-          {t("members.viewAs.access.allPermissions")}
-        </button>
+        <MemberPermissionsLock teamId={teamId} name={name} hasOverrides={(allow | deny) !== 0} />
+        {!lockedEmpty && (
+          <>
+          {readOnlyReason && <p className="text-[10px] text-(--t-text-dim)">{readOnlyReason}</p>}
+          {overrideRows.map((p) => (
+            <PermissionOverrideRow
+              key={p}
+              permission={p}
+              state={overrideStateOf(p, shown.allow, shown.deny)}
+              inheritedFrom={grantingRoles(p)}
+              granted={(memberEffective & PERM_BITS[p]) !== 0}
+              disabled={locked || overrideRowLocked(readOnlyKind, p, offendingBits)}
+              note={draftNote(t, overrideStateOf(p, allow, deny), overrideStateOf(p, shown.allow, shown.deny))}
+              onChange={(next) => update({ ...shown, ...applyOverrideState(p, shown.allow, shown.deny, next) })}
+            />
+          ))}
+          <button
+            type="button"
+            aria-expanded={showAll}
+            onClick={() => setShowAll((v) => !v)}
+            className="flex items-center gap-1 text-[11px] text-(--t-text-secondary)"
+          >
+            <Icon icon={showAll ? "lucide:chevron-down" : "lucide:chevron-right"} width={11} />
+            {t("members.viewAs.access.allPermissions")}
+          </button>
+          </>
+        )}
       </FormSection>
 
       <SaveFailures failures={failures} roles={roles} />

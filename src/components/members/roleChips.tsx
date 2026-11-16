@@ -33,6 +33,12 @@ export function roleLabel(t: TFunction, name: string): string {
   return Object.prototype.hasOwnProperty.call(ROLE_META, name) ? t(`members.roleName.${name}`) : name;
 }
 
+export function rolesGranting(t: TFunction, roles: TeamRole[], roleIds: string[], locked: boolean, permission: Permission): string[] {
+  return roles
+    .filter((r) => (!locked || r.is_builtin) && roleIds.includes(r.id) && (r.permissions & PERM_BITS[permission]) !== 0)
+    .map((r) => roleLabel(t, r.name));
+}
+
 export function ruleSubjectLabel(t: TFunction, s: RuleSubject, roles: TeamRole[], members: TeamMember[]): string {
   if (s.type === "everyone") return t("shared.permissions.everyone");
   if (s.type === "role") return roleLabel(t, roles.find((r) => r.id === s.id)?.name ?? "?");

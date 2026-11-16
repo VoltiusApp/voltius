@@ -628,6 +628,7 @@
       "hiddenFrom": "Oculto para {{name}}",
       "cannotEdit": "A função deste membro não permite editar",
       "draftBadge": "Rascunho",
+      "draftTag": "(rascunho)",
       "draftChange": "Rascunho: {{from}} → {{to}}",
       "ownerElsewhere": "As alterações de proprietário são feitas noutro local",
       "keyLoss": "Ao guardar, {{name}} perde a chave do cofre e a chave é rodada para os restantes membros.",

@@ -3,7 +3,7 @@ import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import type { PreviewResponse } from "@/services/permissionPreview";
 import { PERM_BITS } from "@/services/permissions";
 
-const h = vi.hoisted(() => ({ me: { value: "admin" }, locked: { value: false } }));
+const h = vi.hoisted(() => ({ me: { value: "admin" }, locked: { value: false }, can: { value: ((_p: string) => true) as (p: string) => boolean } }));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string, o?: Record<string, unknown>) => (o ? `${k}:${Object.values(o).join("|")}` : k) }),
@@ -15,7 +15,7 @@ vi.mock("@/hooks/useMyUserId", () => ({ useMyUserId: () => h.me.value }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => ({ locked: h.locked.value, isOwner: true }) }));
 vi.mock("@/hooks/usePermission", async (orig) => ({
   ...(await orig<typeof import("@/hooks/usePermission")>()),
-  useOwnPermissions: () => () => true,
+  useOwnPermissions: () => (p: string) => h.can.value(p),
 }));
 
 import { MemberAccessPanel } from "./MemberAccessPanel";
@@ -48,6 +48,7 @@ const setRoles = vi.fn();
 beforeEach(() => {
   h.me.value = "admin";
   h.locked.value = false;
+  h.can.value = () => true;
   setDraft.mockReset();
   setRoles.mockReset();
   useTeamStore.setState({ membersByTeam: { "team-1": members() }, rolesByTeam: { "team-1": roles }, teams: [] });
@@ -104,4 +105,20 @@ test("failed_save_steps_are_listed", () => {
   usePreviewStore.setState({ saveFailures: [{ step: "addRole", roleId: "r-ed", message: "boom" }] });
   render(<MemberAccessPanel />);
   expect(screen.getByText(/boom/)).toBeTruthy();
+});
+
+test("role_toggles_stay_enabled_when_the_member_override_is_not_held", () => {
+  h.can.value = (p) => p !== "VIEW";
+  useTeamStore.setState({ membersByTeam: { "team-1": [members()[0], makeMember("bob", ["r-mem"], { permission_allow: PERM_BITS.VIEW, permission_deny: 0 })] } });
+  render(<MemberAccessPanel />);
+  expect(screen.getAllByText("members.permissions.readOnlyNotHeld").length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole("button", { name: /editor/ }));
+  expect(setDraft).toHaveBeenCalledWith({ role_ids: ["r-mem", "r-ed"], allow: PERM_BITS.VIEW, deny: 0 });
+});
+
+test("a_business_locked_member_shows_the_lock_line_instead_of_greyed_rows", () => {
+  h.locked.value = true;
+  render(<MemberAccessPanel />);
+  expect(screen.getByText(/shared\.businessLock\.memberLine/)).toBeTruthy();
+  expect(screen.queryAllByRole("radio")).toHaveLength(0);
 });

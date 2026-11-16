@@ -609,6 +609,7 @@
       "hiddenFrom": "{{name}} için gizli",
       "cannotEdit": "Bu üyenin rolü düzenlemeye izin vermiyor",
       "draftBadge": "Taslak",
+      "draftTag": "(taslak)",
       "draftChange": "Taslak: {{from}} → {{to}}",
       "ownerElsewhere": "Sahip değişiklikleri başka yerde yapılır",
       "keyLoss": "Kaydedildiğinde {{name}} kasa anahtarını kaybeder ve anahtar diğer üyeler için yenilenir.",

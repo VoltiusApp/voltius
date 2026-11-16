@@ -605,6 +605,7 @@
       "hiddenFrom": "Hidden from {{name}}",
       "cannotEdit": "This member's role does not allow editing",
       "draftBadge": "Draft",
+      "draftTag": "(draft)",
       "draftChange": "Draft: {{from}} → {{to}}",
       "ownerElsewhere": "Owner changes are made elsewhere",
       "keyLoss": "On save, {{name}} loses the vault key and the key is rotated for the other members.",

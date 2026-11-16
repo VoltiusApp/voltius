@@ -7,27 +7,8 @@ import { usePreviewStore, saveNeedsConfirm } from "@/stores/previewStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSubjectLabel } from "@/components/preview/PreviewScope";
 import { memberLabel } from "@/services/memberLabel";
-import type { PreviewDraft } from "@/services/permissionPreview";
+import { unsavedChangeCount } from "@/services/viewAsSave";
 import type { TeamMember, TeamRole } from "@/services/teamService";
-
-const popcount = (n: number): number => {
-  let count = 0;
-  for (let v = n >>> 0; v; v &= v - 1) count++;
-  return count;
-};
-
-const symmetricDifference = (a: string[], b: string[]): number =>
-  a.filter((id) => !b.includes(id)).length + b.filter((id) => !a.includes(id)).length;
-
-export function unsavedChangeCount(draft: PreviewDraft, current: TeamMember | TeamRole | undefined): number {
-  if (!current) return 0;
-  if ("permissions" in draft) return popcount(draft.permissions ^ (current as TeamRole).permissions);
-  const member = current as TeamMember;
-  const allow = member.permission_allow ?? 0;
-  const deny = member.permission_deny ?? 0;
-  return symmetricDifference(draft.role_ids, member.role_ids)
-    + popcount((draft.allow ^ allow) | (draft.deny ^ deny));
-}
 
 function useSubjectRecord(): TeamMember | TeamRole | undefined {
   const session = usePreviewStore((s) => s.session);

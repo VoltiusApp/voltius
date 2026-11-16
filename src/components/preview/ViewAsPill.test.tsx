@@ -5,7 +5,8 @@ import { usePreviewStore } from "@/stores/previewStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { makeMember, makeRole } from "@/test/team";
 import { PREVIEW_SESSION, startPreview, stopPreview } from "@/test/preview";
-import { ViewAsPill, unsavedChangeCount } from "./ViewAsPill";
+import { ViewAsPill } from "./ViewAsPill";
+import { unsavedChangeCount } from "@/services/viewAsSave";
 
 vi.mock("react-i18next", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react-i18next")>()),

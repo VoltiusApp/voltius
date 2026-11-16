@@ -118,7 +118,7 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
 
   setDraft: (draft) => {
     if (!get().session) return;
-    set({ draft });
+    set({ draft, saveError: null, saveFailures: [] });
     clearTimeout(draftTimer);
     draftTimer = setTimeout(() => void get().refetch(), DRAFT_DEBOUNCE_MS);
   },
@@ -185,7 +185,7 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
     try {
       const total = memberDraftStepCount(teamId, member, draft);
       const { failed } = await saveMemberDraft(teamId, member, draft);
-      await useTeamStore.getState().loadMembers(teamId);
+      await useTeamStore.getState().loadMembers(teamId).catch(() => {});
       if (get().session !== session) return;
       if (failed.length === 0) set({ draft: null });
       else {

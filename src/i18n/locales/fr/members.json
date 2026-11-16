@@ -624,6 +624,7 @@
       "hiddenFrom": "Masqué pour {{name}}",
       "cannotEdit": "Le rôle de ce membre ne permet pas la modification",
       "draftBadge": "Brouillon",
+      "draftTag": "(brouillon)",
       "draftChange": "Brouillon : {{from}} → {{to}}",
       "ownerElsewhere": "Les changements de propriétaire se font ailleurs",
       "keyLoss": "À l'enregistrement, {{name}} perd la clé du coffre et la clé est renouvelée pour les autres membres.",

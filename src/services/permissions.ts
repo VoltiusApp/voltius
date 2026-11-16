@@ -296,6 +296,15 @@ export function resolveMemberReadOnlyReason(params: {
   return null;
 }
 
+export function roleChangeBlock(canManageMembers: boolean, isMe: boolean): "noManage" | "self" | null {
+  if (!canManageMembers) return "noManage";
+  return isMe ? "self" : null;
+}
+
+/** CREATE_CUSTOM_ROLES is retired but stays editable while set, so a row can still clear it. */
+export const isEditablePermission = (permission: Permission, setBits: number): boolean =>
+  permission !== "CREATE_CUSTOM_ROLES" || (setBits & PERM_BITS.CREATE_CUSTOM_ROLES) !== 0;
+
 /** A whole-mask notHeld lock still lets the admin clear the very bit that caused it. */
 export function overrideRowLocked(reason: MemberReadOnlyReason | null, permission: Permission, offendingBits: number): boolean {
   return reason !== null && (reason !== "notHeld" || (PERM_BITS[permission] & offendingBits) === 0);

@@ -7,11 +7,11 @@ import { useHistoryStore, type HistoryEntry } from "@/stores/historyStore";
 import { PanelShell, PanelHeader, FormSection } from "@/components/shared/Panel";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { RoleModal } from "@/components/members/panels/RolesPanel";
-import { READONLY_REASON_KEYS, permissionLabel, roleLabel } from "@/components/members/roleChips";
+import { READONLY_REASON_KEYS, permissionLabel, roleLabel, rolesGranting } from "@/components/members/roleChips";
 import { MemberRoleChips } from "@/components/members/panels/MemberRoleChips";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { useAutosave } from "@/hooks/useAutosave";
-import { BusinessLapseNotice, BusinessLockLine } from "@/components/shared/BusinessLockBanner";
+import { MemberPermissionsLock } from "@/components/shared/BusinessLockBanner";
 import { RoleBadges } from "@/components/members/roleBadges";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
@@ -20,7 +20,7 @@ import { isOwnerRole } from "@/components/vault-share/vaultShareModel";
 import type { DepartMode } from "@/services/teamOffboarding";
 import {
   PERM_BITS, PERM_META, PERMISSION_GROUPS, effectivePermissions, dropsConnectSource,
-  resolveMemberReadOnlyReason, overrideRowLocked, type Permission,
+  resolveMemberReadOnlyReason, overrideRowLocked, roleChangeBlock, isEditablePermission, type Permission,
 } from "@/services/permissions";
 import { rotateTeamKeyNow } from "@/services/vaultKeyActions";
 import { losesVaultKey, type MemberDraft } from "@/services/permissionPreview";
@@ -103,7 +103,7 @@ export function MemberDetailPanel({
 
   const ownershipCtx = useOwnershipContext(teamId, viewer, teamRoles);
   const ownership = memberOwnership(ownershipCtx, { userId: member.user_id, isMe, isOwner: isTargetOwner });
-  const canChangeRoles = canManageMembers && !isMe;
+  const canChangeRoles = roleChangeBlock(canManageMembers, isMe) === null;
   const canRemove = canManageMembers && !ownership.protectedFromViewer && !isMe;
   const canLeave = ownership.canLeave;
 
@@ -208,8 +208,7 @@ export function MemberDetailPanel({
 
   // Retired, but shown when set: otherwise no row can clear it as an offending bit.
   const editablePermissions = (Object.keys(PERM_META) as Permission[])
-    .filter((p) => p !== "CREATE_CUSTOM_ROLES"
-      || ((allow | deny) & PERM_BITS.CREATE_CUSTOM_ROLES) !== 0);
+    .filter((p) => isEditablePermission(p, allow | deny));
 
   const matchesFilter = searchMatcher(permissionFilter);
   const filteredGroups = PERMISSION_GROUPS
@@ -220,10 +219,7 @@ export function MemberDetailPanel({
     }))
     .filter((g) => g.permissions.length > 0);
 
-  const rolesGranting = (permission: Permission) =>
-    teamRoles
-      .filter((r) => (!locked || r.is_builtin) && member.role_ids.includes(r.id) && (r.permissions & PERM_BITS[permission]) !== 0)
-      .map((r) => roleLabel(t, r.name));
+  const grantingRoles = (permission: Permission) => rolesGranting(t, teamRoles, member.role_ids, locked, permission);
 
   const offendingBits = allow & ~viewerEffective;
 
@@ -379,16 +375,14 @@ export function MemberDetailPanel({
         {/* Permissions */}
         {serverSupportsOverrides && (
         <FormSection label={t("members.permissions.title")}>
-          {locked && (allow | deny) === 0 ? (
-            <BusinessLockLine teamId={teamId} label={t("shared.businessLock.memberLine")} />
-          ) : (
+          <MemberPermissionsLock
+            teamId={teamId}
+            name={memberLabel(member)}
+            hasOverrides={(allow | deny) !== 0}
+            onRemove={(allow | deny) !== 0 && readOnlyReasonKind === null ? clearOverrides : undefined}
+          />
+          {!(locked && (allow | deny) === 0) && (
             <>
-            <BusinessLapseNotice
-              teamId={teamId}
-              message={t("shared.businessLock.memberLapsed", { name: memberLabel(member) })}
-              removeLabel={t("shared.businessLock.removeOverrides")}
-              onRemove={(allow | deny) !== 0 && readOnlyReasonKind === null ? clearOverrides : undefined}
-            />
             {readOnlyReason && (
               <p className="text-[10px] text-(--t-text-dim) mb-1">{readOnlyReason}</p>
             )}
@@ -424,7 +418,7 @@ export function MemberDetailPanel({
                         key={permission}
                         permission={permission}
                         state={overrideStateOf(permission, allow, deny)}
-                        inheritedFrom={rolesGranting(permission)}
+                        inheritedFrom={grantingRoles(permission)}
                         granted={(memberEffective & PERM_BITS[permission]) !== 0}
                         disabled={rowDisabled(permission)}
                         onChange={(next) => void handleOverride(permission, next)}

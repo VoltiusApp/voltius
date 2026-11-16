@@ -77,6 +77,22 @@ export function BusinessLockLine({ teamId, label, compact = false }: { teamId: s
   );
 }
 
+export function MemberPermissionsLock({ teamId, name, hasOverrides, onRemove }: {
+  teamId: string; name: string; hasOverrides: boolean; onRemove?: () => unknown;
+}) {
+  const { t } = useTranslation();
+  const { locked } = useBusinessLock(teamId);
+  if (locked && !hasOverrides) return <BusinessLockLine teamId={teamId} label={t("shared.businessLock.memberLine")} />;
+  return (
+    <BusinessLapseNotice
+      teamId={teamId}
+      message={t("shared.businessLock.memberLapsed", { name })}
+      removeLabel={t("shared.businessLock.removeOverrides")}
+      onRemove={onRemove}
+    />
+  );
+}
+
 export function BusinessLockCard({ teamId, body }: { teamId: string; body: string }) {
   const { t } = useTranslation();
   return (

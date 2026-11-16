@@ -647,6 +647,7 @@
       "hiddenFrom": "Skryto před {{name}}",
       "cannotEdit": "Role tohoto člena úpravy nepovoluje",
       "draftBadge": "Koncept",
+      "draftTag": "(koncept)",
       "draftChange": "Koncept: {{from}} → {{to}}",
       "ownerElsewhere": "Změny vlastníka se provádějí jinde",
       "keyLoss": "Po uložení {{name}} ztratí klíč trezoru a klíč se pro ostatní členy obnoví.",

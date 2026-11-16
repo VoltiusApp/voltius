@@ -74,6 +74,7 @@ test("a_failed_step_keeps_the_draft_and_reports_it", async () => {
   const draft = { role_ids: ["r1", "r2"], allow: 3, deny: 0 };
   usePreviewStore.getState().enter(PREVIEW_SESSION);
   await flush();
+  await vi.waitFor(() => expect(usePreviewStore.getState().status).toBe("ready"));
   usePreviewStore.setState({ draft });
 
   await usePreviewStore.getState().save();
@@ -86,6 +87,8 @@ test("a_failed_step_keeps_the_draft_and_reports_it", async () => {
   expect(state.saveFailures).toEqual([{ step: "addRole", roleId: "r2", message: "boom" }]);
   expect(state.saving).toBe(false);
   expect(h.calls).toEqual(["overrides"]);
+  expect(actions.loadMembers).toHaveBeenCalledWith("team-1");
+  expect(h.preview).toHaveBeenCalledTimes(2);
 });
 
 test("a_clean_save_reloads_members_and_clears_the_draft", async () => {
@@ -111,4 +114,25 @@ test("the_rotation_after_a_confirmed_save_is_not_refused_while_previewing", asyn
   expect(h.rotate).toHaveBeenCalledWith("team-1");
   expect(h.rotate).toHaveResolved();
   expect(() => assertNotPreviewing()).toThrow();
+});
+
+test("a_members_reload_failure_after_clean_steps_still_clears_the_draft_and_refetches", async () => {
+  actions.loadMembers.mockRejectedValue(new Error("offline"));
+  usePreviewStore.getState().enter(PREVIEW_SESSION);
+  await vi.waitFor(() => expect(usePreviewStore.getState().status).toBe("ready"));
+  usePreviewStore.setState({ draft: { role_ids: ["r1"], allow: 3, deny: 0 } });
+  h.preview.mockClear();
+
+  await usePreviewStore.getState().save();
+
+  expect(usePreviewStore.getState().draft).toBeNull();
+  expect(h.preview).toHaveBeenCalledTimes(1);
+});
+
+test("editing_the_draft_clears_the_previous_save_failures", async () => {
+  usePreviewStore.getState().enter(PREVIEW_SESSION);
+  usePreviewStore.setState({ saveError: "x", saveFailures: [{ step: "overrides", message: "m" }] });
+  usePreviewStore.getState().setDraft({ role_ids: ["r1"], allow: 0, deny: 0 });
+  expect(usePreviewStore.getState().saveError).toBeNull();
+  expect(usePreviewStore.getState().saveFailures).toEqual([]);
 });
