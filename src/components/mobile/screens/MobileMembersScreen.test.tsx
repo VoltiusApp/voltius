@@ -16,6 +16,11 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+} as unknown as typeof ResizeObserver;
 vi.mock("@/components/members/useMembersModel", async (orig) => ({
   ...(await orig<typeof import("@/components/members/useMembersModel")>()),
   useMembersModel: () => h.model,
@@ -89,7 +94,29 @@ describe("MobileMembersScreen", () => {
     expect(ids("members")).toEqual(["ana", "boss"]);
     expect(q(container, "[data-members-section='pending'] [data-mobile-invite='inv1']")).not.toBeNull();
     expect(q(container, "[data-vt-hit-scope] [data-test-join-requests]")).not.toBeNull();
-    expect(q(container, "[data-mobile-member='me']")!.textContent).toContain("members.youBadge");
+    expect(q(container, "[data-mobile-member='me']")!.textContent).not.toContain("members.youBadge");
+  });
+
+  test("member_row_puts_the_handle_on_the_title_line_and_keeps_roles_on_one_line", async () => {
+    const named = makeMember("ana", ["r-member", "r-editor", "r-a", "r-b"], { handle: "ana-h", member_name: "Ana", permission_allow: 1 });
+    const extra = [makeRole("r-a", 0, { name: "Auditor" }), makeRole("r-b", 0, { name: "Deployer" })];
+    h.model = makeModel({ members: [ME, named], roles: [MEMBER, EDITOR, ...extra], visible: () => [ME, named] });
+    const width = vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(50);
+    const client = vi.spyOn(Element.prototype, "clientWidth", "get").mockReturnValue(170);
+    try {
+      const { container } = render(<MobileMembersScreen vaultId="t1" />);
+      const row = q(container, "[data-mobile-member='ana'] button")!;
+      const [title, subtitle] = [...row.querySelectorAll(":scope > span.flex-col > span")];
+      expect(title.textContent).toBe("Ana@ana-h");
+      expect(subtitle.textContent).not.toContain("@ana-h");
+      expect(subtitle.querySelector(".flex-wrap")).toBeNull();
+      expect(subtitle.querySelector(".whitespace-nowrap.overflow-hidden")).not.toBeNull();
+      await waitFor(() => expect(q(container, "[data-mobile-member='ana'] [data-overflow-more]")?.textContent).toBe("+3"));
+      expect(subtitle.querySelector("[data-testid='override-marker']")).not.toBeNull();
+    } finally {
+      width.mockRestore();
+      client.mockRestore();
+    }
   });
 
   test("tap_pushes_the_member_screen", () => {

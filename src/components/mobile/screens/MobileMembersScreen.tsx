@@ -90,7 +90,7 @@ export default function MobileMembersScreen({ vaultId }: { vaultId: string | nul
   ];
 
   const memberRow = (m: TeamMember) => (
-    <MemberRow key={m.user_id} member={m} roles={roles} isMe={m.user_id === myUserId}
+    <MemberRow key={m.user_id} member={m} roles={roles}
       selecting={selecting} selected={selIds.includes(m.user_id)} selectDisabledReason={selectReason(m)}
       onTap={() => (selecting ? toggle(m) : push({ kind: "member", teamId, userId: m.user_id }))}
       onLong={() => toggle(m)} />

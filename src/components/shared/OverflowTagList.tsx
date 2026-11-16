@@ -1,25 +1,33 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { TagBadge } from "@/components/shared/TagBadge";
 import { calculateVisibleTagCount } from "@/utils/tagOverflow";
 
-interface OverflowTagListProps {
-  tags: string[];
+export interface OverflowItem {
+  key: string;
+  label: string;
+  node: ReactNode;
+}
+
+interface OverflowListProps {
+  items: OverflowItem[];
   className?: string;
-  badgeClassName?: string;
+  moreClassName?: string;
+  trailing?: ReactNode;
   maxWidth?: number;
 }
 
 const GAP_WIDTH = 4;
 
-export function OverflowTagList({ tags, className = "", badgeClassName = "", maxWidth }: OverflowTagListProps) {
+export function OverflowList({
+  items, className = "", moreClassName = "shrink-0 text-xs text-(--t-text-dim)", trailing, maxWidth,
+}: OverflowListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const tagRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const itemRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const moreRef = useRef<HTMLSpanElement>(null);
-  const [visibleCount, setVisibleCount] = useState(tags.length);
-  const hiddenTags = tags.slice(visibleCount);
-  const tagsKey = tags.join("\u0000");
-
-  const hiddenTitle = useMemo(() => hiddenTags.join(", "), [hiddenTags]);
+  const trailingRef = useRef<HTMLSpanElement>(null);
+  const [visibleCount, setVisibleCount] = useState(items.length);
+  const hidden = items.slice(visibleCount);
+  const itemsKey = items.map((i) => i.key).join("\u0000");
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -31,25 +39,24 @@ export function OverflowTagList({ tags, className = "", badgeClassName = "", max
     const measure = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        const tagWidths = tags.map((_, index) => tagRefs.current[index]?.offsetWidth ?? 0);
+        const tagWidths = itemRefs.current.slice(0, items.length).map((node) => node?.offsetWidth ?? 0);
         const moreWidth = moreRef.current?.offsetWidth ?? 0;
 
         if (tagWidths.some((width) => width === 0) || moreWidth === 0) {
           return;
         }
 
-        const containerWidth = maxWidth !== undefined
+        const trailingWidth = trailingRef.current?.offsetWidth ?? 0;
+        const available = maxWidth !== undefined
           ? Math.min(container.clientWidth, maxWidth)
           : container.clientWidth;
 
-        const nextVisibleCount = calculateVisibleTagCount({
-          containerWidth,
+        setVisibleCount(calculateVisibleTagCount({
+          containerWidth: available - (trailingWidth > 0 ? trailingWidth + GAP_WIDTH : 0),
           tagWidths,
           moreWidth,
           gapWidth: GAP_WIDTH,
-        });
-
-        setVisibleCount(nextVisibleCount);
+        }));
       });
     };
 
@@ -62,33 +69,53 @@ export function OverflowTagList({ tags, className = "", badgeClassName = "", max
       cancelAnimationFrame(frame);
       resizeObserver.disconnect();
     };
-  }, [tags, tagsKey, maxWidth]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsKey, maxWidth]);
 
-  if (tags.length === 0) {
+  if (items.length === 0) {
     return null;
   }
 
   return (
     <div ref={containerRef} className={`relative min-w-0 overflow-hidden ${className}`}>
       <div className="flex items-center gap-1 overflow-hidden whitespace-nowrap">
-        {tags.slice(0, visibleCount).map((tag) => <TagBadge key={tag} tag={tag} className={badgeClassName} />)}
-        {hiddenTags.length > 0 && (
-          <span title={hiddenTitle} className="shrink-0 text-xs text-(--t-text-dim)">
-            +{hiddenTags.length}
+        {items.slice(0, visibleCount).map((item) => <Fragment key={item.key}>{item.node}</Fragment>)}
+        {hidden.length > 0 && (
+          <span data-overflow-more title={hidden.map((i) => i.label).join(", ")} className={moreClassName}>
+            +{hidden.length}
           </span>
         )}
+        {trailing}
       </div>
 
       <div className="pointer-events-none invisible absolute left-0 top-0 flex items-center gap-1 whitespace-nowrap" aria-hidden="true">
-        {tags.map((tag, index) => (
-          <span key={`${tag}-${index}`} ref={(node) => { tagRefs.current[index] = node; }} className="inline-flex">
-            <TagBadge tag={tag} className={badgeClassName} />
+        {items.map((item, index) => (
+          <span key={item.key} ref={(node) => { itemRefs.current[index] = node; }} className="inline-flex">
+            {item.node}
           </span>
         ))}
-        <span ref={moreRef} className="shrink-0 text-xs text-(--t-text-dim)">
-          +{tags.length}
+        <span ref={moreRef} className={moreClassName}>
+          +{items.length}
         </span>
+        <span ref={trailingRef} className="inline-flex">{trailing}</span>
       </div>
     </div>
+  );
+}
+
+interface OverflowTagListProps {
+  tags: string[];
+  className?: string;
+  badgeClassName?: string;
+  maxWidth?: number;
+}
+
+export function OverflowTagList({ tags, className, badgeClassName = "", maxWidth }: OverflowTagListProps) {
+  return (
+    <OverflowList
+      items={tags.map((tag) => ({ key: tag, label: tag, node: <TagBadge tag={tag} className={badgeClassName} /> }))}
+      className={className}
+      maxWidth={maxWidth}
+    />
   );
 }

@@ -4,16 +4,32 @@ import { useTranslation } from "react-i18next";
 import type { TeamMember, TeamRole } from "@/stores/teamStore";
 import type { PendingInvitation } from "@/services/teamService";
 import { MiniAvatar } from "@/components/shared/AvatarStack";
-import { MemberAvatar, YouBadge } from "@/components/members/cards/MemberCard";
+import { MemberAvatar } from "@/components/members/cards/MemberCard";
 import { inviteExpiry } from "@/components/members/cards/PendingInviteCard";
-import { RoleBadges } from "@/components/members/roleBadges";
+import { OverrideMarker, RoleBadges, RoleChip, sortedMemberRoles } from "@/components/members/roleBadges";
+import { roleLabel } from "@/components/members/roleChips";
+import { OverflowList } from "@/components/shared/OverflowTagList";
 import { inviteLabel, memberLabel, secondaryHandle } from "@/services/memberLabel";
 import MobileListRow from "../../MobileListRow";
 
-export function MemberRow({ member, roles, isMe, selecting, selected, selectDisabledReason, onTap, onLong }: {
+const MORE_CHIP = "shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full bg-(--t-bg-elevated) text-(--t-text-dim)";
+
+function RoleChipStrip({ member, roles }: { member: TeamMember; roles: TeamRole[] }) {
+  const { t } = useTranslation();
+  const list = sortedMemberRoles(member, roles);
+  if (list.length === 0) return <RoleBadges member={member} roles={roles} />;
+  return (
+    <OverflowList
+      items={list.map((r) => ({ key: r.id, label: roleLabel(t, r.name), node: <RoleChip role={r} /> }))}
+      moreClassName={MORE_CHIP}
+      trailing={<OverrideMarker member={member} />}
+    />
+  );
+}
+
+export function MemberRow({ member, roles, selecting, selected, selectDisabledReason, onTap, onLong }: {
   member: TeamMember;
   roles: TeamRole[];
-  isMe: boolean;
   selecting: boolean;
   selected: boolean;
   selectDisabledReason: string | null;
@@ -26,14 +42,13 @@ export function MemberRow({ member, roles, isMe, selecting, selected, selectDisa
       attr="mobile-member"
       id={member.user_id}
       leading={<MemberAvatar member={member} size={40} />}
-      title={memberLabel(member)}
-      subtitle={
-        <span className="flex items-center gap-1.5 min-w-0">
-          {handle && <span className="truncate">{handle}</span>}
-          <RoleBadges member={member} roles={roles} />
-        </span>
+      title={
+        <>
+          <span className="truncate">{memberLabel(member)}</span>
+          {handle && <span className="min-w-0 shrink-[3] truncate text-sm font-normal text-(--t-text-dim)">{handle}</span>}
+        </>
       }
-      trailing={isMe && <YouBadge />}
+      subtitle={<RoleChipStrip member={member} roles={roles} />}
       selecting={selecting}
       selected={selected}
       selectDisabledReason={selectDisabledReason}
