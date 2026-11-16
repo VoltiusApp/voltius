@@ -88,7 +88,7 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
     ...(canEdit && otherVaults.length > 0 ? [{ icon: "lucide:folder-input", label: t("mobile.sheets.shared.moveToVault"), slug: "move", onTap: () => setMode("move") }] : []),
     ...(otherVaults.length > 0 ? [{ icon: "lucide:copy", label: t("mobile.sheets.shared.copyToVault"), slug: "copy", onTap: () => setMode("copy") }] : []),
     ...(canEdit ? [{ icon: "lucide:trash-2", label: t("common.action.delete"), slug: "delete", danger: true, onTap: () => setMode("confirm-delete") }] : []),
-  ], ruleTarget(rule.id));
+  ], ruleTarget(rule.id), onClose);
 
   return (
     <BottomSheet title={rule.name} onClose={onClose}>

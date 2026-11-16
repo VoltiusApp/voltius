@@ -94,7 +94,7 @@ export default function MobileSnippetActionsSheet({ snippetId }: { snippetId: st
       { icon: "lucide:folder-tree", label: t("mobile.sheets.shared.moveToFolder"), slug: "move-to-folder", onTap: () => setMode("move-folder") },
       { icon: "lucide:trash-2", label: t("common.action.delete"), danger: true, slug: "delete", onTap: () => setMode("confirm-delete") },
     ] : []),
-  ], snippetTarget(snippetId));
+  ], snippetTarget(snippetId), closeSheet);
 
   return (
     <BottomSheet title={snippet.name} onClose={closeSheet}>

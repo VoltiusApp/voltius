@@ -104,7 +104,7 @@ export default function KeychainItemActionsSheet(props: Props) {
       { icon: "lucide:folder-tree", label: t("mobile.sheets.shared.moveToFolder"), slug: "move-folder", onTap: () => setMode("move-folder") },
       { icon: "lucide:trash-2", label: t("common.action.delete"), danger: true, slug: "delete", onTap: () => setMode("confirm-delete") },
     ] : []),
-  ], (kind === "key" ? keyTarget : identityTarget)(item.id));
+  ], (kind === "key" ? keyTarget : identityTarget)(item.id), onClose);
 
   return (
     <BottomSheet title={name} onClose={onClose}>

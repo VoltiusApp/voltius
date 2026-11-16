@@ -104,22 +104,23 @@ const actionsOf = (attr: string, target: PreviewTarget | undefined): [string, ()
 
 const noStoreWrites = () => { for (const [name, fn] of Object.entries(store)) expect(fn, name).not.toHaveBeenCalled(); };
 
+const onClose = vi.fn();
 const sheets: [string, () => React.ReactElement, string, PreviewTarget | undefined, string[]][] = [
   ["host", () => <HostActionsSheet hostId="c1" />, "host-action", { type: "connection", objectId: "c1" },
     ["connect", "edit", "sftp", "duplicate", "move-to-folder", "pin", "move-to-vault", "disable-cloud-sync", "disable-reachability-check", "delete"]],
-  ["key", () => <KeychainItemActionsSheet kind="key" item={key as never} onClose={() => {}} />, "keychain-action", { type: "key", objectId: "k1" },
+  ["key", () => <KeychainItemActionsSheet kind="key" item={key as never} onClose={onClose} />, "keychain-action", { type: "key", objectId: "k1" },
     ["edit", "move-folder", "delete"]],
-  ["identity", () => <KeychainItemActionsSheet kind="identity" item={identity as never} onClose={() => {}} />, "keychain-action", { type: "identity", objectId: "i1" },
+  ["identity", () => <KeychainItemActionsSheet kind="identity" item={identity as never} onClose={onClose} />, "keychain-action", { type: "identity", objectId: "i1" },
     ["edit", "move-folder", "delete"]],
   ["snippet", () => <MobileSnippetActionsSheet snippetId="s1" />, "snippet-action", { type: "snippet", objectId: "s1" },
     ["edit", "duplicate", "pin", "move-to-vault", "copy-to-vault", "move-to-folder", "delete"]],
-  ["rule", () => <RuleActionsSheet rule={rule as never} onEdit={vi.fn()} onClose={() => {}} />, "rule-action", { type: "port_forwarding_rule", objectId: "r1" },
+  ["rule", () => <RuleActionsSheet rule={rule as never} onEdit={vi.fn()} onClose={onClose} />, "rule-action", { type: "port_forwarding_rule", objectId: "r1" },
     ["edit", "move-folder", "move", "copy", "delete"]],
-  ["folder", () => <FolderActionsSheet folder={folder("connection") as never} onSave={vi.fn()} onDelete={vi.fn()} onClose={() => {}} />, "folder-action", { type: "folder", objectId: "f1" },
+  ["folder", () => <FolderActionsSheet folder={folder("connection") as never} onSave={vi.fn()} onDelete={vi.fn()} onClose={onClose} />, "folder-action", { type: "folder", objectId: "f1" },
     ["rename", "delete"]],
-  ["snippet folder", () => <FolderActionsSheet folder={folder("snippet") as never} onSave={vi.fn()} onDelete={vi.fn()} onClose={() => {}} />, "folder-action", { type: "snippet_folder", objectId: "f1" },
+  ["snippet folder", () => <FolderActionsSheet folder={folder("snippet") as never} onSave={vi.fn()} onDelete={vi.fn()} onClose={onClose} />, "folder-action", { type: "snippet_folder", objectId: "f1" },
     ["rename", "delete"]],
-  ["known host", () => <KnownHostActionsSheet host={knownHost as never} onClose={() => {}} />, "knownhost-action", undefined,
+  ["known host", () => <KnownHostActionsSheet host={knownHost as never} onClose={onClose} />, "knownhost-action", undefined,
     ["move-to-vault", "copy-to-vault", "delete"]],
 ];
 
@@ -131,6 +132,15 @@ test.each(sheets)("sheet_mutations_are_refused_before_the_store (%s)", async (_n
   noStoreWrites();
   expect(useMobileNavStore.getState().stack).toEqual([]);
   if (!target) await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("info", "members.viewAs.readOnly"));
+});
+
+test.each(sheets)("a_refused_action_closes_its_sheet (%s)", async (_n, sheet, attr, target) => {
+  useMobileNavStore.setState({ sheet: { kind: "host-actions", hostId: "c1" } });
+  render(sheet());
+  explainable(...(target ? [target.objectId] : []));
+  const [[, tap]] = actionsOf(attr, target);
+  await act(async () => { await tap(); });
+  expect(onClose.mock.calls.length + (useMobileNavStore.getState().sheet === null ? 1 : 0)).toBe(1);
 });
 
 test("reads_stay_allowed_while_previewing", () => {

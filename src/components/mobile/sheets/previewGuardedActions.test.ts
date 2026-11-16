@@ -14,7 +14,8 @@ test("guarded_actions_refuse_and_reads_pass_through", () => {
   const read = action({ reads: true });
   const disabled = action({ disabled: true });
   const reasoned = action({ disabledReason: "why" });
-  const [w, r, d, dr] = previewGuarded([write, read, disabled, reasoned], { type: "connection", objectId: "c1" });
+  const close = vi.fn();
+  const [w, r, d, dr] = previewGuarded([write, read, disabled, reasoned], { type: "connection", objectId: "c1" }, close);
   expect(r).toBe(read);
   expect(d).toBe(disabled);
   expect(dr).toBe(reasoned);
@@ -25,11 +26,14 @@ test("guarded_actions_refuse_and_reads_pass_through", () => {
   r.onTap();
   expect(write.onTap).not.toHaveBeenCalled();
   expect(read.onTap).toHaveBeenCalledTimes(1);
+  expect(close).toHaveBeenCalledTimes(1);
   expect(usePreviewStore.getState().side).toEqual({ kind: "why", type: "connection", objectId: "c1" });
 });
 
 test("outside_a_preview_a_guarded_action_runs", () => {
   const write = action();
-  previewGuarded([write], undefined)[0].onTap();
+  const close = vi.fn();
+  previewGuarded([write], undefined, close)[0].onTap();
   expect(write.onTap).toHaveBeenCalledTimes(1);
+  expect(close).not.toHaveBeenCalled();
 });

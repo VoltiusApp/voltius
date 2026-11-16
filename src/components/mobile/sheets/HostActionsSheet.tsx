@@ -121,7 +121,7 @@ export default function HostActionsSheet({ hostId, fromEditor = false }: { hostI
         void updateConnection(hostId, { ...connectionToFormData(conn), ping_disabled: !conn.ping_disabled });
       } }] : []),
     ...(canEdit ? [{ icon: "lucide:trash-2", label: t("common.action.delete"), danger: true, slug: "delete", onTap: () => setMode("confirm-delete") }] : []),
-  ], connectionTarget(hostId));
+  ], connectionTarget(hostId), closeSheet);
 
   return (
     <BottomSheet title={name} onClose={closeSheet}>

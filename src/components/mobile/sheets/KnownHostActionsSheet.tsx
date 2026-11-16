@@ -75,7 +75,7 @@ export default function KnownHostActionsSheet({ host, onClose }: { host: KnownHo
     ...(otherVaults.length > 0 ? [{ icon: "lucide:folder-input", label: t("mobile.sheets.shared.moveToVault"), slug: "move-to-vault", onTap: () => setMode("move") }] : []),
     ...(otherVaults.length > 0 ? [{ icon: "lucide:copy", label: t("mobile.sheets.shared.copyToVault"), slug: "copy-to-vault", onTap: () => setMode("copy") }] : []),
     { icon: "lucide:trash-2", label: t("common.action.delete"), danger: true, slug: "delete", onTap: () => setMode("confirm-delete") },
-  ], undefined);
+  ], undefined, onClose);
 
   return (
     <BottomSheet title={displayName} onClose={onClose}>

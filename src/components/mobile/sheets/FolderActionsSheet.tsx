@@ -53,7 +53,7 @@ export default function FolderActionsSheet({
   const items = previewGuarded([
     { slug: "rename", icon: "lucide:pencil", label: t("common.action.edit"), onTap: () => setMode("edit") },
     { slug: "delete", icon: "lucide:trash-2", label: t("common.action.delete"), danger: true, onTap: () => setMode("confirm-delete") },
-  ], targetOf(folderAccessType(folder))(folder.id));
+  ], targetOf(folderAccessType(folder))(folder.id), onClose);
 
   return (
     <BottomSheet title={folder.name} onClose={onClose}>
