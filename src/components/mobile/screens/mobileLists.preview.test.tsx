@@ -5,7 +5,7 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string, o?: { name?: string }) => (o?.name ? `${k}:${o.name}` : k) }),
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
-vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("@iconify/react", () => ({ Icon: ({ icon }: { icon: string }) => <i data-icon={icon} /> }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("../MobileRemoteDeviceSessions", () => ({ default: () => null }));
 vi.mock("../MobileHeader", () => ({ MobileLargeTopBar: () => null, MobileLargeTitle: () => null, APPBAR_TONAL: "" }));
@@ -130,6 +130,19 @@ test("hidden_rule_is_a_ghost_and_opens_why", async () => {
   const view = inScope(<MobilePortForwardingScreen />);
   await expectGhostOpensWhy(view, "r-hidden", "port_forwarding_rule", "r-hidden");
   expect(view.container.querySelectorAll("[data-pf-rule]")).toHaveLength(1);
+});
+
+test("keychain_ghosts_name_and_icon_like_their_rows", async () => {
+  useKeyStore.setState({ teamKeys: { t1: [{ id: "k-noname", tags: [], created_at: "2026-01-01T00:00:00Z", vault_id: "t1" }] as never } });
+  useIdentityStore.setState({ teamIdentities: { t1: [{ id: "i-hidden", username: "deploy", tags: [], vault_id: "t1" }] as never } });
+  usePreviewStore.setState({ result: preview({ "k-noname": 0, "i-hidden": 0 }) });
+  const view = inScope(<MobileKeychainScreen />);
+  await act(async () => {});
+  const [keyGhost, identityGhost] = view.container.querySelectorAll("[data-ghost-card]");
+  expect(keyGhost.textContent).toContain("mobile.sheets.keychainActions.unnamedKey");
+  expect(keyGhost.querySelector('[data-icon="lucide:key-round"]')).not.toBeNull();
+  expect(identityGhost.textContent).toContain("deploy");
+  expect(identityGhost.querySelector('[data-icon="lucide:user"]')).not.toBeNull();
 });
 
 test.each([
