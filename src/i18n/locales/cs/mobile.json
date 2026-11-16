@@ -135,10 +135,8 @@
       "permissionDenied": "Přístup odepřen",
       "goUp": "O úroveň výš",
       "emptyFolder": "Prázdná složka",
-      "selectedCount": "Vybráno: {{count}}",
       "downloadSelectedAriaLabel": "Stáhnout vybrané",
       "deleteSelectedAriaLabel": "Smazat vybrané",
-      "clearSelectionAriaLabel": "Zrušit výběr",
       "copyToOtherPane": "Kopírovat do druhého panelu",
       "download": "Stáhnout",
       "details": "Podrobnosti",
@@ -161,10 +159,8 @@
       "newFileOption": "Nový soubor",
       "folderNamePlaceholder": "Název složky",
       "fileNamePlaceholder": "Název souboru",
-      "selectAll": "Vybrat vše",
       "onePane": "Jeden panel",
       "twoPanes": "Dva panely",
-      "moreActions": "Další akce",
       "itemActions": "Akce pro {{name}}"
     },
     "folders": {
@@ -294,6 +290,12 @@
         "deleteTeam": "Smaže ho pro všechny členy",
         "leave": "Odebrat si přístup k tomuto trezoru"
       }
+    },
+    "selection": {
+      "selectedCount": "Vybráno: {{count}}",
+      "clearSelectionAriaLabel": "Zrušit výběr",
+      "selectAll": "Vybrat vše",
+      "moreActions": "Další akce"
     }
   }
 }

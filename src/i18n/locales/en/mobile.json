@@ -135,10 +135,8 @@
       "permissionDenied": "Permission denied",
       "goUp": "Go up",
       "emptyFolder": "Empty folder",
-      "selectedCount": "{{count}} selected",
       "downloadSelectedAriaLabel": "Download selected",
       "deleteSelectedAriaLabel": "Delete selected",
-      "clearSelectionAriaLabel": "Clear selection",
       "copyToOtherPane": "Copy to other pane",
       "download": "Download",
       "details": "Details",
@@ -159,10 +157,8 @@
       "newFileOption": "New file",
       "folderNamePlaceholder": "Folder name",
       "fileNamePlaceholder": "File name",
-      "selectAll": "Select all",
       "onePane": "One pane",
       "twoPanes": "Two panes",
-      "moreActions": "More actions",
       "itemActions": "Actions for {{name}}"
     },
     "folders": {
@@ -286,6 +282,12 @@
         "deleteTeam": "Deletes it for every member",
         "leave": "Remove your access to this vault"
       }
+    },
+    "selection": {
+      "selectedCount": "{{count}} selected",
+      "clearSelectionAriaLabel": "Clear selection",
+      "selectAll": "Select all",
+      "moreActions": "More actions"
     }
   }
 }

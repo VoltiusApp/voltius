@@ -135,10 +135,8 @@
       "permissionDenied": "Permission refusée",
       "goUp": "Remonter",
       "emptyFolder": "Dossier vide",
-      "selectedCount": "{{count}} sélectionné(s)",
       "downloadSelectedAriaLabel": "Télécharger la sélection",
       "deleteSelectedAriaLabel": "Supprimer la sélection",
-      "clearSelectionAriaLabel": "Effacer la sélection",
       "copyToOtherPane": "Copier vers l'autre volet",
       "download": "Télécharger",
       "details": "Détails",
@@ -160,10 +158,8 @@
       "newFileOption": "Nouveau fichier",
       "folderNamePlaceholder": "Nom du dossier",
       "fileNamePlaceholder": "Nom du fichier",
-      "selectAll": "Tout sélectionner",
       "onePane": "Un seul panneau",
       "twoPanes": "Deux panneaux",
-      "moreActions": "Plus d'actions",
       "itemActions": "Actions pour {{name}}"
     },
     "folders": {
@@ -290,6 +286,12 @@
         "deleteTeam": "Le supprime pour tous les membres",
         "leave": "Retirer votre accès à ce coffre"
       }
+    },
+    "selection": {
+      "selectedCount": "{{count}} sélectionné(s)",
+      "clearSelectionAriaLabel": "Effacer la sélection",
+      "selectAll": "Tout sélectionner",
+      "moreActions": "Plus d'actions"
     }
   }
 }

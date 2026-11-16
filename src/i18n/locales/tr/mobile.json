@@ -135,10 +135,8 @@
       "permissionDenied": "İzin reddedildi",
       "goUp": "Yukarı çık",
       "emptyFolder": "Klasör boş",
-      "selectedCount": "{{count}} seçildi",
       "downloadSelectedAriaLabel": "Seçilenleri indir",
       "deleteSelectedAriaLabel": "Seçilenleri sil",
-      "clearSelectionAriaLabel": "Seçimi temizle",
       "copyToOtherPane": "Diğer bölmeye kopyala",
       "download": "İndir",
       "details": "Ayrıntılar",
@@ -159,10 +157,8 @@
       "newFileOption": "Yeni dosya",
       "folderNamePlaceholder": "Klasör adı",
       "fileNamePlaceholder": "Dosya adı",
-      "selectAll": "Tümünü seç",
       "onePane": "Tek panel",
       "twoPanes": "İki panel",
-      "moreActions": "Diğer işlemler",
       "itemActions": "{{name}} için işlemler"
     },
     "folders": {
@@ -286,6 +282,12 @@
         "deleteTeam": "Tüm üyeler için siler",
         "leave": "Bu kasaya erişiminizi kaldırın"
       }
+    },
+    "selection": {
+      "selectedCount": "{{count}} seçildi",
+      "clearSelectionAriaLabel": "Seçimi temizle",
+      "selectAll": "Tümünü seç",
+      "moreActions": "Diğer işlemler"
     }
   }
 }

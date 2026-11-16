@@ -135,10 +135,8 @@
       "permissionDenied": "Доступ запрещён",
       "goUp": "Вверх",
       "emptyFolder": "Пустая папка",
-      "selectedCount": "Выбрано: {{count}}",
       "downloadSelectedAriaLabel": "Скачать выбранное",
       "deleteSelectedAriaLabel": "Удалить выбранное",
-      "clearSelectionAriaLabel": "Очистить выбор",
       "copyToOtherPane": "Копировать в другую панель",
       "download": "Скачать",
       "details": "Подробности",
@@ -161,10 +159,8 @@
       "newFileOption": "Новый файл",
       "folderNamePlaceholder": "Название папки",
       "fileNamePlaceholder": "Название файла",
-      "selectAll": "Выбрать все",
       "onePane": "Одна панель",
       "twoPanes": "Две панели",
-      "moreActions": "Другие действия",
       "itemActions": "Действия для {{name}}"
     },
     "folders": {
@@ -294,6 +290,12 @@
         "deleteTeam": "Удаляет его для всех участников",
         "leave": "Отказаться от доступа к этому хранилищу"
       }
+    },
+    "selection": {
+      "selectedCount": "Выбрано: {{count}}",
+      "clearSelectionAriaLabel": "Очистить выбор",
+      "selectAll": "Выбрать все",
+      "moreActions": "Другие действия"
     }
   }
 }

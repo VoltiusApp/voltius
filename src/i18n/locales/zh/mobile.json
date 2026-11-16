@@ -135,10 +135,8 @@
       "permissionDenied": "权限被拒绝",
       "goUp": "向上",
       "emptyFolder": "空文件夹",
-      "selectedCount": "已选择 {{count}} 项",
       "downloadSelectedAriaLabel": "下载所选",
       "deleteSelectedAriaLabel": "删除所选",
-      "clearSelectionAriaLabel": "清除选择",
       "copyToOtherPane": "复制到另一侧",
       "download": "下载",
       "details": "详情",
@@ -159,10 +157,8 @@
       "newFileOption": "新建文件",
       "folderNamePlaceholder": "文件夹名称",
       "fileNamePlaceholder": "文件名称",
-      "selectAll": "全选",
       "onePane": "单窗格",
       "twoPanes": "双窗格",
-      "moreActions": "更多操作",
       "itemActions": "{{name}} 的操作"
     },
     "folders": {
@@ -285,6 +281,12 @@
         "deleteTeam": "为所有成员删除",
         "leave": "移除你对此保管库的访问权限"
       }
+    },
+    "selection": {
+      "selectedCount": "已选择 {{count}} 项",
+      "clearSelectionAriaLabel": "清除选择",
+      "selectAll": "全选",
+      "moreActions": "更多操作"
     }
   }
 }
