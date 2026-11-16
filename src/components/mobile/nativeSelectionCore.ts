@@ -48,6 +48,13 @@ export function segmentsForLine(line: LineLike | undefined, isUniform: (ch: stri
   return out;
 }
 
+/** Whether the cell at `col` shows a glyph; the trailing half of a wide glyph counts as that glyph. */
+export function hasTextAt(line: LineLike | undefined, col: number): boolean {
+  const cell = line?.getCell(col);
+  if (cell?.getWidth() === 0 && col > 0) return hasTextAt(line, col - 1);
+  return !!cell?.getChars().trim();
+}
+
 export function segmentsEnd(segments: Segment[]): number {
   const s = segments[segments.length - 1];
   if (!s) return 0;

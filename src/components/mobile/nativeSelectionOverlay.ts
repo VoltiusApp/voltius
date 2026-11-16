@@ -1,4 +1,4 @@
-import { autoscrollRate, edgeLine, segmentsEnd, segmentsForLine, splitScroll, textBetween, type Boundary, type LineLike } from "./nativeSelectionCore";
+import { autoscrollRate, edgeLine, hasTextAt, segmentsEnd, segmentsForLine, splitScroll, textBetween, type Boundary, type LineLike } from "./nativeSelectionCore";
 
 export interface OverlayTerm {
   rows(): number;
@@ -14,7 +14,7 @@ export interface OverlayTerm {
 export interface NativeSelection {
   arm(): void;
   disarm(): void;
-  /** Whether a client point lands on rendered text; only meaningful while armed. */
+  /** Whether a client point lands on a non-blank cell; only meaningful while armed. */
   hitsText(x: number, y: number): boolean;
   isSelecting(): boolean;
   /** Native finger position (client y) during a live selection, or null once it lifts. */
@@ -204,9 +204,14 @@ export function createNativeSelection(
     Object.assign(el.style, { pointerEvents: "none", visibility: "hidden" });
   };
 
+  // Rows are padded with spaces for Blink, so blank cells must be read from the buffer, not the DOM.
   const hitsText = (x: number, y: number) => {
+    const term = getTerm();
     const hit = document.elementFromPoint(x, y);
-    return armed && !!hit && el.contains(hit) && !!hit.closest("[data-col]");
+    if (!armed || !term || !hit || !el.contains(hit) || !cellW || !cellH) return false;
+    const r = el.getBoundingClientRect();
+    const line = first + Math.floor((y - r.top + el.scrollTop) / cellH);
+    return hasTextAt(term.line(line), Math.floor((x - r.left) / cellW));
   };
 
   let selLo = 0;
@@ -398,13 +403,9 @@ export function createNativeSelection(
     updateSelectable();
   };
 
-  // The terminal container pastes on contextmenu; a native long-press must not reach it.
-  const onContextMenu = (e: Event) => e.stopPropagation();
-
   document.addEventListener("selectionchange", onSelectionChange);
   document.addEventListener("copy", onCopy);
   el.addEventListener("scroll", onScroll, { passive: true });
-  el.addEventListener("contextmenu", onContextMenu);
 
   return {
     arm,
@@ -416,7 +417,6 @@ export function createNativeSelection(
       document.removeEventListener("selectionchange", onSelectionChange);
       document.removeEventListener("copy", onCopy);
       el.removeEventListener("scroll", onScroll);
-      el.removeEventListener("contextmenu", onContextMenu);
       resizeObserver.disconnect();
       if (selecting) {
         end();

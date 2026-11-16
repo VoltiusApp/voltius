@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, test } from "vitest";
-import { autoscrollRate, edgeLine, segmentsForLine, splitScroll, textBetween, type LineLike } from "./nativeSelectionCore";
+import { autoscrollRate, edgeLine, hasTextAt, segmentsForLine, splitScroll, textBetween, type LineLike } from "./nativeSelectionCore";
 import { boundaryFromDom, renderLine } from "./nativeSelectionOverlay";
 
 type Cell = { ch: string; w: number };
@@ -40,6 +40,19 @@ describe("segmentsForLine", () => {
   test("blank and missing rows still hit text across the full width", () => {
     expect(segmentsForLine(lineOf(ascii("", 5)), uniform, 3)).toEqual([{ col: 0, text: "   " }]);
     expect(segmentsForLine(undefined, uniform, 3)).toEqual([{ col: 0, text: "   " }]);
+  });
+});
+
+describe("hasTextAt", () => {
+  test("glyphs hit, padding and missing cells do not", () => {
+    const line = lineOf(ascii("ab  c", 8));
+    expect([0, 1, 2, 3, 4, 5, 9].map((c) => hasTextAt(line, c))).toEqual([true, true, false, false, true, false, false]);
+    expect(hasTextAt(undefined, 0)).toBe(false);
+  });
+
+  test("both halves of a wide glyph hit", () => {
+    const line = lineOf([{ ch: "中", w: 2 }, { ch: "", w: 0 }, { ch: "", w: 1 }]);
+    expect([0, 1, 2].map((c) => hasTextAt(line, c))).toEqual([true, true, false]);
   });
 });
 
