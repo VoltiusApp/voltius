@@ -10,7 +10,9 @@ export function useViewAsExit({ afterExit }: { afterExit?: () => void } = {}) {
   return {
     confirming,
     requestExit: () => {
-      if (usePreviewStore.getState().draft) setConfirming(true);
+      const { saving, draft } = usePreviewStore.getState();
+      if (saving) return;
+      if (draft) setConfirming(true);
       else exit();
     },
     confirm: () => {

@@ -7,7 +7,7 @@ import { useViewAsExit } from "./useViewAsExit";
 
 afterEach(() => {
   stopPreview();
-  usePreviewStore.setState({ draft: null });
+  usePreviewStore.setState({ draft: null, saving: false });
 });
 
 test("exit_without_draft_exits_at_once", () => {
@@ -52,4 +52,19 @@ test("after_exit_runs_only_after_a_voluntary_exit", () => {
   startPreview();
   act(() => usePreviewStore.getState().exit());
   expect(afterExit).toHaveBeenCalledTimes(2);
+});
+
+test("exit_is_refused_while_saving", () => {
+  const afterExit = vi.fn();
+  startPreview();
+  usePreviewStore.setState({ saving: true });
+  const { result } = renderHook(() => useViewAsExit({ afterExit }));
+  act(() => result.current.requestExit());
+  expect(usePreviewStore.getState().session).not.toBeNull();
+  expect(result.current.confirming).toBe(false);
+  expect(afterExit).not.toHaveBeenCalled();
+
+  usePreviewStore.setState({ draft: { permissions: 1 } });
+  act(() => result.current.requestExit());
+  expect(result.current.confirming).toBe(false);
 });

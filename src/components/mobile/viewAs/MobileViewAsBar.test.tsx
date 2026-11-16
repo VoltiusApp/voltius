@@ -23,6 +23,8 @@ vi.mock("@/services/permissionPreview", async (orig) => ({
   previewPermissions: vi.fn(() => new Promise(() => {})),
 }));
 vi.mock("@/components/preview/MemberAccessPanel", () => ({ MemberAccessPanel: () => <div data-testid="member-access-panel" /> }));
+const toast = vi.hoisted(() => vi.fn());
+vi.mock("@/services/appToast", () => ({ appToast: toast }));
 
 import MobileViewAsBar from "./MobileViewAsBar";
 import MobileViewAsSheets from "./MobileViewAsSheets";
@@ -48,6 +50,8 @@ const expectRestored = () => {
   expect(useMobileNavStore.getState().previewReturn).toBeNull();
 };
 
+const discardConfirm = () => screen.queryByText("members.viewAs.discardDraft.confirm");
+
 const back = () => {
   let handled = false;
   act(() => { handled = runBack(); });
@@ -61,7 +65,8 @@ afterEach(() => {
   cleanup();
   stopPreview();
   usePreviewStore.getState().exit();
-  usePreviewStore.setState({ status: "idle", error: null, draft: null });
+  usePreviewStore.setState({ status: "idle", error: null, draft: null, saving: false, pendingConfirm: null });
+  toast.mockReset();
   useMobileNavStore.setState({ ...initialMobileNavState, previewReturn: null });
 });
 
@@ -105,9 +110,12 @@ test("back_at_root_with_draft_asks_then_restores", () => {
   usePreviewStore.setState({ draft: { permissions: 1 } });
   render(<MobileViewAsBar />);
   back();
+  fireEvent.click(screen.getByText("common.action.cancel"));
   expect(usePreviewStore.getState().session).not.toBeNull();
+  expect(discardConfirm()).toBeNull();
   expectNav("hosts", []);
-  fireEvent.click(screen.getByText("members.viewAs.discardDraft.confirm"));
+  back();
+  fireEvent.click(discardConfirm()!);
   expectRestored();
 });
 
@@ -155,4 +163,80 @@ test("involuntary_exit_does_not_restore_and_clears_the_return_point", () => {
   expect(usePreviewStore.getState().session).toBeNull();
   expectNav("hosts", []);
   expect(useMobileNavStore.getState().previewReturn).toBeNull();
+});
+
+test("close_is_greyed_while_saving_and_says_why", () => {
+  previewFromMemberScreen();
+  usePreviewStore.setState({ saving: true });
+  render(<MobileViewAsBar />);
+  const close = document.querySelector<HTMLElement>("[data-view-as-close]")!;
+  expect(close.getAttribute("aria-disabled")).toBe("true");
+  expect(close.className).toContain("aria-disabled:opacity-40");
+  fireEvent.click(close);
+  expect(toast).toHaveBeenCalledWith("info", "common.state.saving");
+  expect(usePreviewStore.getState().session).not.toBeNull();
+  expectNav("hosts", []);
+});
+
+test("back_does_nothing_while_saving", () => {
+  previewFromMemberScreen();
+  usePreviewStore.setState({ saving: true, draft: { permissions: 1 } });
+  render(<MobileViewAsBar />);
+  back();
+  expect(usePreviewStore.getState().session).not.toBeNull();
+  expect(discardConfirm()).toBeNull();
+});
+
+test("back_cancels_the_key_loss_save_confirm_first", () => {
+  previewFromMemberScreen();
+  usePreviewStore.setState({ draft: { permissions: 1 }, pendingConfirm: "roleKeyLoss" });
+  render(<MobileViewAsBar />);
+  back();
+  expect(usePreviewStore.getState().pendingConfirm).toBeNull();
+  expect(usePreviewStore.getState().session).not.toBeNull();
+  expect(discardConfirm()).toBeNull();
+});
+
+test("back_with_the_discard_confirm_open_closes_it", () => {
+  previewFromMemberScreen();
+  usePreviewStore.setState({ draft: { permissions: 1 } });
+  render(<MobileViewAsBar />);
+  back();
+  expect(discardConfirm()).not.toBeNull();
+  back();
+  expect(discardConfirm()).toBeNull();
+  expect(usePreviewStore.getState().session).not.toBeNull();
+  expectNav("hosts", []);
+});
+
+test("an_involuntary_exit_drops_an_open_discard_confirm", () => {
+  previewFromMemberScreen();
+  usePreviewStore.setState({ draft: { permissions: 1 } });
+  render(<MobileViewAsBar />);
+  back();
+  expect(discardConfirm()).not.toBeNull();
+  act(() => usePreviewStore.getState().exit());
+  act(() => startPreview());
+  expect(document.querySelector("[data-mobile-view-as-bar]")).not.toBeNull();
+  expect(discardConfirm()).toBeNull();
+});
+
+test("restoring_the_return_point_is_one_nav_write", () => {
+  previewFromMemberScreen();
+  useMobileNavStore.setState({ lastNonTerminalTab: "hosts" });
+  render(<MobileViewAsBar />);
+  const seen: { tab: MobileTab; stack: MobileScreen[] }[] = [];
+  const unsub = useMobileNavStore.subscribe(({ tab, stack }) => seen.push({ tab, stack }));
+  fireEvent.click(document.querySelector<HTMLElement>("[data-view-as-close]")!);
+  unsub();
+  expectRestored();
+  expect(seen[0]).toEqual(MEMBER_SCREEN);
+  expect(useMobileNavStore.getState().lastNonTerminalTab).toBe("more");
+});
+
+test("retry_in_the_bar_is_a_touch_target", () => {
+  startPreview();
+  usePreviewStore.setState({ status: "error", error: "members.viewAs.failed" });
+  render(<MobileViewAsBar />);
+  expect(screen.getByTestId("view-as-retry").className).toContain("min-h-12");
 });

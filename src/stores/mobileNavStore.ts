@@ -21,6 +21,13 @@ interface MobileNavStore extends MobileNavState {
   back: () => boolean;
 }
 
+export const tabState = (s: Pick<MobileNavStore, "lastNonTerminalTab">, tab: MobileTab, stack: MobileScreen[] = []) => ({
+  tab,
+  stack,
+  sheet: null,
+  lastNonTerminalTab: tab === "terminal" ? s.lastNonTerminalTab : tab,
+});
+
 export const useMobileNavStore = create<MobileNavStore>()((set, get) => ({
   ...initialMobileNavState,
   lastNonTerminalTab: "hosts",
@@ -28,12 +35,7 @@ export const useMobileNavStore = create<MobileNavStore>()((set, get) => ({
   setHostSearch: (q) => set({ hostSearch: q }),
   previewReturn: null,
   setPreviewReturn: (v) => set({ previewReturn: v }),
-  setTab: (tab) => set((s) => ({
-    tab,
-    stack: [],
-    sheet: null,
-    lastNonTerminalTab: tab === "terminal" ? s.lastNonTerminalTab : tab,
-  })),
+  setTab: (tab) => set((s) => tabState(s, tab)),
   push: (screen) => set((s) => ({ stack: [...s.stack, screen], sheet: null })),
   pop: () => set((s) => ({ stack: s.stack.slice(0, -1) })),
   openSheet: (sheet) => set({ sheet }),

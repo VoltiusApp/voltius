@@ -2,18 +2,18 @@ import { useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useBackInterceptor } from "@/hooks/useBackInterceptor";
-import { useMobileNavStore } from "@/stores/mobileNavStore";
+import { tabState, useMobileNavStore } from "@/stores/mobileNavStore";
 import { usePreviewStore } from "@/stores/previewStore";
 import { useSubjectLabel } from "@/components/preview/PreviewScope";
 import { PreviewStatus } from "@/components/preview/PreviewStatus";
 import { ViewAsExitConfirm } from "@/components/preview/ViewAsExitConfirm";
 import { useViewAsExit } from "@/components/preview/useViewAsExit";
+import { greyedTapProps } from "../tapOrExplain";
 
 function restoreReturn() {
-  const { previewReturn, setTab } = useMobileNavStore.getState();
+  const { previewReturn } = useMobileNavStore.getState();
   if (!previewReturn) return;
-  setTab(previewReturn.tab);
-  useMobileNavStore.setState({ stack: previewReturn.stack, previewReturn: null });
+  useMobileNavStore.setState((s) => ({ ...tabState(s, previewReturn.tab, previewReturn.stack), previewReturn: null }));
 }
 
 export default function MobileViewAsBar() {
@@ -21,11 +21,21 @@ export default function MobileViewAsBar() {
   const previewing = usePreviewStore((s) => s.session !== null);
   const name = useSubjectLabel();
   const showAccess = usePreviewStore((s) => s.showAccess);
+  const saving = usePreviewStore((s) => s.saving);
   const exitFlow = useViewAsExit({ afterExit: restoreReturn });
+  const back = () => {
+    if (saving) return;
+    const { pendingConfirm, cancelSave } = usePreviewStore.getState();
+    if (pendingConfirm) cancelSave();
+    else if (exitFlow.confirming) exitFlow.cancel();
+    else exitFlow.requestExit();
+  };
   // Registered on entering, at the Hosts root, so pushed pages, other tabs and sheets take back first.
-  useBackInterceptor(previewing, exitFlow.requestExit);
+  useBackInterceptor(previewing, back);
   useEffect(() => {
-    if (!previewing) useMobileNavStore.getState().setPreviewReturn(null);
+    if (previewing) return;
+    useMobileNavStore.getState().setPreviewReturn(null);
+    exitFlow.cancel();
   }, [previewing]);
   if (!previewing) return null;
   return (
@@ -41,7 +51,13 @@ export default function MobileViewAsBar() {
         <button data-view-as-access aria-label={t("mobile.viewAs.editAccess")} className="vt-icon-btn shrink-0" style={{ width: 48, height: 48 }} onClick={showAccess}>
           <Icon icon="lucide:sliders-horizontal" width={20} />
         </button>
-        <button data-view-as-close aria-label={t("members.viewAs.exit")} className="vt-icon-btn shrink-0" style={{ width: 48, height: 48 }} onClick={exitFlow.requestExit}>
+        <button
+          data-view-as-close
+          aria-label={t("members.viewAs.exit")}
+          className="vt-icon-btn shrink-0 aria-disabled:opacity-40"
+          style={{ width: 48, height: 48 }}
+          {...greyedTapProps(saving ? t("common.state.saving") : null, exitFlow.requestExit)}
+        >
           <Icon icon="lucide:x" width={20} />
         </button>
       </div>
