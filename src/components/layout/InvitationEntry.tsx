@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
-import { DisclosureToggle, ErrorMsg, INPUT_CLASS, Input } from "@/components/layout/authParts";
+import { ErrorMsg, INPUT_CLASS, Input } from "@/components/layout/authParts";
+import { DisclosureToggle } from "@/components/shared/DisclosureToggle";
 import { roleLabel } from "@/components/members/roleChips";
 import { resolveServerUrl } from "@/services/policy/serverPolicy";
 import type { SignupCredential } from "@/services/account";

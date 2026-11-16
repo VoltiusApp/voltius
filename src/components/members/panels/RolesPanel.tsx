@@ -13,6 +13,7 @@ import { CheckboxBox } from "@/components/shared/Checkbox";
 import { BusinessLockCard } from "@/components/shared/BusinessLockBanner";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { useViewAsEntry } from "@/components/preview/useViewAsEntry";
+import { greyedTapProps } from "@/components/mobile/tapOrExplain";
 import { isMobileShell } from "@/utils/platform";
 
 // ─── Permission metadata ──────────────────────────────────────────────────────
@@ -33,10 +34,12 @@ function PermissionRow({
   value,
   readOnly,
   onToggle,
+  size,
 }: {
   perm: Permission;
   value: number;
   readOnly: boolean;
+  size: "sm" | "touch";
   onToggle: (bit: number) => void;
 }) {
   const { t } = useTranslation();
@@ -46,7 +49,7 @@ function PermissionRow({
   const tDesc = t(`settings.vaults.rolesPanel.perm.${perm}`);
   return (
     <label
-      className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors"
+      className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors${size === "touch" ? " min-h-12" : ""}`}
       style={{
         background: checked ? "rgba(var(--t-accent-rgb, 99,102,241), 0.08)" : "transparent",
         cursor: readOnly ? "default" : "pointer",
@@ -68,10 +71,12 @@ export function PermissionGrid({
   value,
   onChange,
   readOnly = false,
+  size = "sm",
 }: {
   value: number;
   onChange?: (v: number) => void;
   readOnly?: boolean;
+  size?: "sm" | "touch";
 }) {
   const { t } = useTranslation();
   const toggle = (bit: number) => {
@@ -88,7 +93,7 @@ export function PermissionGrid({
           </p>
           <div className="grid grid-cols-1 gap-0.5">
             {group.permissions.filter((p) => p in PERM_BITS && p !== "CREATE_CUSTOM_ROLES").map((perm) => (
-              <PermissionRow key={perm} perm={perm} value={value} readOnly={readOnly} onToggle={toggle} />
+              <PermissionRow key={perm} perm={perm} value={value} readOnly={readOnly} onToggle={toggle} size={size} />
             ))}
           </div>
         </div>
@@ -243,15 +248,16 @@ const ROLE_NAME = "flex-1 min-w-0 truncate text-sm font-medium";
 function PreviewAsRoleButton({ teamId, roleId, compact = false }: { teamId: string; roleId: string; compact?: boolean }) {
   const { t } = useTranslation();
   const entry = useViewAsEntry(teamId, { type: "role", role_id: roleId });
-  if (isMobileShell()) return null;
   const label = t("members.viewAs.previewAsRole");
+  const mobile = isMobileShell();
+  const action = mobile ? greyedTapProps(entry.reasonText, entry.enter) : entry.button;
   return (
     <button
       type="button"
-      {...entry.button}
-      title={entry.button.title ?? (compact ? label : undefined)}
+      {...action}
+      title={action.title ?? (compact ? label : undefined)}
       aria-label={compact ? label : undefined}
-      className={`flex items-center gap-1.5 rounded-lg text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary) disabled:opacity-40 ${compact ? "shrink-0 p-1.5" : "mb-2 px-2 py-1"}`}
+      className={`flex items-center justify-center gap-1.5 rounded-lg text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary) disabled:opacity-40 aria-disabled:opacity-40 ${compact ? "shrink-0 p-1.5" : "mb-2 px-2 py-1"} ${mobile ? "min-h-12 min-w-12" : ""}`}
     >
       <Icon icon="lucide:scan-eye" width={compact ? 13 : 12} />
       {!compact && label}

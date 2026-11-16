@@ -3,7 +3,7 @@ import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/re
 import type { PreviewResponse } from "@/services/permissionPreview";
 import { PERM_BITS } from "@/services/permissions";
 
-const h = vi.hoisted(() => ({ preview: vi.fn(), locked: { value: false }, can: { value: ((_p: string) => true) as (p: string) => boolean } }));
+const h = vi.hoisted(() => ({ preview: vi.fn(), locked: { value: false }, mobile: { value: false }, can: { value: ((_p: string) => true) as (p: string) => boolean } }));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string, o?: Record<string, unknown>) => (o ? `${k}:${Object.values(o).join("|")}` : k) }),
@@ -17,6 +17,7 @@ vi.mock("@/services/permissionPreview", async (orig) => ({
   ...(await orig<typeof import("@/services/permissionPreview")>()),
   previewPermissions: h.preview,
 }));
+vi.mock("@/utils/platform", async (orig) => ({ ...(await orig<typeof import("@/utils/platform")>()), isMobileShell: () => h.mobile.value }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => ({ locked: h.locked.value, isOwner: true }) }));
 vi.mock("@/hooks/usePermission", async (orig) => ({
   ...(await orig<typeof import("@/hooks/usePermission")>()),
@@ -47,6 +48,7 @@ const enter = async (roleId: string) => {
 
 beforeEach(() => {
   h.locked.value = false;
+  h.mobile.value = false;
   h.can.value = () => true;
   h.preview.mockReset().mockResolvedValue(response());
   updateRole.mockReset().mockResolvedValue(undefined);
@@ -109,4 +111,15 @@ test("a_locked_custom_role_renders_disabled_with_the_lock_line", async () => {
   expect(screen.getByText("shared.businessLock.rolesBody")).toBeTruthy();
   fireEvent.click(screen.getByText(PERM_DESC));
   expect(usePreviewStore.getState().draft).toBeNull();
+});
+
+test("mobile_role_panel_says_the_preview_is_behind_the_sheet", async () => {
+  await enter("r-ed");
+  render(<RoleAccessPanel />);
+  expect(screen.queryByText("mobile.viewAs.accessSubtitle")).toBeNull();
+  expect(screen.queryByText("members.viewAs.access.subtitle")).toBeNull();
+  cleanup();
+  h.mobile.value = true;
+  render(<RoleAccessPanel />);
+  expect(screen.getByText("mobile.viewAs.accessSubtitle")).toBeTruthy();
 });

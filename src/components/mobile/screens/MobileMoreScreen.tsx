@@ -13,6 +13,8 @@ import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { resolveVaultAdminTarget } from "@/components/vault-admin/vaultAdminTarget";
 import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
+import { whenWritable } from "@/services/previewGuard";
+import { usePreviewReadOnly } from "@/hooks/useGreyedUnless";
 
 function getPages(t: TFunction): { page: MorePage; label: string; icon: string }[] {
   return [
@@ -32,6 +34,7 @@ export default function MobileMoreScreen() {
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
   const accountMode = useSubscriptionStore((s) => s.accountMode);
   const plan = usePlanDisplay();
+  const readOnly = usePreviewReadOnly();
   const [email, setEmail] = useState<string | null>(null);
 
   const activeVaultId = useVaultStore((s) => s.selectedVaultIds[0]);
@@ -100,10 +103,14 @@ export default function MobileMoreScreen() {
         ))}
         <div className="mx-4 my-2 border-t" style={{ borderColor: "var(--t-border)" }} />
         <button data-more-page="import-export"
-          className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-(--t-bg-card)"
-          onClick={() => useUIStore.getState().openImportExport("import")}>
+          aria-disabled={readOnly !== null || undefined}
+          className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-(--t-bg-card) aria-disabled:opacity-50"
+          onClick={whenWritable(() => useUIStore.getState().openImportExport("import"))}>
           <Icon icon="lucide:arrow-up-down" width={20} className="text-(--t-text-dim)" />
-          <span className="flex-1 text-sm font-medium text-(--t-text-primary)">{t("hosts.toolbar.importExport")}</span>
+          <span className="flex-1 flex flex-col min-w-0">
+            <span className="text-sm font-medium text-(--t-text-primary)">{t("hosts.toolbar.importExport")}</span>
+            {readOnly && <span className="text-xs text-(--t-text-dim) truncate">{readOnly}</span>}
+          </span>
         </button>
         <button data-more-page="settings"
           className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-(--t-bg-card)"

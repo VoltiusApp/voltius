@@ -78,7 +78,8 @@ test("a_member_without_the_vault_key_sees_a_ghost_even_where_rules_allow", () =>
     </PreviewContentScope>,
   );
   expect(screen.queryByText("real card")).toBeNull();
-  expect(screen.getByText(/members\.viewAs\.hiddenFrom/)).toBeTruthy();
+  expect(screen.getByText(/members\.viewAs\.hiddenNoKey:@?Bob/)).toBeTruthy();
+  expect(screen.queryByText(/members\.viewAs\.hiddenFrom/)).toBeNull();
 });
 
 test("renders the real card outside a preview", () => {
@@ -98,4 +99,25 @@ test("GhostCard shares the dashed draft style with a dim border", () => {
   expect(cls).toContain("border-(--t-border)");
   expect(cls).toContain("opacity-[0.55]");
   expect(PREVIEW_SESSION.teamId).toBe("team-1");
+});
+
+test("row_layout_insets_a_64px_dashed_ghost_in_its_72px_row_slot", () => {
+  usePreviewStore.setState({ result: preview({ h1: 0 }) });
+  const { container } = render(
+    <PreviewContentScope>
+      <GhostOr type="connection" id="h1" icon="lucide:server" name="prod-db" layout="row">
+        <span>real card</span>
+      </GhostOr>
+    </PreviewContentScope>,
+  );
+  const ghost = container.querySelector("[data-ghost-card]") as HTMLElement;
+  expect(ghost.className).toContain("border-dashed");
+  expect(ghost.className).toContain("h-full");
+  expect(ghost.className).toContain("px-2");
+  expect(ghost.parentElement!.className).toBe("h-[72px] px-2 py-1");
+  expect(ghost.className).toContain("gap-4");
+  expect(ghost.className).toContain("opacity-[0.55]");
+  expect(ghost.querySelector("[style*='2.667rem']")).toBeTruthy();
+  expect(screen.getByText("prod-db")).toBeTruthy();
+  expect(screen.getByText(/members\.viewAs\.hiddenFrom/)).toBeTruthy();
 });

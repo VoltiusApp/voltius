@@ -1,3 +1,4 @@
+import { whenWritable } from "@/services/previewGuard";
 import { useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
@@ -9,6 +10,8 @@ import FolderFormSheet, { type FolderEdit } from "../sheets/FolderFormSheet";
 import FolderActionsSheet from "../sheets/FolderActionsSheet";
 import MobileFolderBreadcrumb from "../folders/MobileFolderBreadcrumb";
 import MobileFolderRow from "../folders/MobileFolderRow";
+import { GhostOr } from "@/components/preview/GhostCard";
+import { PreviewSubtitle } from "@/components/preview/PreviewHint";
 import FolderBackTrap from "../folders/FolderBackTrap";
 import { SectionHeader } from "@/components/shared/SectionHeader";
 import { AvatarTile } from "@/components/shared/AvatarTile";
@@ -23,6 +26,9 @@ import { folderItemCounter } from "@/utils/folderTree";
 import type { SshKey, Identity, Folder } from "@/types";
 import { compareStrings, formatDate } from "@/utils/localeFormat";
 import { useSearchMatcher } from "@/utils/search";
+
+const KEY_ICON = "lucide:key-round";
+const IDENTITY_ICON = "lucide:user";
 
 type Sheet = { kind: "key"; item: SshKey } | { kind: "identity"; item: Identity } | null;
 
@@ -88,7 +94,7 @@ export default function MobileKeychainScreen() {
       <MobilePanelHeader
         title={t("mobile.morePages.keychain")}
         right={canCreateKey || canCreateIdentity || canCreateFolder ? (
-          <button data-keychain-add onClick={() => setAddMenuOpen(true)} className="vt-icon-btn text-(--t-text-primary)">
+          <button data-keychain-add onClick={whenWritable(() => setAddMenuOpen(true))} className="vt-icon-btn text-(--t-text-primary)">
             <Icon icon="lucide:plus" width={20} />
           </button>
         ) : undefined}
@@ -108,32 +114,46 @@ export default function MobileKeychainScreen() {
         {scopedKeys.length > 0 && (
           <div className="px-2">
             <SectionHeader compact className="px-3 pt-4 pb-1" label={t("mobile.keychainScreen.sshKeysHeader")} count={scopedKeys.length} />
-            {scopedKeys.map((k) => (
-              <button key={k.id} data-keychain-key className="w-full flex items-center gap-3 px-2 py-3 rounded-xl text-left active:bg-(--t-bg-card)" onClick={() => setSheet({ kind: "key", item: k })}>
-                <AvatarTile icon="lucide:key-round" className="w-9 h-9 rounded-lg" iconSize={18} />
+            {scopedKeys.map((k) => {
+              const name = k.name ?? t("mobile.sheets.keychainActions.unnamedKey");
+              return (
+              <GhostOr key={k.id} type="key" id={k.id} icon={KEY_ICON} name={name} layout="row">
+              <button data-keychain-key className="w-full flex items-center gap-3 px-2 py-3 rounded-xl text-left active:bg-(--t-bg-card)" onClick={() => setSheet({ kind: "key", item: k })}>
+                <AvatarTile icon={KEY_ICON} className="w-9 h-9 rounded-lg" iconSize={18} />
                 <span className="flex-1 min-w-0 flex flex-col gap-0.5">
-                  <span className="text-sm font-medium text-(--t-text-primary) truncate">{k.name ?? t("mobile.sheets.keychainActions.unnamedKey")}</span>
-                  <span className="text-[11px] text-(--t-text-dim) truncate">{k.key_type ? `${k.key_type} · ` : ""}{t("mobile.keychainScreen.addedOn", { date: formatDate(k.created_at) })}</span>
+                  <span className="text-sm font-medium text-(--t-text-primary) truncate">{name}</span>
+                  <PreviewSubtitle type="key" id={k.id}>
+                    <span className="text-[11px] text-(--t-text-dim) truncate">{k.key_type ? `${k.key_type} · ` : ""}{t("mobile.keychainScreen.addedOn", { date: formatDate(k.created_at) })}</span>
+                  </PreviewSubtitle>
                   <TagChips tags={k.tags} />
                 </span>
               </button>
-            ))}
+              </GhostOr>
+              );
+            })}
           </div>
         )}
 
         {scopedIdentities.length > 0 && (
           <div className="px-2">
             <SectionHeader compact className="px-3 pt-4 pb-1" label={t("mobile.keychainScreen.identitiesHeader")} count={scopedIdentities.length} />
-            {scopedIdentities.map((i) => (
-              <button key={i.id} data-keychain-identity className="w-full flex items-center gap-3 px-2 py-3 rounded-xl text-left active:bg-(--t-bg-card)" onClick={() => setSheet({ kind: "identity", item: i })}>
-                <AvatarTile icon="lucide:user" className="w-9 h-9 rounded-lg" iconSize={18} />
+            {scopedIdentities.map((i) => {
+              const name = i.name ?? i.username;
+              return (
+              <GhostOr key={i.id} type="identity" id={i.id} icon={IDENTITY_ICON} name={name} layout="row">
+              <button data-keychain-identity className="w-full flex items-center gap-3 px-2 py-3 rounded-xl text-left active:bg-(--t-bg-card)" onClick={() => setSheet({ kind: "identity", item: i })}>
+                <AvatarTile icon={IDENTITY_ICON} className="w-9 h-9 rounded-lg" iconSize={18} />
                 <span className="flex-1 min-w-0 flex flex-col gap-0.5">
-                  <span className="text-sm font-medium text-(--t-text-primary) truncate">{i.name ?? i.username}</span>
-                  {i.name && <span className="text-[11px] text-(--t-text-dim) truncate">{i.username}</span>}
+                  <span className="text-sm font-medium text-(--t-text-primary) truncate">{name}</span>
+                  <PreviewSubtitle type="identity" id={i.id}>
+                    {i.name && <span className="text-[11px] text-(--t-text-dim) truncate">{i.username}</span>}
+                  </PreviewSubtitle>
                   <TagChips tags={i.tags} />
                 </span>
               </button>
-            ))}
+              </GhostOr>
+              );
+            })}
           </div>
         )}
 

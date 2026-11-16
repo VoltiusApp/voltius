@@ -282,6 +282,19 @@
         "leave": "移除你对此保管库的访问权限"
       }
     },
+    "viewAs": {
+      "editAccess": "编辑访问权限",
+      "accessSubtitle": "此面板后方预览你的修改。尚未保存任何内容。",
+      "areas": {
+        "hosts": "主机",
+        "keychain": "密钥链",
+        "snippets": "代码片段",
+        "portForwarding": "端口转发",
+        "sessions": "会话",
+        "members": "成员",
+        "logs": "审计日志"
+      }
+    },
     "selection": {
       "selectedCount": "已选择 {{count}} 项",
       "clearSelectionAriaLabel": "清除选择",

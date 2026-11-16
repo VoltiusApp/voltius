@@ -13,3 +13,6 @@ import { _api } from "@iconify/react";
 // reaching the network at all. Icons render as an empty <span>, exactly as they do
 // today when the query never resolves in time.
 _api.setAPIModule("", { prepare: () => [], send: () => {} });
+
+// jsdom has no layout, so it leaves scrollIntoView undefined.
+if (typeof Element !== "undefined") Element.prototype.scrollIntoView ??= () => {};

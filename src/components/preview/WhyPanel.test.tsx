@@ -109,6 +109,12 @@ test("without_the_vault_key_every_row_is_denied_and_says_why", async () => {
     expect(row(permission).getAttribute("data-allowed")).toBe("false");
     expect(within(row(permission)).getByText("members.viewAs.why.noVaultKey:Bob")).toBeTruthy();
   }
+  const lines = within(screen.getByTestId("why-steps")).getAllByRole("listitem").map((li) => li.textContent ?? "");
+  expect(lines.some((l) => l.includes("step.roles:"))).toBe(true);
+  const last = lines[lines.length - 1];
+  expect(last).toContain("members.viewAs.why.noVaultKey:Bob");
+  expect(last).toContain("members.permission.VIEW");
+  expect(last).toContain("members.permission.CONNECT");
 });
 
 test("names_role_and_folder_for_a_role_deny_on_a_folder", async () => {

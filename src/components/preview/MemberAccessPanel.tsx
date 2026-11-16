@@ -8,6 +8,7 @@ import { MemberRoleChips } from "@/components/members/panels/MemberRoleChips";
 import { PermissionOverrideRow, overrideStateOf, applyOverrideState, type OverrideState } from "@/components/members/panels/PermissionOverrideRow";
 import { permissionLabel, readOnlyReasonText, roleLabel, rolesGranting } from "@/components/members/roleChips";
 import { useSubjectLabel } from "@/components/preview/PreviewScope";
+import { AccessHeading } from "@/components/preview/AccessHeading";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { useMyUserId } from "@/hooks/useMyUserId";
 import { heldBits, useOwnPermissions } from "@/hooks/usePermission";
@@ -17,6 +18,8 @@ import {
   memberReadOnly, isEditablePermission, type Permission,
 } from "@/services/permissions";
 import { useTeamStore } from "@/stores/teamStore";
+import { touchSize } from "@/components/mobile/touch";
+import { DisclosureToggle } from "@/components/shared/DisclosureToggle";
 import type { TeamRole } from "@/stores/teamStore";
 import { saveNeedsConfirm, usePreviewStore } from "@/stores/previewStore";
 import { unsavedChangeCount, type SaveFailure } from "@/services/viewAsSave";
@@ -96,10 +99,7 @@ export function MemberAccessPanel() {
 
   return (
     <div data-testid="member-access-panel" className="p-4 space-y-3">
-      <div>
-        <p className="text-sm font-semibold text-(--t-text-primary)">{t("members.viewAs.access.title", { name })}</p>
-        <p className="text-[11px] text-(--t-text-dim)">{t("members.viewAs.access.subtitle")}</p>
-      </div>
+      <AccessHeading title={t("members.viewAs.access.title", { name })} />
 
       <FormSection label={t("members.viewAs.access.can", { name })}>
         {groups.map((g) => (
@@ -131,6 +131,7 @@ export function MemberAccessPanel() {
           roleIds={shown.role_ids}
           readOnlyReason={roleReadOnlyReason}
           showOwner
+          size={touchSize()}
           ownerReason={t("members.viewAs.ownerElsewhere")}
           onToggle={(role) => update({ ...shown, role_ids: shown.role_ids.includes(role.id) ? shown.role_ids.filter((id) => id !== role.id) : [...shown.role_ids, role.id] })}
         />
@@ -145,6 +146,7 @@ export function MemberAccessPanel() {
             <PermissionOverrideRow
               key={p}
               permission={p}
+              toggleSize={touchSize()}
               state={overrideStateOf(p, shown.allow, shown.deny)}
               inheritedFrom={grantingRoles(p)}
               granted={(memberEffective & PERM_BITS[p]) !== 0}
@@ -153,15 +155,7 @@ export function MemberAccessPanel() {
               onChange={(next) => update({ ...shown, ...applyOverrideState(p, shown.allow, shown.deny, next) })}
             />
           ))}
-          <button
-            type="button"
-            aria-expanded={showAll}
-            onClick={() => setShowAll((v) => !v)}
-            className="flex items-center gap-1 text-[11px] text-(--t-text-secondary)"
-          >
-            <Icon icon={showAll ? "lucide:chevron-down" : "lucide:chevron-right"} width={11} />
-            {t("members.viewAs.access.allPermissions")}
-          </button>
+          <DisclosureToggle look="compact" open={showAll} onToggle={() => setShowAll((v) => !v)} label={t("members.viewAs.access.allPermissions")} />
           </>
         )}
       </FormSection>

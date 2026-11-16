@@ -621,6 +621,7 @@
         "confirm": "Save and rotate key"
       },
       "hiddenFrom": "Hidden from {{name}}",
+      "hiddenNoKey": "{{name}} has no vault key",
       "cannotEdit": "This member's role does not allow editing",
       "draftBadge": "Draft",
       "draftTag": "(draft)",

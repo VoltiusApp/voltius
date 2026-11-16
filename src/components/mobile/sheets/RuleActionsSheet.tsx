@@ -11,6 +11,8 @@ import MoveToFolderSheet from "./MoveToFolderSheet";
 import type { PortForwardingRule, PortForwardingRuleFormData } from "@/types";
 import { SheetActionRow, type SheetAction } from "./SheetActionRow";
 import VaultTransferSheet from "./VaultTransferSheet";
+import { ruleTarget } from "@/services/previewGuard";
+import { previewGuarded } from "./previewGuardedActions";
 
 type Mode = "menu" | "confirm-delete" | "move" | "copy" | "move-folder";
 
@@ -78,7 +80,7 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
     );
   }
 
-  const items: SheetAction[] = [
+  const items: SheetAction[] = previewGuarded([
     ...(canEdit ? [
       { icon: "lucide:pencil", label: t("common.action.edit"), slug: "edit", onTap: () => { onEdit(rule); onClose(); } },
       { icon: "lucide:folder-tree", label: t("mobile.sheets.shared.moveToFolder"), slug: "move-folder", onTap: () => setMode("move-folder") },
@@ -86,7 +88,7 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
     ...(canEdit && otherVaults.length > 0 ? [{ icon: "lucide:folder-input", label: t("mobile.sheets.shared.moveToVault"), slug: "move", onTap: () => setMode("move") }] : []),
     ...(otherVaults.length > 0 ? [{ icon: "lucide:copy", label: t("mobile.sheets.shared.copyToVault"), slug: "copy", onTap: () => setMode("copy") }] : []),
     ...(canEdit ? [{ icon: "lucide:trash-2", label: t("common.action.delete"), slug: "delete", danger: true, onTap: () => setMode("confirm-delete") }] : []),
-  ];
+  ], ruleTarget(rule.id), onClose);
 
   return (
     <BottomSheet title={rule.name} onClose={onClose}>

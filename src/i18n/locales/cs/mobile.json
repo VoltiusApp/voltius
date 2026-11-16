@@ -291,6 +291,19 @@
         "leave": "Odebrat si přístup k tomuto trezoru"
       }
     },
+    "viewAs": {
+      "editAccess": "Upravit přístup",
+      "accessSubtitle": "Změny se zobrazují za tímto panelem. Zatím nic není uloženo.",
+      "areas": {
+        "hosts": "Hosty",
+        "keychain": "Klíčenka",
+        "snippets": "Úryvky",
+        "portForwarding": "Přesměrování portů",
+        "sessions": "Relace",
+        "members": "Členové",
+        "logs": "Auditní log"
+      }
+    },
     "selection": {
       "selectedCount": "Vybráno: {{count}}",
       "clearSelectionAriaLabel": "Zrušit výběr",

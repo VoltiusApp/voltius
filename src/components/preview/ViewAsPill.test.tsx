@@ -118,6 +118,14 @@ test("escape_exits_only_when_free", async () => {
   expect(usePreviewStore.getState().session).toBeNull();
 });
 
+test("escape_is_ignored_while_saving", async () => {
+  usePreviewStore.setState({ saving: true });
+  render(<ViewAsPill />);
+  await press();
+  expect(usePreviewStore.getState().session).not.toBeNull();
+  expect(screen.queryByText("members.viewAs.discardDraft.confirm")).toBeNull();
+});
+
 test("save_turns_warning_when_the_key_gate_is_crossed", () => {
   usePreviewStore.setState(checked(MEMBER_DRAFT, response()));
   const { rerender } = render(<ViewAsPill />);

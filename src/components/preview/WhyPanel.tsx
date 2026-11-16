@@ -41,10 +41,10 @@ function rowSentence(e: Explanation, allowed: boolean, notShown: boolean, ctx: S
   return e.decidedBy ? stepSentence(e.decidedBy, ctx) : { key: "members.viewAs.why.notGranted", params: { name: ctx.name } };
 }
 
-function addsUp(rows: { permission: Permission; allowed: boolean; e: Explanation }[], ctx: SentenceContext) {
+function addsUp(rows: { permission: Permission; ruleAllowed: boolean; e: Explanation }[], ctx: SentenceContext, noKey: Sentence | null) {
   const lines = new Map<string, { sentence: Sentence; order: number; permissions: Permission[] }>();
-  for (const { permission, allowed, e } of rows) {
-    if (e.allowed !== allowed) continue;
+  for (const { permission, ruleAllowed, e } of rows) {
+    if (e.allowed !== ruleAllowed) continue;
     for (const step of e.steps) {
       const sentence = stepSentence(step, ctx);
       const id = `${sentence.key}:${JSON.stringify(sentence.params)}`;
@@ -53,6 +53,7 @@ function addsUp(rows: { permission: Permission; allowed: boolean; e: Explanation
       lines.set(id, line);
     }
   }
+  if (noKey) lines.set(noKey.key, { sentence: noKey, order: STEP_ORDER.length, permissions: rows.map((r) => r.permission) });
   return [...lines.entries()].sort(([, a], [, b]) => a.order - b.order);
 }
 
@@ -122,11 +123,12 @@ export function WhyPanel() {
   const mask = keyedMask(shown!, objectId);
   const noKey: Sentence | null = shown!.holds_vault_key_gate ? null : { key: "members.viewAs.why.noVaultKey", params: { name } };
   const rows = OBJECT_RULE_ROWS[type].map((permission) => {
-    const allowed = (mask & PERM_BITS[permission]) !== 0;
-    const e = explainBit(PERM_BITS[permission], { roles, member, layers, locked: result.locked, entries: ruleEntries });
-    return { permission, allowed, e, sentence: noKey ?? rowSentence(e, allowed, layers === "notShown", ctx) };
+    const bit = PERM_BITS[permission];
+    const allowed = (mask & bit) !== 0;
+    const e = explainBit(bit, { roles, member, layers, locked: result.locked, entries: ruleEntries });
+    return { permission, allowed, ruleAllowed: (object.mask & bit) !== 0, e, sentence: noKey ?? rowSentence(e, allowed, layers === "notShown", ctx) };
   });
-  const lines = addsUp(rows, ctx);
+  const lines = addsUp(rows, ctx, noKey);
   const blocked = !rulesAvailable(supported, entries?.[ownerId]) ? "members.viewAs.why.editRulesUnavailable"
     : !can("MANAGE_ROLES", session.vaultId, ownerId) ? "members.viewAs.why.editRulesLocked" : null;
   const mayEdit = blocked === null;

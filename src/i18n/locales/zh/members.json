@@ -621,6 +621,7 @@
         "confirm": "保存并轮换密钥"
       },
       "hiddenFrom": "对 {{name}} 隐藏",
+      "hiddenNoKey": "{{name}} 没有保险库密钥",
       "cannotEdit": "该成员的角色不允许编辑",
       "draftBadge": "草稿",
       "draftTag": "（草稿）",

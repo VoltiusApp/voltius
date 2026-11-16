@@ -55,3 +55,29 @@ test("progress toasts are not snackbars", () => {
   });
   expect(screen.queryByText("uploading")).toBeNull();
 });
+
+test("a_hidden_anchor_on_the_stack_is_not_counted", () => {
+  const vh = window.innerHeight;
+  const added: HTMLElement[] = [];
+  const docked = (attr: string, top: number, bottom: number, parent: HTMLElement = document.body) => {
+    const el = document.createElement("div");
+    added.push(el);
+    el.setAttribute(attr, "");
+    el.getBoundingClientRect = () => ({ top, bottom, height: bottom - top } as DOMRect);
+    parent.appendChild(el);
+  };
+  const tucked = document.createElement("div");
+  tucked.style.visibility = "hidden";
+  document.body.appendChild(tucked);
+  added.push(tucked);
+  docked("data-mobile-tab-bar", vh - 80, vh);
+  docked("data-snackbar-anchor", vh - 200, vh - 80, tucked);
+  render(<MobileSnackbarHost />);
+  act(() => { appToast("info", "saved"); });
+  const bottom = () => parseFloat((document.querySelector("[data-mobile-snackbar]") as HTMLElement).style.bottom);
+  const hiddenBottom = bottom();
+  tucked.style.visibility = "";
+  act(() => { vi.advanceTimersByTime(250); });
+  expect(bottom() - hiddenBottom).toBe(120);
+  added.forEach((el) => el.remove());
+});

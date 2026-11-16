@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { DisclosureToggle, ErrorMsg, INPUT_CLASS, Input, SubmitBtn } from "@/components/layout/authParts";
+import { ErrorMsg, INPUT_CLASS, Input, SubmitBtn } from "@/components/layout/authParts";
+import { DisclosureToggle } from "@/components/shared/DisclosureToggle";
 import { parseEnrollInput } from "@/services/deepLinkUrl";
 import type { EnrollmentTokenParts } from "@/services/enrollment/enrollmentToken";
 

@@ -645,6 +645,7 @@
         "confirm": "Guardar e renovar a chave"
       },
       "hiddenFrom": "Oculto para {{name}}",
+      "hiddenNoKey": "{{name}} não tem a chave do cofre",
       "cannotEdit": "A função deste membro não permite editar",
       "draftBadge": "Rascunho",
       "draftTag": "(rascunho)",

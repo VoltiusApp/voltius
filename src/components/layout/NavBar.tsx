@@ -6,6 +6,7 @@ import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 import { usePermissions } from "@/hooks/usePermission";
 import { usePreviewActive } from "@/hooks/previewScope";
 import { useSelectedAuditContext } from "@/hooks/useAuditContext";
+import { previewAreaLock } from "@/components/preview/previewAreaLocks";
 
 interface NavEntry {
   id: NavItem;
@@ -33,12 +34,12 @@ export default function NavBar() {
   const can = usePermissions();
   const previewing = usePreviewActive() !== null;
   const auditContext = useSelectedAuditContext();
-  const logsLocked = previewing && auditContext?.kind === "team" && !can("VIEW_AUDIT_LOG", auditContext.teamId);
+  const logsLock = previewAreaLock({ area: "logs", previewing, can, auditContext });
 
   const NAV_ITEMS: NavEntry[] = NAV_ITEM_DEFS.map((d) => ({
     ...d,
     label: t(`layout.nav.${d.id}`),
-    lockedReason: d.id === "logs" && logsLocked ? t("members.viewAs.locked.auditLog") : undefined,
+    lockedReason: d.id === "logs" && logsLock ? t(logsLock) : undefined,
   }));
 
   const handleNav = (id: NavItem) => {

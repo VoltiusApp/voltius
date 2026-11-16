@@ -43,11 +43,15 @@ type Box = { top: number; bottom: number; height: number };
 
 /**
  * Space taken at the bottom of the viewport by docked chrome (navigation bar, extra-keys
- * row, transfer cards…): from the top of the highest one touching the bottom edge down
- * to that edge. null when nothing is docked there (then the safe-area inset applies).
+ * row, transfer cards, draft bar…): from the top of the contiguous stack that rests on the
+ * bottom edge down to that edge. null when nothing is docked there (then the safe-area inset applies).
  */
 export function dockedInset(boxes: readonly Box[], viewportHeight: number): number | null {
-  const docked = boxes.filter((b) => b.height > 0 && b.bottom >= viewportHeight - 1 && b.top < viewportHeight);
+  const shown = boxes.filter((b) => b.height > 0 && b.top < viewportHeight);
+  const docked = shown.filter((b) => b.bottom >= viewportHeight - 1);
   if (docked.length === 0) return null;
-  return Math.max(0, Math.round(viewportHeight - Math.min(...docked.map((b) => b.top))));
+  let top = Math.min(...docked.map((b) => b.top));
+  let next: Box | undefined;
+  while ((next = shown.find((b) => b.top < top && b.bottom >= top - 1))) top = next.top;
+  return Math.max(0, Math.round(viewportHeight - top));
 }

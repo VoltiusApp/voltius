@@ -4,8 +4,10 @@ import { useMyUserId } from "@/hooks/useMyUserId";
 import { useOwnPermissions } from "@/hooks/usePermission";
 import type { PreviewSubject } from "@/services/permissionPreview";
 import { useServerPermissionPreview } from "@/services/serverCapabilities";
+import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { usePreviewStore } from "@/stores/previewStore";
 import { useVaultStore } from "@/stores/vaultStore";
+import { isMobileShell } from "@/utils/platform";
 
 export type ViewAsReason = "needsBusiness" | "needsManage" | "self" | "serverTooOld" | "previewing";
 
@@ -38,7 +40,18 @@ export function useViewAsGate(teamId: string): (subject: PreviewSubject) => View
     const enter = () => {
       if (reason !== null) return;
       const vault = useVaultStore.getState().vaults.find((v) => v.teamId === teamId);
-      usePreviewStore.getState().enter({ teamId, vaultId: vault?.id ?? teamId, subject });
+      const nav = useMobileNavStore.getState();
+      const mobile = isMobileShell();
+      if (mobile) nav.setPreviewReturn({ tab: nav.tab, stack: nav.stack });
+      const preview = usePreviewStore.getState();
+      preview.enter({ teamId, vaultId: vault?.id ?? teamId, subject });
+      if (!mobile) return;
+      if (!usePreviewStore.getState().session) {
+        nav.setPreviewReturn(null);
+        return;
+      }
+      preview.closeSide();
+      nav.setTab("hosts");
     };
     return {
       enabled: reason === null,

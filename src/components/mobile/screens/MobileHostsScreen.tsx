@@ -1,3 +1,4 @@
+import { whenWritable } from "@/services/previewGuard";
 import { useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
@@ -29,6 +30,9 @@ import MobileFilterBar from "../MobileFilterBar";
 import MobileListRow from "../MobileListRow";
 import MobileFab from "../MobileFab";
 import { useCollapsingHeader } from "../useCollapsingHeader";
+import { usePreviewActive } from "@/hooks/previewScope";
+import { GhostOr } from "@/components/preview/GhostCard";
+import { PreviewSubtitle } from "@/components/preview/PreviewHint";
 import MobileRemoteDeviceSessions from "../MobileRemoteDeviceSessions";
 import { TeamCredentialsNote } from "@/components/shared/VaultUnavailableNote";
 import { useTeamCredentialsUnavailable } from "@/hooks/useBlockedTeamVault";
@@ -91,7 +95,7 @@ function MobileHostRow({
           <ManagedBadge id={c.id} compact />
         </>
       }
-      subtitle={subtitle}
+      subtitle={<PreviewSubtitle type="connection" id={c.id}>{subtitle}</PreviewSubtitle>}
       trailing={latency && <span data-mobile-host-latency className="shrink-0 tabular-nums text-xs font-medium text-(--t-text-dim)">{latency}</span>}
     />
   );
@@ -100,6 +104,7 @@ function MobileHostRow({
 type AddMode = null | "menu" | "new-folder";
 
 export default function MobileHostsScreen() {
+  const previewing = usePreviewActive() !== null;
   const { t } = useTranslation();
   const connections = useAllConnections();
   const allFolders = useAllFolders();
@@ -166,7 +171,7 @@ export default function MobileHostsScreen() {
         <div ref={axisRef} data-mobile-folder-level>
           <MobileFolderBreadcrumb path={nav.folderPath} onNavigate={(i) => (i < 0 ? nav.navigateToRoot() : nav.navigateTo(i))} />
           {teamCredentialsUnavailable && <TeamCredentialsNote reason={teamCredentialsUnavailable} className="mx-4 mt-3" />}
-          {!nav.activeFolderId && <MobileRemoteDeviceSessions />}
+          {!nav.activeFolderId && !previewing && <MobileRemoteDeviceSessions />}
           {!search && subFolders.map((f) => (
             <MobileFolderRow
               key={f.id}
@@ -183,21 +188,22 @@ export default function MobileHostsScreen() {
             </div>
           )}
           {visible.map((c) => (
-            <MobileHostRow
-              key={c.id}
-              c={c}
-              pinned={isPinnedFn(c, "connection")}
-              pingEnabled={pingEnabled}
-              onConnect={openHost}
-              onActions={(id) => openSheet({ kind: "host-actions", hostId: id })}
-            />
+            <GhostOr key={c.id} type="connection" id={c.id} icon="lucide:server" name={connectionDisplayName(c)} layout="row">
+              <MobileHostRow
+                c={c}
+                pinned={isPinnedFn(c, "connection")}
+                pingEnabled={pingEnabled}
+                onConnect={openHost}
+                onActions={(id) => openSheet({ kind: "host-actions", hostId: id })}
+              />
+            </GhostOr>
           ))}
           {/* Clearance so the last row can scroll out from under the FAB. */}
           {canAdd && <div aria-hidden className="h-24" />}
         </div>
       </div>
       {canAdd && (
-        <MobileFab attr="mobile-add" icon="lucide:plus" label={fabLabel} extended={fabExtended} onTap={() => setAddMode("menu")} />
+        <MobileFab attr="mobile-add" icon="lucide:plus" label={fabLabel} extended={fabExtended} onTap={whenWritable(() => setAddMode("menu"))} />
       )}
 
       {addMode === "menu" && (

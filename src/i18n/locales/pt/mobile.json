@@ -287,6 +287,19 @@
         "leave": "Remove seu acesso a este cofre"
       }
     },
+    "viewAs": {
+      "editAccess": "Editar acesso",
+      "accessSubtitle": "As alterações aparecem atrás deste painel. Nada foi salvo ainda.",
+      "areas": {
+        "hosts": "Hosts",
+        "keychain": "Keychain",
+        "snippets": "Snippets",
+        "portForwarding": "Encaminhamento de Porta",
+        "sessions": "Sessões",
+        "members": "Membros",
+        "logs": "Log de auditoria"
+      }
+    },
     "selection": {
       "selectedCount": "{{count}} selecionado",
       "clearSelectionAriaLabel": "Limpar seleção",

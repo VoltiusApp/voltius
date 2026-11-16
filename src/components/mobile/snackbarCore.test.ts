@@ -50,6 +50,14 @@ describe("dockedInset", () => {
     expect(dockedInset([navBar], vh)).toBe(104);
     expect(dockedInset([navBar, cards], vh)).toBe(200);
   });
+  it("docked_inset_stacks_contiguous_bars", () => {
+    const tabBar = { top: 820, bottom: 900, height: 80 };
+    const draftBar = { top: 764, bottom: 820, height: 56 };
+    const lone = { top: 700, bottom: 750, height: 50 };
+    expect(dockedInset([draftBar, tabBar], vh)).toBe(136);
+    expect(dockedInset([lone, draftBar, tabBar], vh)).toBe(136);
+    expect(dockedInset([lone, draftBar], vh)).toBeNull();
+  });
 });
 
 describe("avoidLift", () => {

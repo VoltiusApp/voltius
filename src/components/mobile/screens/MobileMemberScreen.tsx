@@ -5,6 +5,7 @@ import type { TeamMember } from "@/stores/teamStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useMembersModel, type MembersModel } from "@/components/members/useMembersModel";
 import { groupOverrideRows, useMemberDetailModel } from "@/components/members/panels/useMemberDetailModel";
+import { AccessSummaryCard } from "@/components/members/panels/AccessSummaryCard";
 import { MemberDetailDialogs } from "@/components/members/panels/MemberDetailDialogs";
 import { PrimaryOwnerControl } from "@/components/members/panels/MemberDetailPanel";
 import { PermissionOverrideGroups } from "@/components/members/panels/PermissionOverrideRow";
@@ -121,6 +122,7 @@ function MemberPage({ team, teamId, member, onLeave }: { team: MembersModel; tea
       <MobilePanelHeader title={label} sessionName={secondaryHandle(member) || undefined} />
       <div data-vt-hit-scope className="flex-1 overflow-y-auto overflow-x-hidden"
         style={{ overscrollBehavior: "contain", paddingBottom: "calc(var(--vt-safe-bottom) + 24px)" }}>
+        <div className="px-4 pt-3"><AccessSummaryCard teamId={teamId} member={member} /></div>
         {memberNamingSupported(team.members) && (
           <Section id="name" label={t("members.detail.nameLabel")}>
             <div className="px-4"><MemberNameField name={name} handle={member.handle} touch /></div>

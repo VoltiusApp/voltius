@@ -13,6 +13,8 @@ import { folderItemCounter } from "@/utils/folderTree";
 import MobileFolderBreadcrumb from "@/components/mobile/folders/MobileFolderBreadcrumb";
 import MobileFilterBar from "@/components/mobile/MobileFilterBar";
 import MobileFolderRow from "@/components/mobile/folders/MobileFolderRow";
+import { GhostOr } from "@/components/preview/GhostCard";
+import { PreviewSubtitle } from "@/components/preview/PreviewHint";
 import FolderBackTrap from "@/components/mobile/folders/FolderBackTrap";
 import FolderFormSheet, { type FolderEdit } from "@/components/mobile/sheets/FolderFormSheet";
 import FolderActionsSheet from "@/components/mobile/sheets/FolderActionsSheet";
@@ -20,6 +22,7 @@ import type { Snippet, Folder } from "@/types";
 import { snippetMatcher } from "@/services/snippetSteps";
 import { SnippetPreview } from "@/components/snippets/HighlightedScript";
 import { compareStrings } from "@/utils/localeFormat";
+import { refuseWhilePreviewing, snippetTarget } from "@/services/previewGuard";
 
 export function useMobileSnippetScope() {
   return useMobileFolderScope(useAllSnippetFolders(), "snippet");
@@ -80,7 +83,7 @@ function SnippetList({
     void saveFolder({ ...edit, object_type: "snippet", parent_folder_id: nav.activeFolderId ?? undefined, vault_id: targetVaultId });
 
   function runCurrent(sn: Snippet, execute: boolean) {
-    if (!currentSessionId) return;
+    if (!currentSessionId || refuseWhilePreviewing(snippetTarget(sn.id))) return;
     void runSnippetIntoSessions(sn, [currentSessionId], execute, {
       onNeedVars: (pi) => useSnippetStore.getState().setGlobalPendingInject(pi),
     });
@@ -88,6 +91,7 @@ function SnippetList({
     closeSheet();
   }
   function openPicker(snippetId: string, mode: "insert" | "execute") {
+    if (refuseWhilePreviewing(snippetTarget(snippetId))) return;
     openSheet({ kind: "snippet-target", snippetId, mode, preselectSessionId: currentSessionId });
   }
   const onInsert = (sn: Snippet) => currentSessionId ? runCurrent(sn, false) : openPicker(sn.id, "insert");
@@ -116,11 +120,14 @@ function SnippetList({
           </div>
         )}
         {visible.map((sn) => (
-          <div key={sn.id} className="flex items-center" data-mobile-snippet={sn.id}>
+          <GhostOr key={sn.id} type="snippet" id={sn.id} icon="lucide:braces" name={sn.name} layout="row">
+          <div className="flex items-center" data-mobile-snippet={sn.id}>
             <button className="flex-1 flex flex-col gap-0.5 px-4 py-3 text-left active:bg-(--t-bg-card) min-w-0"
               onClick={() => openPicker(sn.id, "execute")}>
               <span className="text-sm font-medium text-(--t-text-primary) truncate">{sn.name}</span>
-              <span className="text-xs font-mono text-(--t-text-dim) truncate"><SnippetPreview snippet={sn} /></span>
+              <PreviewSubtitle type="snippet" id={sn.id}>
+                <span className="text-xs font-mono text-(--t-text-dim) truncate"><SnippetPreview snippet={sn} /></span>
+              </PreviewSubtitle>
             </button>
             <button className="vt-icon-btn text-(--t-text-secondary)" data-mobile-snippet-insert={sn.id} aria-label={t("mobile.snippets.insertAriaLabel")} onClick={() => onInsert(sn)}>
               <Icon icon="lucide:arrow-down-to-line" width={18} />
@@ -135,6 +142,7 @@ function SnippetList({
               </button>
             )}
           </div>
+          </GhostOr>
         ))}
       </div>
 

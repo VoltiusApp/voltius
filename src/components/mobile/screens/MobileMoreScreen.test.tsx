@@ -7,17 +7,38 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { deriveTierFlags } from "@/stores/subscriptionTier";
 import { acme, forgetTeams, nameSeatTeam } from "@/services/planDisplay.testHarness";
-import "@/i18n";
+import i18n from "@/i18n";
+import { PreviewContentScope } from "@/components/preview/PreviewScope";
+import { startPreview, stopPreview } from "@/test/preview";
 
 vi.mock("../MobileHeader", () => ({ default: () => null }));
 vi.mock("@/services/account", () => ({ getCurrentUserEmail: async () => null }));
-afterEach(cleanup);
+const toast = vi.hoisted(() => vi.fn());
+vi.mock("@/services/appToast", () => ({ appToast: toast }));
+afterEach(() => {
+  cleanup();
+  stopPreview();
+  vi.restoreAllMocks();
+});
 
 test("opens Import/Export from More", () => {
   const open = vi.spyOn(useUIStore.getState(), "openImportExport");
   const { container } = render(<MobileMoreScreen />);
   fireEvent.click(container.querySelector('[data-more-page="import-export"]')!);
   expect(open).toHaveBeenCalledWith("import");
+});
+
+test("import_export_is_greyed_and_refused_while_previewing", async () => {
+  const open = vi.spyOn(useUIStore.getState(), "openImportExport").mockClear();
+  startPreview();
+  const { container } = render(<PreviewContentScope><MobileMoreScreen /></PreviewContentScope>);
+  const row = container.querySelector<HTMLElement>('[data-more-page="import-export"]')!;
+  const reason = i18n.t("members.viewAs.readOnly");
+  expect(row.getAttribute("aria-disabled")).toBe("true");
+  expect(row.textContent).toContain(reason);
+  fireEvent.click(row);
+  await vi.waitFor(() => expect(toast).toHaveBeenCalledWith("info", reason));
+  expect(open).not.toHaveBeenCalled();
 });
 
 test("Vault settings for the active vault leads More", () => {

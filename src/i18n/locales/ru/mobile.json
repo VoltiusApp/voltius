@@ -291,6 +291,19 @@
         "leave": "Отказаться от доступа к этому хранилищу"
       }
     },
+    "viewAs": {
+      "editAccess": "Изменить доступ",
+      "accessSubtitle": "Изменения отображаются за этой панелью. Пока ничего не сохранено.",
+      "areas": {
+        "hosts": "Хосты",
+        "keychain": "Связка ключей",
+        "snippets": "Сниппеты",
+        "portForwarding": "Проброс портов",
+        "sessions": "Сессии",
+        "members": "Участники",
+        "logs": "Журнал аудита"
+      }
+    },
     "selection": {
       "selectedCount": "Выбрано: {{count}}",
       "clearSelectionAriaLabel": "Очистить выбор",

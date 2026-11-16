@@ -7,6 +7,8 @@ const h = vi.hoisted(() => ({
   sse: new Set<(teamId: string) => void>(),
 }));
 
+const mobile = vi.hoisted(() => ({ on: false }));
+vi.mock("@/utils/platform", async (orig) => ({ ...(await orig<typeof import("@/utils/platform")>()), isMobileShell: () => mobile.on }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => {}) }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/permissionPreview", async (orig) => ({
@@ -18,9 +20,11 @@ vi.mock("@/services/sync", () => ({
 }));
 vi.mock("@/services/teamKeyRotation", () => ({ checkAndRotateTeamKey: h.rotate }));
 
-import { usePreviewStore, saveNeedsConfirm } from "./previewStore";
+import { usePreviewStore, saveNeedsConfirm, mobileLeftContent } from "./previewStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useMobileNavStore } from "@/stores/mobileNavStore";
+import { initialMobileNavState } from "@/stores/mobileNavCore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import { useNotificationStore } from "@/stores/notificationStore";
@@ -47,6 +51,8 @@ beforeEach(() => {
   h.preview.mockReset().mockResolvedValue(response(1));
   h.rotate.mockClear();
   h.sse.clear();
+  mobile.on = false;
+  useMobileNavStore.setState(initialMobileNavState);
   usePreviewStore.getState().exit();
   useNotificationStore.setState({ toasts: [] });
   useVaultStore.setState({ selectedVaultIds: ["personal", "v1"] });
@@ -79,6 +85,47 @@ test.each([
 ])("leaving_the_content_via_%s_exits", (_, patch) => {
   usePreviewStore.getState().enter(session);
   useUIStore.setState(patch);
+  expect(usePreviewStore.getState().session).toBeNull();
+});
+
+test.each([
+  ["hosts", "hosts", [], false],
+  ["snippets", "snippets", [], false],
+  ["more", "more", [], false],
+  ["terminal", "terminal", [], true],
+  ["sftp", "sftp", [], true],
+  ["more_page", "more", [{ kind: "more-page", page: "keychain" }], false],
+  ["panel_sftp", "hosts", [{ kind: "panel-sftp", connectionId: "c" }], true],
+  ["panel", "hosts", [{ kind: "panel", section: "s", sessionId: "x" }], true],
+  ["docker_logs", "hosts", [{ kind: "panel-docker-logs", sessionId: "x", containerId: "c", containerName: "n" }], true],
+  ["account", "more", [{ kind: "account" }], true],
+] as const)("mobileLeftContent_%s", (_, tab, stack, expected) => {
+  expect(mobileLeftContent({ tab, stack: [...stack] }, false)).toBe(expected);
+});
+
+test("mobileLeftContent_settings_open", () => {
+  expect(mobileLeftContent({ tab: "hosts", stack: [] }, true)).toBe(true);
+});
+
+test("mobile_enter_survives_home_view_default", () => {
+  mobile.on = true;
+  useUIStore.setState({ homeView: true, activeNav: "hosts" });
+  usePreviewStore.getState().enter(session);
+  expect(usePreviewStore.getState().session).not.toBeNull();
+});
+
+test("mobile_tab_change_to_terminal_exits", () => {
+  mobile.on = true;
+  useUIStore.setState({ homeView: true, activeNav: "hosts" });
+  usePreviewStore.getState().enter(session);
+  useMobileNavStore.getState().setTab("terminal");
+  expect(usePreviewStore.getState().session).toBeNull();
+});
+
+test("mobile_pushing_panel_sftp_exits", () => {
+  mobile.on = true;
+  usePreviewStore.getState().enter(session);
+  useMobileNavStore.getState().push({ kind: "panel-sftp", connectionId: "c" });
   expect(usePreviewStore.getState().session).toBeNull();
 });
 

@@ -102,7 +102,7 @@ export default function MobileMembersScreen({ vaultId }: { vaultId: string | nul
   const actions: BarAction[] = [
     ...(["assign", "remove"] as const).map((mode) => ({
       attr: `data-members-sel-${mode}`, icon: ROLE_MODE_ICONS[mode], label: t(`mobile.members.${mode}Role`),
-      disabledReason: blockedReason, onTap: () => setPicker(mode),
+      disabledReason: blockedReason, onTap: whenWritable(() => setPicker(mode)),
     })),
     { attr: "data-members-sel-kick", icon: "lucide:user-minus", label: t("members.kick"), danger: true, disabledReason: blockedReason, onTap: () => askOffboarding(selected) },
   ];

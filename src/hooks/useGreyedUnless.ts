@@ -19,6 +19,12 @@ export function useLackReason(action: "any" | "edit" = "any"): string {
   return t(LACK_KEYS[usePreviewActive() ? "preview" : "own"][action]);
 }
 
+/** The read-only reason inside a preview's content, null outside it. */
+export function usePreviewReadOnly(): string | null {
+  const { t } = useTranslation();
+  return usePreviewActive() ? t("members.viewAs.readOnly") : null;
+}
+
 /** Props that grey a control out, with the standard reason, unless the subject holds the permission. */
 export function useGreyedUnless(): (has: boolean) => Greyed {
   const reason = useLackReason();

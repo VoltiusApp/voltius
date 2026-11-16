@@ -287,6 +287,19 @@
         "leave": "Retirer votre accès à ce coffre"
       }
     },
+    "viewAs": {
+      "editAccess": "Modifier l'accès",
+      "accessSubtitle": "Les modifications s'affichent derrière ce panneau. Rien n'est encore enregistré.",
+      "areas": {
+        "hosts": "Hôtes",
+        "keychain": "Trousseau",
+        "snippets": "Extraits",
+        "portForwarding": "Redirection de ports",
+        "sessions": "Sessions",
+        "members": "Membres",
+        "logs": "Journal d'audit"
+      }
+    },
     "selection": {
       "selectedCount": "{{count}} sélectionné(s)",
       "clearSelectionAriaLabel": "Effacer la sélection",
