@@ -1,4 +1,4 @@
-import type { PermissionSnapshot } from "@/services/permissions";
+import { PERM_BITS, type PermissionSnapshot } from "@/services/permissions";
 import type { Preview, PreviewDraft, PreviewResponse, PreviewSubject } from "@/services/permissionPreview";
 import type { TeamMember, TeamRole } from "@/services/teamService";
 import type { TeamAccessEntries } from "@/stores/teamObjectAccessStore";
@@ -23,6 +23,28 @@ export const keyedMask = (side: Preview, objectId: string): number =>
 export function previewSideOf(result: PreviewResponse, objectId: string): Preview {
   const shown = shownPreview(result);
   return shown.objects[objectId] ? shown : result.current;
+}
+
+export interface PreviewObject {
+  hidden: boolean;
+  noKey: boolean;
+  mask: number;
+  currentMask: number;
+  changed: boolean;
+}
+
+export function previewObjectOf(result: PreviewResponse, objectId: string): PreviewObject | null {
+  if (!result.current.objects[objectId]) return null;
+  const side = previewSideOf(result, objectId);
+  const mask = keyedMask(side, objectId);
+  const currentMask = keyedMask(result.current, objectId);
+  return {
+    hidden: (mask & PERM_BITS.VIEW) === 0,
+    noKey: !side.holds_vault_key_gate,
+    mask,
+    currentMask,
+    changed: result.draft !== null && mask !== currentMask,
+  };
 }
 
 export function subjectRecord(
