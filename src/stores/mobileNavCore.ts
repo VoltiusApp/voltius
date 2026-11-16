@@ -4,7 +4,7 @@ import type { SnippetDraft } from "@/stores/snippetStore";
 
 export type MobileTab = "hosts" | "terminal" | "snippets" | "sftp" | "more";
 
-export type MorePage = "keychain" | "port-forwarding" | "known-hosts" | "members" | "logs";
+export type MorePage = "keychain" | "port-forwarding" | "known-hosts" | "members" | "logs" | "sessions";
 
 /** Sub-pages of the vault settings page (each one its own stack entry). */
 export type VaultSettingsPage = "share" | "members" | "roles" | "security";

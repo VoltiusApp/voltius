@@ -290,6 +290,17 @@
         "deleteTeam": "Le supprime pour tous les membres",
         "leave": "Retirer votre accès à ce coffre"
       }
+    },
+    "viewAs": {
+      "areas": {
+        "hosts": "Hôtes",
+        "keychain": "Trousseau",
+        "snippets": "Extraits",
+        "portForwarding": "Redirection de ports",
+        "sessions": "Sessions",
+        "members": "Membres",
+        "logs": "Journal d'audit"
+      }
     }
   }
 }

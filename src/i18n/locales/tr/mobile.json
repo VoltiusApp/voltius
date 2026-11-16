@@ -286,6 +286,17 @@
         "deleteTeam": "Tüm üyeler için siler",
         "leave": "Bu kasaya erişiminizi kaldırın"
       }
+    },
+    "viewAs": {
+      "areas": {
+        "hosts": "Sunucular",
+        "keychain": "Anahtar zinciri",
+        "snippets": "Kod parçacıkları",
+        "portForwarding": "Port yönlendirme",
+        "sessions": "Oturumlar",
+        "members": "Üyeler",
+        "logs": "Denetim günlüğü"
+      }
     }
   }
 }

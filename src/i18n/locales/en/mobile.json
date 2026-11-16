@@ -286,6 +286,17 @@
         "deleteTeam": "Deletes it for every member",
         "leave": "Remove your access to this vault"
       }
+    },
+    "viewAs": {
+      "areas": {
+        "hosts": "Hosts",
+        "keychain": "Keychain",
+        "snippets": "Snippets",
+        "portForwarding": "Port forwarding",
+        "sessions": "Sessions",
+        "members": "Members",
+        "logs": "Audit log"
+      }
     }
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { FloatingPill, escapeIsFree } from "@/components/shared/FloatingPill";
@@ -8,6 +8,9 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useSubjectLabel } from "@/components/preview/PreviewScope";
 import { memberLabel } from "@/services/memberLabel";
 import { unsavedChangeCount } from "@/services/viewAsSave";
+import { PreviewStatus } from "@/components/preview/PreviewStatus";
+import { ViewAsExitConfirm } from "@/components/preview/ViewAsExitConfirm";
+import { useViewAsExit } from "@/components/preview/useViewAsExit";
 import { subjectRecord } from "@/services/previewSnapshot";
 import type { TeamMember, TeamRole } from "@/services/teamService";
 
@@ -42,32 +45,6 @@ function ViewAsSaveConfirm() {
   return <ConfirmModal tone="warning" busy={saving} {...copy} onCancel={cancelSave} onConfirm={() => void confirmSave()} />;
 }
 
-function PreviewStatus() {
-  const { t } = useTranslation();
-  const status = usePreviewStore((s) => s.status);
-  const error = usePreviewStore((s) => s.error);
-  const detail = usePreviewStore((s) => s.errorDetail);
-  if (status === "loading") {
-    return (
-      <span data-testid="view-as-loading" className="flex items-center gap-1" style={{ color: "var(--t-text-dim)" }}>
-        <Icon icon="lucide:loader-circle" width={12} className="animate-spin" />
-        {t("members.viewAs.loading")}
-      </span>
-    );
-  }
-  if (status !== "error") return null;
-  return (
-    <>
-      <span data-testid="view-as-error" className="min-w-0 max-w-64 truncate" title={detail ?? undefined} style={{ color: "var(--t-status-error)" }}>
-        {error ?? t("members.viewAs.failed")}
-      </span>
-      <button data-testid="view-as-retry" className="btn btn-ghost" onClick={() => void usePreviewStore.getState().refetch()}>
-        {t("common.action.retry")}
-      </button>
-    </>
-  );
-}
-
 export function ViewAsPill() {
   const { t } = useTranslation();
   const draft = usePreviewStore((s) => s.draft);
@@ -77,13 +54,8 @@ export function ViewAsPill() {
   const saveError = usePreviewStore((s) => s.saveError);
   const name = useSubjectLabel();
   const current = useSubjectRecord();
-  const [confirmingExit, setConfirmingExit] = useState(false);
-
-  const requestExit = () => {
-    const { draft: pending, exit } = usePreviewStore.getState();
-    if (pending) setConfirmingExit(true);
-    else exit();
-  };
+  const exitFlow = useViewAsExit();
+  const { requestExit } = exitFlow;
 
   useEffect(() => {
     const onEscape = (e: KeyboardEvent) => {
@@ -93,7 +65,7 @@ export function ViewAsPill() {
     return () => window.removeEventListener("keydown", onEscape);
   }, []);
 
-  const { exit, setDraft, requestSave } = usePreviewStore.getState();
+  const { setDraft, requestSave } = usePreviewStore.getState();
   const count = draft ? unsavedChangeCount(draft, current) : 0;
   const keyGate = saveNeedsConfirm(result) !== null;
   const changed = draft && "permissions" in draft && !keyGate ? result?.affected?.changed.length ?? 0 : 0;
@@ -130,16 +102,7 @@ export function ViewAsPill() {
         </button>
       </FloatingPill>
       <ViewAsSaveConfirm />
-      {confirmingExit && (
-        <ConfirmModal
-          tone="warning"
-          title={t("members.viewAs.discardDraft.title")}
-          message={t("members.viewAs.discardDraft.body", { name })}
-          confirmLabel={t("members.viewAs.discardDraft.confirm")}
-          onCancel={() => setConfirmingExit(false)}
-          onConfirm={() => { setConfirmingExit(false); exit(); }}
-        />
-      )}
+      <ViewAsExitConfirm exit={exitFlow} />
     </>
   );
 }

@@ -294,6 +294,17 @@
         "deleteTeam": "Smaže ho pro všechny členy",
         "leave": "Odebrat si přístup k tomuto trezoru"
       }
+    },
+    "viewAs": {
+      "areas": {
+        "hosts": "Hosty",
+        "keychain": "Klíčenka",
+        "snippets": "Úryvky",
+        "portForwarding": "Přesměrování portů",
+        "sessions": "Relace",
+        "members": "Členové",
+        "logs": "Auditní log"
+      }
     }
   }
 }

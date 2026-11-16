@@ -19,6 +19,7 @@ import { usePermissions } from "@/hooks/usePermission";
 import { usePreviewActive } from "@/hooks/previewScope";
 import { useGreyedUnless } from "@/hooks/useGreyedUnless";
 import { refuseWhilePreviewing } from "@/services/previewGuard";
+import { previewAreaLock } from "@/components/preview/previewAreaLocks";
 
 function JoinByCodeButton({ onClick, disabledReason }: { onClick: () => void; disabledReason?: string }) {
   const { t } = useTranslation();
@@ -44,7 +45,7 @@ export function TeamSessions() {
   const accessibleVaultIds = useAccessibleVaultIds();
   const can = usePermissions();
   const preview = usePreviewActive();
-  const sessionsLocked = !!preview && !can("VIEW_TERMINAL_SESSIONS", preview.vaultId);
+  const sessionsLock = previewAreaLock("sessions", { previewing: !!preview, can, auditTeamId: null, vaultId: preview?.vaultId ?? null });
   const joinLocked = !!preview && !can("JOIN_TERMINAL_SESSION", preview.vaultId);
   const joinGrey = useGreyedUnless()(!joinLocked);
   const [myUserId, setMyUserId] = useState<string | null>(null);
@@ -142,7 +143,7 @@ export function TeamSessions() {
     }
   };
 
-  if (sessionsLocked) {
+  if (sessionsLock) {
     return (
       <div className="mb-6">
         <h2 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
@@ -150,7 +151,7 @@ export function TeamSessions() {
         </h2>
         <p className="flex items-center gap-1.5 text-xs opacity-60 text-(--t-text-dim)">
           <Icon icon="lucide:lock" width={12} />
-          {t("members.viewAs.locked.sessions")}
+          {t(sessionsLock)}
         </p>
       </div>
     );

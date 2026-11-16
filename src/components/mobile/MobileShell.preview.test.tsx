@@ -14,6 +14,7 @@ vi.mock("./screens/MobileHostsScreen", () => ({ default: () => <Probe id="hosts"
 vi.mock("./screens/MobileKeychainScreen", () => ({ default: () => <Probe id="keychain" /> }));
 vi.mock("./sheets/HostActionsSheet", () => ({ default: () => <Probe id="host-actions" /> }));
 vi.mock("./sheets/VaultSwitcherSheet", () => ({ default: () => <Probe id="vault-switcher" /> }));
+vi.mock("@/components/hosts/TeamSessions", () => ({ TeamSessions: () => <Probe id="team-sessions" /> }));
 vi.mock("./panels/MobileSftpScreen", () => ({ default: () => null }));
 vi.mock("./MobileRemoteDeviceSessions", () => ({ default: () => <div>remote-sessions</div> }));
 
@@ -68,4 +69,11 @@ test("remote_device_sessions_not_rendered_while_previewing", async () => {
   stopPreview();
   view.rerender(<PreviewContentScope><Real /></PreviewContentScope>);
   expect(view.queryByText("remote-sessions")).not.toBeNull();
+});
+
+test("sessions_page_renders_team_sessions", () => {
+  useMobileNavStore.setState({ stack: [{ kind: "more-page", page: "sessions" }] });
+  render(<MobileShell />);
+  expect(screen.getByTestId("team-sessions").textContent).toBe("true");
+  expect(document.querySelector("[data-vt-hit-scope] [data-testid='team-sessions']")).not.toBeNull();
 });

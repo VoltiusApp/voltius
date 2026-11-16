@@ -26,6 +26,9 @@ import MobileTerminalPanelScreen from "./panels/MobileTerminalPanelScreen";
 import { PendingConflictDialog } from "@/components/filetransfer/ConflictDialog";
 import MobileAccountPage from "./screens/MobileAccountPage";
 import MobileVaultSettingsScreen from "./screens/MobileVaultSettingsScreen";
+import MobileViewAsBar from "./viewAs/MobileViewAsBar";
+import MobileViewAsAreas from "./viewAs/MobileViewAsAreas";
+import { TeamSessions } from "@/components/hosts/TeamSessions";
 import MobilePanelHeader from "./panels/MobilePanelHeader";
 import MobileHeader from "./MobileHeader";
 import TeamVaultStatePanel from "@/components/team/TeamVaultStatePanel";
@@ -43,6 +46,7 @@ function getMorePageTitles(t: TFunction): Record<MorePage, string> {
     "known-hosts": t("mobile.morePages.knownHosts"),
     "members": t("mobile.morePages.members"),
     "logs": t("mobile.morePages.logs"),
+    "sessions": t("mobile.viewAs.areas.sessions"),
   };
 }
 import { useMobileNavStore } from "@/stores/mobileNavStore";
@@ -153,6 +157,12 @@ export default function MobileShell() {
         {screen.kind === "more-page" && screen.page === "port-forwarding" && <MobilePortForwardingScreen />}
         {screen.kind === "more-page" && screen.page === "known-hosts" && <MobileKnownHostsScreen />}
         {screen.kind === "more-page" && screen.page === "logs" && <MobileLogsScreen />}
+        {screen.kind === "more-page" && screen.page === "sessions" && (
+          <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
+            <MobilePanelHeader title={MORE_PAGE_TITLES.sessions} />
+            <div data-vt-hit-scope className="flex-1 overflow-y-auto"><TeamSessions /></div>
+          </div>
+        )}
         {screen.kind === "more-page" && screen.page === "members" && (
           <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
             <MobilePanelHeader title={MORE_PAGE_TITLES.members} />
@@ -177,6 +187,8 @@ export default function MobileShell() {
         height: shellHeight,
       }}
     >
+      <MobileViewAsBar />
+      <PreviewContentScope><MobileViewAsAreas /></PreviewContentScope>
       <div
         className="flex-1 relative flex flex-col"
         style={{ overflow: "clip" }}

@@ -285,6 +285,17 @@
         "deleteTeam": "为所有成员删除",
         "leave": "移除你对此保管库的访问权限"
       }
+    },
+    "viewAs": {
+      "areas": {
+        "hosts": "主机",
+        "keychain": "密钥链",
+        "snippets": "代码片段",
+        "portForwarding": "端口转发",
+        "sessions": "会话",
+        "members": "成员",
+        "logs": "审计日志"
+      }
     }
   }
 }

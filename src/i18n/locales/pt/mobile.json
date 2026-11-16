@@ -290,6 +290,17 @@
         "deleteTeam": "Exclui para todos os membros",
         "leave": "Remove seu acesso a este cofre"
       }
+    },
+    "viewAs": {
+      "areas": {
+        "hosts": "Hosts",
+        "keychain": "Keychain",
+        "snippets": "Snippets",
+        "portForwarding": "Encaminhamento de Porta",
+        "sessions": "Sessões",
+        "members": "Membros",
+        "logs": "Log de auditoria"
+      }
     }
   }
 }
