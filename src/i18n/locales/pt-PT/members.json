@@ -607,6 +607,23 @@
       "locked": {
         "auditLog": "Registo de auditoria bloqueado para este membro",
         "sessions": "Sessões de terminal bloqueadas para este membro"
+      },
+      "viewingAs": "A ver como {{name}}",
+      "viewingAsReadOnly": "A ver como {{name}} · só de leitura",
+      "unsaved_one": "{{count}} alteração por guardar",
+      "unsaved_many": "{{count}} alterações por guardar",
+      "unsaved_other": "{{count}} alterações por guardar",
+      "discard": "Descartar",
+      "save": "Guardar",
+      "saveConfirm": "Guardar…",
+      "exit": "Sair",
+      "changesAccess_one": "Altera o acesso de {{count}} membro",
+      "changesAccess_many": "Altera o acesso de {{count}} membros",
+      "changesAccess_other": "Altera o acesso de {{count}} membros",
+      "roleKeyLoss": {
+        "title": "Remover o acesso à chave do cofre?",
+        "body": "{{names}} perderá a chave do cofre. A chave é renovada para todos os outros.",
+        "confirm": "Guardar e renovar a chave"
       }
     }
   }

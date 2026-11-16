@@ -586,6 +586,21 @@
       "locked": {
         "auditLog": "审计日志对该成员已锁定",
         "sessions": "终端会话对该成员已锁定"
+      },
+      "viewingAs": "正在以 {{name}} 的身份查看",
+      "viewingAsReadOnly": "正在以 {{name}} 的身份查看 · 只读",
+      "unsaved_one": "{{count}} 项未保存的更改",
+      "unsaved_other": "{{count}} 项未保存的更改",
+      "discard": "放弃",
+      "save": "保存",
+      "saveConfirm": "保存…",
+      "exit": "退出",
+      "changesAccess_one": "将更改 {{count}} 位成员的访问权限",
+      "changesAccess_other": "将更改 {{count}} 位成员的访问权限",
+      "roleKeyLoss": {
+        "title": "移除保险库密钥访问权限？",
+        "body": "{{names}} 将失去保险库密钥。密钥将为其他所有人轮换。",
+        "confirm": "保存并轮换密钥"
       }
     }
   }

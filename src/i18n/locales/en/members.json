@@ -586,6 +586,21 @@
       "locked": {
         "auditLog": "Audit log locked for this member",
         "sessions": "Terminal sessions locked for this member"
+      },
+      "viewingAs": "Viewing as {{name}}",
+      "viewingAsReadOnly": "Viewing as {{name}} · read-only",
+      "unsaved_one": "{{count}} unsaved change",
+      "unsaved_other": "{{count}} unsaved changes",
+      "discard": "Discard",
+      "save": "Save",
+      "saveConfirm": "Save…",
+      "exit": "Exit",
+      "changesAccess_one": "Changes access for {{count}} member",
+      "changesAccess_other": "Changes access for {{count}} members",
+      "roleKeyLoss": {
+        "title": "Remove vault key access?",
+        "body": "{{names}} will lose the vault key. The key is rotated for everyone else.",
+        "confirm": "Save and rotate key"
       }
     }
   }

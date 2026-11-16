@@ -624,6 +624,25 @@
       "locked": {
         "auditLog": "Protokol auditu je pro tohoto člena uzamčen",
         "sessions": "Relace terminálu jsou pro tohoto člena uzamčeny"
+      },
+      "viewingAs": "Zobrazení jako {{name}}",
+      "viewingAsReadOnly": "Zobrazení jako {{name}} · jen pro čtení",
+      "unsaved_one": "{{count}} neuložená změna",
+      "unsaved_few": "{{count}} neuložené změny",
+      "unsaved_many": "{{count}} neuložených změn",
+      "unsaved_other": "{{count}} neuložených změn",
+      "discard": "Zahodit",
+      "save": "Uložit",
+      "saveConfirm": "Uložit…",
+      "exit": "Ukončit",
+      "changesAccess_one": "Mění přístup pro {{count}} člena",
+      "changesAccess_few": "Mění přístup pro {{count}} členy",
+      "changesAccess_many": "Mění přístup pro {{count}} členů",
+      "changesAccess_other": "Mění přístup pro {{count}} členů",
+      "roleKeyLoss": {
+        "title": "Odebrat přístup ke klíči trezoru?",
+        "body": "{{names}} ztratí klíč trezoru. Klíč se obmění pro všechny ostatní.",
+        "confirm": "Uložit a obměnit klíč"
       }
     }
   }

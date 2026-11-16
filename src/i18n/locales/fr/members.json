@@ -603,6 +603,23 @@
       "locked": {
         "auditLog": "Journal d'audit verrouillé pour ce membre",
         "sessions": "Sessions de terminal verrouillées pour ce membre"
+      },
+      "viewingAs": "Vue en tant que {{name}}",
+      "viewingAsReadOnly": "Vue en tant que {{name}} · lecture seule",
+      "unsaved_one": "{{count}} modification non enregistrée",
+      "unsaved_many": "{{count}} modifications non enregistrées",
+      "unsaved_other": "{{count}} modifications non enregistrées",
+      "discard": "Abandonner",
+      "save": "Enregistrer",
+      "saveConfirm": "Enregistrer…",
+      "exit": "Quitter",
+      "changesAccess_one": "Modifie l'accès de {{count}} membre",
+      "changesAccess_many": "Modifie l'accès de {{count}} membres",
+      "changesAccess_other": "Modifie l'accès de {{count}} membres",
+      "roleKeyLoss": {
+        "title": "Retirer l'accès à la clé du coffre ?",
+        "body": "{{names}} perdra la clé du coffre. La clé est renouvelée pour tous les autres.",
+        "confirm": "Enregistrer et renouveler la clé"
       }
     }
   }

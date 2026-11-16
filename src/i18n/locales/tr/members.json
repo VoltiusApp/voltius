@@ -590,6 +590,21 @@
       "locked": {
         "auditLog": "Denetim günlüğü bu üye için kilitli",
         "sessions": "Terminal oturumları bu üye için kilitli"
+      },
+      "viewingAs": "{{name}} olarak görüntüleniyor",
+      "viewingAsReadOnly": "{{name}} olarak görüntüleniyor · salt okunur",
+      "unsaved_one": "{{count}} kaydedilmemiş değişiklik",
+      "unsaved_other": "{{count}} kaydedilmemiş değişiklik",
+      "discard": "Vazgeç",
+      "save": "Kaydet",
+      "saveConfirm": "Kaydet…",
+      "exit": "Çık",
+      "changesAccess_one": "{{count}} üyenin erişimini değiştirir",
+      "changesAccess_other": "{{count}} üyenin erişimini değiştirir",
+      "roleKeyLoss": {
+        "title": "Kasa anahtarı erişimi kaldırılsın mı?",
+        "body": "{{names}} kasa anahtarını kaybedecek. Anahtar diğer herkes için yenilenir.",
+        "confirm": "Kaydet ve anahtarı yenile"
       }
     }
   }
