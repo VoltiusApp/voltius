@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { PermissionGrid } from "@/components/members/panels/RolesPanel";
 import { roleLabel } from "@/components/members/roleChips";
@@ -11,7 +10,8 @@ import { useTeamStore } from "@/stores/teamStore";
 import { usePreviewStore } from "@/stores/previewStore";
 import { unsavedChangeCount } from "@/services/viewAsSave";
 import { subjectRecord } from "@/services/previewSnapshot";
-import { isMobileShell } from "@/utils/platform";
+import { touchSize } from "@/components/mobile/touch";
+import { DisclosureToggle } from "@/components/shared/DisclosureToggle";
 
 export function RoleAccessPanel() {
   const { t } = useTranslation();
@@ -44,19 +44,16 @@ export function RoleAccessPanel() {
       {reason && <p className="text-[11px] text-(--t-text-dim)">{reason}</p>}
       {!reason && locked && <BusinessLockLine teamId={teamId} label={t("shared.businessLock.rolesBody")} />}
       <div title={reason ?? undefined} className={editable ? undefined : "opacity-60"}>
-        <PermissionGrid value={shown} onChange={update} readOnly={!editable} size={isMobileShell() ? "touch" : "sm"} />
+        <PermissionGrid value={shown} onChange={update} readOnly={!editable} size={touchSize()} />
       </div>
       {affected.length > 0 && (
         <div>
-          <button
-            type="button"
-            aria-expanded={expanded}
-            onClick={() => setExpanded((v) => !v)}
-            className={`flex items-center gap-1 text-[11px] text-(--t-text-secondary)${isMobileShell() ? " min-h-12" : ""}`}
-          >
-            <Icon icon={expanded ? "lucide:chevron-down" : "lucide:chevron-right"} width={11} />
-            {t("members.viewAs.affects", { count: affected.length })}
-          </button>
+          <DisclosureToggle
+            look="compact"
+            open={expanded}
+            onToggle={() => setExpanded((v) => !v)}
+            label={t("members.viewAs.affects", { count: affected.length })}
+          />
           {expanded && <p className="mt-1 text-[11px] text-(--t-text-dim)">{names.join(", ")}</p>}
         </div>
       )}

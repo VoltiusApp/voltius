@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
+import { DisclosureToggle } from "@/components/shared/DisclosureToggle";
 import { BusinessLockLine } from "@/components/shared/BusinessLockBanner";
 import { SETTINGS_SURFACE } from "@/components/settings/sections/shared";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
@@ -171,15 +172,12 @@ export function DevicePolicyCard({ teamId }: { teamId: string }) {
 
       {entries.length > 0 && (
         <div className={`${SETTINGS_SURFACE} overflow-hidden`}>
-          <button
-            type="button"
-            onClick={() => setOpen(!open)}
-            aria-expanded={open}
-            className="w-full flex items-center gap-1.5 px-3 py-2 text-xs text-(--t-text-secondary)"
-          >
-            <Icon icon={open ? "lucide:chevron-down" : "lucide:chevron-right"} width={12} className="text-(--t-text-dim)" />
-            {open ? t("members.devicePolicy.hide") : t("members.devicePolicy.show", { count: entries.length })}
-          </button>
+          <DisclosureToggle
+            look="row"
+            open={open}
+            onToggle={() => setOpen(!open)}
+            label={open ? t("members.devicePolicy.hide") : t("members.devicePolicy.show", { count: entries.length })}
+          />
           {open && (
             <ul className="divide-y divide-(--t-border) border-t border-(--t-border)">
               {entries.map(([key, value]) => {

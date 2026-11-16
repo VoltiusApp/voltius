@@ -17,7 +17,8 @@ import {
   memberReadOnly, isEditablePermission, type Permission,
 } from "@/services/permissions";
 import { useTeamStore } from "@/stores/teamStore";
-import { isMobileShell } from "@/utils/platform";
+import { touchSize } from "@/components/mobile/touch";
+import { DisclosureToggle } from "@/components/shared/DisclosureToggle";
 import type { TeamRole } from "@/stores/teamStore";
 import { saveNeedsConfirm, usePreviewStore } from "@/stores/previewStore";
 import { unsavedChangeCount, type SaveFailure } from "@/services/viewAsSave";
@@ -146,7 +147,7 @@ export function MemberAccessPanel() {
             <PermissionOverrideRow
               key={p}
               permission={p}
-              toggleSize={isMobileShell() ? "touch" : "sm"}
+              toggleSize={touchSize()}
               state={overrideStateOf(p, shown.allow, shown.deny)}
               inheritedFrom={grantingRoles(p)}
               granted={(memberEffective & PERM_BITS[p]) !== 0}
@@ -155,15 +156,7 @@ export function MemberAccessPanel() {
               onChange={(next) => update({ ...shown, ...applyOverrideState(p, shown.allow, shown.deny, next) })}
             />
           ))}
-          <button
-            type="button"
-            aria-expanded={showAll}
-            onClick={() => setShowAll((v) => !v)}
-            className={`flex items-center gap-1 text-[11px] text-(--t-text-secondary)${isMobileShell() ? " min-h-12" : ""}`}
-          >
-            <Icon icon={showAll ? "lucide:chevron-down" : "lucide:chevron-right"} width={11} />
-            {t("members.viewAs.access.allPermissions")}
-          </button>
+          <DisclosureToggle look="compact" open={showAll} onToggle={() => setShowAll((v) => !v)} label={t("members.viewAs.access.allPermissions")} />
           </>
         )}
       </FormSection>
