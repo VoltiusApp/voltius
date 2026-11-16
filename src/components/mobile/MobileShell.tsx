@@ -28,6 +28,7 @@ import MobileAccountPage from "./screens/MobileAccountPage";
 import MobileVaultSettingsScreen from "./screens/MobileVaultSettingsScreen";
 import MobileViewAsBar from "./viewAs/MobileViewAsBar";
 import MobileViewAsAreas from "./viewAs/MobileViewAsAreas";
+import MobileViewAsDraftBar from "./viewAs/MobileViewAsDraftBar";
 import { TeamSessions } from "@/components/hosts/TeamSessions";
 import MobilePanelHeader from "./panels/MobilePanelHeader";
 import MobileMembersScreen from "./screens/MobileMembersScreen";
@@ -45,6 +46,7 @@ import { useVaultStore } from "@/stores/vaultStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
+import { usePreviewStore } from "@/stores/previewStore";
 import { usePluginStore } from "@/stores/pluginStore";
 import { resolvePanelScreen } from "./mobilePanelDispatch";
 import { useAndroidBack } from "@/hooks/useAndroidBack";
@@ -95,6 +97,7 @@ export default function MobileShell() {
   const notificationsOpen = useUIStore((s) => s.notificationCenterOpen);
   const mobileScreens = usePluginStore((s) => s.mobileScreens);
   const pop = useMobileNavStore((s) => s.pop);
+  const accessSheetOpen = usePreviewStore((s) => s.side?.kind === "access");
 
   // Plugin-contributed mobile screens pushed by kind (docker-logs…), looked
   // up by kind so uninstalling/disabling a plugin removes its screen — mirrors
@@ -114,6 +117,7 @@ export default function MobileShell() {
   // Never while the blocked panel is up — it covers the screens, so dropping the tab
   // bar as well would leave the member no way off the vault at all.
   const immersive = tab === "terminal" && hasSessions && !top && !blockedTeamVault;
+  const tabBarVisible = !immersive && !top;
   const terminalVisible = tab === "terminal" && tabScreen;
   // SFTP tab is always-mounted (below) so its connections/cwd survive tab switches; this only gates visibility.
   const sftpVisible = !terminalVisible && tab === "sftp" && tabScreen;
@@ -231,10 +235,11 @@ export default function MobileShell() {
           )}
         </PreviewContentScope>
       </div>
+      {!accessSheetOpen && <MobileViewAsDraftBar safeBottom={!tabBarVisible} />}
       {/* Hide the tab bar while a full-screen page is pushed — it would otherwise sit
           visible-but-covered under the overlay, and tapping a tab silently clears the stack.
           It slides away / back rather than vanishing (useSlideAway). */}
-      <BottomTabBar visible={!immersive && !top} />
+      <BottomTabBar visible={tabBarVisible} />
       {sheet?.kind === "vault-switcher" && <VaultSwitcherSheet />}
       {sheet?.kind === "sync" && <SyncSheet />}
       <MobileViewAsSheets />

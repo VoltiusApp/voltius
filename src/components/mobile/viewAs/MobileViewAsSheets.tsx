@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { MemberAccessPanel } from "@/components/preview/MemberAccessPanel";
 import { RoleAccessPanel } from "@/components/preview/RoleAccessPanel";
@@ -6,8 +5,7 @@ import { useSubjectLabel } from "@/components/preview/PreviewScope";
 import { WhyPanel } from "@/components/preview/WhyPanel";
 import { usePreviewStore } from "@/stores/previewStore";
 import BottomSheet from "../sheets/BottomSheet";
-
-const ACCESS_FOOTER: ReactNode = null;
+import MobileViewAsDraftBar from "./MobileViewAsDraftBar";
 
 export default function MobileViewAsSheets() {
   const { t } = useTranslation();
@@ -17,7 +15,7 @@ export default function MobileViewAsSheets() {
   const name = useSubjectLabel();
   if (side?.kind === "access") {
     return (
-      <BottomSheet onClose={closeSide} title={t("members.viewAs.access.title", { name })} footer={ACCESS_FOOTER}>
+      <BottomSheet onClose={closeSide} title={t("members.viewAs.access.title", { name })} footer={<MobileViewAsDraftBar />}>
         <div data-vt-hit-scope>{subjectType === "role" ? <RoleAccessPanel /> : <MemberAccessPanel />}</div>
       </BottomSheet>
     );

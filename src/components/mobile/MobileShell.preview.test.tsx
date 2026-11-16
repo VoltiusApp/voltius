@@ -1,5 +1,5 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, act } from "@testing-library/react";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
@@ -23,6 +23,7 @@ import MobileShell from "./MobileShell";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { startPreview, stopPreview } from "@/test/preview";
+import { usePreviewStore } from "@/stores/previewStore";
 
 function Probe({ id }: { id: string }) {
   return <div data-testid={id}>{String(usePreviewActive() !== null)}</div>;
@@ -36,6 +37,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   stopPreview();
+  usePreviewStore.setState({ draft: null });
 });
 
 test("tab_screens_and_pushed_pages_are_in_the_content_scope", () => {
@@ -76,4 +78,21 @@ test("sessions_page_renders_team_sessions", () => {
   render(<MobileShell />);
   expect(screen.getByTestId("team-sessions").textContent).toBe("true");
   expect(document.querySelector("[data-vt-hit-scope] [data-testid='team-sessions']")).not.toBeNull();
+});
+
+test("draft_bar_in_the_column_only_while_the_sheet_is_closed", () => {
+  const bars = () => document.querySelectorAll("[data-mobile-view-as-draft]");
+  const { rerender } = render(<MobileShell />);
+  expect(bars().length).toBe(0);
+
+  act(() => usePreviewStore.setState({ draft: { role_ids: [], allow: 0, deny: 0 } }));
+  rerender(<MobileShell />);
+  expect(bars().length).toBe(1);
+  expect(bars()[0].previousElementSibling!.hasAttribute("data-mobile-tab-content")).toBe(true);
+  expect(bars()[0].nextElementSibling!.hasAttribute("data-mobile-tab-bar")).toBe(true);
+
+  act(() => usePreviewStore.setState({ side: { kind: "access" } }));
+  rerender(<MobileShell />);
+  expect(bars().length).toBe(1);
+  expect(bars()[0].closest("[data-mobile-sheet-footer]")).not.toBeNull();
 });
