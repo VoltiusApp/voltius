@@ -38,6 +38,7 @@ const props = {
   inv,
   teamId: "t1",
   roles: [],
+  canInvite: true,
   onRevoked: vi.fn(),
   onResent: vi.fn(),
 };
@@ -85,6 +86,16 @@ test("button disabled while revoke in flight, re-enables after resolve", async (
   await waitFor(() => expect(btn.disabled).toBe(true));
   resolveRevoke!();
   await waitFor(() => expect(btn.disabled).toBe(false));
+});
+
+test("without invite permission both actions are greyed with the reason and do nothing", () => {
+  render(<PendingInviteCard {...props} canInvite={false} />);
+  const buttons = screen.getAllByTitle("members.permissions.youLack") as HTMLButtonElement[];
+  expect(buttons).toHaveLength(2);
+  expect(buttons.every((b) => b.disabled)).toBe(true);
+  buttons.forEach((b) => fireEvent.click(b));
+  expect(h.revoke).not.toHaveBeenCalled();
+  expect(h.inviteByEmail).not.toHaveBeenCalled();
 });
 
 test("shows how long a live invitation has left", () => {

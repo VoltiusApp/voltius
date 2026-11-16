@@ -91,4 +91,14 @@ describe("PermissionOverrideRow", () => {
     fireEvent.click(screen.getByRole("radio", { name: /deny/i }));
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it("lets the source line wrap to two lines on touch so the result stays visible", () => {
+    const { container, unmount } = render(<PermissionOverrideRow {...base} toggleSize="touch" onChange={vi.fn()} />);
+    const line = container.querySelector("p:nth-of-type(2)")!;
+    expect(line.className).toContain("line-clamp-2");
+    expect(line.className).not.toContain("truncate");
+    unmount();
+    const desktop = render(<PermissionOverrideRow {...base} onChange={vi.fn()} />);
+    expect(desktop.container.querySelector("p:nth-of-type(2)")!.className).toContain("truncate");
+  });
 });

@@ -36,6 +36,13 @@ export function roleLabel(t: TFunction, name: string): string {
   return Object.prototype.hasOwnProperty.call(ROLE_META, name) ? t(`members.roleName.${name}`) : name;
 }
 
+export function roleChangeCopy(t: TFunction, role: TeamRole, member: TeamMember, assigning: boolean) {
+  const vars = { role: roleLabel(t, role.name), name: memberLabel(member) };
+  return assigning
+    ? { pending: t("members.toast.assigningRoleTo", vars), success: t("members.toast.roleAssignedTo", vars), label: t("members.history.assignRole", vars) }
+    : { pending: t("members.toast.removingRoleFrom", vars), success: t("members.toast.roleRemovedFrom", vars), label: t("members.history.removeRole", vars) };
+}
+
 export function rolesGranting(t: TFunction, roles: TeamRole[], roleIds: string[], locked: boolean, permission: Permission): string[] {
   return roles
     .filter((r) => (!locked || r.is_builtin) && roleIds.includes(r.id) && (r.permissions & PERM_BITS[permission]) !== 0)
@@ -56,6 +63,16 @@ export function roleChipColors(name: string, override?: string | null, fallback 
   const meta = ROLE_META[name];
   const color = override ?? meta?.color ?? fallback;
   return { meta, color, bg: meta?.bg ?? `${color}1a` };
+}
+
+export function RoleNamePill({ name }: { name: string }) {
+  const { t } = useTranslation();
+  const { color, bg } = roleChipColors(name);
+  return (
+    <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full" style={{ color, background: bg }}>
+      {roleLabel(t, name)}
+    </span>
+  );
 }
 
 export function permissionLabel(t: TFunction, permission: Permission): string {
@@ -84,7 +101,7 @@ export function RolePermissionTooltip({ role, color }: { role: TeamRole; color: 
         color: "var(--t-text-primary)",
       }}
     >
-      <p className="font-semibold mb-1 capitalize">{roleLabel(t, role.name)}</p>
+      <p className="font-semibold mb-1">{roleLabel(t, role.name)}</p>
       <ul className="space-y-0.5">
         {permLabels.slice(0, 8).map((l) => (
           <li key={l} className="flex items-center gap-1" style={{ color: "var(--t-text-dim)" }}>

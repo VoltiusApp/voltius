@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import type { TeamRole } from "@/stores/teamStore";
 import { ROLE_META, RoleBlurb, roleLabel } from "@/components/members/roleChips";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
@@ -19,6 +20,17 @@ export interface MemberRoleChipsProps {
   children?: ReactNode;
 }
 
+export function roleChipBlockReason(t: TFunction, role: TeamRole, o: {
+  hasRole: boolean; locked: boolean; readOnlyReason: string | null; ownerReason?: string;
+}): string | null {
+  if (o.locked && !role.is_builtin && !o.hasRole) return t("shared.businessLock.title");
+  if (o.ownerReason !== undefined && isOwnerRole(role)) return o.ownerReason;
+  return o.readOnlyReason;
+}
+
+export const visibleMemberRoles = (roles: TeamRole[], showOwner: boolean) =>
+  roles.filter((r) => !isOwnerRole(r) || showOwner).sort((a, b) => a.position - b.position);
+
 export function MemberRoleChips({
   teamId, roles, roleIds, readOnlyReason, onToggle, showOwner, ownerReason, busyRoleId = null, flashRoleId = null, children,
 }: MemberRoleChipsProps) {
@@ -27,12 +39,9 @@ export function MemberRoleChips({
 
   return (
     <div className="flex flex-wrap items-start gap-2">
-      {[...roles]
-        .filter((r) => !isOwnerRole(r) || showOwner)
-        .sort((a, b) => a.position - b.position).map((role) => {
+      {visibleMemberRoles(roles, showOwner).map((role) => {
           const hasRole = roleIds.includes(role.id);
-          const lockedOut = locked && !role.is_builtin && !hasRole;
-          const ownerLocked = ownerReason !== undefined && isOwnerRole(role);
+          const blockReason = roleChipBlockReason(t, role, { hasRole, locked, readOnlyReason, ownerReason });
           const meta = ROLE_META[role.name];
           const color = role.color ?? meta?.color ?? "var(--t-accent)";
           const bg = meta?.bg ?? `${color}1a`;
@@ -42,8 +51,8 @@ export function MemberRoleChips({
             <div key={role.id} className="flex flex-col gap-1">
               <button
                 onClick={() => onToggle(role)}
-                disabled={busy || lockedOut || ownerLocked || readOnlyReason !== null}
-                title={lockedOut ? t("shared.businessLock.title") : ownerLocked ? ownerReason : readOnlyReason ?? undefined}
+                disabled={busy || blockReason !== null}
+                title={blockReason ?? undefined}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                 style={{
                   background: flashed ? "rgba(52,211,153,0.15)" : hasRole ? bg : "var(--t-bg-elevated)",

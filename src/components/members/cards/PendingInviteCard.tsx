@@ -1,60 +1,71 @@
-import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import type { PendingInvitation, TeamRole } from "@/services/teamService";
-import { inviteByEmailAddress, revokeInvitation } from "@/services/vaultShare";
 import { MiniAvatar } from "@/components/shared/AvatarStack";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { ROLE_META, roleLabel } from "@/components/members/roleChips";
 import { RoleChip } from "@/components/members/roleBadges";
 import { useTeamStore } from "@/stores/teamStore";
-import { inviterLabel } from "@/services/memberLabel";
-import { whenWritable } from "@/services/previewGuard";
+import { GREYED_CLASS } from "@/hooks/useGreyedUnless";
+import { inviteLabel, inviterLabel } from "@/services/memberLabel";
 import { formatDate, MONTH_DAY } from "@/utils/localeFormat";
+import { usePendingInviteActions } from "./usePendingInviteActions";
 
 const DAY_MS = 86_400_000;
 
+export function inviteExpiry(t: TFunction, inv: PendingInvitation): { isExpired: boolean; label: string } {
+  // An older server filtered expired invitations out rather than labelling
+  // them, so a missing status means everything it returned was still live.
+  const isExpired = inv.status === "expired";
+  const daysLeft = Math.ceil((new Date(inv.expires_at).getTime() - Date.now()) / DAY_MS);
+  // The badge already says "Expired", so this line carries the date instead of repeating the word.
+  const label = isExpired
+    ? t("members.invite.expiredOn", { date: formatDate(inv.expires_at, MONTH_DAY) })
+    : daysLeft <= 0
+      ? t("members.invite.expiresToday")
+      : t("members.invite.expiresIn", { count: daysLeft });
+  return { isExpired, label };
+}
+
+function InviteActionButton({ title, icon, hoverColor, busy, disabledReason, onClick }: {
+  title: string;
+  icon: string;
+  hoverColor: string;
+  busy: boolean;
+  disabledReason: string | undefined;
+  onClick: () => void;
+}) {
+  const disabled = busy || !!disabledReason;
+  return (
+    <button
+      title={disabledReason ?? title}
+      disabled={disabled}
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      className={`p-1.5 flex rounded-lg transition-colors ${GREYED_CLASS}`}
+      style={{ color: "var(--t-text-dim)", opacity: busy ? 0.4 : undefined }}
+      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.color = hoverColor; }}
+      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-dim)")}
+    >
+      <Icon icon={busy ? "lucide:loader-circle" : icon} width={16} className={busy ? "animate-spin" : undefined} />
+    </button>
+  );
+}
+
 export function PendingInviteCard({
-  inv, teamId, roles, onRevoked, onResent,
+  inv, teamId, roles, canInvite, onRevoked, onResent,
 }: {
   inv: PendingInvitation;
   teamId: string;
   roles: TeamRole[];
+  canInvite: boolean;
   onRevoked: (id: string) => void;
   onResent?: () => void;
 }) {
   const { t } = useTranslation();
   const roster = useTeamStore((s) => s.membersByTeam[teamId]);
-  const [revoking, setRevoking] = useState(false);
-  const [resending, setResending] = useState(false);
-
-  // An older server filtered expired invitations out rather than labelling
-  // them, so a missing status means everything it returned was still live.
-  const isExpired = inv.status === "expired";
-  const daysLeft = Math.ceil((new Date(inv.expires_at).getTime() - Date.now()) / DAY_MS);
-
-  const handleRevoke = whenWritable(async () => {
-    setRevoking(true);
-    try {
-      // Shared helper rather than a local runTeamAction: it carries the
-      // revoke-specific failure copy every other revoke surface uses.
-      await revokeInvitation({ teamId, invitationId: inv.id, name: inv.display_name });
-      onRevoked(inv.id);
-    } catch { /* toast already reports the failure */ }
-    finally { setRevoking(false); }
-  });
-
-  const handleResend = whenWritable(async () => {
-    setResending(true);
-    try {
-      // Upserts the existing row and pushes expires_at out another seven days
-      // (server teams.rs), so resending needs no dedicated endpoint.
-      // inviteByEmailAddress runs its own toast — do not wrap it in another.
-      await inviteByEmailAddress({ teamId, email: inv.display_name, roleName: inv.role, roleIds: inv.role_ids });
-      onResent?.();
-    } catch { /* toast already reports the failure */ }
-    finally { setResending(false); }
-  });
+  const { revoke, resend, revoking, resending, disabledReason } = usePendingInviteActions({ teamId, inv, canInvite, onRevoked, onResent });
+  const { isExpired, label: expiryLabel } = inviteExpiry(t, inv);
 
   const invitedRoles = (inv.role_ids?.length ? inv.role_ids : [])
     .map((id) => roles.find((r) => r.id === id))
@@ -64,20 +75,10 @@ export function PendingInviteCard({
   const chipColor = roles.find((r) => r.name === inv.role)?.color ?? meta.color;
   const chipBg = meta.bg ?? `${chipColor}1a`;
 
-  // The badge already says "Expired", so this line carries the date instead of
-  // repeating the word.
-  const expiryLabel = isExpired
-    ? t("members.invite.expiredOn", {
-        date: formatDate(inv.expires_at, MONTH_DAY),
-      })
-    : daysLeft <= 0
-      ? t("members.invite.expiresToday")
-      : t("members.invite.expiresIn", { count: daysLeft });
-
   return (
     <BaseCard isList>
-      <MiniAvatar name={inv.member_name ?? inv.display_name} size={28} />
-      <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">{inv.member_name ?? inv.display_name}</p>
+      <MiniAvatar name={inviteLabel(inv)} size={28} />
+      <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">{inviteLabel(inv)}</p>
       <p className="text-xs truncate flex-1 min-w-0 text-(--t-text-secondary)">
         {inv.member_name && <><span>{inv.display_name}</span> · </>}
         <span style={{ color: isExpired ? "var(--t-status-error)" : undefined }}>{expiryLabel}</span>
@@ -101,34 +102,10 @@ export function PendingInviteCard({
           </span>
         )}
 
-      <button
-        title={t("members.invite.resendTitle")}
-        disabled={resending}
-        onClick={(e) => { e.stopPropagation(); void handleResend(); }}
-        className="p-1.5 flex rounded-lg transition-colors"
-        style={{ color: "var(--t-text-dim)", opacity: resending ? 0.4 : 1 }}
-        onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-accent)")}
-        onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-dim)")}
-      >
-        {resending
-          ? <Icon icon="lucide:loader-circle" width={16} className="animate-spin" />
-          : <Icon icon="lucide:send" width={16} />
-        }
-      </button>
-      <button
-        title={t("members.revokeInvitationTitle")}
-        disabled={revoking}
-        onClick={(e) => { e.stopPropagation(); void handleRevoke(); }}
-        className="p-1.5 flex rounded-lg transition-colors"
-        style={{ color: "var(--t-text-dim)", opacity: revoking ? 0.4 : 1 }}
-        onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-status-error)")}
-        onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-dim)")}
-      >
-        {revoking
-          ? <Icon icon="lucide:loader-circle" width={16} className="animate-spin" />
-          : <Icon icon="lucide:x" width={16} />
-        }
-      </button>
+      <InviteActionButton title={t("members.invite.resendTitle")} icon="lucide:send" hoverColor="var(--t-accent)"
+        busy={resending} disabledReason={disabledReason} onClick={resend} />
+      <InviteActionButton title={t("members.revokeInvitationTitle")} icon="lucide:x" hoverColor="var(--t-status-error)"
+        busy={revoking} disabledReason={disabledReason} onClick={revoke} />
     </BaseCard>
   );
 }

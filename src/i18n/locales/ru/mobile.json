@@ -135,10 +135,8 @@
       "permissionDenied": "Доступ запрещён",
       "goUp": "Вверх",
       "emptyFolder": "Пустая папка",
-      "selectedCount": "Выбрано: {{count}}",
       "downloadSelectedAriaLabel": "Скачать выбранное",
       "deleteSelectedAriaLabel": "Удалить выбранное",
-      "clearSelectionAriaLabel": "Очистить выбор",
       "copyToOtherPane": "Копировать в другую панель",
       "download": "Скачать",
       "details": "Подробности",
@@ -161,10 +159,8 @@
       "newFileOption": "Новый файл",
       "folderNamePlaceholder": "Название папки",
       "fileNamePlaceholder": "Название файла",
-      "selectAll": "Выбрать все",
       "onePane": "Одна панель",
       "twoPanes": "Две панели",
-      "moreActions": "Другие действия",
       "itemActions": "Действия для {{name}}"
     },
     "folders": {
@@ -293,6 +289,28 @@
         "delete": "Удаляет хранилище и всё его содержимое",
         "deleteTeam": "Удаляет его для всех участников",
         "leave": "Отказаться от доступа к этому хранилищу"
+      }
+    },
+    "selection": {
+      "selectedCount": "Выбрано: {{count}}",
+      "clearSelectionAriaLabel": "Очистить выбор",
+      "selectAll": "Выбрать все",
+      "moreActions": "Другие действия"
+    },
+    "members": {
+      "selectSelf": "Нельзя выбрать себя",
+      "selectOwner": "Нельзя изменить роли владельца или удалить его",
+      "assignRole": "Назначить роль",
+      "removeRole": "Удалить роль",
+      "pickRole": "Выберите роль",
+      "keyHeld": "Есть ключ хранилища",
+      "keyAwaiting": "Ожидает ключ хранилища",
+      "alreadyAssigned": "Уже назначена",
+      "notAssigned": "Не назначена",
+      "keyNoAccess": "Нет доступа к ключу хранилища: нет разрешения «Подключение»",
+      "invite": {
+        "resend": "Отправить приглашение ещё раз",
+        "revoke": "Отозвать приглашение"
       }
     }
   }

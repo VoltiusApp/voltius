@@ -14,11 +14,19 @@ const STATES: { value: OverrideState; icon: string }[] = [
   { value: "allow", icon: "lucide:check" },
 ];
 
-export function TriStateToggle({ value, onChange, label, disabled = false }: {
+const SIZES = {
+  sm: { segment: "px-2.5 py-1", icon: 12 },
+  touch: { segment: "w-11 h-10 flex items-center justify-center", icon: 16 },
+} as const;
+
+export type TriStateToggleSize = keyof typeof SIZES;
+
+export function TriStateToggle({ value, onChange, label, disabled = false, size = "sm" }: {
   value: OverrideState;
   onChange: (next: OverrideState) => void;
   label: string;
   disabled?: boolean;
+  size?: TriStateToggleSize;
 }) {
   const { t } = useTranslation();
   return (
@@ -38,7 +46,7 @@ export function TriStateToggle({ value, onChange, label, disabled = false }: {
             aria-label={t(`members.permissions.state.${s.value}`)}
             disabled={disabled}
             onClick={() => { if (!disabled) onChange(s.value); }}
-            className="px-2.5 py-1 transition-colors"
+            className={`${SIZES[size].segment} transition-colors`}
             style={{
               background: active ? "var(--t-bg-elevated)" : "transparent",
               color: active ? OVERRIDE_STATE_COLOR[s.value] : "var(--t-text-dim)",
@@ -46,7 +54,7 @@ export function TriStateToggle({ value, onChange, label, disabled = false }: {
               cursor: disabled ? "not-allowed" : "pointer",
             }}
           >
-            <Icon icon={s.icon} width={12} />
+            <Icon icon={s.icon} width={SIZES[size].icon} />
           </button>
         );
       })}

@@ -17,6 +17,8 @@ vi.mock("@/hooks/usePfToastBridge", () => ({ usePfToastBridge: () => {} }));
 vi.mock("./screens/MobileHostsScreen", () => ({ default: () => <div>hosts-screen</div> }));
 vi.mock("./screens/MobileSnippetsScreen", () => ({ default: () => <div>snippets-screen</div> }));
 vi.mock("./screens/MobileTerminalScreen", () => ({ default: () => <div>terminal-screen</div> }));
+vi.mock("./screens/MobileMembersScreen", () => ({ default: ({ vaultId }: { vaultId: string | null }) => <div data-test-members={vaultId} /> }));
+vi.mock("./screens/MobileMemberScreen", () => ({ default: ({ userId }: { userId: string }) => <div data-test-member={userId} /> }));
 vi.mock("./panels/MobileSftpScreen", () => ({ default: () => <div>sftp-screen</div> }));
 
 import MobileShell from "./MobileShell";
@@ -83,4 +85,22 @@ test("a loaded team vault shows its pages", () => {
 
   expect(screen.getByText("hosts-screen")).toBeTruthy();
   expect(screen.queryByText("layout.mainPanel.teamVault.waitingForAccessTitle")).toBeNull();
+});
+
+test("the More members page renders the native members screen for the selected vault", () => {
+  useTeamVaultStateStore.setState({ statusByTeamId: { t1: "loaded" } });
+  useMobileNavStore.setState({ stack: [{ kind: "more-page", page: "members" }] });
+
+  const { container } = render(<MobileShell />);
+
+  expect(container.querySelector('[data-test-members="t1"]')).not.toBeNull();
+});
+
+test("a member screen renders for its user", () => {
+  useTeamVaultStateStore.setState({ statusByTeamId: { t1: "loaded" } });
+  useMobileNavStore.setState({ stack: [{ kind: "member", teamId: "t1", userId: "u1" }] });
+
+  const { container } = render(<MobileShell />);
+
+  expect(container.querySelector('[data-test-member="u1"]')).not.toBeNull();
 });

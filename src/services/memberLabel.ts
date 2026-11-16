@@ -1,4 +1,4 @@
-import type { TeamMember } from "@/services/teamService";
+import type { PendingInvitation, TeamMember } from "@/services/teamService";
 
 export interface PeerName {
   name: string | null;
@@ -34,6 +34,10 @@ export function memberAvatarLabel(m: Pick<TeamMember, "member_name" | "handle">)
 
 export function secondaryHandle(m: Pick<TeamMember, "member_name" | "handle">): string | null {
   return m.member_name && m.handle ? `@${m.handle}` : null;
+}
+
+export function inviteLabel(inv: Pick<PendingInvitation, "member_name" | "display_name">): string {
+  return inv.member_name ?? inv.display_name;
 }
 
 export function inviterLabel(handle: string | null | undefined, roster: TeamMember[] | undefined): string {

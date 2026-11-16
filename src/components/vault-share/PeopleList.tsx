@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
-import { roleChipColors } from "@/components/members/roleChips";
+import { RoleNamePill } from "@/components/members/roleChips";
 
 export type Person = {
   userId: string;
@@ -47,18 +47,7 @@ export function PeopleList({ people, canManage, onRemove, onRevoke, onGrantKey, 
               </span>
             )}
 
-            {p.roleNames.map((name) => {
-              const { color, bg } = roleChipColors(name);
-              return (
-                <span
-                  key={name}
-                  className="shrink-0 text-[10px] px-2 py-0.5 rounded-full capitalize"
-                  style={{ color, background: bg }}
-                >
-                  {name}
-                </span>
-              );
-            })}
+            {p.roleNames.map((name) => <RoleNamePill key={name} name={name} />)}
 
             {p.state === "pending" && (
               <button

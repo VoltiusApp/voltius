@@ -193,7 +193,7 @@ export function RoleModal({
             <ColorSwatches value={color} onChange={setColor} clearLabel={t("settings.vaults.rolesPanel.clearColor")} />
             {color && (
               <div className="mt-2 flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full capitalize" style={{ color, background: `${color}1a` }}>
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ color, background: `${color}1a` }}>
                   {name || t("settings.vaults.rolesPanel.preview")}
                 </span>
                 <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>{color}</span>
@@ -272,7 +272,7 @@ function BuiltinRoleCard({ teamId, roleId, name, permissions }: { teamId: string
       <div className="flex items-center gap-3 px-4 py-3" style={{ background: "var(--t-bg-elevated)" }}>
         <button className={ROLE_NAME_BUTTON} onClick={() => setExpanded((v) => !v)}>
           <Icon icon="lucide:lock" width={13} className="shrink-0" style={{ color: "var(--t-text-dim)" }} />
-          <span className={`${ROLE_NAME} capitalize`} style={{ color: "var(--t-text-primary)" }}>{roleLabel(t, name)}</span>
+          <span className={ROLE_NAME} style={{ color: "var(--t-text-primary)" }}>{roleLabel(t, name)}</span>
           <span className="shrink-0 whitespace-nowrap text-[10px] px-2 py-0.5 rounded-sm" style={{ background: "var(--t-bg-card)", color: "var(--t-text-dim)" }}>{t("settings.vaults.rolesPanel.builtinBadge")}</span>
         </button>
         <PreviewAsRoleButton teamId={teamId} roleId={roleId} compact />

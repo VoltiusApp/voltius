@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { APPBAR_TONAL } from "../MobileHeader";
-import { useCollapsingHeader } from "../useCollapsingHeader";
+import { NO_LARGE_TITLE, useCollapsingHeader } from "../useCollapsingHeader";
+import MobileSectionHeading from "../MobileSectionHeading";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
@@ -26,10 +27,10 @@ import { VAULT_ACTION_ICONS, vaultMenuActions } from "@/components/vault-admin/v
 import { VaultShareSheet } from "@/components/vault-share/VaultShareSheet";
 import { TeamRolesPanel } from "@/components/members/panels/RolesPanel";
 import { SecurityPolicyPanel } from "@/components/members/panels/SecurityPolicyPanel";
-import type { VaultSettingsPage } from "@/stores/mobileNavCore";
+import type { MobileScreen, VaultSettingsPage } from "@/stores/mobileNavCore";
+import MobileMembersScreen from "./MobileMembersScreen";
 import { vaultSettingsSections, type VaultSettingsRow } from "./vaultSettingsCore";
 
-const NO_TITLE = { current: null };
 const MAX_AVATARS = 3;
 
 /**
@@ -46,9 +47,11 @@ export default function MobileVaultSettingsScreen({ vaultId, page }: { vaultId: 
 
   const appbarRef = useRef<HTMLDivElement>(null);
   const largeTitleRef = useRef<HTMLDivElement>(null);
-  const scroll = useCollapsingHeader(appbarRef, page ? NO_TITLE : largeTitleRef);
+  const scroll = useCollapsingHeader(appbarRef, page ? NO_LARGE_TITLE : largeTitleRef);
 
   const title = page ? t(`mobile.vaultSettings.rows.${page}`) : (target?.name ?? t("mobile.vaultSettings.title"));
+
+  if (page === "members") return <MobileMembersScreen vaultId={vaultId} />;
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)" data-mobile-vault-settings={page ?? "root"}>
@@ -82,16 +85,34 @@ export default function MobileVaultSettingsScreen({ vaultId, page }: { vaultId: 
   );
 }
 
+const listsMembersOf = (screen: MobileScreen | undefined, vaultId: string, selectedVaultId: string | undefined) =>
+  screen?.kind === "more-page"
+    ? screen.page === "members" && selectedVaultId === vaultId
+    : screen?.kind === "vault-settings" && screen.page === "members" && screen.vaultId === vaultId;
+
 function VaultSettingsSubPage({ vaultId, target, page, onLeave }: {
   vaultId: string; target: VaultAdminTarget; page: VaultSettingsPage; onLeave: () => void;
 }) {
+  const push = useMobileNavStore((s) => s.push);
+  const selectedVaultId = useVaultStore((s) => s.selectedVaultIds[0]);
   const teamId = target.teamId;
+  const openPeople = () => {
+    const { stack, pop } = useMobileNavStore.getState();
+    if (listsMembersOf(stack[stack.length - 2], vaultId, selectedVaultId)) pop();
+    else push({ kind: "vault-settings", vaultId, page: "members" });
+  };
   // These panels were laid out for a 320 px desktop side panel: every button inside
   // gets a 48 dp hit area on the phone (C7).
   return (
-    <div data-vault-settings-page={page} data-vt-hit-scope className={page === "share" || page === "members" ? "" : "p-4"}>
-      {(page === "share" || page === "members") && (
-        <VaultShareSheet vaultId={vaultId} variant="page" initialTab={page === "members" ? "people" : "invite"} onRequestFull={onLeave} />
+    <div data-vault-settings-page={page} data-vt-hit-scope className={page === "share" ? "" : "p-4"}>
+      {page === "share" && (
+        <VaultShareSheet
+          vaultId={vaultId}
+          variant="page"
+          initialTab="invite"
+          onRequestFull={onLeave}
+          onOpenPeople={openPeople}
+        />
       )}
       {page === "roles" && teamId && <TeamRolesPanel teamId={teamId} />}
       {page === "security" && teamId && <SecurityPolicyPanel teamId={teamId} />}
@@ -144,9 +165,7 @@ function VaultSettingsList({ vaultId, target, titleRef }: {
 
       {sections.map((section) => (
         <section key={section.id} data-vault-settings-section={section.id} className="mb-2">
-          <h2 className="px-4 pt-4 pb-2 text-sm font-medium" style={{ color: section.id === "danger" ? "var(--t-danger, #e5484d)" : "var(--t-accent)" }}>
-            {t(`mobile.vaultSettings.sections.${section.id}`)}
-          </h2>
+          <MobileSectionHeading label={t(`mobile.vaultSettings.sections.${section.id}`)} danger={section.id === "danger"} />
           {section.rows.map((row) =>
             row.id === "name" ? (
               <VaultNameRow key="name" target={target} editable={row.editable} />

@@ -7,17 +7,20 @@ import { ROLE_META, RolePermissionTooltip, roleLabel } from "@/components/member
 
 const INLINE_WRAPPER_CLASS = "inline-flex items-center gap-1";
 
+export function roleColor(role: Pick<TeamRole, "name" | "color">): string {
+  return role.color ?? ROLE_META[role.name]?.color ?? avatarColor(role.name);
+}
+
 export function RoleChip({ role }: { role: TeamRole }) {
   const { t } = useTranslation();
   const [showTip, setShowTip] = useState(false);
-  const meta = ROLE_META[role.name];
-  const color = role.color ?? meta?.color ?? avatarColor(role.name);
-  const bg = meta?.bg ?? `${color}1a`;
+  const color = roleColor(role);
+  const bg = ROLE_META[role.name]?.bg ?? `${color}1a`;
 
   return (
     <span className="relative inline-flex items-center" style={{ verticalAlign: "middle" }}>
       <span
-        className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full capitalize shrink-0 cursor-default"
+        className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 cursor-default"
         style={{ color, background: bg }}
         onMouseEnter={() => setShowTip(true)}
         onMouseLeave={() => setShowTip(false)}
@@ -33,6 +36,28 @@ export function RoleChip({ role }: { role: TeamRole }) {
   );
 }
 
+export function sortedMemberRoles(member: TeamMember, roles: TeamRole[]): TeamRole[] {
+  return member.role_ids
+    .map((rid) => roles.find((r) => r.id === rid))
+    .filter((r): r is TeamRole => !!r)
+    .sort((a, b) => a.position - b.position);
+}
+
+export function OverrideMarker({ member }: { member: TeamMember }) {
+  const { t } = useTranslation();
+  if (((member.permission_allow ?? 0) | (member.permission_deny ?? 0)) === 0) return null;
+  return (
+    <span
+      data-testid="override-marker"
+      title={t("members.permissions.overrideMarker")}
+      className="inline-flex items-center"
+      style={{ color: "var(--t-text-dim)" }}
+    >
+      <Icon icon="lucide:sliders-horizontal" width={10} />
+    </span>
+  );
+}
+
 export function RoleBadges({
   member, roles, canManage, onAddRole,
 }: {
@@ -42,21 +67,8 @@ export function RoleBadges({
   onAddRole?: () => void;
 }) {
   const { t } = useTranslation();
-  const memberRoles = member.role_ids
-    .map((rid) => roles.find((r) => r.id === rid))
-    .filter(Boolean) as TeamRole[];
-  memberRoles.sort((a, b) => a.position - b.position);
-  const hasOverrides = ((member.permission_allow ?? 0) | (member.permission_deny ?? 0)) !== 0;
-  const marker = hasOverrides ? (
-    <span
-      data-testid="override-marker"
-      title={t("members.permissions.overrideMarker")}
-      className="inline-flex items-center"
-      style={{ color: "var(--t-text-dim)" }}
-    >
-      <Icon icon="lucide:sliders-horizontal" width={10} />
-    </span>
-  ) : null;
+  const memberRoles = sortedMemberRoles(member, roles);
+  const marker = <OverrideMarker member={member} />;
   if (memberRoles.length === 0) {
     if (canManage && onAddRole) {
       return (
