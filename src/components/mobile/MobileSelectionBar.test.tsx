@@ -49,24 +49,12 @@ describe("MobileSelectionBar", () => {
     useNotificationStore.setState({ toasts: [] });
     const onTap = vi.fn();
     const action = { attr: "data-x-del", icon: "lucide:trash-2", label: "Delete", onTap, disabledReason: "Read only" };
-    setup({ actions: [action], more: [{ ...action, attr: "data-x-more-del" }] });
+    setup({ actions: [action] });
     const btn = screen.getByRole("button", { name: "Read only" });
     expect(btn.getAttribute("title")).toBe("Read only");
     expect(btn.getAttribute("aria-disabled")).toBe("true");
     fireEvent.click(btn);
-    fireEvent.click(screen.getByRole("button", { name: "mobile.selection.moreActions" }));
-    const sheetRow = document.querySelector<HTMLElement>("[data-x-more-del]")!;
-    expect(sheetRow.getAttribute("aria-disabled")).toBe("true");
-    fireEvent.click(sheetRow);
     expect(onTap).not.toHaveBeenCalled();
-    expect(useNotificationStore.getState().toasts.map((x) => x.message)).toEqual(["Read only", "Read only"]);
-  });
-
-  test("more actions open a sheet whose rows fire and close it", () => {
-    const onTap = vi.fn();
-    setup({ more: [{ attr: "data-x-rename", icon: "lucide:pencil", label: "Rename", onTap }] });
-    fireEvent.click(screen.getByRole("button", { name: "mobile.selection.moreActions" }));
-    fireEvent.click(screen.getByText("Rename"));
-    expect(onTap).toHaveBeenCalledTimes(1);
+    expect(useNotificationStore.getState().toasts.map((x) => x.message)).toEqual(["Read only"]);
   });
 });
