@@ -1,7 +1,8 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, cleanup, act } from "@testing-library/react";
 import type { Folder, Identity, SshKey } from "@/types";
-import type { PendingCascade } from "@/hooks/useVaultCascade";
+import type { CascadeEntry } from "@/services/vaultClipboard";
+import { runPaste } from "@/services/vaultClipboard";
 
 function folder(id: string, over: Partial<Folder> = {}): Folder {
   return { id, name: id, created_at: "", object_type: "keychain", vault_id: "personal", updated_at: "", clocks: {}, ...over } as Folder;
@@ -32,7 +33,7 @@ const h = vi.hoisted(() => ({
   ejectTargetFolderId: null as string | null,
   activeFolderId: null as string | null,
   accessibleVaultIds: [] as string[],
-  cascades: [] as PendingCascade[],
+  cascades: [] as { targetVaultName: string; mode: string; cascade: CascadeEntry[] }[],
   navigateTo: vi.fn(),
   navigateToRoot: vi.fn(),
   updateFolder: vi.fn(async (_id: string, _data?: unknown) => {}),
@@ -44,21 +45,28 @@ const h = vi.hoisted(() => ({
   saveIdentity: vi.fn(async (d: { name?: string }) => ({ id: `new-${d.name}` })),
   confirmModals: [] as Record<string, unknown>[],
   bulkOnDelete: null as ((ids: string[]) => void) | null,
-  moveKeyToVault: vi.fn(async (
-    key: { id: string }, _vaultId: string, data: unknown, updateKey: (id: string, data: unknown) => Promise<unknown>,
-  ) => { await updateKey(key.id, data); }),
-  moveIdentityToVault: vi.fn(async (
-    identity: { id: string }, _vaultId: string, data: unknown, updateIdentity: (id: string, data: unknown) => Promise<unknown>,
-  ) => { await updateIdentity(identity.id, data); }),
 }));
 
+vi.mock("@/services/vaultObjectStores", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/vaultObjectStores")>()),
+  storeObjectPorts: (await import("@/test/objectPortsFrom")).objectPortsFrom(h),
+  hydrateVaultObjectStores: async () => {},
+}));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string, o?: Record<string, unknown>) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/hooks/useCrossVaultPasteConfirm", () => ({
-  useCrossVaultPasteConfirm: () => ({ pending: null, confirmCrossVault: vi.fn(async () => true), accept: vi.fn(), cancel: vi.fn() }),
+  useCrossVaultPasteConfirm: () => ({
+    pending: null,
+    confirmCrossVault: async (summary: { targetVaultName: string; mode: string; cascade: CascadeEntry[] }) => {
+      h.cascades.push(summary);
+      return true;
+    },
+    accept: vi.fn(),
+    cancel: vi.fn(),
+  }),
 }));
 
 vi.mock("@/components/shared/SidePanelLayout", () => ({
@@ -132,14 +140,6 @@ vi.mock("@/hooks/useDragToFolder", () => ({
     handleFolderDragStart: vi.fn(),
     folderDropProps: () => ({}),
     ejectDropProps: () => ({}),
-  }),
-}));
-vi.mock("@/hooks/useVaultCascade", () => ({
-  useVaultCascade: () => ({
-    pending: null,
-    request: (c: PendingCascade) => { h.cascades.push(c); },
-    confirm: vi.fn(),
-    cancel: vi.fn(),
   }),
 }));
 vi.mock("@/hooks/useSyncedFormKey", () => ({ useSyncedFormKey: () => 0 }));
@@ -228,13 +228,16 @@ vi.mock("@/services/vault", () => ({
   deleteSecret: vi.fn(async () => {}),
 }));
 vi.mock("@/services/vaultObjectSecrets", () => ({
-  moveKeyToVault: h.moveKeyToVault,
-  moveIdentityToVault: h.moveIdentityToVault,
+  moveWithSecrets: vi.fn(async (_k: string, _o: unknown, _t: string, update: () => Promise<unknown>) => {
+    await update();
+  }),
 }));
 vi.mock("@/services/teamVaultPermissions", () => ({ buildTeamVaultTransferPlan: () => ({ allowed: true }) }));
 
 import KeychainPage from "./KeychainPage";
 import { callProp, expectEachRefused, startPreview, stopPreview } from "@/test/preview";
+
+const settle = () => act(async () => { await runPaste(async () => {}); });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -320,21 +323,12 @@ test("moving a folder to a vault cascades over the whole subtree, parents before
 
   const card = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
   act(() => { (card.onMoveToVault as (v: string) => void)("team-1"); });
+  await settle();
 
-  const cascade = h.cascades[0];
-  expect(cascade.targetVaultName).toBe("Team One");
-  expect(cascade.items).toEqual([
-    { type: "key", label: "k-root" },
-    { type: "key", label: "k-leaf" },
-    { type: "identity", label: "i-mid" },
-  ]);
-
-  await act(async () => { await cascade.execute(); });
+  expect(h.cascades[0]).toMatchObject({ targetVaultName: "Team One", mode: "cut", cascade: [] });
   expect(h.updateFolder.mock.calls.map((c) => c[0])).toEqual(["root", "mid", "leaf"]);
   expect(h.updateKey.mock.calls.map((c) => c[0])).toEqual(["k-root", "k-leaf"]);
   expect(h.updateIdentity.mock.calls.map((c) => c[0])).toEqual(["i-mid"]);
-  expect(h.moveKeyToVault.mock.calls.map((c) => c[0].id)).toEqual(["k-root", "k-leaf"]);
-  expect(h.moveIdentityToVault.mock.calls.map((c) => c[0].id)).toEqual(["i-mid"]);
 });
 
 test("an unlinked team is offered as a vault target alongside the linked vaults", () => {
@@ -378,7 +372,7 @@ test("a bulk delete over a folder warns about the keys that go down with it", ()
   );
 });
 
-test("copying a folder to a vault recreates the subtree but leaves the copies at its root", async () => {
+test("copying a folder to a vault recreates the subtree and files the copies under it", async () => {
   h.vaults = [{ id: "v-team", teamId: "team-1", name: "Team One" }];
   h.folders = [folder("root"), folder("mid", { parent_folder_id: "root" })];
   h.keys = [key("k-mid", { folder_id: "mid" })];
@@ -388,12 +382,11 @@ test("copying a folder to a vault recreates the subtree but leaves the copies at
 
   const card = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
   act(() => { (card.onCopyToVault as (v: string) => void)("team-1"); });
-  await act(async () => { await h.cascades[0].execute(); });
+  await settle();
 
   expect(h.saveFolder.mock.calls.map((c) => (c[0] as { name: string }).name)).toEqual(["root", "mid"]);
-  expect(h.saveKey.mock.calls[0][0]).toMatchObject({ vault_id: "team-1" });
-  expect(h.saveKey.mock.calls[0][0]).not.toHaveProperty("folder_id");
-  expect(h.saveIdentity.mock.calls[0][0]).not.toHaveProperty("folder_id");
+  expect(h.saveKey.mock.calls[0][0]).toMatchObject({ vault_id: "team-1", folder_id: "new-mid" });
+  expect(h.saveIdentity.mock.calls[0][0]).toMatchObject({ vault_id: "team-1", folder_id: "new-mid" });
 });
 
 test("a new folder created inside a team folder lands in that team's vault (#816)", async () => {
@@ -471,9 +464,10 @@ test("key, identity and folder actions refuse while previewing a member and open
     ["new folder", callProp(h.toolbarProps, "onNewFolder"), undefined],
   ]);
 
+  await settle();
   expect(h.panels).toEqual([]);
   expect(h.cascades).toEqual([]);
-  for (const write of [h.saveKey, h.saveIdentity, h.saveFolder, h.updateKey, h.updateIdentity, h.deleteKey, h.deleteIdentity, h.moveKeyToVault, h.moveIdentityToVault]) {
+  for (const write of [h.saveKey, h.saveIdentity, h.saveFolder, h.updateFolder, h.updateKey, h.updateIdentity, h.deleteKey, h.deleteIdentity]) {
     expect(write).not.toHaveBeenCalled();
   }
 });

@@ -67,10 +67,6 @@
         "folderCascade_few": "Smazány budou také {{count}} položky zařazené ve vybraných složkách.",
         "folderCascade_many": "Smazáno bude také {{count}} položky zařazené ve vybraných složkách.",
         "folderCascade_other": "Smazáno bude také {{count}} položek zařazených ve vybraných složkách."
-      },
-      "vaultCascade": {
-        "moveDescription": "Přesunutím složky „{{folderName}}“ se do trezoru „{{targetVaultName}}“ přesunou také tyto položky:",
-        "copyDescription": "Zkopírováním složky „{{folderName}}“ se do trezoru „{{targetVaultName}}“ zkopírují také tyto položky:"
       }
     },
     "cards": {

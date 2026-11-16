@@ -67,10 +67,6 @@
         "folderCascade_few": "{{count}} элемента из выбранных папок также будут удалены.",
         "folderCascade_many": "{{count}} элементов из выбранных папок также будут удалены.",
         "folderCascade_other": "{{count}} элементов из выбранных папок также будут удалены."
-      },
-      "vaultCascade": {
-        "moveDescription": "При перемещении \"{{folderName}}\" также будут перемещены следующие элементы в {{targetVaultName}}:",
-        "copyDescription": "При копировании \"{{folderName}}\" также будут скопированы следующие элементы в {{targetVaultName}}:"
       }
     },
     "cards": {

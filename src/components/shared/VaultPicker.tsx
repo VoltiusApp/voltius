@@ -13,7 +13,8 @@ export function VaultPicker({
   disabled,
 }: {
   vaultId: string;
-  onChange: (id: string) => void;
+  /** `false` when the pick did not change the vault yet (a move waiting on its confirmation). */
+  onChange: (id: string) => boolean | void;
   disabled?: boolean;
 }) {
   const { t } = useTranslation();
@@ -63,8 +64,7 @@ export function VaultPicker({
 
   const select = (id: string) => {
     if (!canWrite(id)) return;
-    onChange(id);
-    selectVaultOnly(id);
+    if (onChange(id) !== false) selectVaultOnly(id);
     setOpen(false);
   };
 

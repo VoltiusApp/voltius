@@ -63,10 +63,6 @@
       "draft": {
         "unsaved": "Не сохранено"
       },
-      "vaultCascade": {
-        "moveDescription": "При перемещении \"{{folderName}}\" следующие элементы также будут перемещены в {{targetVaultName}}:",
-        "copyDescription": "При копировании \"{{folderName}}\" следующие элементы также будут скопированы в {{targetVaultName}}:"
-      },
       "bulk": {
         "executeSnippetOn_one": "Выполнить сниппет на {{count}} хосте",
         "executeSnippetOn_few": "Выполнить сниппет на {{count}} хостах",

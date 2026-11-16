@@ -101,7 +101,7 @@ import { createProxmoxAPI } from "./domains/proxmox";
 import { createSftpAPI } from "./domains/sftp";
 import { createDockerAPI } from "./domains/docker";
 import { createVaultsAPI } from "./domains/vaults";
-import { isTeamVaultId, hydrateVaultObjectStores, vaultPorts } from "@/services/vaultObjectStores";
+import { isTeamVaultId, hydrateVaultObjectStores, storeObjectPorts, vaultPorts } from "@/services/vaultObjectStores";
 import { createFoldersAPI, type FolderPorts } from "./domains/folders";
 import { createObjectsAPI, type ObjectPorts } from "./domains/objects";
 import { createSnippetsAPI, type SnippetPorts } from "./domains/snippets";
@@ -550,73 +550,7 @@ const objectPorts: ObjectPorts = {
     ...useVaultStore.getState().vaults.map((v) => v.id),
     ...useTeamStore.getState().teams.map((t) => t.id),
   ],
-
-  // Reads span the team maps too: both folder stores and every object store keep
-  // team-vault records separately, and a tab that cannot see them reports a
-  // team object as "not found" — or, worse, as an empty folder subtree.
-  connections: () => [...useConnectionStore.getState().connections, ...teamConnectionList()],
-  keys: () => {
-    const s = useKeyStore.getState();
-    return [...s.keys, ...Object.values(s.teamKeys).flat()];
-  },
-  identities: () => {
-    const s = useIdentityStore.getState();
-    return [...s.identities, ...Object.values(s.teamIdentities).flat()];
-  },
-  snippets: () => {
-    const s = useSnippetStore.getState();
-    return [...s.snippets, ...Object.values(s.teamSnippets).flat()];
-  },
-  rules: () => {
-    const s = usePortForwardingStore.getState();
-    return [...s.rules, ...Object.values(s.teamRules).flat()];
-  },
-  folders: () => {
-    const s = useFolderStore.getState();
-    return [...s.folders, ...Object.values(s.teamFolders).flat()];
-  },
-  snippetFolders: () => {
-    const s = useSnippetFolderStore.getState();
-    return [...s.folders, ...Object.values(s.teamSnippetFolders).flat()];
-  },
-
-  saveConnection: (form) => useConnectionStore.getState().saveConnection(form),
-  updateConnection: (id, form) => useConnectionStore.getState().updateConnection(id, form),
-  deleteConnection: (id) => useConnectionStore.getState().deleteConnection(id),
-  loadConnections: () => useConnectionStore.getState().loadConnections(),
-
-  saveKey: (form) => useKeyStore.getState().saveKey(form),
-  updateKey: (id, form) => useKeyStore.getState().updateKey(id, form),
-  deleteKey: (id) => useKeyStore.getState().deleteKey(id),
-  loadKeys: () => useKeyStore.getState().loadKeys(),
-
-  saveIdentity: (form) => useIdentityStore.getState().saveIdentity(form),
-  updateIdentity: (id, form) => useIdentityStore.getState().updateIdentity(id, form),
-  deleteIdentity: (id) => useIdentityStore.getState().deleteIdentity(id),
-  loadIdentities: () => useIdentityStore.getState().loadIdentities(),
-
-  createSnippet: (form) => useSnippetStore.getState().createSnippet(form),
-  updateSnippet: (id, form) => useSnippetStore.getState().updateSnippet(id, form),
-  deleteSnippet: (id) => useSnippetStore.getState().deleteSnippet(id),
-
-  createRule: (form) => usePortForwardingStore.getState().createRule(form),
-  updateRule: (id, form) => usePortForwardingStore.getState().updateRule(id, form),
-  deleteRule: (id) => usePortForwardingStore.getState().deleteRule(id),
-  moveRuleFolder: (id, folderId) => usePortForwardingStore.getState().moveRuleFolder(id, folderId),
-
-  moveObjectsToFolder: (ids, objectType, folderId) =>
-    useFolderStore.getState().moveObjectsToFolder(ids, objectType, folderId),
-  saveFolder: (data) => useFolderStore.getState().saveFolder(data),
-  updateFolder: (id, data) => useFolderStore.getState().updateFolder(id, data),
-  // Cascading: a folder the paste moved out of the tab is empty, and a folder
-  // whose contents the paste did not carry keeps them.
-  deleteFolder: (id) => useFolderStore.getState().deleteFolder(id),
-  moveFolder: (id, parentFolderId) => useFolderStore.getState().moveFolder(id, parentFolderId),
-  saveSnippetFolder: (data) => useSnippetFolderStore.getState().saveFolder(data),
-  updateSnippetFolder: (id, data) => useSnippetFolderStore.getState().updateFolder(id, data),
-  deleteSnippetFolder: (id) => useSnippetFolderStore.getState().deleteFolder(id),
-  moveSnippetFolder: (id, parentFolderId) =>
-    useSnippetFolderStore.getState().moveFolder(id, parentFolderId),
+  ...storeObjectPorts,
 };
 
 // ─── Snippet and port-forwarding ports ────────────────────────────────────

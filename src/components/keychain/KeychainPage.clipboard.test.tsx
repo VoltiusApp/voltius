@@ -38,14 +38,16 @@ const h = vi.hoisted(() => ({
   confirmCrossVault: vi.fn(async () => true),
   getSecret: vi.fn(async (_k: string) => null as string | null),
   storeSecret: vi.fn(async (_k: string, _v: string) => {}),
-  moveKeyToVault: vi.fn(async (
-    key: { id: string }, _vaultId: string, data: unknown, updateKey: (id: string, data: unknown) => Promise<unknown>,
-  ) => { await updateKey(key.id, data); }),
-  moveIdentityToVault: vi.fn(async (
-    identity: { id: string }, _vaultId: string, data: unknown, updateIdentity: (id: string, data: unknown) => Promise<unknown>,
-  ) => { await updateIdentity(identity.id, data); }),
+  moveWithSecrets: vi.fn(async (_kind: string, _o: unknown, _to: string, update: () => Promise<unknown>) => {
+    await update();
+  }),
 }));
 
+vi.mock("@/services/vaultObjectStores", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/vaultObjectStores")>()),
+  storeObjectPorts: (await import("@/test/objectPortsFrom")).objectPortsFrom(h),
+  hydrateVaultObjectStores: async () => {},
+}));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
   initReactI18next: { type: "3rdParty", init: () => {} },
@@ -126,9 +128,6 @@ vi.mock("@/hooks/useDragToFolder", () => ({
     ejectDropProps: () => ({}),
   }),
 }));
-vi.mock("@/hooks/useVaultCascade", () => ({
-  useVaultCascade: () => ({ pending: null, request: vi.fn(), confirm: vi.fn(), cancel: vi.fn() }),
-}));
 vi.mock("@/hooks/useSyncedFormKey", () => ({ useSyncedFormKey: () => 0 }));
 vi.mock("@/hooks/useUIContributions", () => ({ useUIContributions: () => [] }));
 vi.mock("@/hooks/useEffectivePinned", () => ({
@@ -208,10 +207,7 @@ vi.mock("@/stores/syncPrefsStore", () => ({
 vi.mock("@/services/vault", () => ({
   storeSecret: h.storeSecret, getSecret: h.getSecret, deleteSecret: vi.fn(async () => {}),
 }));
-vi.mock("@/services/vaultObjectSecrets", () => ({
-  moveKeyToVault: h.moveKeyToVault,
-  moveIdentityToVault: h.moveIdentityToVault,
-}));
+vi.mock("@/services/vaultObjectSecrets", () => ({ moveWithSecrets: h.moveWithSecrets }));
 vi.mock("@/services/teamVaultPermissions", () => ({ buildTeamVaultTransferPlan: () => ({ allowed: true }) }));
 
 import KeychainPage from "./KeychainPage";
@@ -359,9 +355,8 @@ test("a cut into a team vault transfers the key's private material to that vault
   await dispatch("voltius:clipboard-cut");
   await dispatch("voltius:clipboard-paste");
 
-  expect(h.moveKeyToVault).toHaveBeenCalledWith(
-    expect.objectContaining({ id: "k1" }), "team-1", expect.objectContaining({ vault_id: "team-1" }), h.updateKey,
-  );
+  expect(h.moveWithSecrets).toHaveBeenCalledWith("key", expect.objectContaining({ id: "k1" }), "team-1", expect.any(Function));
+  expect(h.updateKey).toHaveBeenCalledWith("k1", expect.objectContaining({ vault_id: "team-1" }));
 });
 
 test("a cut into a team vault transfers an identity's password to that vault", async () => {
@@ -375,9 +370,7 @@ test("a cut into a team vault transfers an identity's password to that vault", a
   await dispatch("voltius:clipboard-paste");
 
   expect(h.updateIdentity).toHaveBeenCalledWith("i1", expect.objectContaining({ vault_id: "team-1", folder_id: "tf" }));
-  expect(h.moveIdentityToVault).toHaveBeenCalledWith(
-    expect.objectContaining({ id: "i1" }), "team-1", expect.objectContaining({ vault_id: "team-1" }), h.updateIdentity,
-  );
+  expect(h.moveWithSecrets).toHaveBeenCalledWith("identity", expect.objectContaining({ id: "i1" }), "team-1", expect.any(Function));
 });
 
 test("a copy into a team-vault folder creates the duplicate there with its secret", async () => {
@@ -579,7 +572,7 @@ test("a mixed cut-paste reloads both touched stores after the move, in both dire
 
 // As on Hosts: the old refusal depended on the user lacking EDIT_KEYS, so anyone
 // who had it pasted through and left the identity pointing at a key elsewhere.
-test("an identity cut is refused for a dangling key even with every permission granted", async () => {
+test("an identity cut carries the key it points at into the destination", async () => {
   h.folders = [folder("tf", { vault_id: "team-1" })];
   h.identities = [{ id: "i1", name: "root", username: "root", key_id: "k1", tags: [], vault_id: "personal" }];
   h.keys = [{ id: "k1", name: "id_ed25519", key_type: "ed25519", tags: [], vault_id: "personal" }];
@@ -590,7 +583,11 @@ test("an identity cut is refused for a dangling key even with every permission g
   await dispatch("voltius:clipboard-cut");
   await dispatch("voltius:clipboard-paste");
 
-  expect(h.updateIdentity).not.toHaveBeenCalled();
+  expect(h.confirmCrossVault).toHaveBeenCalledWith(expect.objectContaining({
+    cascade: [expect.objectContaining({ type: "key", id: "k1", action: "move" })],
+  }));
+  expect(h.updateKey).toHaveBeenCalledWith("k1", expect.objectContaining({ vault_id: "team-1" }));
+  expect(h.updateIdentity).toHaveBeenCalledWith("i1", expect.objectContaining({ vault_id: "team-1", key_id: "k1" }));
 });
 
 // Cutting the key alongside its identity resolves the reference in the

@@ -37,10 +37,6 @@
         "message_other": "Klasör, alt klasörleri ve içindeki {{count}} kural silinecek. Bu işlem geri alınamaz.",
         "messageEmpty": "Klasör ve içindeki her şey silinecek. Bu işlem geri alınamaz."
       },
-      "vaultCascade": {
-        "moveDescription": "\"{{folderName}}\" taşındığında aşağıdaki kurallar da {{targetVaultName}} kasasına taşınacak:",
-        "copyDescription": "\"{{folderName}}\" kopyalandığında aşağıdaki kurallar da {{targetVaultName}} kasasına kopyalanacak:"
-      },
       "bulk": {
         "duplicateRules": "{{count}} kuralı çoğalt",
         "exportRules": "{{count}} kuralı dışa aktar",

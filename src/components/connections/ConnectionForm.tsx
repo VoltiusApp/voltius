@@ -66,7 +66,7 @@ import {
 } from "@/components/shared/Panel";
 import { YouConnectAsRow } from "./YouConnectAsRow";
 import { FieldError, useReportBlocked, useRequiredField, type MobileEditFormProps } from "@/components/shared/fieldValidation";
-import { SecretInput, TagsAndFolderFields } from "@/components/shared/vaultObjectForm";
+import { SecretInput, TagsAndFolderFields, vaultPickHandler } from "@/components/shared/vaultObjectForm";
 import { normalizeNotes } from "@/components/notes/notesText";
 import {
   AdvancedDisclosure,
@@ -149,7 +149,6 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   const [proxyOverride, setProxyOverride] = useState<ProxyOverride | null>(initial?.proxy ?? null);
   const [proxyPassword, setProxyPassword] = useState("");
   const [proxyPasswordSaved, setProxyPasswordSaved] = useState(false);
-  const hostCommands = useHostCommandFields(initial);
   const [keepalivePreset, setKeepalivePreset] = useState<KeepalivePreset | "">(initial?.keepalive_preset ?? "");
   const [persistSession, setPersistSession] = useState<"" | "on" | "off">(
     initial?.persist_session === undefined ? "" : initial.persist_session ? "on" : "off",
@@ -164,6 +163,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
   const shell = useConnectionFormShell(initial, placement);
   const { vaultId, pickVault, folderId, keepSavedOnCancel, isPinned, togglePin } = shell;
+  const hostCommands = useHostCommandFields(initial, vaultId);
   const userEditedRef = useRef(false);
   const prevVaultIdRef = useRef(vaultId);
   const passwordDirty = useRef(false);
@@ -184,6 +184,10 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
       prevVaultIdRef.current = vaultId;
       setIdentityId(null);
       setKeyId(null);
+      setJumpHosts((hops) => hops.filter((hop) => {
+        const target = findAnyConnection(hop.connection_id);
+        return !target || (target.vault_id ?? "personal") === hostCommands.vaultId;
+      }));
     }
   }, [vaultId]);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
@@ -508,7 +512,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
         <PanelHeader
           icon={initial ? "lucide:pencil" : "lucide:plus"}
           title={initial ? t("connections.form.titleEdit") : t("connections.form.titleNew")}
-          subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => pickVault(id, markDirty)} disabled={readOnly} />}
+          subtitle={<VaultPicker vaultId={vaultId} onChange={vaultPickHandler({ existing: !!initial, onMoveToVault, flush, pick: (id) => pickVault(id, markDirty) })} disabled={readOnly} />}
           onClose={handleClose}
           saveState={initial ? saveState : undefined}
           actions={initial ? (
@@ -834,6 +838,8 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
 
       <SlideOver open={showChaining}>
         <JumpHostsPanel
+          vaultId={hostCommands.vaultId}
+          hostId={initial?.id}
           jumpHosts={jumpHosts}
           onChange={(updated) => { markDirty(); setJumpHosts(updated); }}
           onBack={() => setShowChaining(false)}

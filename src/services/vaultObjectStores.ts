@@ -8,6 +8,7 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { createVaultsAPI, type VaultPorts } from "@/plugins/domains/vaults";
+import type { VaultObjectPorts } from "@/services/vaultObjectWrites";
 
 /**
  * A vault is team-backed when a team carries its id — the same test
@@ -88,3 +89,55 @@ export const vaultPorts: VaultPorts = {
  */
 export const deleteVaultWithContents = (vaultId: string): Promise<void> =>
   createVaultsAPI(vaultPorts).delete(vaultId, { cascade: true });
+
+const teamItems = <T>(byTeam: Record<string, T[]>): T[] =>
+  useTeamStore.getState().teams.flatMap((t) => byTeam[t.id] ?? []);
+
+/** Every vault-object store, personal and team records alike, behind one interface. */
+export const storeObjectPorts: VaultObjectPorts = {
+  connections: () => [...useConnectionStore.getState().connections, ...teamItems(useConnectionStore.getState().teamConnections)],
+  keys: () => [...useKeyStore.getState().keys, ...Object.values(useKeyStore.getState().teamKeys).flat()],
+  identities: () => [...useIdentityStore.getState().identities, ...Object.values(useIdentityStore.getState().teamIdentities).flat()],
+  snippets: () => [...useSnippetStore.getState().snippets, ...Object.values(useSnippetStore.getState().teamSnippets).flat()],
+  rules: () => [...usePortForwardingStore.getState().rules, ...Object.values(usePortForwardingStore.getState().teamRules).flat()],
+  folders: () => [...useFolderStore.getState().folders, ...Object.values(useFolderStore.getState().teamFolders).flat()],
+  snippetFolders: () => [
+    ...useSnippetFolderStore.getState().folders,
+    ...Object.values(useSnippetFolderStore.getState().teamSnippetFolders).flat(),
+  ],
+
+  saveConnection: (form) => useConnectionStore.getState().saveConnection(form),
+  updateConnection: (id, form) => useConnectionStore.getState().updateConnection(id, form),
+  deleteConnection: (id) => useConnectionStore.getState().deleteConnection(id),
+  loadConnections: () => useConnectionStore.getState().loadConnections(),
+
+  saveKey: (form) => useKeyStore.getState().saveKey(form),
+  updateKey: (id, form) => useKeyStore.getState().updateKey(id, form),
+  deleteKey: (id) => useKeyStore.getState().deleteKey(id),
+  loadKeys: () => useKeyStore.getState().loadKeys(),
+
+  saveIdentity: (form) => useIdentityStore.getState().saveIdentity(form),
+  updateIdentity: (id, form) => useIdentityStore.getState().updateIdentity(id, form),
+  deleteIdentity: (id) => useIdentityStore.getState().deleteIdentity(id),
+  loadIdentities: () => useIdentityStore.getState().loadIdentities(),
+
+  createSnippet: (form) => useSnippetStore.getState().createSnippet(form),
+  updateSnippet: (id, form) => useSnippetStore.getState().updateSnippet(id, form),
+  deleteSnippet: (id) => useSnippetStore.getState().deleteSnippet(id),
+
+  createRule: (form) => usePortForwardingStore.getState().createRule(form),
+  updateRule: (id, form) => usePortForwardingStore.getState().updateRule(id, form),
+  deleteRule: (id) => usePortForwardingStore.getState().deleteRule(id),
+  moveRuleFolder: (id, folderId) => usePortForwardingStore.getState().moveRuleFolder(id, folderId),
+
+  moveObjectsToFolder: (ids, objectType, folderId) =>
+    useFolderStore.getState().moveObjectsToFolder(ids, objectType, folderId),
+  saveFolder: (data) => useFolderStore.getState().saveFolder(data),
+  updateFolder: (id, data) => useFolderStore.getState().updateFolder(id, data),
+  deleteFolder: (id) => useFolderStore.getState().deleteFolder(id),
+  moveFolder: (id, parentFolderId) => useFolderStore.getState().moveFolder(id, parentFolderId),
+  saveSnippetFolder: (data) => useSnippetFolderStore.getState().saveFolder(data),
+  updateSnippetFolder: (id, data) => useSnippetFolderStore.getState().updateFolder(id, data),
+  deleteSnippetFolder: (id) => useSnippetFolderStore.getState().deleteFolder(id),
+  moveSnippetFolder: (id, parentFolderId) => useSnippetFolderStore.getState().moveFolder(id, parentFolderId),
+};

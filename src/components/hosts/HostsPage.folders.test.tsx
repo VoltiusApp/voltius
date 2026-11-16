@@ -1,7 +1,8 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, cleanup, act } from "@testing-library/react";
 import type { Connection, Folder, Identity, SshKey } from "@/types";
-import type { PendingCascade } from "@/hooks/useVaultCascade";
+import type { CascadeEntry } from "@/services/vaultClipboard";
+import { runPaste } from "@/services/vaultClipboard";
 
 function folder(id: string, over: Partial<Folder> = {}): Folder {
   return { id, name: id, created_at: "", object_type: "connection", vault_id: "personal", updated_at: "", clocks: {}, ...over };
@@ -34,7 +35,7 @@ const h = vi.hoisted(() => ({
   ejectTargetFolderId: null as string | null,
   activeFolderId: null as string | null,
   accessibleVaultIds: [] as string[],
-  cascades: [] as PendingCascade[],
+  cascades: [] as { targetVaultName: string; mode: string; cascade: CascadeEntry[] }[],
   navigateTo: vi.fn(),
   navigateToRoot: vi.fn(),
   updateFolder: vi.fn(async (_id: string, _data?: unknown) => {}),
@@ -46,21 +47,28 @@ const h = vi.hoisted(() => ({
   can: vi.fn((_permission: string, _vaultId: string) => true),
   confirmModals: [] as Record<string, unknown>[],
   bulkOnDelete: null as ((ids: string[]) => void) | null,
-  moveKeyToVault: vi.fn(async (
-    key: { id: string }, _vaultId: string, data: unknown, updateKey: (id: string, data: unknown) => Promise<unknown>,
-  ) => { await updateKey(key.id, data); }),
-  moveIdentityToVault: vi.fn(async (
-    identity: { id: string }, _vaultId: string, data: unknown, updateIdentity: (id: string, data: unknown) => Promise<unknown>,
-  ) => { await updateIdentity(identity.id, data); }),
 }));
 
+vi.mock("@/services/vaultObjectStores", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/vaultObjectStores")>()),
+  storeObjectPorts: (await import("@/test/objectPortsFrom")).objectPortsFrom(h),
+  hydrateVaultObjectStores: async () => {},
+}));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string, o?: Record<string, unknown>) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/hooks/useCrossVaultPasteConfirm", () => ({
-  useCrossVaultPasteConfirm: () => ({ pending: null, confirmCrossVault: vi.fn(async () => true), accept: vi.fn(), cancel: vi.fn() }),
+  useCrossVaultPasteConfirm: () => ({
+    pending: null,
+    confirmCrossVault: async (summary: { targetVaultName: string; mode: string; cascade: CascadeEntry[] }) => {
+      h.cascades.push(summary);
+      return true;
+    },
+    accept: vi.fn(),
+    cancel: vi.fn(),
+  }),
 }));
 
 vi.mock("@/components/shared/SidePanelLayout", () => ({
@@ -140,14 +148,6 @@ vi.mock("@/hooks/useDragToFolder", () => ({
     handleFolderDragStart: vi.fn(),
     folderDropProps: () => ({}),
     ejectDropProps: () => ({}),
-  }),
-}));
-vi.mock("@/hooks/useVaultCascade", () => ({
-  useVaultCascade: () => ({
-    pending: null,
-    request: (c: PendingCascade) => { h.cascades.push(c); },
-    confirm: vi.fn(),
-    cancel: vi.fn(),
   }),
 }));
 vi.mock("@/hooks/useSyncedFormKey", () => ({ useSyncedFormKey: () => 0 }));
@@ -245,8 +245,6 @@ vi.mock("@/stores/syncPrefsStore", () => ({
 }));
 vi.mock("@/services/vault", () => ({ storeSecret: vi.fn(async () => {}), getSecret: vi.fn(async () => null) }));
 vi.mock("@/services/vaultObjectSecrets", () => ({
-  moveKeyToVault: h.moveKeyToVault,
-  moveIdentityToVault: h.moveIdentityToVault,
   moveWithSecrets: vi.fn(async (_k: string, _o: unknown, _t: string, update: () => Promise<unknown>) => {
     await update();
   }),
@@ -259,6 +257,8 @@ import { expectEachRefused, startPreview, stopPreview } from "@/test/preview";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useConnectionStore } from "@/stores/connectionStore";
+
+const settle = () => act(async () => { await runPaste(async () => {}); });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -363,30 +363,21 @@ test("moving a folder to a vault carries the whole subtree plus each connection'
 
   const card = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
   act(() => { (card.onMoveToVault as (v: string) => void)("team-1"); });
+  await settle();
 
   const cascade = h.cascades[0];
   expect(cascade.targetVaultName).toBe("Team One");
-  expect(cascade.items).toEqual([
-    { type: "connection", label: "c-root.example" },
-    { type: "connection", label: "c-leaf.example" },
-    { type: "key", label: "Key One" },
-    { type: "identity", label: "Ident One" },
+  expect(cascade.cascade.map(({ type, label, action }) => ({ type, label, action }))).toEqual([
+    { type: "identity", label: "Ident One", action: "move" },
+    { type: "key", label: "Key One", action: "move" },
   ]);
-
-  await act(async () => { await cascade.execute(); });
   expect(h.updateFolder.mock.calls.map((c) => c[0])).toEqual(["root", "mid", "leaf"]);
-  expect(h.updateKey.mock.calls.map((c) => c[0])).toEqual(["k1"]);
-  expect(h.updateIdentity.mock.calls.map((c) => c[0])).toEqual(["i1"]);
+  expect(h.updateKey).toHaveBeenCalledWith("k1", expect.objectContaining({ vault_id: "team-1" }));
+  expect(h.updateIdentity).toHaveBeenCalledWith("i1", expect.objectContaining({ vault_id: "team-1", key_id: "k1" }));
   expect(h.updateConnection.mock.calls.map((c) => c[0])).toEqual(["c-root", "c-leaf"]);
-  expect(h.moveKeyToVault).toHaveBeenCalledWith(
-    expect.objectContaining({ id: "k1" }), "team-1", expect.objectContaining({ vault_id: "team-1" }), h.updateKey,
-  );
-  expect(h.moveIdentityToVault).toHaveBeenCalledWith(
-    expect.objectContaining({ id: "i1" }), "team-1", expect.objectContaining({ vault_id: "team-1" }), expect.any(Function),
-  );
 });
 
-test("a linked key or identity already in the target vault is left out of the cascade", () => {
+test("a linked key or identity already in the target vault is left out of the cascade", async () => {
   h.vaults = [{ id: "v-team", teamId: "team-1", name: "Team One" }];
   h.folders = [folder("root")];
   h.keys = [key("k1", { name: "Key One", vault_id: "team-1" })];
@@ -397,8 +388,9 @@ test("a linked key or identity already in the target vault is left out of the ca
 
   const card = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
   act(() => { (card.onMoveToVault as (v: string) => void)("team-1"); });
+  await settle();
 
-  expect(h.cascades[0].items).toEqual([{ type: "connection", label: "c-root.example" }]);
+  expect(h.cascades[0].cascade).toEqual([]);
 });
 
 test("copying a folder to a vault recreates the subtree parents first", async () => {
@@ -410,8 +402,7 @@ test("copying a folder to a vault recreates the subtree parents first", async ()
 
   const card = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
   act(() => { (card.onCopyToVault as (v: string) => void)("team-1"); });
-
-  await act(async () => { await h.cascades[0].execute(); });
+  await settle();
   expect(h.saveFolder.mock.calls.map((c) => (c[0] as { name: string }).name)).toEqual(["root", "mid"]);
   expect((h.saveFolder.mock.calls[1][0] as { parent_folder_id: string }).parent_folder_id).toBe("new-root");
 });
@@ -491,11 +482,11 @@ test("moving or copying a host to another vault keeps its proxy and other per-ho
   render(<HostsPage />);
 
   act(() => { (hostCard("c1").onMoveToVault as (c: Connection, v: string) => void)(h.connections[0] as Connection, "team-1"); });
-  await act(async () => { await h.cascades[0].execute(); });
+  await settle();
   expect(h.updateConnection).toHaveBeenCalledWith("c1", expect.objectContaining({ ...PER_HOST, vault_id: "team-1" }));
 
   act(() => { (hostCard("c1").onCopyToVault as (c: Connection, v: string) => void)(h.connections[0] as Connection, "team-1"); });
-  await act(async () => { await h.cascades[1].execute(); });
+  await settle();
   expect(h.saveConnection).toHaveBeenCalledWith(expect.objectContaining({ ...PER_HOST, name: "Web", vault_id: "team-1" }));
 });
 
@@ -508,11 +499,11 @@ test("moving or copying a folder to another vault keeps each host's proxy and ot
   const card = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
 
   act(() => { (card.onMoveToVault as (v: string) => void)("team-1"); });
-  await act(async () => { await h.cascades[0].execute(); });
+  await settle();
   expect(h.updateConnection).toHaveBeenCalledWith("c-root", expect.objectContaining({ ...PER_HOST, vault_id: "team-1" }));
 
   act(() => { (card.onCopyToVault as (v: string) => void)("team-1"); });
-  await act(async () => { await h.cascades[1].execute(); });
+  await settle();
   expect(h.saveConnection).toHaveBeenCalledWith(
     expect.objectContaining({ ...PER_HOST, folder_id: "new-root", vault_id: "team-1" }),
   );
@@ -612,11 +603,13 @@ test("host and folder actions refuse while previewing a member and open why for 
     ["new folder", () => (h.toolbarProps.onCreateFolder as () => void)(), undefined],
   ]);
 
+  await settle();
   expect(h.formProps).toEqual([]);
   expect(h.folderEditPanels).toBe(0);
   expect(h.cascades).toEqual([]);
-  expect(h.saveFolder).not.toHaveBeenCalled();
-  expect(h.saveConnection).not.toHaveBeenCalled();
+  for (const write of [h.saveFolder, h.saveConnection, h.updateFolder, h.updateConnection]) {
+    expect(write).not.toHaveBeenCalled();
+  }
   expect(useSessionStore.getState().connect).not.toHaveBeenCalled();
   expect(useUIStore.getState().setActiveNav).not.toHaveBeenCalled();
   expect(useConnectionStore.getState().deleteConnection).not.toHaveBeenCalled();

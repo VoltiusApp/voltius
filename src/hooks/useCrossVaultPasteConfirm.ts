@@ -1,14 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
-import type { PendingCascade } from "./useVaultCascade";
+import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import type { CascadeEntry } from "@/services/vaultClipboard";
+import { formatList } from "@/utils/localeFormat";
 
-/**
- * Promise-based cross-vault paste confirmation. useVaultCascade's `execute` is
- * fire-and-forget and its `cancel` answers nothing, but the paste awaits the
- * user inside its serialized queue, so the answer has to come back as a promise.
- */
+export type CascadeItem = { type: VaultClipboardKind; label: string };
+
+export type PendingCascade = {
+  operation: "move" | "copy";
+  targetVaultName: string;
+  items: CascadeItem[];
+  description?: string;
+  /** Precedes the vault name. */
+  heading?: string;
+};
+
+/** Cross-vault paste confirmation, answered as a promise: the paste awaits it inside its serialized queue. */
 export function useCrossVaultPasteConfirm() {
   const { t } = useTranslation();
   const [pending, setPending] = useState<PendingCascade | null>(null);
@@ -53,7 +60,7 @@ export function useCrossVaultPasteConfirm() {
           moved.length > 0
             ? t("common.clipboard.cascadeMoved", {
                 count: moved.length,
-                names: moved.join(", "),
+                names: formatList(moved),
               })
             : null,
           // A copy paste copies everything by definition, so naming a reason there
@@ -62,7 +69,7 @@ export function useCrossVaultPasteConfirm() {
           copied.length > 0
             ? t(
                 isMove ? "common.clipboard.cascadeCopied" : "common.clipboard.cascadeAlsoCopied",
-                { count: copied.length, names: copied.join(", ") },
+                { count: copied.length, names: formatList(copied) },
               )
             : null,
         ].filter((s): s is string => !!s);
@@ -77,7 +84,6 @@ export function useCrossVaultPasteConfirm() {
           ),
           description: sentences.join(" "),
           items: cascade.map((c) => ({ type: c.type, label: c.label })),
-          execute: async () => {},
         });
       }),
     [t],

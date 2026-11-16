@@ -51,10 +51,6 @@
         "message_other": "确定要删除 {{count}} 个项目吗？此操作无法撤销。",
         "folderCascade_one": "所选文件夹中的 {{count}} 个项目也将被删除。",
         "folderCascade_other": "所选文件夹中的 {{count}} 个项目也将被删除。"
-      },
-      "vaultCascade": {
-        "moveDescription": "移动 \"{{folderName}}\" 也会将以下项目移动到 {{targetVaultName}}：",
-        "copyDescription": "复制 \"{{folderName}}\" 也会将以下项目复制到 {{targetVaultName}}："
       }
     },
     "cards": {

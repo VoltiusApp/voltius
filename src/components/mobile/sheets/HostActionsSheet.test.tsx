@@ -4,7 +4,7 @@ import type { Connection } from "@/types";
 
 const h = vi.hoisted(() => ({
   updateConnection: vi.fn(async () => {}),
-  moveConnectionToVault: vi.fn(async () => {}),
+  transfer: vi.fn(async () => {}),
   canEdit: true,
   conn: {
     id: "c1", name: "web", host: "10.0.0.1", port: 22, username: "root", tags: [],
@@ -44,7 +44,10 @@ vi.mock("@/utils/connectionDisplayName", () => ({ connectionDisplayName: (c: Con
 vi.mock("@/utils/clipboard", () => ({ writeClipboard: vi.fn() }));
 vi.mock("@/utils/localeFormat", () => ({ compareStrings: (a: string, b: string) => a.localeCompare(b) }));
 vi.mock("@/components/mobile/folders/mobileFolderCore", () => ({ buildMoveTargets: () => [] }));
-vi.mock("@/services/connectionDuplicate", () => ({ moveConnectionToVault: h.moveConnectionToVault }));
+vi.mock("@/hooks/useVaultTransfer", () => ({
+  useVaultTransfer: () => ({ pending: null, accept: vi.fn(), cancel: vi.fn(), transfer: h.transfer }),
+}));
+vi.mock("@/components/shared/VaultCascadeModal", () => ({ VaultCascadeModal: () => null }));
 vi.mock("./MoveToFolderSheet", () => ({ default: () => null }));
 
 import HostActionsSheet from "./HostActionsSheet";
@@ -55,11 +58,12 @@ afterEach(() => {
   h.conn.vault_id = "personal";
 });
 
-test("moving a host to a vault goes through moveConnectionToVault, not a bare updateConnection", () => {
+test("moving a host to a vault goes through the shared transfer, which carries what it references", () => {
   render(<HostActionsSheet hostId="c1" />);
   fireEvent.click(document.querySelector("[data-host-action='move-to-vault']")!);
   fireEvent.click(document.querySelector("[data-host-action='team-one']")!);
-  expect(h.moveConnectionToVault).toHaveBeenCalledWith(h.conn, "team-1", h.updateConnection);
+  expect(h.transfer).toHaveBeenCalledWith(["c1"], { id: "team-1", name: "Team One" }, "cut");
+  expect(h.updateConnection).not.toHaveBeenCalled();
 });
 
 test("a member without edit rights gets no editing actions", () => {

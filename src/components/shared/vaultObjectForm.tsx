@@ -47,6 +47,24 @@ export interface VaultObjectFormShell {
  * a team object pins through the personal override, a personal one through the
  * raw flag.
  */
+/** An existing object changes vault through the move flow, which carries what it references along. */
+export function vaultPickHandler({ existing, onMoveToVault, flush, pick }: {
+  existing: boolean;
+  onMoveToVault?: (vaultId: string) => void;
+  flush?: () => void;
+  pick: (vaultId: string) => void;
+}): (vaultId: string) => boolean {
+  return (vaultId) => {
+    if (!existing || !onMoveToVault) {
+      pick(vaultId);
+      return true;
+    }
+    flush?.();
+    onMoveToVault(vaultId);
+    return false;
+  };
+}
+
 export function placementIn(folder: Pick<Folder, "id" | "vault_id"> | undefined): NewObjectPlacement | undefined {
   return folder ? { folderId: folder.id, vaultId: folder.vault_id } : undefined;
 }

@@ -12,9 +12,10 @@ export interface HostCommandFieldProps {
   snippetId: string | undefined;
   onChangeText: (v: string) => void;
   onChangeSnippetId: (v: string | undefined) => void;
+  vaultId?: string;
 }
 
-export function HostCommandField({ slot, text, snippetId, onChangeText, onChangeSnippetId }: HostCommandFieldProps) {
+export function HostCommandField({ slot, text, snippetId, onChangeText, onChangeSnippetId, vaultId }: HostCommandFieldProps) {
   const { t } = useTranslation();
   const [choosing, setChoosing] = useState(false);
   const [search, setSearch] = useState("");
@@ -81,6 +82,7 @@ export function HostCommandField({ slot, text, snippetId, onChangeText, onChange
             <SnippetChooserList
               search={search}
               showRecents={false}
+              vaultId={vaultId}
               onPick={(s) => {
                 onChangeText("");
                 onChangeSnippetId(s.id);

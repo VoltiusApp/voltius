@@ -1,6 +1,6 @@
 import { test, expect, vi } from "vitest";
 import type { Folder } from "@/types";
-import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
+import { cloneFolderTree } from "@/utils/folderCopy";
 
 function folder(id: string, over: Partial<Folder> = {}): Folder {
   return { id, name: id, object_type: "connection", vault_id: "personal", created_at: "", updated_at: "", clocks: {}, ...over } as Folder;
@@ -54,56 +54,4 @@ test("a subfolder whose parent is outside the subtree is reparented onto the new
 
   expect(saveFolder.mock.calls[1][0].parent_folder_id).toBe("new-root");
   expect(folderIdMap.get("orphan")).toBe("new-orphan");
-});
-
-test("copyFolderSubtree keeps the root's name when the destination vault has no clash", async () => {
-  const saveFolder = saveFolderSpy();
-  await copyFolderSubtree({
-    root: folder("root"),
-    subFolders: [],
-    vaultId: "team-1",
-    existingFolders: [folder("root")],
-    saveFolder,
-  });
-
-  expect(saveFolder.mock.calls[0][0].name).toBe("root");
-});
-
-test("copyFolderSubtree suffixes the root when the destination vault already holds the name", async () => {
-  const saveFolder = saveFolderSpy();
-  await copyFolderSubtree({
-    root: folder("root"),
-    subFolders: [],
-    vaultId: "team-1",
-    existingFolders: [folder("other", { name: "root", vault_id: "team-1" })],
-    saveFolder,
-  });
-
-  expect(saveFolder.mock.calls[0][0].name).toBe("root (copy)");
-});
-
-test("copyFolderSubtree only clashes with a folder of the same object type", async () => {
-  const saveFolder = saveFolderSpy();
-  await copyFolderSubtree({
-    root: folder("root"),
-    subFolders: [],
-    vaultId: "team-1",
-    existingFolders: [folder("other", { name: "root", vault_id: "team-1", object_type: "snippet" })],
-    saveFolder,
-  });
-
-  expect(saveFolder.mock.calls[0][0].name).toBe("root");
-});
-
-test("copyFolderSubtree keeps the root where it was, unlike a paste", async () => {
-  const saveFolder = saveFolderSpy();
-  await copyFolderSubtree({
-    root: folder("root", { parent_folder_id: "parent" }),
-    subFolders: [],
-    vaultId: "team-1",
-    existingFolders: [],
-    saveFolder,
-  });
-
-  expect(saveFolder.mock.calls[0][0].parent_folder_id).toBe("parent");
 });

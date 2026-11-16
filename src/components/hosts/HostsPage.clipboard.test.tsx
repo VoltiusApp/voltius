@@ -41,6 +41,11 @@ const h = vi.hoisted(() => ({
   updateIdentity: vi.fn(async () => {}),
 }));
 
+vi.mock("@/services/vaultObjectStores", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/vaultObjectStores")>()),
+  storeObjectPorts: (await import("@/test/objectPortsFrom")).objectPortsFrom(h),
+  hydrateVaultObjectStores: async () => {},
+}));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
   initReactI18next: { type: "3rdParty", init: () => {} },
@@ -120,9 +125,6 @@ vi.mock("@/hooks/useDragToFolder", () => ({
     folderDropProps: () => ({}),
     ejectDropProps: () => ({}),
   }),
-}));
-vi.mock("@/hooks/useVaultCascade", () => ({
-  useVaultCascade: () => ({ pending: null, request: vi.fn(), confirm: vi.fn(), cancel: vi.fn() }),
 }));
 vi.mock("@/hooks/useSyncedFormKey", () => ({ useSyncedFormKey: () => 0 }));
 vi.mock("@/hooks/useUIContributions", () => ({ useUIContributions: () => [] }));
@@ -856,7 +858,7 @@ test("the confirmation names what travels and whether it moves or is copied", as
   expect(h.confirmCrossVault).toHaveBeenCalledWith(
     expect.objectContaining({
       mode: "cut",
-      cascade: [{ type: "key", label: "id_ed25519", action: "copy", sourceVaultId: "personal" }],
+      cascade: [{ type: "key", id: "k1", label: "id_ed25519", action: "copy", sourceVaultId: "personal" }],
     }),
   );
 });

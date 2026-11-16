@@ -8,14 +8,14 @@ import { timeFormatSetting } from "@/stores/localeStore";
 
 type DateInput = Date | number | string;
 
-const cache = new Map<string, Intl.DateTimeFormat | Intl.NumberFormat | Intl.Collator>();
+const cache = new Map<string, Intl.DateTimeFormat | Intl.NumberFormat | Intl.Collator | Intl.ListFormat>();
 
 /** The app language, as a BCP 47 tag for Intl. */
 export function appLocale(): string {
   return i18n.language || "en";
 }
 
-function cached<T extends Intl.DateTimeFormat | Intl.NumberFormat | Intl.Collator>(
+function cached<T extends Intl.DateTimeFormat | Intl.NumberFormat | Intl.Collator | Intl.ListFormat>(
   kind: string,
   options: object,
   make: (locale: string) => T,
@@ -78,6 +78,11 @@ export function formatDateTime(d: DateInput, options: Intl.DateTimeFormatOptions
 
 export function formatNumber(n: number, options: Intl.NumberFormatOptions = {}): string {
   return cached("num", options, (l) => new Intl.NumberFormat(l, options)).format(n);
+}
+
+/** "a, b and c" in the app language. */
+export function formatList(items: string[]): string {
+  return cached("list", {}, (l) => new Intl.ListFormat(l, { type: "conjunction" })).format(items);
 }
 
 /**

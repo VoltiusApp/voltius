@@ -1,7 +1,8 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, cleanup, act } from "@testing-library/react";
 import type { Folder, PortForwardingRule } from "@/types";
-import type { PendingCascade } from "@/hooks/useVaultCascade";
+import type { CascadeEntry } from "@/services/vaultClipboard";
+import { runPaste } from "@/services/vaultClipboard";
 
 function folder(id: string, over: Partial<Folder> = {}): Folder {
   return { id, name: id, created_at: "", object_type: "port_forwarding", vault_id: "personal", updated_at: "", clocks: {}, ...over } as Folder;
@@ -31,7 +32,7 @@ const h = vi.hoisted(() => ({
   isDragging: false,
   activeFolderId: null as string | null,
   accessibleVaultIds: [] as string[],
-  cascades: [] as PendingCascade[],
+  cascades: [] as { targetVaultName: string; mode: string; cascade: CascadeEntry[] }[],
   navigateTo: vi.fn(),
   navigateToRoot: vi.fn(),
   updateFolder: vi.fn(async (_id: string, _data?: unknown) => {}),
@@ -43,13 +44,26 @@ const h = vi.hoisted(() => ({
   bulkOnDelete: null as ((ids: string[]) => void) | null,
 }));
 
+vi.mock("@/services/vaultObjectStores", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/vaultObjectStores")>()),
+  storeObjectPorts: (await import("@/test/objectPortsFrom")).objectPortsFrom(h),
+  hydrateVaultObjectStores: async () => {},
+}));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string, o?: Record<string, unknown>) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/hooks/useCrossVaultPasteConfirm", () => ({
-  useCrossVaultPasteConfirm: () => ({ pending: null, confirmCrossVault: vi.fn(async () => true), accept: vi.fn(), cancel: vi.fn() }),
+  useCrossVaultPasteConfirm: () => ({
+    pending: null,
+    confirmCrossVault: async (summary: { targetVaultName: string; mode: string; cascade: CascadeEntry[] }) => {
+      h.cascades.push(summary);
+      return true;
+    },
+    accept: vi.fn(),
+    cancel: vi.fn(),
+  }),
 }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
 
@@ -121,14 +135,6 @@ vi.mock("@/hooks/useDragToFolder", () => ({
     ejectDropProps: () => ({}),
   }),
 }));
-vi.mock("@/hooks/useVaultCascade", () => ({
-  useVaultCascade: () => ({
-    pending: null,
-    request: (c: PendingCascade) => { h.cascades.push(c); },
-    confirm: vi.fn(),
-    cancel: vi.fn(),
-  }),
-}));
 vi.mock("@/hooks/useSyncedFormKey", () => ({ useSyncedFormKey: () => 0 }));
 vi.mock("@/hooks/useRuleTunnels", () => ({
   useRuleTunnels: () => ({
@@ -198,6 +204,8 @@ vi.mock("@/stores/vaultStore", () => ({
 
 import { PortForwardingPage } from "./PortForwardingPage";
 import { callProp, expectEachRefused, startPreview, stopPreview } from "@/test/preview";
+
+const settle = () => act(async () => { await runPaste(async () => {}); });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -297,13 +305,9 @@ test("moving a folder to a vault cascades over the whole subtree, parents before
 
   const card = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
   act(() => { (card.onMoveToVault as (v: string) => void)("team-1"); });
+  await settle();
 
-  const cascade = h.cascades[0];
-  expect(cascade.operation).toBe("move");
-  expect(cascade.targetVaultName).toBe("Team One");
-  expect(cascade.items.map((i) => i.label)).toEqual(["r-root", "r-leaf"]);
-
-  await act(async () => { await cascade.execute(); });
+  expect(h.cascades[0]).toMatchObject({ targetVaultName: "Team One", mode: "cut", cascade: [] });
   expect(h.updateFolder.mock.calls.map((c) => c[0])).toEqual(["root", "mid", "leaf"]);
   expect(h.updateFolder.mock.calls.every((c) => (c[1] as { vault_id: string }).vault_id === "team-1")).toBe(true);
   expect(h.updateRule.mock.calls.map((c) => c[0])).toEqual(["r-root", "r-leaf"]);
@@ -318,8 +322,7 @@ test("copying a folder to a vault recreates the subtree and re-parents the rules
 
   const card = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
   act(() => { (card.onCopyToVault as (v: string) => void)("team-1"); });
-
-  await act(async () => { await h.cascades[0].execute(); });
+  await settle();
   expect(h.saveFolder.mock.calls.map((c) => (c[0] as { name: string }).name)).toEqual(["root", "mid"]);
   expect((h.saveFolder.mock.calls[1][0] as { parent_folder_id: string }).parent_folder_id).toBe("new-root");
   expect(h.createRule.mock.calls[0][0]).toMatchObject({ folder_id: "new-mid", vault_id: "team-1" });
@@ -394,6 +397,7 @@ test("rule and folder actions refuse while previewing a member and open why for 
     ["new folder", callProp(h.toolbarProps, "onNewFolder"), undefined],
   ]);
 
+  await settle();
   expect(h.panels).toEqual([]);
   expect(h.cascades).toEqual([]);
   expect(h.confirmModals).toEqual([]);

@@ -63,10 +63,6 @@
       "draft": {
         "unsaved": "Neuloženo"
       },
-      "vaultCascade": {
-        "moveDescription": "Přesunutím složky „{{folderName}}“ se do trezoru „{{targetVaultName}}“ přesunou také tyto položky:",
-        "copyDescription": "Zkopírováním složky „{{folderName}}“ se do trezoru „{{targetVaultName}}“ zkopírují také tyto položky:"
-      },
       "bulk": {
         "executeSnippetOn_one": "Spustit úryvek na {{count}} hostu",
         "executeSnippetOn_few": "Spustit úryvek na {{count}} hostech",

@@ -120,6 +120,9 @@ import { usePageBulkActions } from "@/hooks/usePageBulkActions";
 import { useDragToFolder } from "@/hooks/useDragToFolder";
 import { usePageClipboard, type PageClipboardAdapter } from "@/hooks/usePageClipboard";
 import { pasteFromClipboard, type ClipboardAdapter } from "@/services/vaultClipboard";
+import { prepareVaultTransfer } from "@/services/vaultObjectTransfer";
+import { duplicateInPlace } from "@/services/vaultObjectWrites";
+import { storeObjectPorts } from "@/services/vaultObjectStores";
 import { runSnippetIntoActiveSession, runSnippetIntoSessions } from "@/services/snippetRun";
 import { openPfTunnel, openRuleTunnel, resumeAutoPort, closePfTunnel } from "@/services/portForwardingTunnels";
 import { joinSessionByCode } from "@/services/teamSessionJoin";
@@ -186,6 +189,9 @@ const renamed = vi.fn();
 const resolvedTargets = vi.fn();
 const savedFolder = vi.fn(async () => ({ id: "f9" }) as never);
 const duplicateItems = vi.fn(async () => ["c2"]);
+const moveItems = vi.fn(async () => {});
+let prepared: ReturnType<typeof prepareVaultTransfer> = null;
+const C1 = { type: "connection", objectId: "c1" } as const;
 
 function dragAndDrop(drag: ReturnType<typeof useDragToFolder>, attr: string) {
   const target = document.createElement("div");
@@ -211,7 +217,7 @@ const clipboardAdapter = (): PageClipboardAdapter => ({
   folderIdOf: () => null,
   folderContentKinds: () => [],
   canMoveFolder: () => true,
-  moveItems: vi.fn(async () => {}),
+  moveItems,
   moveFolder: vi.fn(async () => {}),
   duplicateItems,
   duplicateFolder: vi.fn(async () => "f2"),
@@ -257,8 +263,22 @@ const rows: Row[] = [
   ),
   hookRow("useDragToFolder drop on folder", useDrag, (d) => dragAndDrop(d, "data-drop-folder"), () => onDropToFolder.mock.calls.length > 0),
   hookRow("useDragToFolder drop on eject", useDrag, (d) => dragAndDrop(d, "data-drop-eject"), () => onEject.mock.calls.length > 0),
-  hookRow("usePageClipboard copy", () => usePageClipboard(clipboardAdapter()), () => window.dispatchEvent(new Event("voltius:clipboard-copy")), () => useVaultClipboardStore.getState().clipboard !== null),
-  hookRow("usePageClipboard cut", () => usePageClipboard(clipboardAdapter()), () => window.dispatchEvent(new Event("voltius:clipboard-cut")), () => useVaultClipboardStore.getState().clipboard !== null),
+  hookRow("usePageClipboard copy", () => usePageClipboard(clipboardAdapter()), () => window.dispatchEvent(new Event("voltius:clipboard-copy")), () => useVaultClipboardStore.getState().clipboard !== null, C1),
+  hookRow("usePageClipboard cut", () => usePageClipboard(clipboardAdapter()), () => window.dispatchEvent(new Event("voltius:clipboard-cut")), () => useVaultClipboardStore.getState().clipboard !== null, C1),
+  {
+    ...hookRow("usePageClipboard paste", () => usePageClipboard(clipboardAdapter()), () => window.dispatchEvent(new Event("voltius:clipboard-paste")), () => duplicateItems.mock.calls.length > 0),
+    setup: () => useVaultClipboardStore.setState({ clipboard: { tab: "hosts", mode: "copy", items: [{ id: "c1", kind: "connection" }], folderIds: [], sourceVaultIds: ["personal"] } }),
+  },
+  hookRow("usePageClipboard move to vault", () => usePageClipboard(clipboardAdapter()), (transfer) => transfer(["c1"], "v2", "cut"), () => moveItems.mock.calls.length > 0, C1),
+  hookRow("usePageClipboard copy to vault", () => usePageClipboard(clipboardAdapter()), (transfer) => transfer(["c1"], "v2", "copy"), () => duplicateItems.mock.calls.length > 0, C1),
+  {
+    name: "vaultObjectTransfer.prepareVaultTransfer",
+    setup: () => { prepared = null; },
+    run: () => { prepared = prepareVaultTransfer({ ports: storeObjectPorts, tab: "hosts", ids: ["c1"], vaultId: "v2", mode: "cut", can: () => true }); },
+    effect: () => prepared !== null,
+    target: C1,
+  },
+  { name: "vaultObjectWrites.duplicateInPlace", run: () => duplicateInPlace(storeObjectPorts, "connection", conn("c1")), effect: () => invoked("connection_save") },
   {
     name: "vaultClipboard.pasteFromClipboard",
     run: () => pasteFromClipboard(
