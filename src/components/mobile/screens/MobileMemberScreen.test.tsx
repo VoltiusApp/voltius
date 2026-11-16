@@ -179,6 +179,17 @@ describe("MobileMemberScreen", () => {
     expect(useNotificationStore.getState().toasts.map((x) => x.message)).toEqual(["members.permissions.youLack"]);
   });
 
+  test("remove_greyed_without_manage_members_shows_the_reason_and_does_not_open_offboarding", () => {
+    h.model = makeModel({ canManageMembers: false });
+    renderScreen();
+    const remove = q("[data-member-remove]")!;
+    expect(remove.getAttribute("aria-disabled")).toBe("true");
+    expect(q("[data-member-remove-reason]")!.textContent).toBe("members.permissions.youLack");
+    fireEvent.click(remove);
+    expect(q("[data-test-offboarding]")).toBeNull();
+    expect(useNotificationStore.getState().toasts.map((x) => x.message)).toEqual(["members.permissions.youLack"]);
+  });
+
   test("permissions_section_hidden_when_server_lacks_overrides", async () => {
     const legacy = makeMember("ana", ["r-mem"], { handle: "amber", joined_at: "2024-03-04" });
     h.model = makeModel({ members: [BOSS, legacy] });

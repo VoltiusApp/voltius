@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { TeamMember } from "@/stores/teamStore";
@@ -61,6 +61,21 @@ function Section({ id, label, danger, children }: { id: string; label: string; d
   );
 }
 
+function ReasonLine({ attr, reason }: { attr: string; reason?: string | null }) {
+  return reason ? <span {...{ [`data-${attr}-reason`]: "" }} className="text-xs text-(--t-text-dim)">{reason}</span> : null;
+}
+
+function GreyedButton({ attr, reason, onTap, className, style, children }: {
+  attr: string; reason?: string | null; onTap: () => void; className: string; style?: CSSProperties; children: ReactNode;
+}) {
+  return (
+    <button {...{ [`data-${attr}`]: "" }} aria-disabled={!!reason || undefined} title={reason ?? undefined}
+      onClick={tapOrExplain(reason, onTap)} className={`${className} ${ACTION}`} style={style}>
+      {children}
+    </button>
+  );
+}
+
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-h-12 flex items-center justify-between gap-4 px-4 text-sm">
@@ -92,6 +107,7 @@ function MemberPage({ team, teamId, member, onLeave }: { team: MembersModel; tea
   const readOnlyReason = readOnlyReasonText(t, model.readOnly.kind);
   const hasKey = keys.holders?.has(member.user_id) ?? false;
   const grantReason = greyed(team.canManageMembers).title;
+  const removeReason = remove.disabled ? remove.title : null;
   const grant = whenWritable(() => void keys.grant({ userId: member.user_id, label, publicKey: member.public_key }));
 
   return (
@@ -130,13 +146,12 @@ function MemberPage({ team, teamId, member, onLeave }: { team: MembersModel; tea
               <Icon icon={hasKey ? "lucide:key-round" : "lucide:hourglass"} width={20} className="shrink-0 text-(--t-text-dim)" />
               <span className="flex-1 min-w-0 flex flex-col">
                 <span className="text-sm text-(--t-text-primary)">{t(hasKey ? "mobile.members.keyHeld" : "mobile.members.keyAwaiting")}</span>
-                {!hasKey && grantReason && <span className="text-xs text-(--t-text-dim)">{grantReason}</span>}
+                {!hasKey && <ReasonLine attr="member-grant-key" reason={grantReason} />}
               </span>
               {!hasKey && (
-                <button data-member-grant-key aria-disabled={!!grantReason || undefined} title={grantReason}
-                  onClick={tapOrExplain(grantReason, grant)} className={`btn btn-secondary shrink-0 ${ACTION}`}>
+                <GreyedButton attr="member-grant-key" reason={grantReason} onTap={grant} className="btn btn-secondary shrink-0">
                   {t("members.people.grantKey")}
-                </button>
+                </GreyedButton>
               )}
             </div>
           )}
@@ -154,14 +169,13 @@ function MemberPage({ team, teamId, member, onLeave }: { team: MembersModel; tea
 
         <Section id="danger" label={t("members.dangerZone")} danger>
           {remove.leaveBlocked && <p className="px-4 pb-2 text-xs text-(--t-text-secondary)">{t("members.ownership.leaveBlocked")}</p>}
-          <div className="px-4">
-            <button data-member-remove aria-disabled={remove.disabled || undefined} title={remove.title}
-              onClick={tapOrExplain(remove.disabled ? remove.title : null, remove.open)}
-              className={`w-full border ${ACTION}`}
+          <div className="px-4 flex flex-col gap-1.5">
+            <GreyedButton attr="member-remove" reason={removeReason} onTap={remove.open} className="w-full border"
               style={{ color: "var(--t-status-error)", borderColor: "color-mix(in srgb, var(--t-status-error) 35%, transparent)" }}>
               <Icon icon={remove.label === "leave" ? "lucide:log-out" : "lucide:user-minus"} width={16} />
               {remove.label === "leave" ? t("members.leaveTeam") : t("members.removeFromTeam")}
-            </button>
+            </GreyedButton>
+            <ReasonLine attr="member-remove" reason={removeReason} />
           </div>
           {model.error && <p className="px-4 pt-2 text-sm" style={{ color: "var(--t-status-error)" }}>{model.error}</p>}
         </Section>
