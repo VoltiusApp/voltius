@@ -215,7 +215,7 @@ export default function MobileShell() {
               even when the keyboard is closed (keys write to the PTY without needing input focus).
               When the keyboard opens, the shell shrinks to usableHeight so the row sits above it. */}
           {terminalVisible && hasSessions && panelsRowOpen && <MobileTerminalPanelsRow />}
-          {terminalVisible && hasSessions && <MobileExtraKeysRow keyboardOpen={keyboardVisible} safeBottom={!keyboardVisible && !draftDocked} />}
+          {terminalVisible && hasSessions && <MobileExtraKeysRow keyboardOpen={keyboardVisible} />}
           {/* Pushed full-screen pages overlay everything. Each layer's wrapper is layout-neutral
               (display: contents); transitions and predictive back animate its first child. */}
           {pages.map(({ item, index, role }) => (

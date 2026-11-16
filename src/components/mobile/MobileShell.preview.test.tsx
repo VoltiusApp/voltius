@@ -17,9 +17,6 @@ vi.mock("./sheets/VaultSwitcherSheet", () => ({ default: () => <Probe id="vault-
 vi.mock("@/components/hosts/TeamSessions", () => ({ TeamSessions: () => <Probe id="team-sessions" /> }));
 vi.mock("./panels/MobileSftpScreen", () => ({ default: () => null }));
 vi.mock("./MobileRemoteDeviceSessions", () => ({ default: () => <div>remote-sessions</div> }));
-vi.mock("./screens/MobileTerminalScreen", () => ({ default: () => null }));
-const viewport = vi.hoisted(() => ({ keyboardVisible: false, bottomInset: 0, usableHeight: 0, offsetTop: 0 }));
-vi.mock("@/hooks/useVisualViewport", () => ({ useVisualViewport: () => viewport }));
 
 import { usePreviewActive } from "@/hooks/previewScope";
 import MobileShell from "./MobileShell";
@@ -41,7 +38,6 @@ afterEach(() => {
   cleanup();
   stopPreview();
   usePreviewStore.setState({ draft: null });
-  viewport.keyboardVisible = false;
 });
 
 test("tab_screens_and_pushed_pages_are_in_the_content_scope", () => {
@@ -99,23 +95,4 @@ test("draft_bar_in_the_column_only_while_the_sheet_is_closed", () => {
   rerender(<MobileShell />);
   expect(bars().length).toBe(1);
   expect(bars()[0].closest("[data-mobile-sheet-footer]")).not.toBeNull();
-});
-
-test("immersive_draft_bar_owns_the_safe_area_under_the_extra_keys", () => {
-  useMobileNavStore.setState({ tab: "terminal" });
-  useSessionStore.setState({ sessions: [{ id: "s1" } as never], activeSessionId: "s1" });
-  const keys = () => document.querySelector<HTMLElement>("[data-mobile-extra-keys]")!;
-  const bar = () => document.querySelector<HTMLElement>("[data-mobile-view-as-draft]")!;
-  const { rerender } = render(<MobileShell />);
-  expect(keys().style.paddingBottom).toContain("--vt-safe-bottom");
-
-  act(() => usePreviewStore.setState({ draft: { role_ids: [], allow: 0, deny: 0 } }));
-  rerender(<MobileShell />);
-  expect(keys().style.paddingBottom).toBe("");
-  expect(bar().style.paddingBottom).toBe("var(--vt-safe-bottom)");
-
-  viewport.keyboardVisible = true;
-  rerender(<MobileShell />);
-  expect(keys().style.paddingBottom).toBe("");
-  expect(bar().style.paddingBottom).toBe("");
 });
