@@ -4,11 +4,14 @@ import { useTranslation } from "react-i18next";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamMember, TeamRole } from "@/stores/teamStore";
 import { useHistoryStore, type HistoryEntry } from "@/stores/historyStore";
-import { PanelShell, PanelHeader, FormSection } from "@/components/shared/Panel";
+import { PanelShell, PanelHeader, PanelHeaderIconButton, FormSection } from "@/components/shared/Panel";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { RoleModal } from "@/components/members/panels/RolesPanel";
 import { READONLY_REASON_KEYS, permissionLabel, roleLabel, rolesGranting } from "@/components/members/roleChips";
 import { MemberRoleChips } from "@/components/members/panels/MemberRoleChips";
+import { AccessSummaryCard } from "@/components/members/panels/AccessSummaryCard";
+import { useViewAsEntry } from "@/components/preview/useViewAsEntry";
+import { isMobileShell } from "@/utils/platform";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { useAutosave } from "@/hooks/useAutosave";
 import { MemberPermissionsLock } from "@/components/shared/BusinessLockBanner";
@@ -61,6 +64,8 @@ export function MemberDetailPanel({
   const { locked } = useBusinessLock(teamId);
   const previewing = usePreviewActive() !== null;
   const greyedUnless = useGreyedUnless();
+  const viewAs = useViewAsEntry(teamId, { type: "member", user_id: member.user_id });
+  const showViewAs = !isMobileShell();
 
   const setStoredName = useTeamStore((s) => s.setMemberName);
   const roster = useTeamStore((s) => s.membersByTeam[teamId]);
@@ -319,10 +324,19 @@ export function MemberDetailPanel({
         title={memberLabel(member)}
         subtitle={<>{secondaryHandle(member) && <span className="mr-2">{secondaryHandle(member)}</span>}<RoleBadges member={member} roles={teamRoles} /></>}
         saveState={canNameMembers ? saveState : undefined}
+        actions={showViewAs && (
+          <PanelHeaderIconButton
+            icon="lucide:scan-eye"
+            title={viewAs.reasonText ?? t("members.viewAs.viewAs")}
+            disabled={!viewAs.enabled}
+            onClick={viewAs.enter}
+          />
+        )}
         onClose={onClose}
       />
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {showViewAs && <AccessSummaryCard teamId={teamId} member={member} />}
         {namingSupported && (
           <FormSection label={t("members.detail.nameLabel")}>
             <MemberNameInput

@@ -576,11 +576,16 @@
       }
     },
     "viewAs": {
-      "serverTooOld": "Update your server to use View as",
+      "reason": {
+        "needsBusiness": "View as is part of Business",
+        "needsManage": "You need the Manage members or Manage roles permission to use View as",
+        "self": "You can't use View as on yourself",
+        "serverTooOld": "Update your server to use View as",
+        "previewing": "Exit the current preview first"
+      },
       "noPermission": "You don't have permission to preview this",
       "ended": "The preview ended: this member or role is no longer available",
       "failed": "Could not load the preview",
-      "needsBusiness": "View as is part of Business",
       "readOnly": "Read-only preview",
       "lacksPermission": "This member's role does not allow this",
       "locked": {
@@ -668,6 +673,13 @@
           "needsConnect": "Secrets need Connect, which {{name}} doesn't have here",
           "ruleNotShown": "Decided by a rule on {{folder}}"
         }
+      },
+      "viewAs": "View as",
+      "previewAsRole": "Preview as role",
+      "menuItem": "View as {{name}}",
+      "summary": {
+        "title": "See what {{name}} can access",
+        "counts": "{{hosts}} hosts · {{snippets}} snippets · {{keys}} keys · {{hidden}} hidden"
       }
     }
   }

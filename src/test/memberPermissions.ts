@@ -12,6 +12,7 @@ export function memberPermissions(
     PERM_BITS,
     hasBuiltinRole: options.hasBuiltinRole ?? realHasBuiltinRole,
     usePermissions: () => can,
+    useOwnPermissions: () => can,
     usePermissionSubjectId: () => options.subject ?? "me",
     useHeldPermissionBits: bits,
   };

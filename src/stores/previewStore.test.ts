@@ -168,7 +168,7 @@ test("enter_exit_enter_subscribes_to_sse_once", async () => {
 test.each([
   ["404", () => new PreviewSubjectGoneError(), "members.viewAs.ended"],
   ["403", () => Object.assign(new Error("members.viewAs.noPermission"), { status: 403 }), "members.viewAs.noPermission"],
-  ["402", () => Object.assign(new Error("x"), { code: 402, status: 402 }), "members.viewAs.needsBusiness"],
+  ["402", () => Object.assign(new Error("x"), { code: 402, status: 402 }), "members.viewAs.reason.needsBusiness"],
 ])("a_%s_on_refetch_exits_with_a_toast", async (_, error, key) => {
   usePreviewStore.getState().enter(session);
   await flush();

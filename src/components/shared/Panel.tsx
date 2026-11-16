@@ -62,19 +62,22 @@ export function PanelHeaderIconButton({
   icon,
   title,
   onClick,
+  disabled,
 }: {
   icon: string;
   title: string;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   const { createRipple, rippleEls } = useRipple();
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       onPointerDown={createRipple}
       title={title}
-      className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors text-(--t-text-dim) relative overflow-hidden"
+      className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors text-(--t-text-dim) relative overflow-hidden disabled:opacity-40"
       onMouseEnter={(e) => {
         e.currentTarget.style.background = "var(--t-bg-elevated)";
         e.currentTarget.style.color = "var(--t-text-primary)";

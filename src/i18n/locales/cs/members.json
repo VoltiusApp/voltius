@@ -614,11 +614,16 @@
       }
     },
     "viewAs": {
-      "serverTooOld": "Aktualizujte server, abyste mohli použít Zobrazit jako",
+      "reason": {
+        "needsBusiness": "Funkce Zobrazit jako je součástí tarifu Business",
+        "needsManage": "Pro použití Zobrazit jako potřebujete oprávnění Spravovat členy nebo Spravovat role",
+        "self": "Zobrazit jako nelze použít na sebe",
+        "serverTooOld": "Aktualizujte server, abyste mohli použít Zobrazit jako",
+        "previewing": "Nejprve ukončete aktuální náhled"
+      },
       "noPermission": "Nemáte oprávnění k tomuto náhledu",
       "ended": "Náhled skončil: tento člen nebo role již není k dispozici",
       "failed": "Náhled se nepodařilo načíst",
-      "needsBusiness": "Funkce Zobrazit jako je součástí tarifu Business",
       "readOnly": "Náhled jen pro čtení",
       "lacksPermission": "Role tohoto člena to neumožňuje",
       "locked": {
@@ -718,6 +723,13 @@
           "needsConnect": "Tajné údaje vyžadují Připojovat se, které zde {{name}} nemá",
           "ruleNotShown": "Rozhodlo pravidlo na {{folder}}"
         }
+      },
+      "viewAs": "Zobrazit jako",
+      "previewAsRole": "Náhled jako role",
+      "menuItem": "Zobrazit jako {{name}}",
+      "summary": {
+        "title": "Zjistěte, k čemu má {{name}} přístup",
+        "counts": "{{hosts}} hostitelů · {{snippets}} úryvků · {{keys}} klíčů · {{hidden}} skrytých"
       }
     }
   }

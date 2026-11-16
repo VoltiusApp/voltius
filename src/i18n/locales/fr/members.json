@@ -593,11 +593,16 @@
       }
     },
     "viewAs": {
-      "serverTooOld": "Mettez à jour votre serveur pour utiliser Voir en tant que",
+      "reason": {
+        "needsBusiness": "« Voir en tant que » fait partie du forfait Business",
+        "needsManage": "Vous avez besoin de la permission Gérer les membres ou Gérer les rôles pour utiliser « Voir en tant que »",
+        "self": "Vous ne pouvez pas utiliser « Voir en tant que » sur vous-même",
+        "serverTooOld": "Mettez à jour votre serveur pour utiliser Voir en tant que",
+        "previewing": "Quittez d'abord l'aperçu en cours"
+      },
       "noPermission": "Vous n'avez pas la permission d'afficher cet aperçu",
       "ended": "L'aperçu est terminé : ce membre ou ce rôle n'est plus disponible",
       "failed": "Impossible de charger l'aperçu",
-      "needsBusiness": "« Voir en tant que » fait partie du forfait Business",
       "readOnly": "Aperçu en lecture seule",
       "lacksPermission": "Le rôle de ce membre ne l'autorise pas",
       "locked": {
@@ -691,6 +696,13 @@
           "needsConnect": "Les secrets exigent Se connecter, que {{name}} n'a pas ici",
           "ruleNotShown": "Décidé par une règle sur {{folder}}"
         }
+      },
+      "viewAs": "Voir en tant que",
+      "previewAsRole": "Aperçu en tant que rôle",
+      "menuItem": "Voir en tant que {{name}}",
+      "summary": {
+        "title": "Voir à quoi {{name}} a accès",
+        "counts": "{{hosts}} hôtes · {{snippets}} snippets · {{keys}} clés · {{hidden}} masqués"
       }
     }
   }

@@ -593,11 +593,16 @@
       }
     },
     "viewAs": {
-      "serverTooOld": "Atualize o seu servidor para usar Ver como",
+      "reason": {
+        "needsBusiness": "«Ver como» faz parte do plano Business",
+        "needsManage": "Você precisa da permissão Gerenciar membros ou Gerenciar funções para usar «Ver como»",
+        "self": "Você não pode usar «Ver como» em si mesmo",
+        "serverTooOld": "Atualize o seu servidor para usar Ver como",
+        "previewing": "Saia primeiro da pré-visualização atual"
+      },
       "noPermission": "Não tem permissão para pré-visualizar isto",
       "ended": "A pré-visualização terminou: este membro ou função já não está disponível",
       "failed": "Não foi possível carregar a pré-visualização",
-      "needsBusiness": "«Ver como» faz parte do plano Business",
       "readOnly": "Pré-visualização só de leitura",
       "lacksPermission": "A função deste membro não permite isto",
       "locked": {
@@ -691,6 +696,13 @@
           "needsConnect": "Os segredos exigem Conectar, que {{name}} não tem aqui",
           "ruleNotShown": "Decidido por uma regra em {{folder}}"
         }
+      },
+      "viewAs": "Ver como",
+      "previewAsRole": "Pré-visualizar como função",
+      "menuItem": "Ver como {{name}}",
+      "summary": {
+        "title": "Veja o que {{name}} pode acessar",
+        "counts": "{{hosts}} hosts · {{snippets}} snippets · {{keys}} chaves · {{hidden}} ocultos"
       }
     }
   }

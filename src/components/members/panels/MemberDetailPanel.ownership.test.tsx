@@ -39,6 +39,7 @@ vi.mock("@/stores/teamStore", () => {
 vi.mock("@/services/serverCapabilities", () => ({
   useServerMultiOwner: () => h.caps.multiOwner,
   useServerBillingEnabled: () => h.caps.billingEnabled,
+  useServerPermissionPreview: () => false,
 }));
 vi.mock("@/hooks/useMyUserId", () => ({ useMyUserId: () => h.myUserId }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
@@ -57,6 +58,7 @@ vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn() }));
 
 vi.mock("@/hooks/usePermission", async (orig) => ({
   ...(await orig<typeof import("@/hooks/usePermission")>()),
+  useOwnPermissions: () => () => true,
   useHeldPermissionBits: () => 0,
 }));
 

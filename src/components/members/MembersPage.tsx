@@ -48,6 +48,7 @@ import { searchMatcher } from "@/utils/search";
 import { memberLabel, memberSortKey, memberNamingSupported } from "@/services/memberLabel";
 import { memberOwnership } from "@/services/teamOwnership";
 import { useOwnershipContext } from "@/hooks/useOwnershipContext";
+import { useViewAsGate } from "@/components/preview/useViewAsEntry";
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -119,6 +120,7 @@ export default function MembersPage() {
   const standaloneTeam = !localVault && primaryVaultId ? teams.find((t) => t.id === primaryVaultId) : null;
   const teamId = localVault?.teamId ?? standaloneTeam?.id ?? null;
   const pendingInvites = pendingInvitationsByTeam[teamId ?? ""] ?? [];
+  const viewAsGate = useViewAsGate(teamId ?? "");
 
   const members = useMemo(() => (teamId ? (membersByTeam[teamId] ?? []) : []), [teamId, membersByTeam]);
   const teamRoles = useMemo(() => (teamId ? (rolesByTeam[teamId] ?? []) : []), [teamId, rolesByTeam]);
@@ -332,6 +334,17 @@ export default function MembersPage() {
         divider: true,
         disabledReason: canManageMembers ? undefined : noPermission,
         onClick: () => askOffboarding([member]),
+      });
+    }
+
+    if (!isMobileShell()) {
+      const viewAs = viewAsGate({ type: "member", user_id: member.user_id });
+      const afterRoles = Math.max(items.findIndex((i) => i.label === t("members.roles")), 0) + 1;
+      items.splice(afterRoles, 0, {
+        label: t("members.viewAs.menuItem", { name: memberLabel(member) }),
+        icon: "lucide:scan-eye",
+        disabledReason: viewAs.reasonText ?? undefined,
+        onClick: viewAs.enter,
       });
     }
 

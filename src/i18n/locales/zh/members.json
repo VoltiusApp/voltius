@@ -576,11 +576,16 @@
       }
     },
     "viewAs": {
-      "serverTooOld": "请更新服务器以使用“以成员身份查看”",
+      "reason": {
+        "needsBusiness": "“以成员身份查看”是 Business 套餐的功能",
+        "needsManage": "使用“以成员身份查看”需要“管理成员”或“管理角色”权限",
+        "self": "无法对自己使用“以成员身份查看”",
+        "serverTooOld": "请更新服务器以使用“以成员身份查看”",
+        "previewing": "请先退出当前预览"
+      },
       "noPermission": "你没有预览此内容的权限",
       "ended": "预览已结束：该成员或角色已不可用",
       "failed": "无法加载预览",
-      "needsBusiness": "“以成员身份查看”是 Business 套餐的功能",
       "readOnly": "只读预览",
       "lacksPermission": "该成员的角色不允许此操作",
       "locked": {
@@ -668,6 +673,13 @@
           "needsConnect": "密钥需要“连接”权限，而 {{name}} 在此没有",
           "ruleNotShown": "由 {{folder}} 上的规则决定"
         }
+      },
+      "viewAs": "以成员身份查看",
+      "previewAsRole": "以角色身份预览",
+      "menuItem": "以 {{name}} 的身份查看",
+      "summary": {
+        "title": "查看 {{name}} 可以访问的内容",
+        "counts": "{{hosts}} 个主机 · {{snippets}} 个片段 · {{keys}} 个密钥 · {{hidden}} 个已隐藏"
       }
     }
   }

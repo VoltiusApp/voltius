@@ -82,6 +82,7 @@ vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn() }));
 
 vi.mock("@/hooks/usePermission", async (orig) => ({
   ...(await orig<typeof import("@/hooks/usePermission")>()),
+  useOwnPermissions: () => () => true,
   useHeldPermissionBits: () => held.value,
 }));
 

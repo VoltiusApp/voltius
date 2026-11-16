@@ -174,7 +174,7 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
       const { default: i18n } = await import("@/i18n");
       useNotificationStore.getState().addToast({
         source: APP_SOURCE, type: "toast", severity: "warning", duration: 5000,
-        message: status === 402 ? i18n.t("members.viewAs.needsBusiness") : message,
+        message: status === 402 ? i18n.t("members.viewAs.reason.needsBusiness") : message,
       });
     }
   },

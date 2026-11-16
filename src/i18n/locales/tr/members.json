@@ -580,11 +580,16 @@
       }
     },
     "viewAs": {
-      "serverTooOld": "\"Şu olarak görüntüle\" özelliğini kullanmak için sunucunuzu güncelleyin",
+      "reason": {
+        "needsBusiness": "\"Şu olarak görüntüle\" Business planına dahildir",
+        "needsManage": "\"Şu olarak görüntüle\" için Üyeleri yönet veya Rolleri yönet izni gerekir",
+        "self": "\"Şu olarak görüntüle\" kendiniz için kullanılamaz",
+        "serverTooOld": "\"Şu olarak görüntüle\" özelliğini kullanmak için sunucunuzu güncelleyin",
+        "previewing": "Önce mevcut önizlemeden çıkın"
+      },
       "noPermission": "Bunu önizleme izniniz yok",
       "ended": "Önizleme sona erdi: bu üye veya rol artık mevcut değil",
       "failed": "Önizleme yüklenemedi",
-      "needsBusiness": "\"Şu olarak görüntüle\" Business planına dahildir",
       "readOnly": "Salt okunur önizleme",
       "lacksPermission": "Bu üyenin rolü buna izin vermiyor",
       "locked": {
@@ -672,6 +677,13 @@
           "needsConnect": "Gizli bilgiler Bağlan gerektirir; {{name}} burada buna sahip değil",
           "ruleNotShown": "{{folder}} üzerindeki bir kuralla belirlendi"
         }
+      },
+      "viewAs": "Şu olarak görüntüle",
+      "previewAsRole": "Rol olarak önizle",
+      "menuItem": "{{name}} olarak görüntüle",
+      "summary": {
+        "title": "{{name}} kullanıcısının nelere erişebildiğini görün",
+        "counts": "{{hosts}} sunucu · {{snippets}} snippet · {{keys}} anahtar · {{hidden}} gizli"
       }
     }
   }

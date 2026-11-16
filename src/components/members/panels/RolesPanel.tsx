@@ -12,6 +12,8 @@ import { permissionLabel, roleLabel } from "@/components/members/roleChips";
 import { CheckboxBox } from "@/components/shared/Checkbox";
 import { BusinessLockCard } from "@/components/shared/BusinessLockBanner";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
+import { useViewAsEntry } from "@/components/preview/useViewAsEntry";
+import { isMobileShell } from "@/utils/platform";
 
 // ─── Permission metadata ──────────────────────────────────────────────────────
 
@@ -235,9 +237,27 @@ export function RoleModal({
   );
 }
 
+function PreviewAsRoleButton({ teamId, roleId }: { teamId: string; roleId: string }) {
+  const { t } = useTranslation();
+  const entry = useViewAsEntry(teamId, { type: "role", role_id: roleId });
+  if (isMobileShell()) return null;
+  return (
+    <button
+      type="button"
+      onClick={entry.enter}
+      disabled={!entry.enabled}
+      title={entry.reasonText ?? undefined}
+      className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary) disabled:opacity-40"
+    >
+      <Icon icon="lucide:scan-eye" width={12} />
+      {t("members.viewAs.previewAsRole")}
+    </button>
+  );
+}
+
 // ─── Built-in role card (read-only) ──────────────────────────────────────────
 
-function BuiltinRoleCard({ name, permissions }: { name: string; permissions: number }) {
+function BuiltinRoleCard({ teamId, roleId, name, permissions }: { teamId: string; roleId: string; name: string; permissions: number }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   return (
@@ -245,16 +265,17 @@ function BuiltinRoleCard({ name, permissions }: { name: string; permissions: num
       className="rounded-xl overflow-hidden"
       style={{ border: "1px solid var(--t-border)" }}
     >
-      <button
-        className="w-full flex items-center gap-3 px-4 py-3 text-left"
-        style={{ background: "var(--t-bg-elevated)" }}
-        onClick={() => setExpanded((v) => !v)}
-      >
-        <Icon icon="lucide:lock" width={13} style={{ color: "var(--t-text-dim)" }} />
-        <span className="flex-1 text-sm font-medium capitalize" style={{ color: "var(--t-text-primary)" }}>{roleLabel(t, name)}</span>
-        <span className="text-[10px] px-2 py-0.5 rounded-sm" style={{ background: "var(--t-bg-card)", color: "var(--t-text-dim)" }}>{t("settings.vaults.rolesPanel.builtinBadge")}</span>
-        <Icon icon={expanded ? "lucide:chevron-up" : "lucide:chevron-down"} width={13} style={{ color: "var(--t-text-dim)" }} />
-      </button>
+      <div className="flex items-center gap-3 px-4 py-3" style={{ background: "var(--t-bg-elevated)" }}>
+        <button className="flex items-center gap-3 flex-1 text-left min-w-0" onClick={() => setExpanded((v) => !v)}>
+          <Icon icon="lucide:lock" width={13} style={{ color: "var(--t-text-dim)" }} />
+          <span className="flex-1 text-sm font-medium capitalize" style={{ color: "var(--t-text-primary)" }}>{roleLabel(t, name)}</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-sm" style={{ background: "var(--t-bg-card)", color: "var(--t-text-dim)" }}>{t("settings.vaults.rolesPanel.builtinBadge")}</span>
+        </button>
+        <PreviewAsRoleButton teamId={teamId} roleId={roleId} />
+        <button onClick={() => setExpanded((v) => !v)}>
+          <Icon icon={expanded ? "lucide:chevron-up" : "lucide:chevron-down"} width={13} style={{ color: "var(--t-text-dim)" }} />
+        </button>
+      </div>
       {expanded && (
         <div className="px-4 py-3 border-t border-t-(--t-border)">
           <PermissionGrid value={permissions} readOnly />
@@ -333,6 +354,7 @@ function RoleCard({
             <Icon icon="lucide:shield" width={13} style={{ color: "var(--t-accent)" }} />
             <span className="flex-1 text-sm font-medium truncate" style={{ color: "var(--t-text-primary)" }}>{role.name}</span>
           </button>
+          <PreviewAsRoleButton teamId={teamId} roleId={role.id} />
           {!editLocked && (
             <button
               onClick={whenWritable(() => setEditing(true))}
@@ -451,7 +473,7 @@ export function TeamRolesPanel({ teamId }: { teamId: string }) {
         </h4>
         <div className="space-y-2">
           {builtinRoles.map((role) => (
-            <BuiltinRoleCard key={role.id} name={role.name} permissions={role.permissions} />
+            <BuiltinRoleCard key={role.id} teamId={teamId} roleId={role.id} name={role.name} permissions={role.permissions} />
           ))}
         </div>
       </div>

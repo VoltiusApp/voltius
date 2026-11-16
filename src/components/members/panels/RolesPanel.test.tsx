@@ -9,7 +9,10 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock("@/services/teamService", () => api);
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => {}) }));
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (k: string) => k }),
+  initReactI18next: { type: "3rdParty", init: () => {} },
+}));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/components/theme-creator/ColorPicker", () => ({ ColorPicker: () => null }));
 const lock = vi.hoisted(() => ({ value: { locked: false, isOwner: true } }));
