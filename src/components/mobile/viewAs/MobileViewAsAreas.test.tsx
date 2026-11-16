@@ -68,3 +68,12 @@ test("locked_logs_chip_is_greyed_and_explains", () => {
   expect(useMobileNavStore.getState().stack).toEqual([]);
   expect(useNotificationStore.getState().toasts.map((x) => x.message)).toContain("members.viewAs.locked.auditLog");
 });
+
+test("active_chip_scrolls_into_view_on_mount_and_on_change", () => {
+  const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
+  renderAreas();
+  fireEvent.click(chip("port-forwarding"));
+  expect(scroll.mock.contexts.map((el) => (el as Element).getAttribute("data-view-as-area"))).toEqual(["hosts", "port-forwarding"]);
+  expect(scroll.mock.calls).toEqual([[{ inline: "nearest", block: "nearest" }], [{ inline: "nearest", block: "nearest" }]]);
+  scroll.mockRestore();
+});

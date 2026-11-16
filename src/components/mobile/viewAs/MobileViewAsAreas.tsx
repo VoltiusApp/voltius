@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
@@ -32,10 +33,14 @@ export default function MobileViewAsAreas() {
   const tab = useMobileNavStore((s) => s.tab);
   const stack = useMobileNavStore((s) => s.stack);
   const { setTab, push } = useMobileNavStore.getState();
-  if (!previewing) return null;
-
+  const rowRef = useRef<HTMLDivElement>(null);
   const top = stack[stack.length - 1];
   const active = top?.kind === "more-page" ? top.page : stack.length === 0 && (tab === "hosts" || tab === "snippets") ? tab : null;
+  useEffect(() => {
+    rowRef.current?.querySelector("[aria-current]")?.scrollIntoView({ inline: "nearest", block: "nearest" });
+  }, [active, previewing]);
+  if (!previewing) return null;
+
   const lockOf = (area: MobileViewAsArea) =>
     area === "logs" || area === "sessions"
       ? previewAreaLock({ area, previewing: true, can, auditContext, vaultId: previewing.vaultId })
@@ -50,7 +55,7 @@ export default function MobileViewAsAreas() {
   };
 
   return (
-    <div data-mobile-view-as-areas className="shrink-0 flex overflow-x-auto scrollbar-none px-2" style={{ background: "var(--t-bg-chrome)" }}>
+    <div ref={rowRef} data-mobile-view-as-areas className="shrink-0 flex overflow-x-auto scrollbar-none px-2" style={{ background: "var(--t-bg-chrome)" }}>
       {AREAS.map(({ area, label, icon }) => {
         const locked = lockOf(area) !== null;
         const isActive = active === area;
