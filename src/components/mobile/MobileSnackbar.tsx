@@ -10,12 +10,14 @@ import { avoidLift, dockedInset, snackbarDuration, swipeAction, swipeOpacity } f
 /** Docked bottom chrome the snackbar sits above (plus `data-snackbar-anchor` for screen-specific bars). */
 const DOCKED = "[data-mobile-tab-bar], [data-mobile-extra-keys], [data-snackbar-anchor]";
 
+const visible = (el: Element) => el.checkVisibility?.({ visibilityProperty: true }) ?? getComputedStyle(el).visibility !== "hidden";
+
 /** px of docked chrome at the bottom of the viewport, re-measured while shown (keyboard, bar slide, tab change). */
 function useDockedInset(): number | null {
   const [inset, setInset] = useState<number | null>(null);
   useEffect(() => {
     const measure = () => {
-      const boxes = [...document.querySelectorAll(DOCKED)].map((el) => el.getBoundingClientRect());
+      const boxes = [...document.querySelectorAll(DOCKED)].filter(visible).map((el) => el.getBoundingClientRect());
       setInset(dockedInset(boxes, window.innerHeight));
     };
     measure();

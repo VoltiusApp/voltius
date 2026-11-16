@@ -16,7 +16,7 @@ const MODS: { mod: Modifier; label: string }[] = [ { mod: "ctrl", label: "Ctrl" 
 // them, and only the panels toggle sits past the edge), flat tonal surfaces like Termux.
 const KEY_CLASS = "relative flex-[1_0_38px] h-12 px-1 rounded-[10px] text-sm flex items-center justify-center";
 
-export default function MobileExtraKeysRow({ keyboardOpen }: { keyboardOpen?: boolean }) {
+export default function MobileExtraKeysRow({ keyboardOpen, safeBottom = !keyboardOpen }: { keyboardOpen?: boolean; safeBottom?: boolean }) {
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const panelsOpen = useUIStore((s) => s.terminalPanelsRowOpen);
   const togglePanels = useUIStore((s) => s.toggleTerminalPanelsRow);
@@ -130,8 +130,8 @@ export default function MobileExtraKeysRow({ keyboardOpen }: { keyboardOpen?: bo
         touchAction: "pan-x",
         // Keyboard closed: the shell spans edge-to-edge, so inset the row above the Android
         // system nav bar. Keyboard open: stay flush above the keyboard (no inset; the nav bar
-        // is behind the keyboard).
-        paddingBottom: keyboardOpen ? undefined : "calc(var(--spacing) * 1 + var(--vt-safe-bottom))",
+        // is behind the keyboard). Not when another docked bar sits below it and owns the inset.
+        paddingBottom: safeBottom ? "calc(var(--spacing) * 1 + var(--vt-safe-bottom))" : undefined,
       }}
       onMouseDown={noFocusSteal} onTouchStart={(e) => { noFocusSteal(e); keepKeyboardClosed(); }}>
       {MODS.map(({ mod, label }) => {

@@ -97,7 +97,7 @@ export default function MobileShell() {
   const notificationsOpen = useUIStore((s) => s.notificationCenterOpen);
   const mobileScreens = usePluginStore((s) => s.mobileScreens);
   const pop = useMobileNavStore((s) => s.pop);
-  const accessSheetOpen = usePreviewStore((s) => s.side?.kind === "access");
+  const draftDocked = usePreviewStore((s) => s.draft !== null && s.side?.kind !== "access");
 
   // Plugin-contributed mobile screens pushed by kind (docker-logs…), looked
   // up by kind so uninstalling/disabling a plugin removes its screen — mirrors
@@ -215,7 +215,7 @@ export default function MobileShell() {
               even when the keyboard is closed (keys write to the PTY without needing input focus).
               When the keyboard opens, the shell shrinks to usableHeight so the row sits above it. */}
           {terminalVisible && hasSessions && panelsRowOpen && <MobileTerminalPanelsRow />}
-          {terminalVisible && hasSessions && <MobileExtraKeysRow keyboardOpen={keyboardVisible} />}
+          {terminalVisible && hasSessions && <MobileExtraKeysRow keyboardOpen={keyboardVisible} safeBottom={!keyboardVisible && !draftDocked} />}
           {/* Pushed full-screen pages overlay everything. Each layer's wrapper is layout-neutral
               (display: contents); transitions and predictive back animate its first child. */}
           {pages.map(({ item, index, role }) => (
@@ -235,7 +235,7 @@ export default function MobileShell() {
           )}
         </PreviewContentScope>
       </div>
-      {!accessSheetOpen && <MobileViewAsDraftBar safeBottom={!tabBarVisible} />}
+      {draftDocked && <MobileViewAsDraftBar safeBottom={!tabBarVisible && !keyboardVisible} />}
       {/* Hide the tab bar while a full-screen page is pushed — it would otherwise sit
           visible-but-covered under the overlay, and tapping a tab silently clears the stack.
           It slides away / back rather than vanishing (useSlideAway). */}
