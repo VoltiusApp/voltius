@@ -10,6 +10,7 @@ export interface MobileListRowProps {
   id: string;
   leading: ReactNode;
   title: ReactNode;
+  name?: string;
   subtitle?: ReactNode;
   trailing?: ReactNode;
   onTap: () => void;
@@ -24,7 +25,7 @@ export interface MobileListRowProps {
 }
 
 export default function MobileListRow({
-  attr, id, leading, title, subtitle, trailing, onTap, onLong, actionsLabel, onActions,
+  attr, id, leading, title, name, subtitle, trailing, onTap, onLong, actionsLabel, onActions,
   selecting, selected, selectDisabledReason, disabled, disabledReason,
 }: MobileListRowProps) {
   const selectBlocked = !!selecting && !!selectDisabledReason;
@@ -68,7 +69,7 @@ export default function MobileListRow({
         {trailing}
       </button>
       {onActions && actionsLabel && (
-        <RowActionsButton attr={`data-${attr}-actions`} value={id} label={actionsLabel} name={typeof title === "string" ? title : id} onTap={onActions} />
+        <RowActionsButton attr={`data-${attr}-actions`} value={id} label={actionsLabel} name={name ?? (typeof title === "string" ? title : id)} onTap={onActions} />
       )}
     </div>
   );

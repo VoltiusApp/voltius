@@ -26,6 +26,11 @@ describe("MobileListRow", () => {
     expect(onActions).toHaveBeenCalledTimes(1);
   });
 
+  test("actions label uses name when title is not a string", () => {
+    const { container } = render(<MobileListRow {...base} title={<b>Alice</b>} name="Alice" actionsLabel="More" onActions={() => {}} />);
+    expect(container.querySelector("[data-mobile-thing-actions='a1']")!.getAttribute("aria-label")).toBe("More: Alice");
+  });
+
   test("selecting shows a checkbox reflecting selected", () => {
     const { rerender } = render(<MobileListRow {...base} selecting selected />);
     expect(screen.getByRole("checkbox", { checked: true })).toBeTruthy();

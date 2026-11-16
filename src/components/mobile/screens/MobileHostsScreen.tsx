@@ -66,6 +66,7 @@ function MobileHostRow({
     <MobileListRow
       attr="mobile-host"
       id={c.id}
+      name={name}
       onTap={() => onConnect(c.id)}
       onLong={() => onActions(c.id)}
       actionsLabel={t("common.action.moreOptions")}
