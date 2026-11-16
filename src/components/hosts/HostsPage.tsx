@@ -569,14 +569,7 @@ export default function HostsPage() {
       {
         label: allSynced ? t("common.objectSync.disableCount", { count: ids.length }) : t("common.objectSync.enableCount", { count: ids.length }),
         icon: allSynced ? "lucide:cloud-off" : "lucide:cloud",
-        onClick: () => {
-          const store = useSyncPrefsStore.getState();
-          for (const c of selectedConns) {
-            const isSynced = store.isObjectSynced(c.id, "connection");
-            if (allSynced && isSynced) store.toggleExcluded(c.id);
-            else if (!allSynced && !isSynced) store.toggleExcluded(c.id);
-          }
-        },
+        onClick: () => useSyncPrefsStore.getState().setObjectsSynced(selectedConns.map((c) => ({ id: c.id, typeId: "connection" })), !allSynced),
         divider: true,
       },
       {

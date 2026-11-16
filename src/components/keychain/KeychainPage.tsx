@@ -339,15 +339,10 @@ export default function KeychainPage() {
           ? t("common.objectSync.disableCount", { count: allIds.length })
           : t("common.objectSync.enableCount", { count: allIds.length }),
         icon: allSynced ? "lucide:cloud-off" : "lucide:cloud",
-        onClick: () => {
-          const store = useSyncPrefsStore.getState();
-          for (const id of allIds) {
-            const typeId = selectedKeyIds.includes(id) ? "key" : "identity";
-            const isSynced = store.isObjectSynced(id, typeId);
-            if (allSynced && isSynced) store.toggleExcluded(id);
-            else if (!allSynced && !isSynced) store.toggleExcluded(id);
-          }
-        },
+        onClick: () => useSyncPrefsStore.getState().setObjectsSynced(
+          allIds.map((id) => ({ id, typeId: selectedKeyIds.includes(id) ? "key" : "identity" })),
+          !allSynced,
+        ),
       },
     ];
     if (selectedKeyIds.length > 0) {

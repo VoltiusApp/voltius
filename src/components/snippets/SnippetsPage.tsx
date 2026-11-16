@@ -578,14 +578,7 @@ export function SnippetsPage() {
       {
         label: allSynced ? t("common.objectSync.disableCount", { count: ids.length }) : t("common.objectSync.enableCount", { count: ids.length }),
         icon: allSynced ? "lucide:cloud-off" : "lucide:cloud",
-        onClick: () => {
-          const store = useSyncPrefsStore.getState();
-          for (const s of selectedSnippets) {
-            const isSynced = store.isObjectSynced(s.id, "snippet");
-            if (allSynced && isSynced) store.toggleExcluded(s.id);
-            else if (!allSynced && !isSynced) store.toggleExcluded(s.id);
-          }
-        },
+        onClick: () => useSyncPrefsStore.getState().setObjectsSynced(selectedSnippets.map((s) => ({ id: s.id, typeId: "snippet" })), !allSynced),
         divider: true,
       },
       {

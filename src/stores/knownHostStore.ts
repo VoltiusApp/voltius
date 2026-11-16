@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { KnownHost } from "@/types";
 import * as api from "@/services/knownHosts";
+import { assertNotPreviewing } from "@/services/previewGuard";
 
 interface KnownHostStore {
   knownHosts: KnownHost[];
@@ -10,29 +11,18 @@ interface KnownHostStore {
   copyKnownHostVault: (id: string, vaultId: string) => Promise<void>;
 }
 
-export const useKnownHostStore = create<KnownHostStore>((set) => ({
-  knownHosts: [],
-
-  loadKnownHosts: async () => {
-    const knownHosts = await api.listKnownHosts();
-    set({ knownHosts });
-  },
-
-  removeKnownHost: async (id) => {
-    await api.deleteKnownHost(id);
-    const knownHosts = await api.listKnownHosts();
-    set({ knownHosts });
-  },
-
-  moveKnownHostVault: async (id, vaultId) => {
-    await api.moveKnownHostVault(id, vaultId);
-    const knownHosts = await api.listKnownHosts();
-    set({ knownHosts });
-  },
-
-  copyKnownHostVault: async (id, vaultId) => {
-    await api.copyKnownHostVault(id, vaultId);
-    const knownHosts = await api.listKnownHosts();
-    set({ knownHosts });
-  },
-}));
+export const useKnownHostStore = create<KnownHostStore>((set) => {
+  const reload = async () => set({ knownHosts: await api.listKnownHosts() });
+  const write = <A extends unknown[]>(op: (...args: A) => Promise<unknown>) => async (...args: A) => {
+    assertNotPreviewing();
+    await op(...args);
+    await reload();
+  };
+  return {
+    knownHosts: [],
+    loadKnownHosts: reload,
+    removeKnownHost: write((id: string) => api.deleteKnownHost(id)),
+    moveKnownHostVault: write((id: string, vaultId: string) => api.moveKnownHostVault(id, vaultId)),
+    copyKnownHostVault: write((id: string, vaultId: string) => api.copyKnownHostVault(id, vaultId)),
+  };
+});
