@@ -52,8 +52,8 @@ const V = PERM_BITS.VIEW;
 
 const previewOf = (current: number, draft?: number) => ({
   locked: false,
-  current: { team_bits: 0, objects: { c1: { mask: current, rule_set_id: null } }, rule_sets: {}, holds_vault_key_gate: false },
-  draft: draft === undefined ? null : { team_bits: 0, objects: { c1: { mask: draft, rule_set_id: null } }, rule_sets: {}, holds_vault_key_gate: false },
+  current: { team_bits: 0, objects: { c1: { mask: current, rule_set_id: null } }, rule_sets: {}, holds_vault_key_gate: true },
+  draft: draft === undefined ? null : { team_bits: 0, objects: { c1: { mask: draft, rule_set_id: null } }, rule_sets: {}, holds_vault_key_gate: true },
   affected: null,
 });
 
@@ -119,8 +119,14 @@ describe("HostCard edit pencil", () => {
   test.each(["grid", "list"] as const)("pencil_is_disabled_not_hidden_without_edit (%s)", (layout) => {
     stopPreview();
     renderCard(layout, false);
-    const pencil = screen.getByTitle("members.viewAs.cannotEdit") as HTMLButtonElement;
+    const pencil = screen.getByTitle("members.permissions.youCannotEdit") as HTMLButtonElement;
     expect(pencil.disabled).toBe(true);
+  });
+
+  test("pencil_reason_names_the_member_only_inside_a_preview", () => {
+    usePreviewStore.setState({ result: previewOf(V) });
+    renderCard("grid", false);
+    expect((screen.getByTitle("members.viewAs.cannotEdit") as HTMLButtonElement).disabled).toBe(true);
   });
 
   test.each(["grid", "list"] as const)("pencil_is_enabled_with_edit (%s)", (layout) => {

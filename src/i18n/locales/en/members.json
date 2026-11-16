@@ -80,6 +80,8 @@
       "ADMINISTRATOR": "Administrator"
     },
     "permissions": {
+      "youLack": "You don't have permission to do this",
+      "youCannotEdit": "You don't have permission to edit this",
       "title": "Permissions",
       "inheritedFrom": "From {{roles}}",
       "notGranted": "No role grants this",
@@ -648,6 +650,7 @@
         "no": "Secrets hidden"
       },
       "why": {
+        "noVaultKey": "{{name}} has no vault key, so nothing in this vault can be opened",
         "as": "As {{name}}",
         "gets": "What {{name}} gets here",
         "addsUp": "How it adds up",

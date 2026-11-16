@@ -7,7 +7,7 @@ import { useHistoryStore, type HistoryEntry } from "@/stores/historyStore";
 import { PanelShell, PanelHeader, PanelHeaderIconButton, FormSection } from "@/components/shared/Panel";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { RoleModal } from "@/components/members/panels/RolesPanel";
-import { READONLY_REASON_KEYS, permissionLabel, roleLabel, rolesGranting } from "@/components/members/roleChips";
+import { permissionLabel, readOnlyReasonText, roleLabel, rolesGranting } from "@/components/members/roleChips";
 import { MemberRoleChips } from "@/components/members/panels/MemberRoleChips";
 import { AccessSummaryCard } from "@/components/members/panels/AccessSummaryCard";
 import { useViewAsEntry } from "@/components/preview/useViewAsEntry";
@@ -23,7 +23,7 @@ import { isOwnerRole } from "@/components/vault-share/vaultShareModel";
 import type { DepartMode } from "@/services/teamOffboarding";
 import {
   PERM_BITS, PERM_META, PERMISSION_GROUPS, effectivePermissions, dropsConnectSource,
-  resolveMemberReadOnlyReason, overrideRowLocked, roleChangeBlock, isEditablePermission, type Permission,
+  memberReadOnly, overrideRowLocked, isEditablePermission, type Permission,
 } from "@/services/permissions";
 import { rotateTeamKeyNow } from "@/services/vaultKeyActions";
 import { losesVaultKey, type MemberDraft } from "@/services/permissionPreview";
@@ -108,7 +108,6 @@ export function MemberDetailPanel({
 
   const ownershipCtx = useOwnershipContext(teamId, viewer, teamRoles);
   const ownership = memberOwnership(ownershipCtx, { userId: member.user_id, isMe, isOwner: isTargetOwner });
-  const canChangeRoles = roleChangeBlock(canManageMembers, isMe) === null;
   const canRemove = canManageMembers && !ownership.protectedFromViewer && !isMe;
   const canLeave = ownership.canLeave;
 
@@ -226,19 +225,18 @@ export function MemberDetailPanel({
 
   const grantingRoles = (permission: Permission) => rolesGranting(t, teamRoles, member.role_ids, locked, permission);
 
-  const offendingBits = allow & ~viewerEffective;
-
-  const readOnlyReasonKind = resolveMemberReadOnlyReason({
+  const { kind: readOnlyReasonKind, roleBlock, offendingBits, lockedEmpty } = memberReadOnly({
+    member,
+    viewerRoleIds: viewer ? viewer.role_ids : null,
+    viewerBits: viewerEffective,
     canManageMembers,
     isTargetOwner,
     isMe,
-    viewerRoleIds: viewer ? viewer.role_ids : null,
-    targetRoleIds: member.role_ids,
     teamRoles,
-    offendingBits,
+    locked,
   });
-
-  const readOnlyReason: string | null = readOnlyReasonKind ? t(READONLY_REASON_KEYS[readOnlyReasonKind]) : null;
+  const readOnlyReason = readOnlyReasonText(t, readOnlyReasonKind);
+  const roleReadOnlyReason = readOnlyReasonText(t, roleBlock);
 
   const rowDisabled = (permission: Permission) =>
     locked || overriding || pendingRevoke !== null || overrideRowLocked(readOnlyReasonKind, permission, offendingBits);
@@ -364,7 +362,7 @@ export function MemberDetailPanel({
             teamId={teamId}
             roles={teamRoles}
             roleIds={member.role_ids}
-            readOnlyReason={greyedUnless(canChangeRoles).title ?? null}
+            readOnlyReason={roleReadOnlyReason}
             onToggle={(role) => void handleToggleRole(role)}
             showOwner={ownership.canGrantOwner}
             busyRoleId={toggling}
@@ -373,7 +371,8 @@ export function MemberDetailPanel({
             {!locked && (
             <button
               onClick={whenWritable(() => setCreatingRole(true))}
-              {...greyedUnless(canChangeRoles)}
+              disabled={roleBlock !== null}
+              title={roleReadOnlyReason ?? undefined}
               className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
               style={{ color: "var(--t-accent)", border: "1px dashed var(--t-accent)", background: "transparent", opacity: 0.7 }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
@@ -395,7 +394,7 @@ export function MemberDetailPanel({
             hasOverrides={(allow | deny) !== 0}
             onRemove={(allow | deny) !== 0 && readOnlyReasonKind === null ? clearOverrides : undefined}
           />
-          {!(locked && (allow | deny) === 0) && (
+          {!lockedEmpty && (
             <>
             {readOnlyReason && (
               <p className="text-[10px] text-(--t-text-dim) mb-1">{readOnlyReason}</p>

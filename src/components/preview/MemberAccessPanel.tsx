@@ -6,7 +6,7 @@ import { FormSection } from "@/components/shared/Panel";
 import { MemberPermissionsLock } from "@/components/shared/BusinessLockBanner";
 import { MemberRoleChips } from "@/components/members/panels/MemberRoleChips";
 import { PermissionOverrideRow, overrideStateOf, applyOverrideState, type OverrideState } from "@/components/members/panels/PermissionOverrideRow";
-import { READONLY_REASON_KEYS, permissionLabel, roleLabel, rolesGranting } from "@/components/members/roleChips";
+import { permissionLabel, readOnlyReasonText, roleLabel, rolesGranting } from "@/components/members/roleChips";
 import { useSubjectLabel } from "@/components/preview/PreviewScope";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { useMyUserId } from "@/hooks/useMyUserId";
@@ -14,7 +14,7 @@ import { heldBits, useOwnPermissions } from "@/hooks/usePermission";
 import type { MemberDraft } from "@/services/permissionPreview";
 import {
   PERM_BITS, PERMISSION_GROUPS, effectivePermissions, hasBuiltinRole, overrideRowLocked,
-  resolveMemberReadOnlyReason, roleChangeBlock, isEditablePermission, type Permission,
+  memberReadOnly, isEditablePermission, type Permission,
 } from "@/services/permissions";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamRole } from "@/stores/teamStore";
@@ -68,21 +68,18 @@ export function MemberAccessPanel() {
   const shown: MemberDraft = draft && "role_ids" in draft ? draft : { role_ids: member.role_ids, allow, deny };
   const update = (next: MemberDraft) => usePreviewStore.getState().setDraft(unsavedChangeCount(next, member) === 0 ? null : next);
 
-  const held = heldBits(can, session.vaultId);
-  const offendingBits = allow & ~held;
-  const readOnlyKind = resolveMemberReadOnlyReason({
+  const { kind: readOnlyKind, roleBlock, offendingBits, lockedEmpty } = memberReadOnly({
+    member,
+    viewerRoleIds: members?.find((m) => m.user_id === myUserId)?.role_ids ?? null,
+    viewerBits: heldBits(can, session.vaultId),
     canManageMembers: can("MANAGE_MEMBERS", session.vaultId),
     isTargetOwner: hasBuiltinRole(member, "owner", roles),
     isMe: member.user_id === myUserId,
-    viewerRoleIds: members?.find((m) => m.user_id === myUserId)?.role_ids ?? null,
-    targetRoleIds: member.role_ids,
     teamRoles: roles,
-    offendingBits,
+    locked,
   });
-  const readOnlyReason = readOnlyKind ? t(READONLY_REASON_KEYS[readOnlyKind]) : null;
-  const roleBlock = roleChangeBlock(can("MANAGE_MEMBERS", session.vaultId), member.user_id === myUserId);
-  const roleReadOnlyReason = roleBlock ? t(READONLY_REASON_KEYS[roleBlock]) : null;
-  const lockedEmpty = locked && (allow | deny) === 0;
+  const readOnlyReason = readOnlyReasonText(t, readOnlyKind);
+  const roleReadOnlyReason = readOnlyReasonText(t, roleBlock);
 
   const currentBits = result.current.team_bits;
   const shownBits = shownPreview(result).team_bits;

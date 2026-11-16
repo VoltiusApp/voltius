@@ -24,6 +24,9 @@ export const READONLY_REASON_KEYS: Record<MemberReadOnlyReason, string> = {
   notHeld: "members.permissions.readOnlyNotHeld",
 };
 
+export const readOnlyReasonText = (t: TFunction, kind: MemberReadOnlyReason | null): string | null =>
+  kind ? t(READONLY_REASON_KEYS[kind]) : null;
+
 /**
  * A role's display name. The built-in roles arrive from the server as fixed
  * English ids ("owner", "connect-only") and are translated; a custom role's

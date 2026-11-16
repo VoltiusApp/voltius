@@ -23,7 +23,7 @@ import { PanelShell, PanelHeader } from "@/components/shared/Panel";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
 import { hasBuiltinRole, usePermissionSubjectId, usePermissions } from "@/hooks/usePermission";
-import { useGreyedUnless } from "@/hooks/useGreyedUnless";
+import { useLackReason } from "@/hooks/useGreyedUnless";
 import { refuseWhilePreviewing, whenWritable } from "@/services/previewGuard";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { runTeamAction } from "@/services/teamActionFeedback";
@@ -73,8 +73,7 @@ export default function MembersPage() {
 
   const myUserId = usePermissionSubjectId();
   const can = usePermissions();
-  const greyedUnless = useGreyedUnless();
-  const noPermission = greyedUnless(false).title;
+  const noPermission = useLackReason();
   const [myHandle, setMyHandle] = useState<string | null>(null);
   const [primaryVaultId, setPrimaryVaultId] = useState<string | null>(null);
   const [search, setSearch] = useState("");

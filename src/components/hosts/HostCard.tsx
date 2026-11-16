@@ -5,6 +5,7 @@ import type { Connection, VaultOption } from "@/types";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { withGhost } from "@/components/preview/GhostCard";
 import { PreviewHint, usePreviewLevel } from "@/components/preview/PreviewHint";
+import { useLackReason } from "@/hooks/useGreyedUnless";
 import { connectionTarget, whenWritableOn } from "@/services/previewGuard";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { CardActionButton, CardMenuButton, CardPinButton } from "@/components/shared/CardActionButton";
@@ -88,12 +89,13 @@ function HostCardBody({
   const connectAs = useConnectAsMenuItem(connection, credential, () => onConnect(connection));
   const shownUsername = effectiveUsername(connection, credential.plan);
   const viewOnly = usePreviewLevel("connection", connection.id) === "view";
+  const cannotEditReason = useLackReason("edit");
   const connectTitle = viewOnly ? t("members.viewAs.level.view") : !canConnect ? t("common.error.connectNotAllowed") : fileOnly ? t("hosts.card.openFilesTitle") : t("hosts.card.connectTitle");
   const connectDisabled = !canConnect || viewOnly;
   const editButton = (reveal: boolean) => (
     <CardActionButton
       icon="lucide:pencil"
-      title={canEdit ? t("common.action.edit") : t("members.viewAs.cannotEdit")}
+      title={canEdit ? t("common.action.edit") : cannotEditReason}
       disabled={!canEdit}
       reveal={reveal}
       onClick={() => onEdit(connection)}

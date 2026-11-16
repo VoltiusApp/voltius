@@ -23,7 +23,7 @@ import { useTeamObjectAccessStore } from "@/stores/teamObjectAccessStore";
 const response = (hosts: number): PreviewResponse => ({
   locked: false, draft: null, affected: null,
   current: {
-    team_bits: 0, rule_sets: {}, holds_vault_key_gate: false,
+    team_bits: 0, rule_sets: {}, holds_vault_key_gate: true,
     objects: Object.fromEntries(Array.from({ length: hosts }, (_, i) => [`c${i}`, { mask: PERM_BITS.VIEW, rule_set_id: null }])),
   },
 });

@@ -11,7 +11,7 @@ import { useOwnPermissions } from "@/hooks/usePermission";
 import { useRuleSet } from "@/hooks/useRuleSet";
 import { explainBit, type Explanation, type ExplainStep, type StepKind } from "@/services/permissionExplain";
 import { OBJECT_RULE_ROWS, PERM_BITS, RULE_LAYER_ORDER, type Permission } from "@/services/permissions";
-import { previewSideOf, previewSubjectUserId, subjectMembers, subjectRoles } from "@/services/previewSnapshot";
+import { keyedMask, previewSideOf, previewSubjectUserId, subjectMembers, subjectRoles } from "@/services/previewSnapshot";
 import { ruleSetOwner, rulesAvailable } from "@/services/ruleSetPointers";
 import { findTeamItem } from "@/services/teamObjectPersistence";
 import type { TeamObjectType } from "@/services/teamObjects";
@@ -119,10 +119,12 @@ export function WhyPanel() {
   const itemName = item?.name || t("members.viewAs.why.thisItem");
   const folder = owner?.name || itemName;
   const ctx: SentenceContext = { name, folder, roles: roleNames(t, roles) };
+  const mask = keyedMask(shown!, objectId);
+  const noKey: Sentence | null = shown!.holds_vault_key_gate ? null : { key: "members.viewAs.why.noVaultKey", params: { name } };
   const rows = OBJECT_RULE_ROWS[type].map((permission) => {
-    const allowed = (object.mask & PERM_BITS[permission]) !== 0;
+    const allowed = (mask & PERM_BITS[permission]) !== 0;
     const e = explainBit(PERM_BITS[permission], { roles, member, layers, locked: result.locked, entries: ruleEntries });
-    return { permission, allowed, e, sentence: rowSentence(e, allowed, layers === "notShown", ctx) };
+    return { permission, allowed, e, sentence: noKey ?? rowSentence(e, allowed, layers === "notShown", ctx) };
   });
   const lines = addsUp(rows, ctx);
   const blocked = !rulesAvailable(supported, entries?.[ownerId]) ? "members.viewAs.why.editRulesUnavailable"

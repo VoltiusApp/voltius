@@ -301,6 +301,40 @@ export function roleChangeBlock(canManageMembers: boolean, isMe: boolean): "noMa
   return isMe ? "self" : null;
 }
 
+export interface MemberReadOnly {
+  kind: MemberReadOnlyReason | null;
+  roleBlock: "noManage" | "self" | null;
+  offendingBits: number;
+  lockedEmpty: boolean;
+}
+
+export function memberReadOnly(params: {
+  member: TeamMember;
+  viewerRoleIds: string[] | null;
+  viewerBits: number;
+  canManageMembers: boolean;
+  isTargetOwner: boolean;
+  isMe: boolean;
+  teamRoles: TeamRole[];
+  locked: boolean;
+}): MemberReadOnly {
+  const { member, canManageMembers, isMe } = params;
+  const allow = member.permission_allow ?? 0;
+  const offendingBits = allow & ~params.viewerBits;
+  return {
+    kind: resolveMemberReadOnlyReason({
+      canManageMembers, isMe, offendingBits,
+      isTargetOwner: params.isTargetOwner,
+      viewerRoleIds: params.viewerRoleIds,
+      targetRoleIds: member.role_ids,
+      teamRoles: params.teamRoles,
+    }),
+    roleBlock: roleChangeBlock(canManageMembers, isMe),
+    offendingBits,
+    lockedEmpty: params.locked && (allow | (member.permission_deny ?? 0)) === 0,
+  };
+}
+
 /** CREATE_CUSTOM_ROLES is retired but stays editable while set, so a row can still clear it. */
 export const isEditablePermission = (permission: Permission, setBits: number): boolean =>
   permission !== "CREATE_CUSTOM_ROLES" || (setBits & PERM_BITS.CREATE_CUSTOM_ROLES) !== 0;

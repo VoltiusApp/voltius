@@ -80,6 +80,8 @@
       "ADMINISTRATOR": "Administrador"
     },
     "permissions": {
+      "youLack": "Não tem permissão para fazer isto",
+      "youCannotEdit": "Não tem permissão para editar isto",
       "title": "Permissões",
       "inheritedFrom": "De {{roles}}",
       "notGranted": "Nenhuma função concede isto",
@@ -672,6 +674,7 @@
         "no": "Segredos ocultos"
       },
       "why": {
+        "noVaultKey": "{{name}} não tem a chave do cofre, por isso nada neste cofre pode ser aberto",
         "as": "Como {{name}}",
         "gets": "O que {{name}} obtém aqui",
         "addsUp": "Como se soma",

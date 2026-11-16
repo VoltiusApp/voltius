@@ -80,6 +80,8 @@
       "ADMINISTRATOR": "Yönetici"
     },
     "permissions": {
+      "youLack": "Bunu yapma izniniz yok",
+      "youCannotEdit": "Bunu düzenleme izniniz yok",
       "title": "İzinler",
       "inheritedFrom": "Kaynak rol: {{roles}}",
       "notGranted": "Hiçbir rol bu izni vermiyor",
@@ -652,6 +654,7 @@
         "no": "Gizli bilgiler gizli"
       },
       "why": {
+        "noVaultKey": "{{name}} kasa anahtarına sahip değil, bu yüzden bu kasadaki hiçbir şey açılamaz",
         "as": "{{name}} olarak",
         "gets": "{{name}} burada neler alıyor",
         "addsUp": "Nasıl toplanıyor",

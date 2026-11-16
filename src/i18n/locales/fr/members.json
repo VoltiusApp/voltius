@@ -80,6 +80,8 @@
       "ADMINISTRATOR": "Administrateur"
     },
     "permissions": {
+      "youLack": "Vous n'avez pas la permission de faire ceci",
+      "youCannotEdit": "Vous n'avez pas la permission de modifier ceci",
       "title": "Permissions",
       "inheritedFrom": "Via {{roles}}",
       "notGranted": "Aucun rôle ne l'accorde",
@@ -668,6 +670,7 @@
         "no": "Secrets masqués"
       },
       "why": {
+        "noVaultKey": "{{name}} n'a pas la clé du coffre, donc rien dans ce coffre ne peut être ouvert",
         "as": "En tant que {{name}}",
         "gets": "Ce que {{name}} obtient ici",
         "addsUp": "Comment ça s'additionne",

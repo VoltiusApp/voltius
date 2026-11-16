@@ -80,6 +80,8 @@
       "ADMINISTRATOR": "Administrátor"
     },
     "permissions": {
+      "youLack": "K této akci nemáte oprávnění",
+      "youCannotEdit": "K úpravě nemáte oprávnění",
       "title": "Oprávnění",
       "inheritedFrom": "Z rolí: {{roles}}",
       "notGranted": "Žádná role toto oprávnění neuděluje",
@@ -692,6 +694,7 @@
         "no": "Tajné údaje skryté"
       },
       "why": {
+        "noVaultKey": "{{name}} nemá klíč trezoru, takže v tomto trezoru nelze nic otevřít",
         "as": "Jako {{name}}",
         "gets": "Co zde {{name}} získá",
         "addsUp": "Jak se to sčítá",

@@ -162,7 +162,7 @@ import { useTeamObjectAccessStore } from "@/stores/teamObjectAccessStore";
 const originalEnter = usePreviewStore.getState().enter;
 const ALL = ["MANAGE_MEMBERS", "MANAGE_ROLES", "INVITE_MEMBERS", "MANAGE_VAULT"];
 const U1 = { type: "member", user_id: "u1" };
-const FULL = { locked: false, draft: null, affected: null, current: { team_bits: 0, rule_sets: {}, holds_vault_key_gate: false, objects: {
+const FULL = { locked: false, draft: null, affected: null, current: { team_bits: 0, rule_sets: {}, holds_vault_key_gate: true, objects: {
   c1: { mask: PERM_BITS.VIEW, rule_set_id: null }, c2: { mask: PERM_BITS.VIEW, rule_set_id: null }, s1: { mask: 0, rule_set_id: null },
 } } };
 const access = (type: string) => ({ type, ruleSetId: null, myPermissions: 0, parentId: null, deleted: false });

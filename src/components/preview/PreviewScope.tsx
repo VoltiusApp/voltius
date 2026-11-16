@@ -5,7 +5,7 @@ import { usePreviewActive } from "@/hooks/previewScope";
 import { useTeamStore } from "@/stores/teamStore";
 import { PERM_BITS } from "@/services/permissions";
 import { ruleSubjectLabel } from "@/components/members/roleChips";
-import { previewSideOf } from "@/services/previewSnapshot";
+import { keyedMask, previewSideOf } from "@/services/previewSnapshot";
 
 export { PreviewContentScope, useInPreviewContent, usePreviewActive } from "@/hooks/previewScope";
 
@@ -20,14 +20,14 @@ export function usePreviewObject(objectId: string): PreviewObject | null {
   const session = usePreviewActive();
   const result = usePreviewStore((s) => s.result);
   return useMemo(() => {
-    const current = result?.current.objects[objectId];
-    if (!session || !result || !current) return null;
-    const mask = previewSideOf(result, objectId).objects[objectId].mask;
+    if (!session || !result?.current.objects[objectId]) return null;
+    const mask = keyedMask(previewSideOf(result, objectId), objectId);
+    const currentMask = keyedMask(result.current, objectId);
     return {
       hidden: (mask & PERM_BITS.VIEW) === 0,
       mask,
-      currentMask: current.mask,
-      changed: result.draft !== null && mask !== current.mask,
+      currentMask,
+      changed: result.draft !== null && mask !== currentMask,
     };
   }, [session, result, objectId]);
 }

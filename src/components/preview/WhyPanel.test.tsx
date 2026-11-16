@@ -100,6 +100,17 @@ test("rows_follow_the_server_mask_even_if_the_explanation_disagrees", async () =
   expect(within(row("VIEW")).getByText(/members\.viewAs\.why\.step\.roles:.*member/)).toBeTruthy();
 });
 
+test("without_the_vault_key_every_row_is_denied_and_says_why", async () => {
+  const keyless = preview(PERM_BITS.VIEW | PERM_BITS.CONNECT, null);
+  show({ ...keyless, current: { ...keyless.current, holds_vault_key_gate: false } });
+  render(<WhyPanel />);
+  expect(await screen.findByText("db-prod")).toBeTruthy();
+  for (const permission of ["VIEW", "CONNECT"]) {
+    expect(row(permission).getAttribute("data-allowed")).toBe("false");
+    expect(within(row(permission)).getByText("members.viewAs.why.noVaultKey:Bob")).toBeTruthy();
+  }
+});
+
 test("names_role_and_folder_for_a_role_deny_on_a_folder", async () => {
   h.sets.sA = [{ subject_type: "role", subject_id: "r-con", allow: 0, deny: PERM_BITS.VIEW }];
   show(preview(0, "sA", { sA: { ...NONE, roles_deny: PERM_BITS.VIEW } }));

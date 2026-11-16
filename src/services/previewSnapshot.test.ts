@@ -69,3 +69,12 @@ test("objects_missing_from_the_preview_fall_back_to_team_level", () => {
   expect(can(s, "VIEW", "c2")).toBe(true);
   expect(can(s, "EDIT_CONNECTIONS", "c2")).toBe(false);
 });
+
+test("a_shown_side_without_the_vault_key_hides_every_team_object", () => {
+  const keyless = { ...preview({ c1: VIEW | CONNECT }), holds_vault_key_gate: false };
+  const s = previewSnapshot(base, memberSession, null, response(keyless));
+
+  expect(can(s, "VIEW", "c1")).toBe(false);
+  expect(can(s, "CONNECT", "c1")).toBe(false);
+  expect(s.objectAccess?.t1.c1.myPermissions).toBe(0);
+});

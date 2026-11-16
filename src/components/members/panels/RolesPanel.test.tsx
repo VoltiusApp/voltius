@@ -55,7 +55,7 @@ test("business but NO MANAGE_ROLES → greyed 'New role' button, read-only empty
   expect(await screen.findByText("settings.vaults.rolesPanel.noCustomRoles")).toBeTruthy();
   const newRole = screen.getByText("settings.vaults.rolesPanel.newRoleBtn").closest("button")!;
   expect(newRole.disabled).toBe(true);
-  expect(newRole.title).toBe("members.viewAs.lacksPermission");
+  expect(newRole.title).toBe("members.permissions.youLack");
 });
 
 test("a locked team lists custom roles under the Business card, delete-only", async () => {
@@ -83,7 +83,7 @@ test("a locked team without Manage roles lists custom roles with a greyed Delete
   render(<TeamRolesPanel teamId="t1" />);
   expect(await screen.findByText("auditor")).toBeTruthy();
   expect(screen.queryByTitle("settings.vaults.rolesPanel.deleteRoleTitle")).toBeNull();
-  expect((screen.getByTitle("members.viewAs.lacksPermission") as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByTitle("members.permissions.youLack") as HTMLButtonElement).disabled).toBe(true);
 });
 
 test("a locked team with no custom roles shows the card, not the empty state", async () => {

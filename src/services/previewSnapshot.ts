@@ -16,6 +16,10 @@ export const previewSubjectUserId = (subject: PreviewSubject): string =>
 
 export const shownPreview = (result: PreviewResponse): Preview => result.draft ?? result.current;
 
+/** A side without the vault key can open nothing, whatever its rules grant. */
+export const keyedMask = (side: Preview, objectId: string): number =>
+  side.holds_vault_key_gate ? side.objects[objectId]?.mask ?? 0 : 0;
+
 export function previewSideOf(result: PreviewResponse, objectId: string): Preview {
   const shown = shownPreview(result);
   return shown.objects[objectId] ? shown : result.current;
@@ -47,8 +51,7 @@ export function previewSnapshot<S extends Omit<PermissionSnapshot, "vaults">>(
   const shown = shownPreview(result);
   const access: TeamAccessEntries = {};
   for (const [id, entry] of Object.entries(base.objectAccess?.[teamId] ?? {})) {
-    const object = shown.objects[id];
-    if (object) access[id] = { ...entry, myPermissions: object.mask };
+    if (shown.objects[id]) access[id] = { ...entry, myPermissions: keyedMask(shown, id) };
   }
   return {
     ...base,

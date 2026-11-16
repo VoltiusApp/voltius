@@ -89,7 +89,7 @@ test("canEdit=false (no MANAGE_ROLES): edit/delete controls greyed on custom rol
   // custom role list renders (business), but no edit/delete affordances
   await waitFor(() => expect(useTeamStore.getState().rolesByTeam.t1).toBeTruthy());
   for (const icon of ["lucide:pencil", "lucide:trash-2"]) {
-    const button = document.querySelector<HTMLButtonElement>(`button[title="members.viewAs.lacksPermission"]:has([data-icon="${icon}"])`);
+    const button = document.querySelector<HTMLButtonElement>(`button[title="members.permissions.youLack"]:has([data-icon="${icon}"])`);
     expect(button, icon).not.toBeNull();
     expect(button!.disabled, icon).toBe(true);
   }

@@ -21,7 +21,7 @@ const preview = (objects: Record<string, number>) => ({
     team_bits: 0,
     objects: Object.fromEntries(Object.entries(objects).map(([k, mask]) => [k, { mask, rule_set_id: null }])),
     rule_sets: {},
-    holds_vault_key_gate: false,
+    holds_vault_key_gate: true,
   },
   draft: null,
   affected: null,
@@ -65,6 +65,20 @@ test("renders the real card when the object is visible", () => {
     </PreviewContentScope>,
   );
   expect(screen.getByText("real card")).toBeTruthy();
+});
+
+test("a_member_without_the_vault_key_sees_a_ghost_even_where_rules_allow", () => {
+  const keyless = preview({ h1: PERM_BITS.VIEW | PERM_BITS.CONNECT });
+  usePreviewStore.setState({ result: { ...keyless, current: { ...keyless.current, holds_vault_key_gate: false } } });
+  render(
+    <PreviewContentScope>
+      <GhostOr type="connection" id="h1" icon="lucide:server" name="prod-db" layout="list">
+        <span>real card</span>
+      </GhostOr>
+    </PreviewContentScope>,
+  );
+  expect(screen.queryByText("real card")).toBeNull();
+  expect(screen.getByText(/members\.viewAs\.hiddenFrom/)).toBeTruthy();
 });
 
 test("renders the real card outside a preview", () => {

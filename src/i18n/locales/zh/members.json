@@ -80,6 +80,8 @@
       "ADMINISTRATOR": "管理员"
     },
     "permissions": {
+      "youLack": "你没有执行此操作的权限",
+      "youCannotEdit": "你没有编辑此项的权限",
       "title": "权限",
       "inheritedFrom": "来自 {{roles}}",
       "notGranted": "没有角色授予此权限",
@@ -648,6 +650,7 @@
         "no": "密钥已隐藏"
       },
       "why": {
+        "noVaultKey": "{{name}} 没有保险库密钥，因此无法打开此保险库中的任何内容",
         "as": "以 {{name}} 身份",
         "gets": "{{name}} 在此获得的权限",
         "addsUp": "如何叠加",

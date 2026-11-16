@@ -142,16 +142,16 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
-const expectGreyed = (name: string) => {
+const expectGreyed = (name: string, reason = "members.permissions.youLack") => {
   const button = screen.getByRole("button", { name }) as HTMLButtonElement;
   expect(button.disabled, name).toBe(true);
-  expect(button.title, name).toBe("members.viewAs.lacksPermission");
+  expect(button.title, name).toBe(reason);
 };
 
 test("canManageMembers=false: role-toggle and remove buttons are greyed with a reason", () => {
   render(<MemberDetailPanel {...baseProps} canManageMembers={false} />);
-  expectGreyed("members.roleName.editor");
-  expectGreyed("members.roleName.member");
+  expectGreyed("members.roleName.editor", "members.permissions.readOnlyNoManage");
+  expectGreyed("members.roleName.member", "members.permissions.readOnlyNoManage");
   expectGreyed("members.removeFromTeam");
 });
 
@@ -159,7 +159,7 @@ test("a name field the subject cannot edit stays visible, read-only, with the re
   render(<MemberDetailPanel {...baseProps} canNameMembers={false} namingSupported />);
   const input = screen.getByLabelText("members.detail.nameLabel") as HTMLInputElement;
   expect(input.readOnly).toBe(true);
-  expect(input.title).toBe("members.viewAs.lacksPermission");
+  expect(input.title).toBe("members.permissions.youLack");
 });
 
 test("a name field is read-only while previewing and refuses once per focus, not per keystroke", async () => {
@@ -178,8 +178,9 @@ test("a name field is read-only while previewing and refuses once per focus, not
 
 test("isMe=true: role-toggle buttons are greyed even though canManageMembers=true", () => {
   render(<MemberDetailPanel {...baseProps} isMe={true} />);
-  expectGreyed("members.roleName.editor");
-  expectGreyed("members.roleName.member");
+  expectGreyed("members.roleName.editor", "members.permissions.readOnlySelf");
+  expectGreyed("members.roleName.member", "members.permissions.readOnlySelf");
+  expectGreyed("members.newRole", "members.permissions.readOnlySelf");
 });
 
 // The JSX filters `r.is_builtin && r.name === "owner"` out of the toggle list entirely
