@@ -78,6 +78,7 @@ test("sessions_page_renders_team_sessions", () => {
   render(<MobileShell />);
   expect(screen.getByTestId("team-sessions").textContent).toBe("true");
   expect(document.querySelector("[data-vt-hit-scope] [data-testid='team-sessions']")).not.toBeNull();
+  expect(screen.getByTestId("team-sessions").parentElement!.className).toMatch(/(?=.*\bpx-4\b)(?=.*\bbreak-words\b)/);
 });
 
 test("draft_bar_in_the_column_only_while_the_sheet_is_closed", () => {

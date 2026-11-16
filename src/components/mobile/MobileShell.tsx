@@ -157,7 +157,7 @@ export default function MobileShell() {
         {screen.kind === "more-page" && screen.page === "sessions" && (
           <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
             <MobilePanelHeader title={t("mobile.viewAs.areas.sessions")} />
-            <div data-vt-hit-scope className="flex-1 overflow-y-auto"><TeamSessions /></div>
+            <div data-vt-hit-scope className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-3 break-words"><TeamSessions /></div>
           </div>
         )}
         {screen.kind === "more-page" && screen.page === "members" && <MobileMembersScreen vaultId={selectedVaultIds[0] ?? null} />}
