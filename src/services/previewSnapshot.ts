@@ -14,8 +14,12 @@ export interface PreviewSession {
 export const previewSubjectUserId = (subject: PreviewSubject): string =>
   subject.type === "member" ? subject.user_id : PREVIEW_ROLE_USER_ID;
 
-export const previewSideOf = (result: PreviewResponse, objectId: string): Preview =>
-  result.draft?.objects[objectId] ? result.draft : result.current;
+export const shownPreview = (result: PreviewResponse): Preview => result.draft ?? result.current;
+
+export function previewSideOf(result: PreviewResponse, objectId: string): Preview {
+  const shown = shownPreview(result);
+  return shown.objects[objectId] ? shown : result.current;
+}
 
 export function subjectMembers(teamId: string, members: TeamMember[], subject: PreviewSubject, draft: PreviewDraft | null): TeamMember[] {
   if (subject.type === "role") {
@@ -40,7 +44,7 @@ export function previewSnapshot<S extends Omit<PermissionSnapshot, "vaults">>(
   base: S, session: PreviewSession, draft: PreviewDraft | null, result: PreviewResponse,
 ): S {
   const { teamId, subject } = session;
-  const shown = result.draft ?? result.current;
+  const shown = shownPreview(result);
   const access: TeamAccessEntries = {};
   for (const [id, entry] of Object.entries(base.objectAccess?.[teamId] ?? {})) {
     const object = shown.objects[id];

@@ -20,6 +20,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import type { TeamRole } from "@/stores/teamStore";
 import { saveNeedsConfirm, usePreviewStore } from "@/stores/previewStore";
 import { unsavedChangeCount, type SaveFailure } from "@/services/viewAsSave";
+import { shownPreview } from "@/services/previewSnapshot";
 
 const NO_ROLES: TeamRole[] = [];
 
@@ -84,7 +85,7 @@ export function MemberAccessPanel() {
   const lockedEmpty = locked && (allow | deny) === 0;
 
   const currentBits = result.current.team_bits;
-  const shownBits = (result.draft ?? result.current).team_bits;
+  const shownBits = shownPreview(result).team_bits;
   const memberEffective = effectivePermissions({ ...member, role_ids: shown.role_ids, permission_allow: shown.allow, permission_deny: shown.deny }, roles, locked);
   const grantingRoles = (permission: Permission) => rolesGranting(t, roles, shown.role_ids, locked, permission);
 

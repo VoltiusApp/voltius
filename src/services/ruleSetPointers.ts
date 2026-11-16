@@ -1,6 +1,6 @@
 import { PERM_BITS } from "@/services/permissions";
 import type { TeamObjectType } from "@/services/teamObjects";
-import type { TeamAccessEntries } from "@/stores/teamObjectAccessStore";
+import type { ObjectAccess, TeamAccessEntries } from "@/stores/teamObjectAccessStore";
 
 export type Pointer = string | null | undefined;
 
@@ -21,6 +21,9 @@ export function isSynced(entries: TeamAccessEntries, objectId: string): boolean 
   const entry = entries[objectId];
   return !!entry && entry.ruleSetId === setOfParent(entries, entry.parentId);
 }
+
+export const rulesAvailable = (supported: boolean, access: ObjectAccess | undefined): access is ObjectAccess =>
+  supported && !!access && !access.deleted;
 
 export function ruleSetOwner(entries: TeamAccessEntries, setId: string): string | null {
   const owner = Object.entries(entries).find(([, e]) =>

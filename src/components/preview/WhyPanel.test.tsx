@@ -36,6 +36,7 @@ vi.mock("@/services/teamObjectPersistence", async (orig) => ({
 
 import { WhyPanel } from "./WhyPanel";
 import { ViewAsSidePanel } from "./ViewAsSidePanel";
+import { PreviewContentScope } from "./PreviewScope";
 import { usePreviewStore } from "@/stores/previewStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamObjectAccessStore, type ObjectAccess } from "@/stores/teamObjectAccessStore";
@@ -93,6 +94,9 @@ test("rows_follow_the_server_mask_even_if_the_explanation_disagrees", async () =
   expect(row("VIEW").getAttribute("data-allowed")).toBe("true");
   expect(row("CONNECT").getAttribute("data-allowed")).toBe("false");
   expect(within(row("CONNECT")).getByText("members.viewAs.why.decidedByServer")).toBeTruthy();
+  const lines = within(screen.getByTestId("why-steps")).getAllByRole("listitem").map((li) => li.textContent ?? "");
+  expect(lines.some((l) => l.includes("step.roles:"))).toBe(true);
+  expect(lines.filter((l) => l.includes("members.permission.CONNECT"))).toEqual([]);
   expect(within(row("VIEW")).getByText(/members\.viewAs\.why\.step\.roles:.*member/)).toBeTruthy();
 });
 
@@ -132,6 +136,25 @@ test("edit_rules_is_greyed_without_manage_roles", async () => {
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
+test("edit_rules_is_greyed_when_rules_cannot_be_edited_there", async () => {
+  useTeamObjectAccessStore.getState().replaceTeam("team-1", useTeamObjectAccessStore.getState().byTeam["team-1"], false);
+  show(preview(PERM_BITS.VIEW, "sA", { sA: NONE }));
+  render(<WhyPanel />);
+  const edit = await screen.findByRole("button", { name: /members\.viewAs\.why\.editRules:Databases/ }) as HTMLButtonElement;
+  expect(edit.disabled).toBe(true);
+  expect(edit.title).toMatch(/members\.viewAs\.why\.editRulesUnavailable/);
+  expect(screen.getByText(/members\.viewAs\.why\.editRulesUnavailable/)).toBeTruthy();
+});
+
+test("a_role_name_missing_from_the_store_uses_the_generic_label", async () => {
+  h.sets.sA = [{ subject_type: "role", subject_id: "r-con", allow: 0, deny: PERM_BITS.VIEW }];
+  useTeamStore.setState({ rolesByTeam: { "team-1": [makeRole("r-mem", MEMBER_BITS, { name: "member", is_builtin: true })] } });
+  show(preview(0, "sA", { sA: { ...NONE, roles_deny: PERM_BITS.VIEW } }));
+  render(<WhyPanel />);
+  await waitFor(() => expect(within(row("VIEW")).getByText(/step\.rolesDeny:.*members\.viewAs\.why\.someRole/)).toBeTruthy());
+  expect(screen.queryByText(/\?/)).toBeNull();
+});
+
 test("edit_access_returns_to_the_access_panel", async () => {
   show(preview(PERM_BITS.VIEW, null));
   render(<WhyPanel />);
@@ -141,7 +164,12 @@ test("edit_access_returns_to_the_access_panel", async () => {
 
 test("rules_modal_edits_the_owner_folder_with_the_admins_own_permissions", async () => {
   show(preview(PERM_BITS.VIEW, "sA", { sA: NONE }));
-  render(<ViewAsSidePanel />);
+  render(
+    <>
+      <PreviewContentScope><div /></PreviewContentScope>
+      <ViewAsSidePanel />
+    </>,
+  );
   fireEvent.click(await screen.findByRole("button", { name: /members\.viewAs\.why\.editRules:Databases/ }));
   const dialog = await screen.findByRole("dialog");
   expect(await within(dialog).findByRole("radiogroup", { name: /members\.permission\.EDIT_FOLDERS/ })).toBeTruthy();
@@ -157,7 +185,6 @@ test("a_rule_edit_from_the_modal_is_not_refused_while_previewing", async () => {
   await waitFor(() => expect(h.putRuleSet).toHaveBeenCalledWith("team-1", "sA", [
     { subject_type: "everyone", subject_id: null, allow: 0, deny: PERM_BITS.CONNECT },
   ], null));
-  expect(within(dialog).queryByText("Read-only preview")).toBeNull();
 });
 
 test("sync_now_from_the_modal_is_not_refused_while_previewing", async () => {

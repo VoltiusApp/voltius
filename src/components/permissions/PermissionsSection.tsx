@@ -10,7 +10,7 @@ import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { useRuleSet } from "@/hooks/useRuleSet";
 import { saveObjectRules, syncWithFolder, type RuleEdit } from "@/services/ruleSetEditing";
 import { withControlAuthority } from "@/services/previewGuard";
-import { isSynced, setOfParent } from "@/services/ruleSetPointers";
+import { isSynced, rulesAvailable, setOfParent } from "@/services/ruleSetPointers";
 import {
   OBJECT_RULE_ROWS, PERM_BITS, applyOverrideState, hasNarrowerException, overrideStateOf, resolveObjectPermissions, ruleSubjectKey, ruleSubjectOf,
   type OverrideState, type Permission, type RuleEntry, type RuleSubject,
@@ -141,7 +141,7 @@ function ObjectPermissions({ objectId, vaultId, type, controlAuthority = false }
     }
   }
 
-  if (!teamId || !entries || !supported || !access || access.deleted) return null;
+  if (!teamId || !entries || !rulesAvailable(supported, access)) return null;
   if ((access.myPermissions & PERM_BITS.MANAGE_ROLES) === 0) return null;
 
   const roles = rolesByTeam[teamId] ?? [];

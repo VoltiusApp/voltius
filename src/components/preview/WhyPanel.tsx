@@ -12,7 +12,7 @@ import { useRuleSet } from "@/hooks/useRuleSet";
 import { explainBit, type Explanation, type ExplainStep, type StepKind } from "@/services/permissionExplain";
 import { OBJECT_RULE_ROWS, PERM_BITS, RULE_LAYER_ORDER, type Permission } from "@/services/permissions";
 import { previewSideOf, previewSubjectUserId, subjectMembers, subjectRoles } from "@/services/previewSnapshot";
-import { ruleSetOwner } from "@/services/ruleSetPointers";
+import { ruleSetOwner, rulesAvailable } from "@/services/ruleSetPointers";
 import { findTeamItem } from "@/services/teamObjectPersistence";
 import type { TeamObjectType } from "@/services/teamObjects";
 import type { TeamRole } from "@/services/teamService";
@@ -21,7 +21,7 @@ import { useTeamObjectAccessStore } from "@/stores/teamObjectAccessStore";
 import { useTeamStore } from "@/stores/teamStore";
 import type { Connection } from "@/types";
 
-interface Sentence { key: string; params?: Record<string, string> }
+interface Sentence { key: string; params?: Record<string, string | number> }
 interface SentenceContext { name: string; folder: string; roles: (ids?: string[]) => string }
 interface ItemLabel { name: string; detail?: string }
 
@@ -33,7 +33,7 @@ const RULE_NOT_SHOWN: ExplainStep = { kind: "ruleNotShown", effect: "remove" };
 
 const stepSentence = (step: ExplainStep, ctx: SentenceContext): Sentence => ({
   key: `members.viewAs.why.step.${step.kind}`,
-  params: { name: ctx.name, roles: ctx.roles(step.roleIds), folder: ctx.folder },
+  params: { name: ctx.name, roles: ctx.roles(step.roleIds), folder: ctx.folder, count: step.roleIds?.length || 1 },
 });
 
 function rowSentence(e: Explanation, allowed: boolean, notShown: boolean, ctx: SentenceContext): Sentence {
@@ -41,9 +41,10 @@ function rowSentence(e: Explanation, allowed: boolean, notShown: boolean, ctx: S
   return e.decidedBy ? stepSentence(e.decidedBy, ctx) : { key: "members.viewAs.why.notGranted", params: { name: ctx.name } };
 }
 
-function addsUp(rows: { permission: Permission; e: Explanation }[], ctx: SentenceContext) {
+function addsUp(rows: { permission: Permission; allowed: boolean; e: Explanation }[], ctx: SentenceContext) {
   const lines = new Map<string, { sentence: Sentence; order: number; permissions: Permission[] }>();
-  for (const { permission, e } of rows) {
+  for (const { permission, allowed, e } of rows) {
+    if (e.allowed !== allowed) continue;
     for (const step of e.steps) {
       const sentence = stepSentence(step, ctx);
       const id = `${sentence.key}:${JSON.stringify(sentence.params)}`;
@@ -72,10 +73,14 @@ function useItemLabel(teamId: string, type: TeamObjectType, id: string): ItemLab
   return label?.id === id ? label.label : null;
 }
 
-const roleNames = (t: TFunction, roles: TeamRole[]) => (ids?: string[]) =>
-  ids?.length
-    ? ids.map((id) => roleLabel(t, roles.find((r) => r.id === id)?.name ?? "?")).join(", ")
-    : t("members.viewAs.why.someRole");
+const roleNames = (t: TFunction, roles: TeamRole[]) => {
+  const someRole = t("members.viewAs.why.someRole");
+  const nameOf = (id: string) => {
+    const role = roles.find((r) => r.id === id);
+    return role ? roleLabel(t, role.name) : someRole;
+  };
+  return (ids?: string[]) => (ids?.length ? ids.map(nameOf).join(", ") : someRole);
+};
 
 export function WhyPanel() {
   const { t } = useTranslation();
@@ -88,6 +93,7 @@ export function WhyPanel() {
   const members = useTeamStore((s) => s.membersByTeam[teamId]);
   const teamRoles = useTeamStore((s) => s.rolesByTeam[teamId]);
   const entries = useTeamObjectAccessStore((s) => s.byTeam[teamId]);
+  const supported = useTeamObjectAccessStore((s) => s.supportedByTeam[teamId] ?? false);
   const can = useOwnPermissions();
   const [editing, setEditing] = useState(false);
 
@@ -119,8 +125,10 @@ export function WhyPanel() {
     return { permission, allowed, e, sentence: rowSentence(e, allowed, layers === "notShown", ctx) };
   });
   const lines = addsUp(rows, ctx);
-  const mayEdit = can("MANAGE_ROLES", session.vaultId, ownerId);
-  const lockedReason = mayEdit ? null : t("members.viewAs.why.editRulesLocked", { folder });
+  const blocked = !rulesAvailable(supported, entries?.[ownerId]) ? "members.viewAs.why.editRulesUnavailable"
+    : !can("MANAGE_ROLES", session.vaultId, ownerId) ? "members.viewAs.why.editRulesLocked" : null;
+  const mayEdit = blocked === null;
+  const lockedReason = blocked && t(blocked, { folder });
 
   return (
     <div data-testid="why-panel" className="p-4 space-y-3">
