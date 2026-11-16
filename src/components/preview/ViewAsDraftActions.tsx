@@ -49,26 +49,31 @@ export function ViewAsDraftActions({ size = "sm" }: { size?: "sm" | "touch" }) {
   const keyGate = saveNeedsConfirm(result) !== null;
   const changed = "permissions" in draft && !keyGate ? result?.affected?.changed.length ?? 0 : 0;
   const touch = size === "touch";
-  const button = touch ? " min-h-12 px-4" : "";
-  const note = touch ? "min-w-0 truncate" : undefined;
-
-  return (
-    <>
-      <span className={touch ? "min-w-0 flex-1 truncate" : undefined} style={{ color: "var(--t-text-dim)" }}>{t("members.viewAs.unsaved", { count })}</span>
-      <button data-testid="view-as-discard" className={`btn btn-ghost${button}`} disabled={saving} onClick={() => setDraft(null)}>
-        {t("members.viewAs.discard")}
-      </button>
-      {changed > 0 && <span className={note} style={{ color: "var(--t-text-dim)" }}>{t("members.viewAs.changesAccess", { count: changed })}</span>}
-      <button
-        data-testid="view-as-save"
-        className={`btn ${keyGate ? "btn-warning" : "btn-primary"}${button}`}
-        disabled={saving || !ready}
-        title={ready ? undefined : t("members.viewAs.loading")}
-        onClick={() => void requestSave()}
-      >
-        {keyGate ? t("members.viewAs.saveConfirm") : t("members.viewAs.save")}
-      </button>
-      {saveError && <span className={note} style={{ color: "var(--t-status-error)" }}>{saveError}</span>}
-    </>
+  const button = touch ? " min-h-12 px-4 rounded-full shrink-0" : "";
+  const line = (text: string, color: string, extra = "") => (
+    <span className={touch ? `truncate${extra}` : undefined} style={{ color }}>{text}</span>
   );
+  const unsaved = line(t("members.viewAs.unsaved", { count }), "var(--t-text-dim)");
+  const affects = changed > 0 && line(t("members.viewAs.changesAccess", { count: changed }), "var(--t-text-dim)", " text-xs");
+  const error = saveError && line(saveError, "var(--t-status-error)", " text-xs");
+  const discard = (
+    <button data-testid="view-as-discard" className={`btn btn-ghost${button}`} disabled={saving} onClick={() => setDraft(null)}>
+      {t("members.viewAs.discard")}
+    </button>
+  );
+  const save = (
+    <button
+      data-testid="view-as-save"
+      className={`btn ${keyGate ? "btn-warning" : "btn-primary"}${button}`}
+      disabled={saving || !ready}
+      title={ready ? undefined : t("members.viewAs.loading")}
+      onClick={() => void requestSave()}
+    >
+      {keyGate ? t("members.viewAs.saveConfirm") : t("members.viewAs.save")}
+    </button>
+  );
+
+  return touch
+    ? <><span className="min-w-0 flex-1 flex flex-col leading-tight">{unsaved}{affects}{error}</span>{discard}{save}</>
+    : <>{unsaved}{discard}{affects}{save}{error}</>;
 }

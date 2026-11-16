@@ -80,3 +80,34 @@ test("touch_size_gives_every_button_a_48px_target", () => {
   render(<ViewAsDraftActions size="touch" />);
   for (const id of ["view-as-discard", "view-as-save"]) expect(screen.getByTestId(id).className).toContain("min-h-12");
 });
+
+test("touch_role_draft_puts_the_summary_first_then_rounded_discard_and_save", () => {
+  const roleDraft = { permissions: 1 };
+  usePreviewStore.setState({
+    session: { teamId: "team-1", vaultId: "team-1", subject: { type: "role", role_id: "r1" } },
+    draft: roleDraft, resultDraft: roleDraft, status: "ready",
+    result: response({ affected: { changed: ["bob"], lose_vault_key: [] } }),
+  });
+  const { container } = render(<ViewAsDraftActions size="touch" />);
+  const [summary, discard, saveButton] = [...container.children] as HTMLElement[];
+  expect(container.children).toHaveLength(3);
+  expect(summary.className).toContain("min-w-0");
+  expect(summary.textContent).toBe('members.viewAs.unsaved{"count":1}members.viewAs.changesAccess{"count":1}');
+  expect(discard).toBe(screen.getByTestId("view-as-discard"));
+  expect(saveButton).toBe(save());
+  for (const b of [discard, saveButton]) expect(b.className).toMatch(/(?=.*shrink-0)(?=.*rounded-full)(?=.*min-h-12)/);
+});
+
+test("desktop_pill_keeps_its_inline_order", () => {
+  const roleDraft = { permissions: 1 };
+  usePreviewStore.setState({
+    session: { teamId: "team-1", vaultId: "team-1", subject: { type: "role", role_id: "r1" } },
+    draft: roleDraft, resultDraft: roleDraft, status: "ready",
+    result: response({ affected: { changed: ["bob"], lose_vault_key: [] } }),
+  });
+  const { container } = render(<ViewAsDraftActions />);
+  expect([...container.children].map((c) => c.getAttribute("data-testid") ?? c.textContent)).toEqual([
+    'members.viewAs.unsaved{"count":1}', "view-as-discard", 'members.viewAs.changesAccess{"count":1}', "view-as-save",
+  ]);
+  expect(save().className).toBe("btn btn-primary");
+});
