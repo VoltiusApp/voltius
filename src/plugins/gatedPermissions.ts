@@ -24,6 +24,8 @@ export const GATED_PERMISSIONS = new Set<string>([
   "proxmox:manage",
   "sftp:read",
   "sftp:write",
+  // Any command on any host the user can open: the shell access every other host verb narrows.
+  "host:exec",
   "audit",
   "audit:read",
   "mcp:contribute",
@@ -143,6 +145,7 @@ const PERMISSION_COPY: Record<string, string> = {
   "proxmox:manage": "proxmoxManage",
   "sftp:read": "sftpRead",
   "sftp:write": "sftpWrite",
+  "host:exec": "hostExec",
   "audit": "audit",
   "audit:read": "auditRead",
   "mcp:contribute": "mcpContribute",

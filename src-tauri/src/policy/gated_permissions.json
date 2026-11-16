@@ -8,6 +8,7 @@
   "folders:write",
   "health:read",
   "history:read",
+  "host:exec",
   "importexport:read",
   "importexport:write",
   "keychain:read",

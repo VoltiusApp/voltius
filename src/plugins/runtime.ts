@@ -99,6 +99,7 @@ import { createCryptoAPI } from "./domains/crypto";
 import { createI18nAPI } from "./domains/i18n";
 import { createProxmoxAPI } from "./domains/proxmox";
 import { createSftpAPI } from "./domains/sftp";
+import { createHostAPI, type HostSessionTarget } from "./domains/host";
 import { createDockerAPI } from "./domains/docker";
 import { createVaultsAPI } from "./domains/vaults";
 import { isTeamVaultId, hydrateVaultObjectStores, storeObjectPorts, vaultPorts } from "@/services/vaultObjectStores";
@@ -170,9 +171,8 @@ const STREAM_PERM: Record<StreamKind, string> = {
 
 const _exposedApis = new Map<string, unknown>();
 
-// Per-plugin SFTP/FTP handles, so unloading a plugin closes the connections it
-// opened. Without this a disabled plugin's sockets outlive it silently.
-const _sftpDisposers = new Map<string, () => void>();
+// Unloading a plugin closes the file handles it opened and stops the commands it started.
+const _resourceDisposers = new Map<string, () => void>();
 
 // ─── Per-plugin settings-change listeners ─────────────────────────────────
 
@@ -868,11 +868,24 @@ const _hostApiIds = new Set<string>();
 /** What a `whileActive` refusal tells a caller that has no empty value to fall back on. */
 const inactiveError = (id: string): string => `Plugin "${id}" is disabled or unloaded`;
 
+function sessionOrThrow(sessionId: string) {
+  const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
+  if (!session) throw new Error(`Session "${sessionId}" not found`);
+  return session;
+}
+
+function hostTargetOf(sessionId: string): HostSessionTarget {
+  const session = sessionOrThrow(sessionId);
+  if (session.type !== "ssh" && session.type !== "local") {
+    throw new Error(`Session "${sessionId}" cannot run commands (${session.type})`);
+  }
+  return { isRemote: session.type === "ssh", localShell: session.localShell ?? null };
+}
+
 /** Resolve a session and write text to its transport. Throws on an unknown id,
  *  so a caller never mistakes "no such session" for a successful write. */
 async function writeSessionBytes(sessionId: string, text: string): Promise<void> {
-  const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
-  if (!session) throw new Error(`Session "${sessionId}" not found`);
+  const session = sessionOrThrow(sessionId);
   if (!hasInputControl(sessionId)) throw new Error(`Session "${sessionId}" is controlled by another participant`);
   await sendSessionInput(sessionId, session.type as "ssh" | "local" | "serial", encodeTerminalInput(text, session.encoding));
 }
@@ -935,7 +948,11 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const i18nApi = createI18nAPI();
   const proxmoxApi = createProxmoxAPI();
   const sftpApi = createSftpAPI(findAnyConnection);
-  _sftpDisposers.set(id, () => sftpApi.dispose());
+  const hostApi = createHostAPI(hostTargetOf);
+  _resourceDisposers.set(id, () => {
+    sftpApi.dispose();
+    hostApi.dispose();
+  });
   const dockerApi = createDockerAPI(streamsApi);
   const vaultsApi = createVaultsAPI(vaultPorts);
   const foldersApi = createFoldersAPI(folderPorts);
@@ -1828,8 +1845,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       async onOutput(sessionId, cb) {
         requireGated("terminal:stream");
-        const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
-        if (!session) throw new Error(`Session "${sessionId}" not found`);
+        const session = sessionOrThrow(sessionId);
         const decoder = createTextDecoder(session.encoding);
         return onSessionOutput(sessionId, session.type, (data) => cb(decoder.decode(data, { stream: true })));
       },
@@ -1950,6 +1966,17 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       // Ungated: releasing a handle this plugin opened cannot expose or change
       // anything, and a plugin must always be able to let go of its own resources.
       disconnect: (target) => sftpApi.disconnect(target),
+    },
+
+    host: {
+      exec: (sessionId, command, opts) => {
+        requireGated("host:exec");
+        return hostApi.exec(sessionId, command, opts);
+      },
+      stream: (sessionId, command, handlers, opts) => {
+        requireGated("host:exec");
+        return hostApi.stream(sessionId, command, handlers, opts);
+      },
     },
 
     proxmox: {
@@ -2476,8 +2503,8 @@ export function unloadPlugin(pluginId: string): void {
   clearContributions(pluginId);
   removePluginStyle(pluginId);
   _exposedApis.delete(pluginId);
-  _sftpDisposers.get(pluginId)?.();
-  _sftpDisposers.delete(pluginId);
+  _resourceDisposers.get(pluginId)?.();
+  _resourceDisposers.delete(pluginId);
   _contributedIds.delete(pluginId);
   _settingsListeners.delete(pluginId);
   _registry.delete(pluginId);

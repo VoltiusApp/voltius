@@ -1100,6 +1100,7 @@
             "label": "Gravar e mover ficheiros",
             "description": "Criar, renomear, substituir e eliminar ficheiros nos seus hosts SSH/FTP guardados e neste computador, e copiar ficheiros entre eles. Isso pode destruir dados permanentemente."
           },
+          "hostExec": { "label": "Executar qualquer comando nos seus anfitriões", "description": "Executar qualquer comando, em seu nome, em qualquer anfitrião aberto e neste computador, e ler o resultado. É acesso total à shell: pode ler segredos, alterar configurações e destruir dados permanentemente." },
           "audit": {
             "label": "Registrar eventos de auditoria",
             "description": "Adicionar entradas ao seu registro de auditoria descrevendo o que ele fez. Para um host em um cofre de equipe, essas entradas também são enviadas ao servidor dessa equipe."

@@ -509,6 +509,46 @@ export interface SftpAPI {
   disconnect(target: FileTarget): Promise<void>;
 }
 
+// ─── Host commands ─────────────────────────────────────────────────────────
+
+export interface HostExecOptions {
+  /** Default 30 000 for `exec`, unlimited for `stream`; 0 means no limit. */
+  timeoutMs?: number;
+  /** `exec` only: cap per output stream, default 1 MiB, at most 64 MiB. */
+  maxBytes?: number;
+  stdin?: string;
+}
+
+export interface HostExecResult {
+  stdout: string;
+  stderr: string;
+  /** Null when the command was stopped or ended without reporting a status. */
+  code: number | null;
+  timedOut: boolean;
+  /** Output passed `maxBytes`; the command was stopped there. */
+  truncated: boolean;
+  cancelled: boolean;
+}
+
+export interface HostStreamHandlers {
+  /** Always whole lines, except possibly the last chunk. */
+  onStdout?(chunk: string): void;
+  onStderr?(chunk: string): void;
+}
+
+export interface HostStreamHandle {
+  /** Settles once the command ends; stdout/stderr are empty, they went to the handlers. */
+  done: Promise<HostExecResult>;
+  cancel(): void;
+}
+
+/** Commands on a session's machine, on their own channel. GATED (host:exec).
+ *  Remote: the login shell parses it. Local: `sh -c`, or the session's shell on Windows. */
+export interface HostAPI {
+  exec(sessionId: string, command: string, opts?: HostExecOptions): Promise<HostExecResult>;
+  stream(sessionId: string, command: string, handlers: HostStreamHandlers, opts?: HostExecOptions): HostStreamHandle;
+}
+
 export type PluginTheme = AppTheme;
 
 // ─── Notification types ────────────────────────────────────────────────────
@@ -1293,6 +1333,9 @@ export interface PluginAPI {
   // Files over SFTP/FTP and the local disk — GATED, split
   // sftp:read (list/stat/readText) / sftp:write (everything that mutates).
   sftp: SftpAPI;
+
+  // Commands on a session's machine — GATED (host:exec).
+  host: HostAPI;
 
   proxmox: ProxmoxAPI;
 
