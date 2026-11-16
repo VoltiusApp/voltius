@@ -60,6 +60,18 @@ test("teamId resolves from vaultId directly when vault not found", () => {
   expect(resolveCan(s, "MANAGE_MEMBERS", "t1")).toBe(true);
 });
 
+test("a bare team id gates the same as the local vault row of that team", () => {
+  const s = snap({
+    vaults: [vault("v1", "t1")],
+    rolesByTeam: { t1: [role("r1", PERM_BITS.MANAGE_MEMBERS)] },
+    membersByTeam: { t1: [member("u1", ["r1"])] },
+  });
+  for (const p of ["MANAGE_MEMBERS", "MANAGE_ROLES"] as const) {
+    expect(resolveCan(s, p, "t1")).toBe(resolveCan(s, p, "v1"));
+  }
+  expect(resolveCan(s, "MANAGE_MEMBERS", "t1")).toBe(true);
+});
+
 test("members loaded but user not a member → denied", () => {
   const s = snap({
     rolesByTeam: { t1: [role("r1", PERM_BITS.VIEW_SECRETS)] },

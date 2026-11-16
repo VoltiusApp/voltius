@@ -69,6 +69,8 @@ test("resolves_team_from_a_local_vault_and_from_a_bare_team_id", () => {
   expect(bare.teamId).toBe("t1");
   expect(bare.localVault).toBeUndefined();
   expect(bare.standaloneTeam?.id).toBe("t1");
+  expect(bare.members).toBe(local.members);
+  expect(bare.myMember).toBe(local.myMember);
 
   const none = renderHook(() => useMembersModel(null)).result.current;
   expect(none.teamId).toBeNull();
