@@ -4,6 +4,11 @@ import type { VaultAdminCapabilities } from "./vaultAdminTarget";
 export type VaultMenuAction =
   | "share" | "members" | "roles" | "security" | "rename" | "makePrivate" | "delete" | "leave";
 
+const NAVIGATION_ACTIONS: ReadonlySet<VaultMenuAction> = new Set(["members", "roles", "security"]);
+
+/** Opens a page without changing the vault, so a View-as preview still allows it. */
+export const isVaultNavigation = (action: VaultMenuAction): boolean => NAVIGATION_ACTIONS.has(action);
+
 /** Icon of each vault action, shared by the desktop menu and the mobile vault settings page. */
 export const VAULT_ACTION_ICONS: Record<VaultMenuAction, string> = {
   share: "lucide:share-2",

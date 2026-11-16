@@ -37,15 +37,23 @@ vi.mock("@/components/vault-admin/VaultAdminDialogs", () => ({
 vi.mock("@/components/vault-share/VaultShareSheet", () => ({ VaultShareSheet: ({ initialTab }: { initialTab: string }) => <div data-test-share={initialTab} /> }));
 vi.mock("@/components/members/panels/RolesPanel", () => ({ TeamRolesPanel: () => <div data-test-roles /> }));
 vi.mock("@/components/members/panels/SecurityPolicyPanel", () => ({ SecurityPolicyPanel: () => <div data-test-security /> }));
+const toast = vi.hoisted(() => vi.fn());
+vi.mock("@/services/appToast", () => ({ appToast: toast }));
+vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 
 import MobileVaultSettingsScreen from "./MobileVaultSettingsScreen";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
+import { PreviewContentScope } from "@/components/preview/PreviewScope";
+import { startPreview, stopPreview } from "@/test/preview";
 
 beforeEach(() => {
   h.rename.mockReset();
   useMobileNavStore.setState({ stack: [{ kind: "vault-settings", vaultId: "v2" }], sheet: null });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  stopPreview();
+});
 
 const rows = (c: HTMLElement) => [...c.querySelectorAll("[data-vault-settings-row]")].map((e) => e.getAttribute("data-vault-settings-row"));
 
@@ -117,4 +125,34 @@ test("sub-pages wrap the existing panels; Members opens the people tab", () => {
 test("a vault that is gone says so", () => {
   const { container } = render(<MobileVaultSettingsScreen vaultId="nope" />);
   expect(container.querySelector("[data-vault-settings-gone]")).not.toBeNull();
+});
+
+test("previewing_greys_and_refuses_vault_writes_but_navigation_still_pushes", async () => {
+  h.vaults = [{ id: "v2", name: "Work", teamId: undefined }];
+  h.state = {
+    caps: { isTeam: true, isOwner: true, canRename: true, canSetLockPolicy: true, canDelete: true, canMakePrivate: true, canLeave: true },
+    memberCount: 3, canShare: true,
+  };
+  startPreview();
+  const { container } = render(<PreviewContentScope><MobileVaultSettingsScreen vaultId="v2" /></PreviewContentScope>);
+  const row = (id: string) => container.querySelector<HTMLElement>(`[data-vault-settings-row="${id}"]`)!;
+  const base = [{ kind: "vault-settings", vaultId: "v2" }];
+
+  for (const id of ["share", "makePrivate", "delete", "leave"]) {
+    toast.mockClear();
+    expect(row(id).getAttribute("aria-disabled"), id).toBe("true");
+    expect(row(id).textContent, id).toContain("members.viewAs.readOnly");
+    fireEvent.click(row(id));
+    await vi.waitFor(() => expect(toast, id).toHaveBeenCalledWith("info", "members.viewAs.readOnly"));
+    expect(container.querySelector("[data-test-dialog]"), id).toBeNull();
+    expect(useMobileNavStore.getState().stack, id).toEqual(base);
+  }
+  for (const id of ["members", "roles", "security"]) {
+    expect(row(id).getAttribute("aria-disabled"), id).toBeNull();
+    fireEvent.click(row(id));
+    expect(useMobileNavStore.getState().stack.slice(-1)[0], id).toEqual({ kind: "vault-settings", vaultId: "v2", page: id });
+  }
+  expect(container.querySelector("[data-vault-settings-name]")).toBeNull();
+  expect(row("name").textContent).toContain("members.viewAs.readOnly");
+  expect(h.rename).not.toHaveBeenCalled();
 });

@@ -22,12 +22,16 @@ import { resolveVaultAdminTarget, type VaultAdminTarget } from "@/components/vau
 import { useVaultAdminState } from "@/components/vault-admin/useVaultAdmin";
 import { useVaultAdminActions } from "@/components/vault-admin/useVaultAdminActions";
 import { VaultAdminDialogs, type VaultDialog } from "@/components/vault-admin/VaultAdminDialogs";
-import { VAULT_ACTION_ICONS, vaultMenuActions } from "@/components/vault-admin/vaultMenuItems";
+import { VAULT_ACTION_ICONS, isVaultNavigation, vaultMenuActions } from "@/components/vault-admin/vaultMenuItems";
+import { refuseWhilePreviewing } from "@/services/previewGuard";
+import { usePreviewReadOnly } from "@/hooks/useGreyedUnless";
 import { VaultShareSheet } from "@/components/vault-share/VaultShareSheet";
 import { TeamRolesPanel } from "@/components/members/panels/RolesPanel";
 import { SecurityPolicyPanel } from "@/components/members/panels/SecurityPolicyPanel";
 import type { VaultSettingsPage } from "@/stores/mobileNavCore";
 import { vaultSettingsSections, type VaultSettingsRow } from "./vaultSettingsCore";
+
+type ActionRow = Exclude<VaultSettingsRow, { id: "name" }>;
 
 const NO_TITLE = { current: null };
 const MAX_AVATARS = 3;
@@ -107,6 +111,7 @@ function VaultSettingsList({ vaultId, target, titleRef }: {
   const pop = useMobileNavStore((s) => s.pop);
   const { caps, memberCount, canShare } = useVaultAdminState(target);
   const sections = vaultSettingsSections(vaultMenuActions({ caps, canShare }));
+  const readOnly = usePreviewReadOnly();
   const [dialog, setDialog] = useState<VaultDialog>(null);
   // The dialogs are desktop modals: the system Back closes them, not the page under them.
   useBackInterceptor(dialog !== null, () => setDialog(null));
@@ -121,18 +126,18 @@ function VaultSettingsList({ vaultId, target, titleRef }: {
     if (!rolesByTeam[teamId]) loadRoles(teamId).catch(() => {});
   }, [teamId]);
 
-  const summary = (row: VaultSettingsRow): string | null => {
+  const summary = (row: ActionRow): string | null => {
     switch (row.id) {
       case "members": return memberCount !== null ? t("mobile.vaultSettings.summaries.members", { count: memberCount }) : null;
       case "delete": return t(teamId ? "mobile.vaultSettings.summaries.deleteTeam" : "mobile.vaultSettings.summaries.delete");
-      case "name": return null;
       default: return t(`mobile.vaultSettings.summaries.${row.id}`);
     }
   };
 
-  const tap = (row: VaultSettingsRow) => {
+  const tap = (row: ActionRow) => {
+    if (!isVaultNavigation(row.id) && refuseWhilePreviewing()) return;
     if (row.id === "makePrivate" || row.id === "delete" || row.id === "leave") setDialog(row.id);
-    else if (row.id !== "name") push({ kind: "vault-settings", vaultId, page: row.id });
+    else push({ kind: "vault-settings", vaultId, page: row.id });
   };
 
   return (
@@ -157,6 +162,7 @@ function VaultSettingsList({ vaultId, target, titleRef }: {
                 icon={VAULT_ACTION_ICONS[row.id]}
                 label={t(`mobile.vaultSettings.rows.${row.id}`)}
                 summary={summary(row)}
+                greyedReason={isVaultNavigation(row.id) ? null : readOnly}
                 danger={section.id === "danger"}
                 chevron={section.id !== "danger"}
                 onTap={() => tap(row)}
@@ -179,19 +185,21 @@ function VaultSettingsList({ vaultId, target, titleRef }: {
   );
 }
 
-function SettingsRow({ id, icon, label, summary, danger, chevron, onTap }: {
-  id: string; icon: string; label: string; summary: string | null; danger?: boolean; chevron?: boolean; onTap: () => void;
+function SettingsRow({ id, icon, label, summary, greyedReason, danger, chevron, onTap }: {
+  id: string; icon: string; label: string; summary: string | null; greyedReason: string | null; danger?: boolean; chevron?: boolean; onTap: () => void;
 }) {
+  const subtitle = greyedReason ?? summary;
   return (
     <button
       data-vault-settings-row={id}
+      aria-disabled={greyedReason !== null || undefined}
       onClick={onTap}
-      className={`w-full flex items-center gap-4 pl-4 pr-3 py-2 text-left ${summary ? "min-h-[72px]" : "min-h-14"}`}
+      className={`w-full flex items-center gap-4 pl-4 pr-3 py-2 text-left aria-disabled:opacity-50 ${subtitle ? "min-h-[72px]" : "min-h-14"}`}
     >
       <Icon icon={icon} width={24} className="shrink-0" style={{ color: danger ? "var(--t-danger, #e5484d)" : "var(--t-text-dim)" }} />
       <span className="flex-1 min-w-0 flex flex-col">
         <span className="text-base truncate" style={{ color: danger ? "var(--t-danger, #e5484d)" : "var(--t-text-primary)" }}>{label}</span>
-        {summary && <span className="text-sm text-(--t-text-dim) line-clamp-2">{summary}</span>}
+        {subtitle && <span className="text-sm text-(--t-text-dim) line-clamp-2">{subtitle}</span>}
       </span>
       {chevron && <Icon icon="lucide:chevron-right" width={20} className="shrink-0 text-(--t-text-dim)" />}
     </button>
@@ -199,8 +207,10 @@ function SettingsRow({ id, icon, label, summary, danger, chevron, onTap }: {
 }
 
 /** The vault name, renamed in place: saved like the C5 edit forms (debounced, flushed on blur and on leaving). */
-function VaultNameRow({ target, editable }: { target: VaultAdminTarget; editable: boolean }) {
+function VaultNameRow({ target, editable: canRename }: { target: VaultAdminTarget; editable: boolean }) {
   const { t } = useTranslation();
+  const readOnly = usePreviewReadOnly();
+  const editable = canRename && readOnly === null;
   const { rename } = useVaultAdminActions(target);
   const [draft, setDraft] = useState(target.name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -236,7 +246,7 @@ function VaultNameRow({ target, editable }: { target: VaultAdminTarget; editable
       {editable && !draft.trim() && (
         <span data-field-error className="block mt-1 text-xs" style={{ color: "var(--t-danger, #e5484d)" }}>{t("mobile.vaultSettings.nameRequired")}</span>
       )}
-      {!editable && <span className="block text-xs text-(--t-text-dim)">{t("mobile.vaultSettings.nameReadOnly")}</span>}
+      {!editable && <span className="block text-xs text-(--t-text-dim)">{readOnly ?? t("mobile.vaultSettings.nameReadOnly")}</span>}
     </label>
   );
 }
