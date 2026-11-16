@@ -3,6 +3,7 @@ import { PreviewContentScope } from "@/hooks/previewScope";
 import BottomTabBar from "./BottomTabBar";
 import VaultSwitcherSheet from "./sheets/VaultSwitcherSheet";
 import SyncSheet from "./sheets/SyncSheet";
+import MobileViewAsSheets from "./viewAs/MobileViewAsSheets";
 import NotificationsSheet from "./sheets/NotificationsSheet";
 import MobileHostsScreen from "./screens/MobileHostsScreen";
 import MobileHostEditScreen from "./screens/MobileHostEditScreen";
@@ -248,6 +249,7 @@ export default function MobileShell() {
       <BottomTabBar visible={!immersive && !top} />
       {sheet?.kind === "vault-switcher" && <VaultSwitcherSheet />}
       {sheet?.kind === "sync" && <SyncSheet />}
+      <MobileViewAsSheets />
       <PreviewContentScope>
         {sheet?.kind === "host-actions" && <HostActionsSheet hostId={sheet.hostId} fromEditor={sheet.fromEditor} />}
         {sheet?.kind === "snippet-target" && (
