@@ -28,3 +28,13 @@ test("clicking reports the next state; disabled reports nothing", () => {
   fireEvent.click(screen.getByRole("radio", { name: "members.permissions.state.allow" }));
   expect(onChange).toHaveBeenCalledTimes(1);
 });
+
+test("touch_size_segments_are_44_by_40", () => {
+  const { rerender } = render(<TriStateToggle value="inherit" onChange={() => {}} label="x" size="touch" />);
+  for (const r of screen.getAllByRole("radio")) {
+    expect(r.className).toContain("w-11");
+    expect(r.className).toContain("h-10");
+  }
+  rerender(<TriStateToggle value="inherit" onChange={() => {}} label="x" />);
+  for (const r of screen.getAllByRole("radio")) expect(r.className).toContain("px-2.5 py-1");
+});
