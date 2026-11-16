@@ -46,6 +46,7 @@ function PreviewStatus() {
   const { t } = useTranslation();
   const status = usePreviewStore((s) => s.status);
   const error = usePreviewStore((s) => s.error);
+  const detail = usePreviewStore((s) => s.errorDetail);
   if (status === "loading") {
     return (
       <span data-testid="view-as-loading" className="flex items-center gap-1" style={{ color: "var(--t-text-dim)" }}>
@@ -57,7 +58,9 @@ function PreviewStatus() {
   if (status !== "error") return null;
   return (
     <>
-      <span data-testid="view-as-error" style={{ color: "var(--t-status-error)" }}>{error ?? t("members.viewAs.failed")}</span>
+      <span data-testid="view-as-error" className="min-w-0 max-w-64 truncate" title={detail ?? undefined} style={{ color: "var(--t-status-error)" }}>
+        {error ?? t("members.viewAs.failed")}
+      </span>
       <button data-testid="view-as-retry" className="btn btn-ghost" onClick={() => void usePreviewStore.getState().refetch()}>
         {t("common.action.retry")}
       </button>

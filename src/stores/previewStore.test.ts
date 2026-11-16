@@ -182,6 +182,17 @@ test.each([
   expect(toasts()).toEqual([key]);
 });
 
+test("a_network_error_stores_the_friendly_message_and_keeps_the_raw_one_as_detail", async () => {
+  const raw = "error sending request for url (https://example.test/v1/teams/t1/permissions/preview): dns error";
+  h.preview.mockRejectedValueOnce(new Error(raw));
+  usePreviewStore.getState().enter(session);
+  await vi.waitFor(() => expect(usePreviewStore.getState().status).toBe("error"));
+
+  expect(usePreviewStore.getState().error).toBe("members.viewAs.failed");
+  expect(usePreviewStore.getState().errorDetail).toBe(raw);
+  expect(usePreviewStore.getState().session).toBe(session);
+});
+
 test("any_other_error_keeps_the_session_and_stores_the_message", async () => {
   h.preview.mockRejectedValueOnce(new Error("members.viewAs.failed"));
   usePreviewStore.getState().enter(session);

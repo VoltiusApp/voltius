@@ -33,7 +33,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   stopPreview();
-  usePreviewStore.setState({ draft: null, resultDraft: null, result: null, status: "idle", error: null, pendingConfirm: null, saving: false, saveError: null });
+  usePreviewStore.setState({ draft: null, resultDraft: null, result: null, status: "idle", error: null, errorDetail: null, pendingConfirm: null, saving: false, saveError: null });
 });
 
 const press = (init: KeyboardEventInit = {}) => act(async () => {
@@ -78,10 +78,13 @@ test("shows_loading_then_the_error_with_a_retry", async () => {
   expect(screen.getByTestId("view-as-loading").textContent).toBe("members.viewAs.loading");
   expect(screen.queryByTestId("view-as-retry")).toBeNull();
 
-  act(() => usePreviewStore.setState({ status: "error", error: "network down" }));
+  act(() => usePreviewStore.setState({ status: "error", error: "members.viewAs.failed", errorDetail: "dns error: failed to lookup" }));
   rerender(<ViewAsPill />);
   expect(screen.queryByTestId("view-as-loading")).toBeNull();
-  expect(screen.getByTestId("view-as-error").textContent).toBe("network down");
+  const message = screen.getByTestId("view-as-error");
+  expect(message.textContent).toBe("members.viewAs.failed");
+  expect(message.title).toBe("dns error: failed to lookup");
+  expect(message.className).toContain("truncate");
   fireEvent.click(screen.getByTestId("view-as-retry"));
   expect(refetch).toHaveBeenCalledOnce();
 });

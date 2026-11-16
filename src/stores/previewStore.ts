@@ -22,6 +22,7 @@ interface PreviewState {
   resultDraft: PreviewDraft | null;
   status: "idle" | "loading" | "ready" | "error";
   error: string | null;
+  errorDetail: string | null;
   side: SidePanel;
   saving: boolean;
   saveError: string | null;
@@ -41,7 +42,7 @@ interface PreviewState {
 }
 
 const IDLE = {
-  session: null, draft: null, result: null, resultDraft: null, status: "idle", error: null, side: null,
+  session: null, draft: null, result: null, resultDraft: null, status: "idle", error: null, errorDetail: null, side: null,
   saving: false, saveError: null, saveFailures: [], pendingConfirm: null,
 } as const satisfies Partial<PreviewState>;
 
@@ -182,17 +183,18 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
     try {
       const { previewPermissions } = await import("@/services/permissionPreview");
       const result = await previewPermissions(session.teamId, { subject: session.subject, ...(draft && { draft }) });
-      if (settle()) set({ result, resultDraft: draft, status: seq === sentSeq ? "ready" : "loading", error: null });
+      if (settle()) set({ result, resultDraft: draft, status: seq === sentSeq ? "ready" : "loading", error: null, errorDetail: null });
     } catch (e) {
       if (!settle()) return;
       const status = (e as { status?: number }).status ?? 0;
       const message = e instanceof Error ? e.message : String(e);
+      const { default: i18n } = await import("@/i18n");
+      if (get().session !== session || appliedSeq !== seq) return;
       if (!ENDING_STATUSES.has(status)) {
-        set({ status: "error", error: message });
+        set({ status: "error", error: status ? message : i18n.t("members.viewAs.failed"), errorDetail: message });
         return;
       }
       get().exit();
-      const { default: i18n } = await import("@/i18n");
       useNotificationStore.getState().addToast({
         source: APP_SOURCE, type: "toast", severity: "warning", duration: 5000,
         message: status === 402 ? i18n.t("members.viewAs.reason.needsBusiness") : message,
