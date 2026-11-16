@@ -11,6 +11,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { usePreviewStore } from "@/stores/previewStore";
 import { unsavedChangeCount } from "@/services/viewAsSave";
 import { subjectRecord } from "@/services/previewSnapshot";
+import { isMobileShell } from "@/utils/platform";
 
 export function RoleAccessPanel() {
   const { t } = useTranslation();
@@ -43,7 +44,7 @@ export function RoleAccessPanel() {
       {reason && <p className="text-[11px] text-(--t-text-dim)">{reason}</p>}
       {!reason && locked && <BusinessLockLine teamId={teamId} label={t("shared.businessLock.rolesBody")} />}
       <div title={reason ?? undefined} className={editable ? undefined : "opacity-60"}>
-        <PermissionGrid value={shown} onChange={update} readOnly={!editable} />
+        <PermissionGrid value={shown} onChange={update} readOnly={!editable} size={isMobileShell() ? "touch" : "sm"} />
       </div>
       {affected.length > 0 && (
         <div>
@@ -51,7 +52,7 @@ export function RoleAccessPanel() {
             type="button"
             aria-expanded={expanded}
             onClick={() => setExpanded((v) => !v)}
-            className="flex items-center gap-1 text-[11px] text-(--t-text-secondary)"
+            className={`flex items-center gap-1 text-[11px] text-(--t-text-secondary)${isMobileShell() ? " min-h-12" : ""}`}
           >
             <Icon icon={expanded ? "lucide:chevron-down" : "lucide:chevron-right"} width={11} />
             {t("members.viewAs.affects", { count: affected.length })}

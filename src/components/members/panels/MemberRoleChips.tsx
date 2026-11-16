@@ -38,7 +38,7 @@ export function MemberRoleChips({
   const { locked } = useBusinessLock(teamId);
 
   return (
-    <div className="flex flex-wrap items-start gap-2">
+    <div data-chip-group className="flex flex-wrap items-start gap-2">
       {visibleMemberRoles(roles, showOwner).map((role) => {
           const hasRole = roleIds.includes(role.id);
           const blockReason = roleChipBlockReason(t, role, { hasRole, locked, readOnlyReason, ownerReason });

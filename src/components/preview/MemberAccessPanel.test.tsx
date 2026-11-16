@@ -122,3 +122,8 @@ test("a_business_locked_member_shows_the_lock_line_instead_of_greyed_rows", () =
   expect(screen.getByText(/shared\.businessLock\.memberLine/)).toBeTruthy();
   expect(screen.queryAllByRole("radio")).toHaveLength(0);
 });
+
+test("desktop_keeps_the_compact_all_permissions_toggle", () => {
+  render(<MemberAccessPanel />);
+  expect(screen.getByRole("button", { name: /allPermissions/ }).className).not.toContain("min-h-12");
+});

@@ -11,6 +11,10 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("@/utils/platform", async (orig) => ({
+  ...(await orig<typeof import("@/utils/platform")>()),
+  isMobileShell: () => true,
+}));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/hooks/useMyUserId", () => ({ useMyUserId: () => "admin" }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => ({ locked: false, isOwner: true }) }));
@@ -97,6 +101,26 @@ test("role_chip_toggle_in_the_sheet_sets_a_draft", () => {
   render(<MobileViewAsSheets />);
   fireEvent.click(screen.getByRole("button", { name: /editor/ }));
   expect(usePreviewStore.getState().draft).toEqual({ role_ids: ["r-mem", "r-ed"], allow: 0, deny: 0 });
+});
+
+test("member_sheet_touch_sizes_the_chip_group_and_all_permissions_toggle", () => {
+  usePreviewStore.setState({ side: { kind: "access" } });
+  render(<MobileViewAsSheets />);
+  expect(document.querySelector("[data-chip-group]")).not.toBeNull();
+  expect(screen.getByRole("button", { name: /allPermissions/ }).className).toContain("min-h-12");
+});
+
+test("role_sheet_touch_sizes_permission_rows_and_affects_toggle", () => {
+  usePreviewStore.setState({
+    side: { kind: "access" },
+    session: { teamId: "team-1", vaultId: "team-1", subject: { type: "role", role_id: "r-ed" } },
+    result: { ...PREVIEW_RESULT, affected: { changed: ["bob"] } } as never,
+  });
+  render(<MobileViewAsSheets />);
+  const rows = document.querySelectorAll("[data-testid=role-access-panel] label");
+  expect(rows.length).toBeGreaterThan(0);
+  rows.forEach((r) => expect(r.className).toContain("min-h-12"));
+  expect(screen.getByRole("button", { name: /affects/ }).className).toContain("min-h-12");
 });
 
 function fireScrimClick() {

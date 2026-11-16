@@ -34,10 +34,12 @@ function PermissionRow({
   value,
   readOnly,
   onToggle,
+  size,
 }: {
   perm: Permission;
   value: number;
   readOnly: boolean;
+  size: "sm" | "touch";
   onToggle: (bit: number) => void;
 }) {
   const { t } = useTranslation();
@@ -47,7 +49,7 @@ function PermissionRow({
   const tDesc = t(`settings.vaults.rolesPanel.perm.${perm}`);
   return (
     <label
-      className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors"
+      className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors${size === "touch" ? " min-h-12" : ""}`}
       style={{
         background: checked ? "rgba(var(--t-accent-rgb, 99,102,241), 0.08)" : "transparent",
         cursor: readOnly ? "default" : "pointer",
@@ -69,10 +71,12 @@ export function PermissionGrid({
   value,
   onChange,
   readOnly = false,
+  size = "sm",
 }: {
   value: number;
   onChange?: (v: number) => void;
   readOnly?: boolean;
+  size?: "sm" | "touch";
 }) {
   const { t } = useTranslation();
   const toggle = (bit: number) => {
@@ -89,7 +93,7 @@ export function PermissionGrid({
           </p>
           <div className="grid grid-cols-1 gap-0.5">
             {group.permissions.filter((p) => p in PERM_BITS && p !== "CREATE_CUSTOM_ROLES").map((perm) => (
-              <PermissionRow key={perm} perm={perm} value={value} readOnly={readOnly} onToggle={toggle} />
+              <PermissionRow key={perm} perm={perm} value={value} readOnly={readOnly} onToggle={toggle} size={size} />
             ))}
           </div>
         </div>

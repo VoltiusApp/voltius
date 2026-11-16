@@ -159,7 +159,7 @@ export function MemberAccessPanel() {
             type="button"
             aria-expanded={showAll}
             onClick={() => setShowAll((v) => !v)}
-            className="flex items-center gap-1 text-[11px] text-(--t-text-secondary)"
+            className={`flex items-center gap-1 text-[11px] text-(--t-text-secondary)${isMobileShell() ? " min-h-12" : ""}`}
           >
             <Icon icon={showAll ? "lucide:chevron-down" : "lucide:chevron-right"} width={11} />
             {t("members.viewAs.access.allPermissions")}
