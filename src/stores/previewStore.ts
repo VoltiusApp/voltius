@@ -4,6 +4,9 @@ import { subjectRecord, type PreviewSession } from "@/services/previewSnapshot";
 import type { TeamObjectType } from "@/services/teamObjects";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useMobileNavStore } from "@/stores/mobileNavStore";
+import type { MobileNavState } from "@/stores/mobileNavCore";
+import { isMobileShell } from "@/utils/platform";
 import { useTeamStore, type TeamMember, type TeamRole } from "@/stores/teamStore";
 import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
@@ -65,11 +68,19 @@ let refetchTimer: ReturnType<typeof setTimeout> | undefined;
 let sentSeq = 0;
 let appliedSeq = 0;
 
+const MOBILE_OUTSIDE_TABS = new Set<MobileNavState["tab"]>(["terminal", "sftp"]);
+const MOBILE_OUTSIDE_SCREENS = new Set(["panel-sftp", "panel", "panel-docker-logs", "account"]);
+
+export const mobileLeftContent = ({ tab, stack }: Pick<MobileNavState, "tab" | "stack">, settingsOpen: boolean): boolean =>
+  settingsOpen || MOBILE_OUTSIDE_TABS.has(tab) || stack.some((s) => MOBILE_OUTSIDE_SCREENS.has(s.kind));
+
 function leftContent({ teamId, vaultId }: PreviewSession): boolean {
   const ids = useVaultStore.getState().selectedVaultIds;
   const ui = useUIStore.getState();
-  return ids.length !== 1 || ids[0] !== vaultId
-    || ui.homeView || ui.activeNav === "terminal" || ui.sftpPanelOpen || ui.settingsOpen
+  const outside = isMobileShell()
+    ? mobileLeftContent(useMobileNavStore.getState(), ui.settingsOpen)
+    : ui.homeView || ui.activeNav === "terminal" || ui.sftpPanelOpen || ui.settingsOpen;
+  return ids.length !== 1 || ids[0] !== vaultId || outside
     || !useTeamStore.getState().teams.some((t) => t.id === teamId);
 }
 
@@ -97,6 +108,7 @@ function watchSession(session: PreviewSession): (() => void)[] {
   const list = [
     useVaultStore.subscribe(exitIfLeft),
     useUIStore.subscribe(exitIfLeft),
+    useMobileNavStore.subscribe(exitIfLeft),
     useTeamStore.subscribe((s, prev) => {
       exitIfLeft();
       if (store().session !== session) return;
