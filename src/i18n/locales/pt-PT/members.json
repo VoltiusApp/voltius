@@ -684,7 +684,7 @@
         "someRole": "Uma das suas funções",
         "thisItem": "este item",
         "editRules": "Editar regras em {{folder}}",
-        "editRulesLocked": "Precisa da permissão Gerenciar funções em {{folder}} para editar as suas regras",
+        "editRulesLocked": "Precisa da permissão Gerir funções em {{folder}} para editar as suas regras",
         "editRulesUnavailable": "As regras de {{folder}} não podem ser editadas aqui",
         "editAccess": "Editar o acesso de {{name}}",
         "step": {
