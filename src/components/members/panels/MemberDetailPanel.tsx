@@ -35,7 +35,8 @@ import { memberOwnership } from "@/services/teamOwnership";
 import { useOwnershipContext } from "@/hooks/useOwnershipContext";
 import { useHeldPermissionBits } from "@/hooks/usePermission";
 import { usePreviewActive } from "@/hooks/previewScope";
-import { whenWritable } from "@/services/previewGuard";
+import { useGreyedUnless } from "@/hooks/useGreyedUnless";
+import { refuseWhilePreviewing, whenWritable } from "@/services/previewGuard";
 
 export interface MemberDetailPanelProps {
   member: TeamMember;
@@ -44,6 +45,7 @@ export interface MemberDetailPanelProps {
   teamRoles: TeamRole[];
   canManageMembers: boolean;
   canNameMembers: boolean;
+  namingSupported?: boolean;
   isTargetOwner: boolean;
   viewer?: TeamMember;
   onClose: () => void;
@@ -59,13 +61,13 @@ const READONLY_REASON_KEYS: Record<MemberReadOnlyReason, string> = {
 };
 
 export function MemberDetailPanel({
-  member, isMe, teamId, teamRoles, canManageMembers, canNameMembers, isTargetOwner, viewer, onClose, onUpdated,
+  member, isMe, teamId, teamRoles, canManageMembers, canNameMembers, namingSupported = canNameMembers, isTargetOwner, viewer, onClose, onUpdated,
 }: MemberDetailPanelProps) {
   const { t } = useTranslation();
   const push = useHistoryStore((s) => s.push);
   const { locked } = useBusinessLock(teamId);
   const previewing = usePreviewActive() !== null;
-  const lacks = t("members.viewAs.lacksPermission");
+  const greyedUnless = useGreyedUnless();
 
   const setStoredName = useTeamStore((s) => s.setMemberName);
   const roster = useTeamStore((s) => s.membersByTeam[teamId]);
@@ -335,13 +337,16 @@ export function MemberDetailPanel({
       />
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {canNameMembers && (
+        {namingSupported && (
           <FormSection label={t("members.detail.nameLabel")}>
             <MemberNameInput
               aria-label={t("members.detail.nameLabel")}
               value={draftName}
               placeholder={member.handle ? `@${member.handle}` : ""}
-              onChange={whenWritable((e: React.ChangeEvent<HTMLInputElement>) => { markDirty(); setDraftName(e.target.value); })}
+              readOnly={!canNameMembers || previewing}
+              title={greyedUnless(canNameMembers).title}
+              onFocus={() => { refuseWhilePreviewing(); }}
+              onChange={(e) => { markDirty(); setDraftName(e.target.value); }}
               onBlur={flush}
               onKeyDown={(e) => {
                 if (e.key === "Enter") flush();
@@ -355,68 +360,63 @@ export function MemberDetailPanel({
 
         {/* Roles */}
         <FormSection label={t("members.roles")}>
-          {canChangeRoles || previewing ? (
-            <div className="flex flex-wrap items-start gap-2">
-              {[...teamRoles]
-                .filter((r) => !isOwnerRole(r) || ownership.canGrantOwner)
-                .sort((a, b) => a.position - b.position).map((role) => {
+          <div className="flex flex-wrap items-start gap-2">
+            {[...teamRoles]
+              .filter((r) => !isOwnerRole(r) || ownership.canGrantOwner)
+              .sort((a, b) => a.position - b.position).map((role) => {
 
-                const hasRole = member.role_ids.includes(role.id);
-                const lockedOut = locked && !role.is_builtin && !hasRole;
-                const meta = ROLE_META[role.name];
-                const color = role.color ?? meta?.color ?? "var(--t-accent)";
-                const bg = meta?.bg ?? `${color}1a`;
-                return (
-                  <div key={role.id} className="flex flex-col gap-1">
-                  <button
-                    onClick={() => void handleToggleRole(role)}
-                    disabled={toggling === role.id || lockedOut || !canChangeRoles}
-                    title={lockedOut ? t("shared.businessLock.title") : canChangeRoles ? undefined : lacks}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                    style={{
-                      background: justToggled === role.id ? "rgba(52,211,153,0.15)" : hasRole ? bg : "var(--t-bg-elevated)",
-                      color: justToggled === role.id ? "#34d399" : hasRole ? color : "var(--t-text-dim)",
-                      border: `1px solid ${justToggled === role.id ? "#34d39944" : hasRole ? `${color}44` : "var(--t-border)"}`,
-                      opacity: toggling === role.id ? 0.6 : 1,
-                      transition: "background 0.3s, color 0.3s, border-color 0.3s",
-                    }}
-                  >
-                    {toggling === role.id
-                      ? <Icon icon="lucide:loader-circle" width={10} className="animate-spin" />
-                      : justToggled === role.id
-                        ? <Icon icon="lucide:check-check" width={10} />
-                        : hasRole
-                          ? <Icon icon="lucide:check" width={10} />
-                          : null
-                    }
-                    {roleLabel(t, role.name)}
-                    {role.is_builtin
-                      ? <Icon icon="lucide:lock" width={9} style={{ color: "var(--t-text-dim)", opacity: 0.6 }} />
-                      : <Icon icon="lucide:sparkles" width={9} style={{ color: "var(--t-text-dim)", opacity: 0.7 }} />
-                    }
-                  </button>
-                  {hasRole && <RoleBlurb name={role.name} />}
-                  </div>
-                );
-              })}
-              {!locked && (
-              <button
-                onClick={whenWritable(() => setCreatingRole(true))}
-                disabled={!canChangeRoles}
-                title={canChangeRoles ? undefined : lacks}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                style={{ color: "var(--t-accent)", border: "1px dashed var(--t-accent)", background: "transparent", opacity: 0.7 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.7"; }}
-              >
-                <Icon icon="lucide:plus" width={10} />
-                {t("members.newRole")}
-              </button>
-              )}
-            </div>
-          ) : (
-            <RoleBadges member={member} roles={teamRoles} />
-          )}
+              const hasRole = member.role_ids.includes(role.id);
+              const lockedOut = locked && !role.is_builtin && !hasRole;
+              const meta = ROLE_META[role.name];
+              const color = role.color ?? meta?.color ?? "var(--t-accent)";
+              const bg = meta?.bg ?? `${color}1a`;
+              return (
+                <div key={role.id} className="flex flex-col gap-1">
+                <button
+                  onClick={() => void handleToggleRole(role)}
+                  disabled={toggling === role.id || lockedOut || greyedUnless(canChangeRoles).disabled}
+                  title={lockedOut ? t("shared.businessLock.title") : greyedUnless(canChangeRoles).title}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                  style={{
+                    background: justToggled === role.id ? "rgba(52,211,153,0.15)" : hasRole ? bg : "var(--t-bg-elevated)",
+                    color: justToggled === role.id ? "#34d399" : hasRole ? color : "var(--t-text-dim)",
+                    border: `1px solid ${justToggled === role.id ? "#34d39944" : hasRole ? `${color}44` : "var(--t-border)"}`,
+                    opacity: toggling === role.id ? 0.6 : 1,
+                    transition: "background 0.3s, color 0.3s, border-color 0.3s",
+                  }}
+                >
+                  {toggling === role.id
+                    ? <Icon icon="lucide:loader-circle" width={10} className="animate-spin" />
+                    : justToggled === role.id
+                      ? <Icon icon="lucide:check-check" width={10} />
+                      : hasRole
+                        ? <Icon icon="lucide:check" width={10} />
+                        : null
+                  }
+                  {roleLabel(t, role.name)}
+                  {role.is_builtin
+                    ? <Icon icon="lucide:lock" width={9} style={{ color: "var(--t-text-dim)", opacity: 0.6 }} />
+                    : <Icon icon="lucide:sparkles" width={9} style={{ color: "var(--t-text-dim)", opacity: 0.7 }} />
+                  }
+                </button>
+                {hasRole && <RoleBlurb name={role.name} />}
+                </div>
+              );
+            })}
+            {!locked && (
+            <button
+              onClick={whenWritable(() => setCreatingRole(true))}
+              {...greyedUnless(canChangeRoles)}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+              style={{ color: "var(--t-accent)", border: "1px dashed var(--t-accent)", background: "transparent", opacity: 0.7 }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.7"; }}
+            >
+              <Icon icon="lucide:plus" width={10} />
+              {t("members.newRole")}
+            </button>
+            )}
+          </div>
         </FormSection>
 
         {/* Permissions */}
@@ -527,26 +527,23 @@ export function MemberDetailPanel({
         )}
 
         {/* Danger zone */}
-        {(canRemove || canLeave || previewing) && (
-          <FormSection label={t("members.dangerZone")}>
-            <button
-              onClick={whenWritable(() => setOffboarding(canLeave ? "leave" : "remove"))}
-              disabled={!(canRemove || canLeave)}
-              title={canRemove || canLeave ? undefined : lacks}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
-              style={{
-                background: "var(--t-bg-elevated)",
-                color: "var(--t-status-error)",
-                border: "1px solid rgba(239,68,68,0.3)",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.08)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
-            >
-              <Icon icon={canLeave ? "lucide:log-out" : "lucide:user-minus"} width={13} />
-              {canLeave ? t("members.leaveTeam") : t("members.removeFromTeam")}
-            </button>
-          </FormSection>
-        )}
+        <FormSection label={t("members.dangerZone")}>
+          <button
+            onClick={whenWritable(() => setOffboarding(canLeave ? "leave" : "remove"))}
+            {...greyedUnless(canRemove || canLeave)}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+            style={{
+              background: "var(--t-bg-elevated)",
+              color: "var(--t-status-error)",
+              border: "1px solid rgba(239,68,68,0.3)",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.08)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
+          >
+            <Icon icon={canLeave ? "lucide:log-out" : "lucide:user-minus"} width={13} />
+            {canLeave ? t("members.leaveTeam") : t("members.removeFromTeam")}
+          </button>
+        </FormSection>
 
         {error && <p className="text-xs px-1" style={{ color: "var(--t-status-error)" }}>{error}</p>}
       </div>

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ToolbarViewControls } from "@/components/shared/ToolbarViewControls";
 import type { LayoutMode, SortMode } from "@/components/shared/ToolbarViewControls";
 import type { MembersPanel } from "@/stores/uiStore";
-import { usePreviewActive } from "@/hooks/previewScope";
+import { useGreyedUnless, type Greyed } from "@/hooks/useGreyedUnless";
 
 export interface MembersToolbarProps {
   search: string;
@@ -35,8 +35,7 @@ export function MembersToolbar({
   vaultTabs, primaryVaultId, onSelectVault,
 }: MembersToolbarProps) {
   const { t } = useTranslation();
-  const previewing = usePreviewActive() !== null;
-  const lacks = (has: boolean | undefined) => (has ? undefined : t("members.viewAs.lacksPermission"));
+  const greyedUnless = useGreyedUnless();
   return (
     <div
       className="flex items-center gap-2 px-5 py-2.5 shrink-0"
@@ -82,53 +81,48 @@ export function MembersToolbar({
           </span>
         )}
 
-        {(canManageVault || previewing) && (
-          <PanelButton active={activePanel === "security"} icon="lucide:shield-check" label={t("members.security.button")} onClick={() => onTogglePanel("security")} disabledReason={lacks(canManageVault)} />
+        {canManageVault !== undefined && (
+          <PanelButton active={activePanel === "security"} icon="lucide:shield-check" label={t("members.security.button")} onClick={() => onTogglePanel("security")} {...greyedUnless(canManageVault)} />
         )}
-        {(canManageRoles || previewing) && (
-          <PanelButton active={activePanel === "roles"} icon="lucide:shield" label={t("members.roles")} onClick={() => onTogglePanel("roles")} disabledReason={lacks(canManageRoles)} />
+        {canManageRoles !== undefined && (
+          <PanelButton active={activePanel === "roles"} icon="lucide:shield" label={t("members.roles")} onClick={() => onTogglePanel("roles")} {...greyedUnless(canManageRoles)} />
         )}
 
-        {(canInvite || previewing) && (
-          <>
-            <div className="w-px h-5 self-center bg-(--t-border-hover)" />
-            <button
-              onClick={() => onTogglePanel("invite")}
-              disabled={!canInvite}
-              title={lacks(canInvite)}
-              className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0"
-              style={{
-                background: activePanel === "invite" ? "var(--t-accent-hover)" : "var(--t-accent)",
-                color: "var(--t-on-accent, #fff)",
-                border: "1px solid var(--t-accent-hover)",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-accent-hover)")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = activePanel === "invite" ? "var(--t-accent-hover)" : "var(--t-accent)")}
+        <div className="w-px h-5 self-center bg-(--t-border-hover)" />
+        <button
+          onClick={() => onTogglePanel("invite")}
+          {...greyedUnless(canInvite)}
+          className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0"
+          style={{
+            background: activePanel === "invite" ? "var(--t-accent-hover)" : "var(--t-accent)",
+            color: "var(--t-on-accent, #fff)",
+            border: "1px solid var(--t-accent-hover)",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-accent-hover)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = activePanel === "invite" ? "var(--t-accent-hover)" : "var(--t-accent)")}
+        >
+          <Icon icon="lucide:user-plus" width={13} />
+          {t("members.toolbar.inviteBtn")}
+          {!!pendingCount && (
+            <span
+              className="absolute -top-1.5 -right-1.5 flex items-center justify-center text-[9px] font-bold rounded-full min-w-[16px] h-4 px-0.5"
+              style={{ background: "var(--t-status-error)", color: "#fff" }}
             >
-              <Icon icon="lucide:user-plus" width={13} />
-              {t("members.toolbar.inviteBtn")}
-              {!!pendingCount && (
-                <span
-                  className="absolute -top-1.5 -right-1.5 flex items-center justify-center text-[9px] font-bold rounded-full min-w-[16px] h-4 px-0.5"
-                  style={{ background: "var(--t-status-error)", color: "#fff" }}
-                >
-                  {pendingCount}
-                </span>
-              )}
-            </button>
-          </>
-        )}
+              {pendingCount}
+            </span>
+          )}
+        </button>
       </div>
     </div>
   );
 }
 
-function PanelButton({ active, icon, label, onClick, disabledReason }: { active: boolean; icon: string; label: string; onClick: () => void; disabledReason?: string }) {
+function PanelButton({ active, icon, label, onClick, disabled, title }: { active: boolean; icon: string; label: string; onClick: () => void } & Partial<Greyed>) {
   return (
     <button
       onClick={onClick}
-      disabled={!!disabledReason}
-      title={disabledReason}
+      disabled={disabled}
+      title={title}
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0"
       style={{
         background: active ? "color-mix(in srgb, var(--t-accent) 15%, transparent)" : "var(--t-bg-elevated)",

@@ -118,7 +118,7 @@ test("an old server hides the Owner role even from an Owner", () => {
 test("the primary owner cannot be removed, and no transfer is offered on them", () => {
   renderPanel(person("primary", ["r-owner"]), ownerViewer);
   expect(screen.getByText("members.ownership.primary")).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "members.removeFromTeam" })).toBeNull();
+  expect((screen.getByRole("button", { name: "members.removeFromTeam" }) as HTMLButtonElement).disabled).toBe(true);
   expect(screen.queryByRole("button", { name: "members.ownership.makePrimary" })).toBeNull();
 });
 

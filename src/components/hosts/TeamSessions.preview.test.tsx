@@ -1,5 +1,5 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { PreviewContentScope } from "@/hooks/previewScope";
 import { startPreview, stopPreview } from "@/test/preview";
 
@@ -20,6 +20,8 @@ const h = vi.hoisted(() => {
     Object.assign((sel?: (s: S) => unknown) => (sel ? sel(state) : state), { getState: () => state });
   return {
     granted: new Set<string>(),
+    toast: vi.fn(),
+    join: vi.fn(),
     asked: [] as [string, string][],
     teamState: {
       activeSessions: [{
@@ -33,6 +35,9 @@ const h = vi.hoisted(() => {
   };
 });
 
+vi.mock("@/services/appToast", () => ({ appToast: (...a: unknown[]) => h.toast(...a) }));
+vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
+vi.mock("@/services/teamSessionJoin", () => ({ joinTeamSessionAndOpenTab: (...a: unknown[]) => h.join(...a) }));
 vi.mock("@/services/teamService", () => ({ getMyUserId: async () => "me" }));
 vi.mock("@/hooks/useAccessibleVaultIds", () => ({ useAccessibleVaultIds: () => ["team-1"] }));
 vi.mock("@/hooks/usePermission", () => ({
@@ -47,7 +52,7 @@ vi.mock("@/stores/uiStore", () => ({ useUIStore: h.selectorStore({ setActiveNav:
 
 import { TeamSessions } from "./TeamSessions";
 
-beforeEach(() => { h.granted = new Set(); h.asked.length = 0; });
+beforeEach(() => { h.granted = new Set(); h.asked.length = 0; h.toast.mockReset(); h.join.mockReset(); });
 afterEach(() => { cleanup(); stopPreview(); });
 
 const renderSessions = () => render(<PreviewContentScope><TeamSessions /></PreviewContentScope>);
@@ -71,7 +76,19 @@ test("join controls are disabled while the subject lacks join_terminal_session",
   const join = screen.getByText("hosts.teamSessions.join").closest("button")!;
   expect(join.disabled).toBe(true);
   expect((screen.getByText("hosts.teamSessions.joinByCode").closest("button") as HTMLButtonElement).disabled).toBe(true);
-  fireEvent.click(join);
+  expect(join.title).toBe("members.viewAs.lacksPermission");
+});
+
+test("a permitted join click is refused at click time with one toast and no join", async () => {
+  h.granted = new Set(["VIEW_TERMINAL_SESSIONS", "JOIN_TERMINAL_SESSION"]);
+  startPreview();
+  renderSessions();
+
+  fireEvent.click(screen.getByText("hosts.teamSessions.join"));
+
+  await waitFor(() => expect(h.toast).toHaveBeenCalledWith("info", "members.viewAs.readOnly"));
+  expect(h.toast).toHaveBeenCalledTimes(1);
+  expect(h.join).not.toHaveBeenCalled();
 });
 
 test("join controls are enabled once the subject holds join_terminal_session", () => {

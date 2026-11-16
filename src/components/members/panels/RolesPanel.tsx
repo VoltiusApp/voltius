@@ -6,6 +6,7 @@ import type { TeamRole } from "@/stores/teamStore";
 import { ColorSwatches } from "@/components/shared/ColorSwatches";
 import { type Permission, PERM_BITS, usePermissions } from "@/hooks/usePermission";
 import { whenWritable } from "@/services/previewGuard";
+import { useGreyedUnless } from "@/hooks/useGreyedUnless";
 import { PERMISSION_GROUPS, type PermissionGroupKey } from "@/services/permissions";
 import { permissionLabel, roleLabel } from "@/components/members/roleChips";
 import { CheckboxBox } from "@/components/shared/Checkbox";
@@ -270,6 +271,7 @@ function RoleCard({
   role,
   canEdit,
   canDelete,
+  editLocked,
   dragHandleProps,
   isDragOver,
 }: {
@@ -277,11 +279,13 @@ function RoleCard({
   role: TeamRole;
   canEdit: boolean;
   canDelete: boolean;
+  editLocked: boolean;
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
   isDragOver?: boolean;
 }) {
   const { t } = useTranslation();
   const { deleteRole } = useTeamStore();
+  const greyedUnless = useGreyedUnless();
   const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -329,35 +333,34 @@ function RoleCard({
             <Icon icon="lucide:shield" width={13} style={{ color: "var(--t-accent)" }} />
             <span className="flex-1 text-sm font-medium truncate" style={{ color: "var(--t-text-primary)" }}>{role.name}</span>
           </button>
-          {canEdit && (
+          {!editLocked && (
             <button
               onClick={whenWritable(() => setEditing(true))}
+              {...greyedUnless(canEdit)}
               className="p-1.5 rounded-lg transition-colors"
               style={{ color: "var(--t-text-dim)" }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
-              title={t("settings.vaults.rolesPanel.editRole")}
+              title={greyedUnless(canEdit).title ?? t("settings.vaults.rolesPanel.editRole")}
             >
               <Icon icon="lucide:pencil" width={13} />
             </button>
           )}
-          {canDelete && (
-            <button
-              onClick={() => void handleDelete()}
-              disabled={deleting}
-              className="p-1.5 rounded-lg transition-colors"
-              style={{ color: confirmDelete ? "var(--t-status-error)" : "var(--t-text-dim)" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = confirmDelete ? "var(--t-status-error)" : "var(--t-text-dim)"; }}
-              onBlur={() => setConfirmDelete(false)}
-              title={confirmDelete ? t("settings.vaults.rolesPanel.clickToConfirm") : t("settings.vaults.rolesPanel.deleteRoleTitle")}
-            >
-              {deleting
-                ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin" />
-                : <Icon icon={confirmDelete ? "lucide:triangle-alert" : "lucide:trash-2"} width={13} />
-              }
-            </button>
-          )}
+          <button
+            onClick={() => void handleDelete()}
+            disabled={deleting || greyedUnless(canDelete).disabled}
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ color: confirmDelete ? "var(--t-status-error)" : "var(--t-text-dim)" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = confirmDelete ? "var(--t-status-error)" : "var(--t-text-dim)"; }}
+            onBlur={() => setConfirmDelete(false)}
+            title={greyedUnless(canDelete).title ?? (confirmDelete ? t("settings.vaults.rolesPanel.clickToConfirm") : t("settings.vaults.rolesPanel.deleteRoleTitle"))}
+          >
+            {deleting
+              ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin" />
+              : <Icon icon={confirmDelete ? "lucide:triangle-alert" : "lucide:trash-2"} width={13} />
+            }
+          </button>
           <button onClick={() => setExpanded((v) => !v)}>
             <Icon icon={expanded ? "lucide:chevron-up" : "lucide:chevron-down"} width={13} style={{ color: "var(--t-text-dim)" }} />
           </button>
@@ -390,6 +393,7 @@ export function TeamRolesPanel({ teamId }: { teamId: string }) {
 
   const roles = rolesByTeam[teamId] ?? [];
   const canEdit = can("MANAGE_ROLES", teamId);
+  const greyedUnless = useGreyedUnless();
 
   const editable = canEdit && !locked;
 
@@ -458,9 +462,10 @@ export function TeamRolesPanel({ teamId }: { teamId: string }) {
           <h4 className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--t-text-dim)" }}>
             {t("settings.vaults.rolesPanel.customRoles")}
           </h4>
-          {editable && (
+          {!locked && (
             <button
               onClick={whenWritable(() => setCreating(true))}
+              {...greyedUnless(canEdit)}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-colors"
               style={{ color: "var(--t-accent)", border: "1px solid var(--t-accent)", background: "transparent" }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(var(--t-accent-rgb, 99,102,241), 0.1)"; }}
@@ -491,7 +496,8 @@ export function TeamRolesPanel({ teamId }: { teamId: string }) {
                 key={role.id}
                 teamId={teamId}
                 role={role}
-                canEdit={editable}
+                canEdit={canEdit}
+                editLocked={locked}
                 canDelete={canEdit}
                 isDragOver={dropIdx === idx && dragIdx !== null && dragIdx !== idx}
                 dragHandleProps={editable ? {

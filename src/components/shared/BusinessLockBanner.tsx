@@ -3,12 +3,13 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { openBillingCheckout } from "@/services/billingCheckout";
+import { whenWritable } from "@/services/previewGuard";
 import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
 
 export function UpgradeAction({ teamId, look }: { teamId: string; look: "button" | "link" }) {
   const { t } = useTranslation();
   const { isOwner } = useBusinessLock(teamId);
-  const upgrade = () => void openBillingCheckout("business");
+  const upgrade = whenWritable(() => void openBillingCheckout("business"));
   if (isOwner === false) {
     return look === "link" ? null : <p className="text-xs text-(--t-text-dim)">{t("shared.businessLock.ownerOnly")}</p>;
   }

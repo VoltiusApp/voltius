@@ -45,12 +45,14 @@ test("business + MANAGE_ROLES → 'New role' button renders", async () => {
   expect(await screen.findByText("settings.vaults.rolesPanel.newRoleBtn")).toBeTruthy();
 });
 
-test("business but NO MANAGE_ROLES → no 'New role' button, read-only empty state", async () => {
+test("business but NO MANAGE_ROLES → greyed 'New role' button, read-only empty state", async () => {
   api.listRoles.mockResolvedValue([role("r1", PERM_BITS.VIEW_SECRETS)]);
   api.listMembers.mockResolvedValue([member("me", ["r1"])]);
   render(<TeamRolesPanel teamId="t1" />);
   expect(await screen.findByText("settings.vaults.rolesPanel.noCustomRoles")).toBeTruthy();
-  expect(screen.queryByText("settings.vaults.rolesPanel.newRoleBtn")).toBeNull();
+  const newRole = screen.getByText("settings.vaults.rolesPanel.newRoleBtn").closest("button")!;
+  expect(newRole.disabled).toBe(true);
+  expect(newRole.title).toBe("members.viewAs.lacksPermission");
 });
 
 test("a locked team lists custom roles under the Business card, delete-only", async () => {
@@ -70,7 +72,7 @@ test("a locked team lists custom roles under the Business card, delete-only", as
   await waitFor(() => expect(api.deleteRole).toHaveBeenCalledWith("t1", "auditor"));
 });
 
-test("a locked team without Manage roles lists custom roles with no Delete", async () => {
+test("a locked team without Manage roles lists custom roles with a greyed Delete", async () => {
   lock.value = { locked: true, isOwner: false };
   useTeamStore.setState({ teams: [makeTeam("t1", { owner_tier: "free" })] });
   api.listRoles.mockResolvedValue([role("r1", PERM_BITS.VIEW, true), role("auditor", PERM_BITS.MANAGE_ROLES)]);
@@ -78,6 +80,7 @@ test("a locked team without Manage roles lists custom roles with no Delete", asy
   render(<TeamRolesPanel teamId="t1" />);
   expect(await screen.findByText("auditor")).toBeTruthy();
   expect(screen.queryByTitle("settings.vaults.rolesPanel.deleteRoleTitle")).toBeNull();
+  expect((screen.getByTitle("members.viewAs.lacksPermission") as HTMLButtonElement).disabled).toBe(true);
 });
 
 test("a locked team with no custom roles shows the card, not the empty state", async () => {

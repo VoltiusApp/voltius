@@ -16,7 +16,7 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
-vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("@iconify/react", () => ({ Icon: ({ icon }: { icon: string }) => <i data-icon={icon} /> }));
 vi.mock("@/components/theme-creator/ColorPicker", () => ({ ColorPicker: () => null }));
 
 import { TeamRolesPanel } from "@/components/members/panels/RolesPanel";
@@ -81,15 +81,18 @@ test("edit button opens the RoleModal editor", async () => {
   expect(await screen.findByText("settings.vaults.rolesPanel.saveChanges")).toBeTruthy();
 });
 
-test("canEdit=false (no MANAGE_ROLES): edit/delete controls hidden on custom role", async () => {
+test("canEdit=false (no MANAGE_ROLES): edit/delete controls greyed on custom role", async () => {
   api.listRoles.mockResolvedValue([role("viewer", PERM_BITS.VIEW_SECRETS, 0, true), role("custom1", 0, 100)]);
   api.listMembers.mockResolvedValue([member("me", ["viewer"])]);
   render(<TeamRolesPanel teamId="t1" />);
 
   // custom role list renders (business), but no edit/delete affordances
   await waitFor(() => expect(useTeamStore.getState().rolesByTeam.t1).toBeTruthy());
-  expect(screen.queryByTitle("settings.vaults.rolesPanel.editRole")).toBeNull();
-  expect(screen.queryByTitle("settings.vaults.rolesPanel.deleteRoleTitle")).toBeNull();
+  for (const icon of ["lucide:pencil", "lucide:trash-2"]) {
+    const button = document.querySelector<HTMLButtonElement>(`button[title="members.viewAs.lacksPermission"]:has([data-icon="${icon}"])`);
+    expect(button, icon).not.toBeNull();
+    expect(button!.disabled, icon).toBe(true);
+  }
 });
 
 test("built-in roles render as read-only builtin cards, never as editable custom cards", async () => {

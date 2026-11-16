@@ -17,6 +17,8 @@ import { avatarLabel, usePeerResolver } from "@/services/peerName";
 import { formatRelative } from "@/utils/localeFormat";
 import { usePermissions } from "@/hooks/usePermission";
 import { usePreviewActive } from "@/hooks/previewScope";
+import { useGreyedUnless } from "@/hooks/useGreyedUnless";
+import { refuseWhilePreviewing } from "@/services/previewGuard";
 
 function JoinByCodeButton({ onClick, disabledReason }: { onClick: () => void; disabledReason?: string }) {
   const { t } = useTranslation();
@@ -44,7 +46,7 @@ export function TeamSessions() {
   const preview = usePreviewActive();
   const sessionsLocked = !!preview && !can("VIEW_TERMINAL_SESSIONS", preview.vaultId);
   const joinLocked = !!preview && !can("JOIN_TERMINAL_SESSION", preview.vaultId);
-  const joinLockedReason = joinLocked ? t("members.viewAs.lacksPermission") : undefined;
+  const joinGrey = useGreyedUnless()(!joinLocked);
   const [myUserId, setMyUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -101,7 +103,7 @@ export function TeamSessions() {
   };
 
   const handleJoinCard = async (session: (typeof activeSessions)[0]) => {
-    if (joinLocked) return;
+    if (joinLocked || refuseWhilePreviewing()) return;
     if (myMpSessionIds.has(session.id)) {
       const localId = Object.entries(useMpStore.getState().connections).find(
         ([, v]) => v.multiplayerSessionId === session.id,
@@ -118,7 +120,7 @@ export function TeamSessions() {
 
   const handleJoinByCode = async () => {
     const code = inviteCode.trim();
-    if (!code) return;
+    if (!code || refuseWhilePreviewing()) return;
 
     if (!isJoinInput(code)) {
       setJoinError(t("hosts.teamSessions.invalidCodeFormat"));
@@ -162,7 +164,7 @@ export function TeamSessions() {
           <h2 className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
             {t("hosts.teamSessions.title")}
           </h2>
-          <JoinByCodeButton onClick={() => setShowJoinModal(true)} disabledReason={joinLockedReason} />
+          <JoinByCodeButton onClick={() => setShowJoinModal(true)} disabledReason={joinGrey.title} />
         </div>
         <p className="text-xs mb-3 text-(--t-text-dim)">
           {t("hosts.teamSessions.emptyHint")}
@@ -241,7 +243,7 @@ export function TeamSessions() {
           {t("hosts.teamSessions.live")}
         </span>
         <div className="ml-auto">
-          <JoinByCodeButton onClick={() => setShowJoinModal((v) => !v)} disabledReason={joinLockedReason} />
+          <JoinByCodeButton onClick={() => setShowJoinModal((v) => !v)} disabledReason={joinGrey.title} />
         </div>
       </div>
 
@@ -309,8 +311,7 @@ export function TeamSessions() {
                 {/* Join / Resume */}
                 <button
                   onClick={(e) => { e.stopPropagation(); void handleJoinCard(session); }}
-                  disabled={joinLocked}
-                  title={joinLockedReason}
+                  {...joinGrey}
                   className={`disabled:opacity-40 disabled:cursor-not-allowed shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                     alreadyIn
                       ? "border border-(--t-border) bg-(--t-bg-terminal) text-(--t-accent)"

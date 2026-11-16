@@ -55,7 +55,9 @@ function renderMenu(items: ContextMenuItem[] | undefined, prefix: string): React
   if (!items) return null;
   return items.map((it, i) => (
     <span key={`${prefix}::${it.label}::${i}`}>
-      {it.onClick && <button data-testid={`${prefix}::${it.label}`} onClick={() => it.onClick!()}>{it.label}</button>}
+      {it.onClick && (
+        <button data-testid={`${prefix}::${it.label}`} disabled={!!it.disabledReason} title={it.disabledReason} onClick={() => it.onClick!()}>{it.label}</button>
+      )}
       {it.children && renderMenu(it.children, `${prefix}::${it.label}`)}
     </span>
   ));
@@ -156,7 +158,8 @@ async function renderPage() {
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
 }
 
-const toolbarButton = (label: string) => screen.queryByText(label)?.closest("button") ?? null;
+const toolbarButton = (label: string) =>
+  screen.queryAllByText(label).map((el) => el.closest("button")).find((button) => button && !button.dataset.testid) ?? null;
 
 test("members_page_shows_the_subject_as_you_and_hides_manage_controls_greyed", async () => {
   h.subject = "u1";
@@ -170,6 +173,11 @@ test("members_page_shows_the_subject_as_you_and_hides_manage_controls_greyed", a
     expect(button, label).not.toBeNull();
     expect(button!.disabled, label).toBe(true);
     expect(button!.title, label).toBe("members.viewAs.lacksPermission");
+  }
+  for (const item of ["members.kick", "members.roles"]) {
+    const entry = screen.getByTestId(`ctx-me::${item}`) as HTMLButtonElement;
+    expect(entry.disabled, item).toBe(true);
+    expect(entry.title, item).toBe("members.viewAs.lacksPermission");
   }
 });
 
@@ -191,21 +199,21 @@ test("members_area_write_controls_refuse_while_previewing", async () => {
 });
 
 test("pages_unchanged_outside_preview", async () => {
-  const gates = () => ({
-    invite: !!toolbarButton("members.toolbar.inviteBtn"),
-    roles: !!toolbarButton("members.roles"),
-    security: !!toolbarButton("members.security.button"),
-    kick: !!screen.queryByTestId("ctx-u1::members.kick"),
+  const greyed = (roleItem: string) => ({
+    invite: toolbarButton("members.toolbar.inviteBtn")!.disabled,
+    roles: toolbarButton("members.roles")!.disabled,
+    security: toolbarButton("members.security.button")!.disabled,
+    kick: (screen.getByTestId("ctx-u1::members.kick") as HTMLButtonElement).disabled,
+    roleItem: (screen.getByTestId(roleItem) as HTMLButtonElement).disabled,
   });
 
   await renderPage();
-  expect(gates()).toEqual({ invite: false, roles: false, security: false, kick: false });
+  expect(greyed("ctx-u1::members.roles")).toEqual({ invite: true, roles: true, security: true, kick: true, roleItem: true });
   cleanup();
 
   h.granted = new Set(ALL);
   await renderPage();
-  expect(gates()).toEqual({ invite: true, roles: true, security: true, kick: true });
-  expect(toolbarButton("members.toolbar.inviteBtn")!.disabled).toBe(false);
+  expect(greyed("ctx-u1::members.roles::members.roleName.editor")).toEqual({ invite: false, roles: false, security: false, kick: false, roleItem: false });
 
   fireEvent.click(screen.getByTestId("ctx-u1::members.roles::members.roleName.editor"));
   await waitFor(() => expect(h.assignMemberRole).toHaveBeenCalledWith("t1", "u1", "r-ed"));

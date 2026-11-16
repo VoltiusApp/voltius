@@ -23,6 +23,7 @@ import { PanelShell, PanelHeader } from "@/components/shared/Panel";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
 import { hasBuiltinRole, usePermissionSubjectId, usePermissions } from "@/hooks/usePermission";
+import { useGreyedUnless } from "@/hooks/useGreyedUnless";
 import { refuseWhilePreviewing, whenWritable } from "@/services/previewGuard";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { runTeamAction } from "@/services/teamActionFeedback";
@@ -71,6 +72,8 @@ export default function MembersPage() {
 
   const myUserId = usePermissionSubjectId();
   const can = usePermissions();
+  const greyedUnless = useGreyedUnless();
+  const noPermission = greyedUnless(false).title;
   const [myHandle, setMyHandle] = useState<string | null>(null);
   const [primaryVaultId, setPrimaryVaultId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -251,7 +254,9 @@ export default function MembersPage() {
       onClick: () => openDetail(member.user_id),
     }];
 
-    if (canActOnMember && teamRoles.length > 0) {
+    if (!canManageMembers) {
+      items.push({ label: t("members.roles"), icon: "lucide:shield", disabledReason: noPermission, onClick: () => {} });
+    } else if (canActOnMember && teamRoles.length > 0) {
       const sortedRoles = [...teamRoles]
         .filter((r) => !isOwnerRole(r))
         .sort((a, b) => a.position - b.position);
@@ -319,12 +324,13 @@ export default function MembersPage() {
       });
     }
 
-    if (canActOnMember) {
+    if (canActOnMember || !canManageMembers) {
       items.push({
         label: t("members.kick"),
         icon: "lucide:user-minus",
         danger: true,
         divider: true,
+        disabledReason: canManageMembers ? undefined : noPermission,
         onClick: () => askOffboarding([member]),
       });
     }
@@ -342,7 +348,11 @@ export default function MembersPage() {
 
     const items: ContextMenuItem[] = [];
 
-    if (canManageMembers && teamRoles.length > 0) {
+    if (!canManageMembers) {
+      for (const [label, icon] of [["assignRoleBulk", "lucide:shield"], ["removeRoleBulk", "lucide:shield-off"]]) {
+        items.push({ label: t(`members.contextMenu.${label}`, { count: selectedMembers.length }), icon, disabledReason: noPermission, onClick: () => {} });
+      }
+    } else if (teamRoles.length > 0) {
       const sortedBulkRoles = [...teamRoles]
         .filter((r) => !isOwnerRole(r))
         .sort((a, b) => a.position - b.position);
@@ -375,19 +385,18 @@ export default function MembersPage() {
       });
     }
 
-    if (canManageMembers) {
-      items.push({
-        label: t("members.contextMenu.kickBulk", { count: selectedMembers.length }),
-        icon: "lucide:user-minus",
-        danger: true,
-        divider: items.length > 0,
-        onClick: () => askOffboarding(selectedMembers),
-      });
-    }
+    items.push({
+      label: t("members.contextMenu.kickBulk", { count: selectedMembers.length }),
+      icon: "lucide:user-minus",
+      danger: true,
+      divider: items.length > 0,
+      disabledReason: canManageMembers ? undefined : noPermission,
+      onClick: () => askOffboarding(selectedMembers),
+    });
 
     return items.length > 0 ? items : undefined;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIdSet, sortedMembers, myUserId, canManageMembers, teamRoles, teamId, t, businessLocked, ownershipCtx.multiOwner, ownershipCtx.billingOwnerId, ownershipCtx.viewerIsOwner, ownershipCtx.viewerIsPrimary]);
+  }, [selectedIdSet, sortedMembers, myUserId, canManageMembers, noPermission, teamRoles, teamId, t, businessLocked, ownershipCtx.multiOwner, ownershipCtx.billingOwnerId, ownershipCtx.viewerIsOwner, ownershipCtx.viewerIsPrimary]);
 
 const vaultTabs = selectedVaultIds.length > 1
     ? selectedVaultIds.map((vid) => {
@@ -535,6 +544,7 @@ const vaultTabs = selectedVaultIds.length > 1
               teamRoles={teamRoles}
               canManageMembers={canManageMembers}
               canNameMembers={canNameMembers}
+              namingSupported={memberNamingSupported(members)}
               isTargetOwner={isOwnerMember(detailMember)}
               viewer={myMember}
               onClose={() => setPanel(null)}

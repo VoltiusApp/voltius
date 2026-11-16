@@ -2,6 +2,8 @@ import { test, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import type { TeamMember, TeamRole } from "@/stores/teamStore";
 import { PERM_BITS, effectivePermissions } from "@/services/permissions";
+import { PreviewContentScope } from "@/hooks/previewScope";
+import { startPreview, stopPreview } from "@/test/preview";
 
 const h = vi.hoisted(() => ({
   assign: vi.fn(),
@@ -73,6 +75,8 @@ vi.mock("@/services/serverCapabilities", async (orig) => ({
 
 const lock = vi.hoisted(() => ({ value: { locked: false, isOwner: true } }));
 const held = vi.hoisted(() => ({ value: 0 }));
+const toast = vi.hoisted(() => vi.fn());
+vi.mock("@/services/appToast", () => ({ appToast: toast }));
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => lock.value }));
 vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn() }));
 
@@ -137,18 +141,44 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
-test("canManageMembers=false: no role-toggle buttons and no remove button", () => {
+const expectGreyed = (name: string) => {
+  const button = screen.getByRole("button", { name }) as HTMLButtonElement;
+  expect(button.disabled, name).toBe(true);
+  expect(button.title, name).toBe("members.viewAs.lacksPermission");
+};
+
+test("canManageMembers=false: role-toggle and remove buttons are greyed with a reason", () => {
   render(<MemberDetailPanel {...baseProps} canManageMembers={false} />);
-  expect(screen.queryByRole("button", { name: "members.roleName.editor" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "members.roleName.member" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "members.removeFromTeam" })).toBeNull();
+  expectGreyed("members.roleName.editor");
+  expectGreyed("members.roleName.member");
+  expectGreyed("members.removeFromTeam");
 });
 
-test("isMe=true: role-toggle buttons and remove button absent even though canManageMembers=true", () => {
+test("a name field the subject cannot edit stays visible, read-only, with the reason", () => {
+  render(<MemberDetailPanel {...baseProps} canNameMembers={false} namingSupported />);
+  const input = screen.getByLabelText("members.detail.nameLabel") as HTMLInputElement;
+  expect(input.readOnly).toBe(true);
+  expect(input.title).toBe("members.viewAs.lacksPermission");
+});
+
+test("a name field is read-only while previewing and refuses once per focus, not per keystroke", async () => {
+  toast.mockReset();
+  startPreview();
+  render(<PreviewContentScope><MemberDetailPanel {...baseProps} canNameMembers namingSupported /></PreviewContentScope>);
+  const input = screen.getByLabelText("members.detail.nameLabel") as HTMLInputElement;
+  expect(input.readOnly).toBe(true);
+  fireEvent.focus(input);
+  await waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+  fireEvent.change(input, { target: { value: "x" } });
+  await new Promise((r) => setTimeout(r, 20));
+  expect(toast).toHaveBeenCalledTimes(1);
+  stopPreview();
+});
+
+test("isMe=true: role-toggle buttons are greyed even though canManageMembers=true", () => {
   render(<MemberDetailPanel {...baseProps} isMe={true} />);
-  expect(screen.queryByRole("button", { name: "members.roleName.editor" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "members.roleName.member" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "members.removeFromTeam" })).toBeNull();
+  expectGreyed("members.roleName.editor");
+  expectGreyed("members.roleName.member");
 });
 
 // The JSX filters `r.is_builtin && r.name === "owner"` out of the toggle list entirely
@@ -157,10 +187,10 @@ test("isMe=true: role-toggle buttons and remove button absent even though canMan
 // cannotRemoveOwnerRole guard is unreachable via the UI as currently written — there is no
 // button to click that would exercise it. We assert the (real, reachable) guarantee that
 // actually protects the owner role here: it never renders as a toggle, for anyone.
-test("isTargetOwner=true with owner role: remove button absent; owner role never renders as a toggle", () => {
+test("isTargetOwner=true with owner role: remove button greyed; owner role never renders as a toggle", () => {
   const ownerMember = { ...baseMember, role_ids: ["r-owner"] };
   render(<MemberDetailPanel {...baseProps} member={ownerMember} isTargetOwner={true} />);
-  expect(screen.queryByRole("button", { name: "members.removeFromTeam" })).toBeNull();
+  expectGreyed("members.removeFromTeam");
   expect(screen.queryByRole("button", { name: "members.roleName.owner" })).toBeNull();
   expect(h.remove).not.toHaveBeenCalled();
 });
