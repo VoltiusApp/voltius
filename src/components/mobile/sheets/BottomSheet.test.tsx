@@ -19,3 +19,17 @@ test("bottom_sheet_without_footer_renders_none", () => {
   render(<BottomSheet onClose={() => {}}><div /></BottomSheet>);
   expect(document.querySelector("[data-mobile-sheet-footer]")).toBeNull();
 });
+
+test("untitled_sheet_collapses_its_header_to_the_drag_handle", () => {
+  render(<BottomSheet onClose={() => {}}><div /></BottomSheet>);
+  const handle = document.querySelector("[data-mobile-sheet-handle]")!;
+  expect(handle.className).not.toContain("min-h-12");
+  expect(handle.childElementCount).toBe(1);
+});
+
+test("titled_sheet_keeps_its_48px_title_row", () => {
+  render(<BottomSheet onClose={() => {}} title="web-01"><div /></BottomSheet>);
+  const handle = document.querySelector("[data-mobile-sheet-handle]")!;
+  expect(handle.className).toContain("min-h-12");
+  expect(handle.textContent).toBe("web-01");
+});
