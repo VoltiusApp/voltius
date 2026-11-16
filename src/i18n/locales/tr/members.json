@@ -610,6 +610,20 @@
       "cannotEdit": "Bu üyenin rolü düzenlemeye izin vermiyor",
       "draftBadge": "Taslak",
       "draftChange": "Taslak: {{from}} → {{to}}",
+      "ownerElsewhere": "Sahip değişiklikleri başka yerde yapılır",
+      "keyLoss": "Kaydedildiğinde {{name}} kasa anahtarını kaybeder ve anahtar diğer üyeler için yenilenir.",
+      "saveFailed": "{{total}} değişikliğin {{failed}} tanesi uygulanamadı",
+      "access": {
+        "title": "{{name}} erişimi",
+        "subtitle": "Düzenlemeler solda önizlenir. Henüz hiçbir şey kaydedilmedi.",
+        "can": "{{name}} şunları yapabilir",
+        "allPermissions": "Tüm izinler…"
+      },
+      "step": {
+        "overrides": "İzin geçersiz kılmaları",
+        "addRole": "{{role}} ekle",
+        "removeRole": "{{role}} kaldır"
+      },
       "level": {
         "hidden": "Gizli",
         "view": "Salt görüntüleme",

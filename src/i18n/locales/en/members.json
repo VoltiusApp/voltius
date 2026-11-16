@@ -606,6 +606,20 @@
       "cannotEdit": "This member's role does not allow editing",
       "draftBadge": "Draft",
       "draftChange": "Draft: {{from}} → {{to}}",
+      "ownerElsewhere": "Owner changes are made elsewhere",
+      "keyLoss": "On save, {{name}} loses the vault key and the key is rotated for the other members.",
+      "saveFailed": "{{failed}} of {{total}} changes did not apply",
+      "access": {
+        "title": "{{name}}'s access",
+        "subtitle": "Edits preview on the left. Nothing is saved yet.",
+        "can": "{{name}} can",
+        "allPermissions": "All permissions…"
+      },
+      "step": {
+        "overrides": "Permission overrides",
+        "addRole": "Add {{role}}",
+        "removeRole": "Remove {{role}}"
+      },
       "level": {
         "hidden": "Hidden",
         "view": "View only",

@@ -1,9 +1,11 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { usePreviewStore } from "@/stores/previewStore";
+import { MemberAccessPanel } from "@/components/preview/MemberAccessPanel";
 
 function AccessSlot() {
-  return null;
+  const subjectType = usePreviewStore((s) => s.session?.subject.type);
+  return subjectType === "member" ? <MemberAccessPanel /> : null;
 }
 
 function WhySlot() {

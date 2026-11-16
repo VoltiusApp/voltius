@@ -7,7 +7,8 @@ import { useHistoryStore, type HistoryEntry } from "@/stores/historyStore";
 import { PanelShell, PanelHeader, FormSection } from "@/components/shared/Panel";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { RoleModal } from "@/components/members/panels/RolesPanel";
-import { ROLE_META, RoleBlurb, permissionLabel, roleLabel } from "@/components/members/roleChips";
+import { READONLY_REASON_KEYS, permissionLabel, roleLabel } from "@/components/members/roleChips";
+import { MemberRoleChips } from "@/components/members/panels/MemberRoleChips";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { useAutosave } from "@/hooks/useAutosave";
 import { BusinessLapseNotice, BusinessLockLine } from "@/components/shared/BusinessLockBanner";
@@ -19,7 +20,7 @@ import { isOwnerRole } from "@/components/vault-share/vaultShareModel";
 import type { DepartMode } from "@/services/teamOffboarding";
 import {
   PERM_BITS, PERM_META, PERMISSION_GROUPS, effectivePermissions, dropsConnectSource,
-  resolveMemberReadOnlyReason, type Permission, type MemberReadOnlyReason,
+  resolveMemberReadOnlyReason, overrideRowLocked, type Permission,
 } from "@/services/permissions";
 import { rotateTeamKeyNow } from "@/services/vaultKeyActions";
 import { losesVaultKey, type MemberDraft } from "@/services/permissionPreview";
@@ -51,14 +52,6 @@ export interface MemberDetailPanelProps {
   onClose: () => void;
   onUpdated: () => void;
 }
-
-const READONLY_REASON_KEYS: Record<MemberReadOnlyReason, string> = {
-  noManage: "members.permissions.readOnlyNoManage",
-  owner: "members.permissions.readOnlyOwner",
-  self: "members.permissions.readOnlySelf",
-  higherRole: "members.permissions.readOnlyHigherRole",
-  notHeld: "members.permissions.readOnlyNotHeld",
-};
 
 export function MemberDetailPanel({
   member, isMe, teamId, teamRoles, canManageMembers, canNameMembers, namingSupported = canNameMembers, isTargetOwner, viewer, onClose, onUpdated,
@@ -246,11 +239,8 @@ export function MemberDetailPanel({
 
   const readOnlyReason: string | null = readOnlyReasonKind ? t(READONLY_REASON_KEYS[readOnlyReasonKind]) : null;
 
-  // A whole-mask notHeld lock still lets the admin clear the very bit that
-  // caused it — clearing it produces a mask the server accepts.
   const rowDisabled = (permission: Permission) =>
-    locked || overriding || pendingRevoke !== null || (readOnlyReasonKind !== null &&
-      (readOnlyReasonKind !== "notHeld" || (PERM_BITS[permission] & offendingBits) === 0));
+    locked || overriding || pendingRevoke !== null || overrideRowLocked(readOnlyReasonKind, permission, offendingBits);
 
   const write = (masks: { allow: number; deny: number }) => () =>
     useTeamStore.getState().setMemberPermissions(teamId, member.user_id, masks.allow, masks.deny);
@@ -360,49 +350,16 @@ export function MemberDetailPanel({
 
         {/* Roles */}
         <FormSection label={t("members.roles")}>
-          <div className="flex flex-wrap items-start gap-2">
-            {[...teamRoles]
-              .filter((r) => !isOwnerRole(r) || ownership.canGrantOwner)
-              .sort((a, b) => a.position - b.position).map((role) => {
-
-              const hasRole = member.role_ids.includes(role.id);
-              const lockedOut = locked && !role.is_builtin && !hasRole;
-              const meta = ROLE_META[role.name];
-              const color = role.color ?? meta?.color ?? "var(--t-accent)";
-              const bg = meta?.bg ?? `${color}1a`;
-              return (
-                <div key={role.id} className="flex flex-col gap-1">
-                <button
-                  onClick={() => void handleToggleRole(role)}
-                  disabled={toggling === role.id || lockedOut || greyedUnless(canChangeRoles).disabled}
-                  title={lockedOut ? t("shared.businessLock.title") : greyedUnless(canChangeRoles).title}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                  style={{
-                    background: justToggled === role.id ? "rgba(52,211,153,0.15)" : hasRole ? bg : "var(--t-bg-elevated)",
-                    color: justToggled === role.id ? "#34d399" : hasRole ? color : "var(--t-text-dim)",
-                    border: `1px solid ${justToggled === role.id ? "#34d39944" : hasRole ? `${color}44` : "var(--t-border)"}`,
-                    opacity: toggling === role.id ? 0.6 : 1,
-                    transition: "background 0.3s, color 0.3s, border-color 0.3s",
-                  }}
-                >
-                  {toggling === role.id
-                    ? <Icon icon="lucide:loader-circle" width={10} className="animate-spin" />
-                    : justToggled === role.id
-                      ? <Icon icon="lucide:check-check" width={10} />
-                      : hasRole
-                        ? <Icon icon="lucide:check" width={10} />
-                        : null
-                  }
-                  {roleLabel(t, role.name)}
-                  {role.is_builtin
-                    ? <Icon icon="lucide:lock" width={9} style={{ color: "var(--t-text-dim)", opacity: 0.6 }} />
-                    : <Icon icon="lucide:sparkles" width={9} style={{ color: "var(--t-text-dim)", opacity: 0.7 }} />
-                  }
-                </button>
-                {hasRole && <RoleBlurb name={role.name} />}
-                </div>
-              );
-            })}
+          <MemberRoleChips
+            teamId={teamId}
+            roles={teamRoles}
+            roleIds={member.role_ids}
+            readOnlyReason={greyedUnless(canChangeRoles).title ?? null}
+            onToggle={(role) => void handleToggleRole(role)}
+            showOwner={ownership.canGrantOwner}
+            busyRoleId={toggling}
+            flashRoleId={justToggled}
+          >
             {!locked && (
             <button
               onClick={whenWritable(() => setCreatingRole(true))}
@@ -416,7 +373,7 @@ export function MemberDetailPanel({
               {t("members.newRole")}
             </button>
             )}
-          </div>
+          </MemberRoleChips>
         </FormSection>
 
         {/* Permissions */}

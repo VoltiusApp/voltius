@@ -5,7 +5,7 @@ import type { TeamMember, TeamRole } from "@/services/teamService";
 // Both from the service, not the hook: @/hooks/usePermission pulls teamService
 // and i18n in at runtime, which every consumer of this leaf module would then
 // have to mock.
-import { PERM_BITS, PERM_META, type Permission, type RuleSubject } from "@/services/permissions";
+import { PERM_BITS, PERM_META, type MemberReadOnlyReason, type Permission, type RuleSubject } from "@/services/permissions";
 import { memberLabel } from "@/services/memberLabel";
 
 export const ROLE_META: Record<string, { color: string; bg: string }> = {
@@ -14,6 +14,14 @@ export const ROLE_META: Record<string, { color: string; bg: string }> = {
   editor:         { color: "#34d399", bg: "rgba(52,211,153,0.12)"  },
   member:         { color: "var(--t-text-secondary)", bg: "var(--t-bg-elevated)" },
   "connect-only": { color: "#f59e0b", bg: "rgba(245,158,11,0.12)"  },
+};
+
+export const READONLY_REASON_KEYS: Record<MemberReadOnlyReason, string> = {
+  noManage: "members.permissions.readOnlyNoManage",
+  owner: "members.permissions.readOnlyOwner",
+  self: "members.permissions.readOnlySelf",
+  higherRole: "members.permissions.readOnlyHigherRole",
+  notHeld: "members.permissions.readOnlyNotHeld",
 };
 
 /**

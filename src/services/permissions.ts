@@ -296,6 +296,11 @@ export function resolveMemberReadOnlyReason(params: {
   return null;
 }
 
+/** A whole-mask notHeld lock still lets the admin clear the very bit that caused it. */
+export function overrideRowLocked(reason: MemberReadOnlyReason | null, permission: Permission, offendingBits: number): boolean {
+  return reason !== null && (reason !== "notHeld" || (PERM_BITS[permission] & offendingBits) === 0);
+}
+
 export interface PermissionSnapshot {
   myUserId: string;
   teams: Team[];

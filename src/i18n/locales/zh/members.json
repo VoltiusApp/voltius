@@ -606,6 +606,20 @@
       "cannotEdit": "该成员的角色不允许编辑",
       "draftBadge": "草稿",
       "draftChange": "草稿：{{from}} → {{to}}",
+      "ownerElsewhere": "所有者变更需在别处进行",
+      "keyLoss": "保存后，{{name}}将失去保险库密钥，并为其他成员轮换密钥。",
+      "saveFailed": "{{total}} 项更改中有 {{failed}} 项未能应用",
+      "access": {
+        "title": "{{name}}的访问权限",
+        "subtitle": "左侧预览你的修改。尚未保存任何内容。",
+        "can": "{{name}}可以",
+        "allPermissions": "所有权限…"
+      },
+      "step": {
+        "overrides": "权限覆盖",
+        "addRole": "添加{{role}}",
+        "removeRole": "移除{{role}}"
+      },
       "level": {
         "hidden": "已隐藏",
         "view": "仅查看",

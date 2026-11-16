@@ -7,7 +7,8 @@ import { useUIStore } from "@/stores/uiStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
-import { bindPreviewGuard } from "@/services/previewGuard";
+import { bindPreviewGuard, withControlAuthority } from "@/services/previewGuard";
+import { memberDraftStepCount, saveMemberDraft, type SaveFailure } from "@/services/viewAsSave";
 
 export type { PreviewSession };
 
@@ -24,6 +25,7 @@ interface PreviewState {
   side: SidePanel;
   saving: boolean;
   saveError: string | null;
+  saveFailures: SaveFailure[];
   pendingConfirm: SaveConfirm | null;
   enter: (session: PreviewSession) => void;
   exit: () => void;
@@ -40,7 +42,7 @@ interface PreviewState {
 
 const IDLE = {
   session: null, draft: null, result: null, resultDraft: null, status: "idle", error: null, side: null,
-  saving: false, saveError: null, pendingConfirm: null,
+  saving: false, saveError: null, saveFailures: [], pendingConfirm: null,
 } as const satisfies Partial<PreviewState>;
 
 const DRAFT_DEBOUNCE_MS = 250;
@@ -168,12 +170,35 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
     await get().save();
     if (!teamId) return;
     const { checkAndRotateTeamKey } = await import("@/services/teamKeyRotation");
-    await checkAndRotateTeamKey(teamId);
+    await withControlAuthority(() => checkAndRotateTeamKey(teamId));
   },
 
   cancelSave: () => set({ pendingConfirm: null }),
 
-  save: async () => {},
+  save: async () => {
+    const { session, draft } = get();
+    if (!session || !draft || !("role_ids" in draft) || session.subject.type !== "member") return;
+    const { teamId, subject } = session;
+    const member = useTeamStore.getState().membersByTeam[teamId]?.find((m) => m.user_id === subject.user_id);
+    if (!member) return;
+    set({ saving: true, saveError: null, saveFailures: [] });
+    try {
+      const total = memberDraftStepCount(teamId, member, draft);
+      const { failed } = await saveMemberDraft(teamId, member, draft);
+      await useTeamStore.getState().loadMembers(teamId);
+      if (get().session !== session) return;
+      if (failed.length === 0) set({ draft: null });
+      else {
+        const { default: i18n } = await import("@/i18n");
+        set({ saveFailures: failed, saveError: i18n.t("members.viewAs.saveFailed", { failed: failed.length, total }) });
+      }
+      await get().refetch();
+    } catch (e) {
+      set({ saveError: e instanceof Error ? e.message : String(e) });
+    } finally {
+      set({ saving: false });
+    }
+  },
 }));
 
 export const isPreviewing = (): boolean => usePreviewStore.getState().session !== null;

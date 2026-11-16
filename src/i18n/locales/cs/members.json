@@ -648,6 +648,20 @@
       "cannotEdit": "Role tohoto člena úpravy nepovoluje",
       "draftBadge": "Koncept",
       "draftChange": "Koncept: {{from}} → {{to}}",
+      "ownerElsewhere": "Změny vlastníka se provádějí jinde",
+      "keyLoss": "Po uložení {{name}} ztratí klíč trezoru a klíč se pro ostatní členy obnoví.",
+      "saveFailed": "Nepodařilo se použít {{failed}} z {{total}} změn",
+      "access": {
+        "title": "Přístup uživatele {{name}}",
+        "subtitle": "Úpravy se zobrazují vlevo. Zatím nic není uloženo.",
+        "can": "{{name}} může",
+        "allPermissions": "Všechna oprávnění…"
+      },
+      "step": {
+        "overrides": "Přepsání oprávnění",
+        "addRole": "Přidat {{role}}",
+        "removeRole": "Odebrat {{role}}"
+      },
       "level": {
         "hidden": "Skryto",
         "view": "Pouze zobrazení",

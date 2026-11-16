@@ -625,6 +625,20 @@
       "cannotEdit": "Le rôle de ce membre ne permet pas la modification",
       "draftBadge": "Brouillon",
       "draftChange": "Brouillon : {{from}} → {{to}}",
+      "ownerElsewhere": "Les changements de propriétaire se font ailleurs",
+      "keyLoss": "À l'enregistrement, {{name}} perd la clé du coffre et la clé est renouvelée pour les autres membres.",
+      "saveFailed": "{{failed}} modification(s) sur {{total}} non appliquée(s)",
+      "access": {
+        "title": "Accès de {{name}}",
+        "subtitle": "Les modifications s'affichent à gauche. Rien n'est encore enregistré.",
+        "can": "{{name}} peut",
+        "allPermissions": "Toutes les permissions…"
+      },
+      "step": {
+        "overrides": "Permissions personnalisées",
+        "addRole": "Ajouter {{role}}",
+        "removeRole": "Retirer {{role}}"
+      },
       "level": {
         "hidden": "Masqué",
         "view": "Lecture seule",

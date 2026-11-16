@@ -629,6 +629,20 @@
       "cannotEdit": "A função deste membro não permite editar",
       "draftBadge": "Rascunho",
       "draftChange": "Rascunho: {{from}} → {{to}}",
+      "ownerElsewhere": "As alterações de proprietário são feitas noutro local",
+      "keyLoss": "Ao guardar, {{name}} perde a chave do cofre e a chave é rodada para os restantes membros.",
+      "saveFailed": "{{failed}} de {{total}} alterações não foram aplicadas",
+      "access": {
+        "title": "Acesso de {{name}}",
+        "subtitle": "As edições aparecem à esquerda. Ainda nada foi guardado.",
+        "can": "{{name}} pode",
+        "allPermissions": "Todas as permissões…"
+      },
+      "step": {
+        "overrides": "Substituições de permissões",
+        "addRole": "Adicionar {{role}}",
+        "removeRole": "Remover {{role}}"
+      },
       "level": {
         "hidden": "Oculto",
         "view": "Apenas visualização",

@@ -82,9 +82,11 @@ export function usePermissions(): Can {
   return session && !result ? denyAll : can;
 }
 
+export const heldBits = (can: Can, vaultId: string): number =>
+  (Object.keys(PERM_BITS) as Permission[]).reduce((bits, p) => (can(p, vaultId) ? bits | PERM_BITS[p] : bits), 0);
+
 export function useHeldPermissionBits(vaultId: string): number {
-  const can = usePermissions();
-  return (Object.keys(PERM_BITS) as Permission[]).reduce((bits, p) => (can(p, vaultId) ? bits | PERM_BITS[p] : bits), 0);
+  return heldBits(usePermissions(), vaultId);
 }
 
 export function usePermissionSubjectId(): string {
