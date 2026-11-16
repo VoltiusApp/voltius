@@ -9,8 +9,11 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/services/vaultConvert", () => ({ convertVaultToTeam: h.convert }));
+vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 
 import { ConvertToTeamGate } from "./ConvertToTeamGate";
+import { bindPreviewGuard } from "@/services/previewGuard";
+import { useNotificationStore } from "@/stores/notificationStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { deriveTierFlags } from "@/stores/subscriptionTier";
 
@@ -112,4 +115,19 @@ test("inline without a cancel handler offers only the convert action", () => {
   render(<ConvertToTeamGate vaultName="Personal" vaultId="v1" onConverted={vi.fn()} inline />);
   expect(screen.getByText("members.convert.confirm")).toBeTruthy();
   expect(screen.queryByText("members.convert.cancel")).toBeNull();
+});
+
+test("while previewing, convert is refused with the read-only notice", async () => {
+  bindPreviewGuard({ active: () => true, explain: () => false });
+  useNotificationStore.setState({ toasts: [] });
+  h.convert.mockClear();
+  try {
+    render(<ConvertToTeamGate vaultName="Personal" vaultId="v1" onConverted={vi.fn()} inline />);
+    fireEvent.click(screen.getByText("members.convert.confirm"));
+    await waitFor(() =>
+      expect(useNotificationStore.getState().toasts.map((x) => x.message)).toEqual(["members.viewAs.readOnly"]));
+    expect(h.convert).not.toHaveBeenCalled();
+  } finally {
+    bindPreviewGuard({ active: () => false, explain: () => false });
+  }
 });

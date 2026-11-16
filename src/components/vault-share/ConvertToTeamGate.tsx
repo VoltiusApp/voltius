@@ -5,6 +5,7 @@ import { convertVaultToTeam } from "@/services/vaultConvert";
 import { Modal, ModalCard } from "@/components/shared/Modal";
 import { UpgradeToTeamsCTA } from "@/components/members/panels/MembersCTA";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { whenWritable } from "@/services/previewGuard";
 
 interface Props {
   vaultId: string;
@@ -28,7 +29,7 @@ export function ConvertToTeamGate({ vaultId, vaultName, onCancel, onConverted, i
   const [busy, setBusy] = useState(false);
   const ownsTeamsPlan = useSubscriptionStore((s) => s.ownsTeamsPlan);
 
-  const go = async () => {
+  const go = whenWritable(async () => {
     if (busy || !ownsTeamsPlan) return;
     setBusy(true);
     try {
@@ -37,7 +38,7 @@ export function ConvertToTeamGate({ vaultId, vaultName, onCancel, onConverted, i
       // runTeamAction already showed a named error toast.
       setBusy(false);
     }
-  };
+  });
 
   const content = !ownsTeamsPlan ? <UpgradeToTeamsCTA compact /> : (
     <>
