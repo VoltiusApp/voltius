@@ -34,7 +34,7 @@ export default function NavBar() {
   const can = usePermissions();
   const previewing = usePreviewActive() !== null;
   const auditContext = useSelectedAuditContext();
-  const logsLock = previewAreaLock("logs", { previewing, can, auditTeamId: auditContext?.kind === "team" ? auditContext.teamId : null, vaultId: null });
+  const logsLock = previewAreaLock({ area: "logs", previewing, can, auditContext });
 
   const NAV_ITEMS: NavEntry[] = NAV_ITEM_DEFS.map((d) => ({
     ...d,

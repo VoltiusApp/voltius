@@ -45,7 +45,7 @@ export function TeamSessions() {
   const accessibleVaultIds = useAccessibleVaultIds();
   const can = usePermissions();
   const preview = usePreviewActive();
-  const sessionsLock = previewAreaLock("sessions", { previewing: !!preview, can, auditTeamId: null, vaultId: preview?.vaultId ?? null });
+  const sessionsLock = previewAreaLock({ area: "sessions", previewing: !!preview, can, vaultId: preview?.vaultId ?? null });
   const joinLocked = !!preview && !can("JOIN_TERMINAL_SESSION", preview.vaultId);
   const joinGrey = useGreyedUnless()(!joinLocked);
   const [myUserId, setMyUserId] = useState<string | null>(null);

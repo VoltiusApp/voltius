@@ -36,13 +36,10 @@ export default function MobileViewAsAreas() {
 
   const top = stack[stack.length - 1];
   const active = top?.kind === "more-page" ? top.page : stack.length === 0 && (tab === "hosts" || tab === "snippets") ? tab : null;
-  const lockCtx = {
-    previewing: true,
-    can,
-    auditTeamId: auditContext?.kind === "team" ? auditContext.teamId : null,
-    vaultId: previewing.vaultId,
-  };
-  const lockOf = (area: MobileViewAsArea) => (area === "logs" || area === "sessions" ? previewAreaLock(area, lockCtx) : null);
+  const lockOf = (area: MobileViewAsArea) =>
+    area === "logs" || area === "sessions"
+      ? previewAreaLock({ area, previewing: true, can, auditContext, vaultId: previewing.vaultId })
+      : null;
 
   const open = (area: MobileViewAsArea) => {
     const reason = lockOf(area);

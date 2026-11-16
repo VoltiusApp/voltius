@@ -1,18 +1,16 @@
 import type { Can } from "@/services/credentialScope";
+import type { AuditContext } from "@/services/auditContext";
 
-export type PreviewLockedArea = "logs" | "sessions";
+export type PreviewAreaLockQuery = { previewing: boolean; can: Can } & (
+  | { area: "logs"; auditContext: AuditContext | null }
+  | { area: "sessions"; vaultId: string | null }
+);
 
-export interface PreviewLockContext {
-  previewing: boolean;
-  can: Can;
-  auditTeamId: string | null;
-  vaultId: string | null;
-}
-
-export function previewAreaLock(area: PreviewLockedArea, { previewing, can, auditTeamId, vaultId }: PreviewLockContext): string | null {
-  if (!previewing) return null;
-  if (area === "logs") {
-    return auditTeamId !== null && !can("VIEW_AUDIT_LOG", auditTeamId) ? "members.viewAs.locked.auditLog" : null;
+export function previewAreaLock(q: PreviewAreaLockQuery): string | null {
+  if (!q.previewing) return null;
+  if (q.area === "logs") {
+    const teamId = q.auditContext?.kind === "team" ? q.auditContext.teamId : null;
+    return teamId !== null && !q.can("VIEW_AUDIT_LOG", teamId) ? "members.viewAs.locked.auditLog" : null;
   }
-  return vaultId !== null && !can("VIEW_TERMINAL_SESSIONS", vaultId) ? "members.viewAs.locked.sessions" : null;
+  return q.vaultId !== null && !q.can("VIEW_TERMINAL_SESSIONS", q.vaultId) ? "members.viewAs.locked.sessions" : null;
 }
