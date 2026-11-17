@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon } from "@iconify/react";
+import { ToolbarButton, toolbarChevronClass } from "@/components/shared/ToolbarButton";
 import { useTranslation } from "react-i18next";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { MenuItemList, isInMenuPortal, type ContextMenuItem } from "@/components/shared/ContextMenu";
@@ -166,40 +167,26 @@ export function ToolbarDropdown<T extends string>({
   );
 
   if (onAction) {
-    const isAccent = variant === "accent";
-    const actionBg = isAccent ? "var(--t-accent)" : "var(--t-bg-input)";
-    const actionBgHover = isAccent ? "var(--t-accent-hover)" : "var(--t-bg-input-hover)";
-    const actionText = isAccent ? "var(--t-bg-terminal)" : "var(--t-text-primary)";
-    const actionBorder = isAccent ? "var(--t-accent-hover)" : "var(--t-border-hover)";
-    const chevronBg = isAccent ? "var(--t-accent)" : "var(--t-bg-input)";
-    const chevronBgHover = isAccent ? "var(--t-accent-hover)" : "var(--t-bg-input-hover)";
+    const fill = variant === "accent" ? "accent" : "neutral";
 
     return (
       <div className={`relative flex items-center gap-px ${className}`} ref={ref}>
-        <button
-          type="button"
+        <ToolbarButton
+          variant={fill}
+          round={hasContent ? "left" : "all"}
+          icon={icon}
+          label={label ?? ""}
+          compact={!label}
+          className="overflow-hidden"
           onClick={onAction}
           disabled={disabled}
-          className={`flex items-center gap-2 px-3 h-8 text-sm font-bold tracking-wider transition-colors shrink-0 whitespace-nowrap relative overflow-hidden border ${hasContent ? "border-r-0 rounded-tl-[0.533rem] rounded-bl-[0.533rem]" : "rounded-[0.533rem]"}`}
-          style={{
-            background: actionBg, color: actionText, borderColor: actionBorder,
-            opacity: disabled ? 0.4 : 1, cursor: disabled ? "not-allowed" : "pointer",
-          }}
-          onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.background = actionBgHover; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = actionBg; }}
-        >
-          <Icon icon={icon} width={20} />
-          {label}
-        </button>
+        />
         {hasContent && <button
           type="button"
           onClick={() => { if (!menuLocked) setOpen((o) => !o); }}
           aria-disabled={menuLocked ? true : undefined}
           aria-label={menuLocked}
-          className="flex items-center justify-center w-8 h-8 transition-colors relative overflow-hidden border rounded-tr-[0.533rem] rounded-br-[0.533rem] aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
-          style={{ background: chevronBg, color: actionText, borderColor: actionBorder }}
-          onMouseEnter={(e) => { if (!menuLocked) e.currentTarget.style.background = chevronBgHover; }}
-          onMouseLeave={(e) => (e.currentTarget.style.background = chevronBg)}
+          className={toolbarChevronClass(fill)}
           title={menuLocked ?? t("common.action.moreOptions")}
         >
           <span className="[&_path]:stroke-3">

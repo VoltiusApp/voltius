@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next";
-import { Icon } from "@iconify/react";
 import { FilterInput, SORT_MODE_ICONS, type SortMode, type LayoutMode } from "@/components/shared/ToolbarViewControls";
 import { ToolbarDropdown } from "@/components/shared/ToolbarDropdown";
 import { Pills } from "@/components/shared/Pills";
@@ -7,6 +6,7 @@ import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { useToolbarResize } from "@/hooks/useToolbarResize";
 import { useRipple } from "@/hooks/useRipple";
 import { SplitMenuChevron } from "@/components/shared/SplitMenuChevron";
+import { ToolbarButton } from "@/components/shared/ToolbarButton";
 
 interface Props {
   tab: "mine" | "community";
@@ -88,20 +88,19 @@ export function SnippetsToolbar({
         <div ref={rightRef} className="ml-auto shrink-0">
         {tab === "mine" && (
         <div className="flex items-center gap-px">
-          <button
+          <ToolbarButton
+            variant="accent"
+            round="left"
+            icon="lucide:braces"
+            iconSize={18}
+            label={t("snippets.toolbar.newSnippet")}
+            compact={compact}
+            className="overflow-hidden"
             onClick={onNewSnippet}
             onPointerDown={createRipple}
-            title={compact ? t("snippets.toolbar.newSnippet") : undefined}
-            type="button"
-            className="flex items-center gap-2 px-3 h-8 text-sm font-bold tracking-wider transition-colors shrink-0 whitespace-nowrap relative overflow-hidden rounded-tl-[0.533rem] rounded-bl-[0.533rem]"
-            style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-accent-hover)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-accent)")}
           >
             {rippleEls}
-            <Icon icon="lucide:braces" width={18} />
-            {!compact && t("snippets.toolbar.newSnippet")}
-          </button>
+          </ToolbarButton>
 
           <SplitMenuChevron label={t("snippets.toolbar.newSnippetOptions")}>
             {(close) => (
