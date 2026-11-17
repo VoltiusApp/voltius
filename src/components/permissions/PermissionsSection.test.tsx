@@ -142,12 +142,12 @@ test("a synced root object uses the team's permissions", async () => {
   expect(screen.queryByText("shared.permissions.section.syncNow")).toBeNull();
 });
 
-test("subject chips are outlined like the toggle", async () => {
+test("the selected subject chip is pressed and accent-outlined", async () => {
   seed();
   render(<PermissionsSection objectId="c1" vaultId="t1" type="connection" />);
   const chip = await screen.findByRole("button", { name: "shared.permissions.everyone" });
-  expect(chip.className).toContain("bg-(--t-bg-base)");
-  expect(chip.className).toContain("border-(--t-border-hover)");
+  expect(chip.getAttribute("aria-pressed")).toBe("true");
+  expect(chip.style.border).toBe("1px solid var(--t-accent)");
 });
 
 test("a granting role is named, more than two are counted", async () => {

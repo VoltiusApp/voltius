@@ -1,6 +1,7 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { ToolbarViewControls } from "@/components/shared/ToolbarViewControls";
+import { selectableChipStyle } from "@/components/shared/selectableChip";
 import type { LayoutMode, SortMode } from "@/components/shared/ToolbarViewControls";
 import type { MembersPanel } from "@/stores/uiStore";
 import { GREYED_CLASS, useGreyedUnless, type Greyed } from "@/hooks/useGreyedUnless";
@@ -124,11 +125,8 @@ function PanelButton({ active, icon, label, onClick, disabled, title }: { active
       disabled={disabled}
       title={title}
       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${GREYED_CLASS}`}
-      style={{
-        background: active ? "color-mix(in srgb, var(--t-accent) 15%, transparent)" : "var(--t-bg-elevated)",
-        color: active ? "var(--t-accent)" : "var(--t-text-primary)",
-        border: `1px solid ${active ? "var(--t-accent)" : "var(--t-border)"}`,
-      }}
+      aria-pressed={active}
+      style={selectableChipStyle(active)}
     >
       <Icon icon={icon} width={13} />
       {label}

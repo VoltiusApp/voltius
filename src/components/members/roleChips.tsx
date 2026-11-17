@@ -1,4 +1,6 @@
+import type { CSSProperties } from "react";
 import { Icon } from "@iconify/react";
+import { tint } from "@/components/shared/selectableChip";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import type { TeamMember, TeamRole } from "@/services/teamService";
@@ -8,12 +10,12 @@ import type { TeamMember, TeamRole } from "@/services/teamService";
 import { PERM_BITS, PERM_META, type MemberReadOnlyReason, type Permission, type RuleSubject } from "@/services/permissions";
 import { memberLabel } from "@/services/memberLabel";
 
-export const ROLE_META: Record<string, { color: string; bg: string }> = {
-  owner:          { color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
-  manager:        { color: "#60a5fa", bg: "rgba(96,165,250,0.12)"  },
-  editor:         { color: "#34d399", bg: "rgba(52,211,153,0.12)"  },
-  member:         { color: "var(--t-text-secondary)", bg: "var(--t-bg-elevated)" },
-  "connect-only": { color: "#f59e0b", bg: "rgba(245,158,11,0.12)"  },
+export const ROLE_META: Record<string, { color: string }> = {
+  owner:          { color: "#a78bfa" },
+  manager:        { color: "#60a5fa" },
+  editor:         { color: "#34d399" },
+  member:         { color: "var(--t-text-secondary)" },
+  "connect-only": { color: "#f59e0b" },
 };
 
 export const READONLY_REASON_KEYS: Record<MemberReadOnlyReason, string> = {
@@ -60,9 +62,14 @@ export function ruleSubjectLabel(t: TFunction, s: RuleSubject, roles: TeamRole[]
  * then the caller's fallback.
  */
 export function roleChipColors(name: string, override?: string | null, fallback = "var(--t-accent)") {
-  const meta = ROLE_META[name];
-  const color = override ?? meta?.color ?? fallback;
-  return { meta, color, bg: meta?.bg ?? `${color}1a` };
+  const color = override ?? ROLE_META[name]?.color ?? fallback;
+  return { color, bg: tint(color, 14), border: tint(color, 60) };
+}
+
+export function roleToggleStyle(name: string, active: boolean, override?: string | null, fallback?: string): CSSProperties {
+  if (!active) return { background: "transparent", color: "var(--t-text-dim)", border: `1px solid ${tint("var(--t-text-dim)", 30)}` };
+  const { color, bg, border } = roleChipColors(name, override, fallback);
+  return { background: bg, color, border: `1px solid ${border}` };
 }
 
 export function RoleNamePill({ name }: { name: string }) {
@@ -157,19 +164,14 @@ export function RoleToggleChip({
   name, active, onClick, variant = "chip", color: override, fallbackColor, disabled, disabledReason, blurb,
 }: RoleToggleChipProps) {
   const { t } = useTranslation();
-  const { color, bg } = roleChipColors(name, override, fallbackColor);
-
   const button = (
     <button
       onClick={onClick}
       disabled={disabled || !!disabledReason}
       title={disabledReason}
       className={`${VARIANT_CLASS[variant]} disabled:opacity-50 disabled:cursor-not-allowed`}
-      style={{
-        background: active ? bg : "var(--t-bg-elevated)",
-        color: active ? color : "var(--t-text-dim)",
-        border: `1px solid ${active ? `${color}44` : "var(--t-border)"}`,
-      }}
+      aria-pressed={active}
+      style={roleToggleStyle(name, active, override, fallbackColor)}
     >
       {variant !== "pill" && active && <Icon icon="lucide:check" width={9} />}
       {roleLabel(t, name)}

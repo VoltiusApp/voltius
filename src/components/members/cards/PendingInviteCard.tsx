@@ -4,7 +4,7 @@ import type { TFunction } from "i18next";
 import type { PendingInvitation, TeamRole } from "@/services/teamService";
 import { MiniAvatar } from "@/components/shared/AvatarStack";
 import { BaseCard } from "@/components/shared/BaseCard";
-import { ROLE_META, roleLabel } from "@/components/members/roleChips";
+import { ROLE_META, roleChipColors, roleLabel } from "@/components/members/roleChips";
 import { RoleChip } from "@/components/members/roleBadges";
 import { useTeamStore } from "@/stores/teamStore";
 import { GREYED_CLASS } from "@/hooks/useGreyedUnless";
@@ -71,9 +71,7 @@ export function PendingInviteCard({
     .map((id) => roles.find((r) => r.id === id))
     .filter((r): r is TeamRole => !!r)
     .sort((a, b) => a.position - b.position);
-  const meta = ROLE_META[inv.role] ?? ROLE_META.member;
-  const chipColor = roles.find((r) => r.name === inv.role)?.color ?? meta.color;
-  const chipBg = meta.bg ?? `${chipColor}1a`;
+  const { color: chipColor, bg: chipBg } = roleChipColors(inv.role, roles.find((r) => r.name === inv.role)?.color, ROLE_META.member.color);
 
   return (
     <BaseCard isList>

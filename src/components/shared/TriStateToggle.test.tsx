@@ -9,14 +9,15 @@ import { TriStateToggle } from "./TriStateToggle";
 
 afterEach(cleanup);
 
-test("three radios, the active one checked, D10 outline classes", () => {
+test("three radios, the active one checked and tinted in its state colour", () => {
   render(<TriStateToggle value="allow" onChange={() => {}} label="Connect" />);
   const group = screen.getByRole("radiogroup", { name: "Connect" });
-  expect(group.className).toContain("bg-(--t-bg-base)");
-  expect(group.className).toContain("border-(--t-border-hover)");
+  expect(group.className).toContain("border-(--t-border)");
   expect(group.className).toContain("divide-x");
   const radios = screen.getAllByRole("radio");
   expect(radios.map((r) => r.getAttribute("aria-checked"))).toEqual(["false", "false", "true"]);
+  expect(radios[2].style.background).toBe("color-mix(in srgb, var(--t-status-connected) 20%, transparent)");
+  expect(radios[0].style.background).toBe("transparent");
 });
 
 test("clicking reports the next state; disabled reports nothing", () => {

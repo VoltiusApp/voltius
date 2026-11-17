@@ -14,38 +14,44 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 
-import { ROLE_META, roleChipColors, RoleToggleChip } from "./roleChips";
+import { roleChipColors, RoleToggleChip } from "./roleChips";
 
 afterEach(cleanup);
 
-test("a built-in role takes its palette colour and background", () => {
-  expect(roleChipColors("editor")).toMatchObject({ color: "#34d399", bg: ROLE_META.editor.bg });
+test("a built-in role takes its palette colour, tinted for background and border", () => {
+  expect(roleChipColors("editor")).toEqual({
+    color: "#34d399",
+    bg: "color-mix(in srgb, #34d399 14%, transparent)",
+    border: "color-mix(in srgb, #34d399 60%, transparent)",
+  });
 });
 
-test("an explicit role colour wins over the palette", () => {
-  expect(roleChipColors("editor", "#ff0000").color).toBe("#ff0000");
+test("an explicit role colour wins over the palette, background included", () => {
+  expect(roleChipColors("editor", "#ff0000")).toMatchObject({ color: "#ff0000", bg: "color-mix(in srgb, #ff0000 14%, transparent)" });
 });
 
-test("an unknown role falls back, and its background is the colour at 10%", () => {
-  expect(roleChipColors("wrangler")).toEqual({ meta: undefined, color: "var(--t-accent)", bg: "var(--t-accent)1a" });
-  expect(roleChipColors("wrangler", null, "#123456")).toMatchObject({ color: "#123456", bg: "#1234561a" });
+test("an unknown role falls back to the caller's colour", () => {
+  expect(roleChipColors("wrangler").color).toBe("var(--t-accent)");
+  expect(roleChipColors("wrangler", null, "#123456").color).toBe("#123456");
 });
 
-test("an explicit colour on a built-in role keeps the palette background", () => {
-  expect(roleChipColors("editor", "#ff0000").bg).toBe(ROLE_META.editor.bg);
+test("a theme-variable colour still yields a valid tint", () => {
+  expect(roleChipColors("member").border).toBe("color-mix(in srgb, var(--t-text-secondary) 60%, transparent)");
 });
 
 test("an active chip is tinted and bordered, an inactive one is not", () => {
   render(<RoleToggleChip name="editor" active onClick={() => {}} />);
   const active = screen.getByRole("button");
   expect(active.style.color).toBe("rgb(52, 211, 153)");
-  expect(active.style.border).toBe("1px solid rgba(52, 211, 153, 0.267)");
+  expect(active.getAttribute("aria-pressed")).toBe("true");
+  expect(active.style.border).toBe("1px solid color-mix(in srgb, rgb(52, 211, 153) 60%, transparent)");
   cleanup();
 
   render(<RoleToggleChip name="editor" active={false} onClick={() => {}} />);
   const inactive = screen.getByRole("button");
   expect(inactive.style.color).toBe("var(--t-text-dim)");
-  expect(inactive.style.background).toBe("var(--t-bg-elevated)");
+  expect(inactive.getAttribute("aria-pressed")).toBe("false");
+  expect(inactive.style.background).toBe("transparent");
 });
 
 test("only the chip variants carry a tick, and only when active", () => {
