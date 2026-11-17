@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.77.0] - 2026-11-17
+
+### Added
+
+- Installing or uninstalling a plugin now does the same on your other devices. Each plugin card has a "Keep on this device only" / "Sync to my devices" button, and a toast on the other device lets you skip an install or keep a removed plugin there. Plugins installed by your organisation, from a local file or URL, and plugin updates do not sync (#902)
+- Double-click the handle between split panes to reset that split to the middle (#903)
+
+### Fixed
+
+- On Windows, starting a scan in the Disk Usage plugin no longer crashes the app (#898)
+- On Android, a long-press while the keyboard is open now selects the text you pressed, and the terminal no longer flickers when the keyboard opens or closes (#900)
+- Members page toolbar buttons match the other pages, Invite › People rows no longer wrap, and the role filter chips are readable (#901)
+- Choice chips and cards across the app now show an edge on hover, and Omni search tiles use white icons (#899)
+
 ## [0.76.1] - 2026-11-17
 
 ### Changed
