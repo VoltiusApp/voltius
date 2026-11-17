@@ -229,6 +229,11 @@ function bundledPluginManifests(excludeIds: Set<string>): PluginManifest[] {
   return getLoadedPlugins().filter((m) => !excludeIds.has(m.id));
 }
 
+const pluginCardShell = (enabled: boolean, dimmedOpacity: number) => ({
+  className: `rounded-xl overflow-hidden bg-(--t-bg-card)${enabled ? " edge-strong" : ""}`,
+  style: { border: "1px solid var(--t-border)", opacity: enabled ? 1 : dimmedOpacity },
+});
+
 export function InstalledTab() {
   const { t } = useTranslation();
   const settingsPages = usePluginStore((s) => s.settingsPages);
@@ -391,8 +396,7 @@ export function InstalledTab() {
           return (
             <div
               key={manifest.id}
-              className="rounded-xl overflow-hidden bg-(--t-bg-card)"
-              style={{ border: `1px solid ${enabled ? "var(--t-border-hover)" : "var(--t-border)"}`, opacity: enabled ? 1 : 0.6 }}
+              {...pluginCardShell(enabled, 0.6)}
             >
               <div className="flex items-center gap-3 px-4 py-3">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-elevated) border border-(--t-border)">
@@ -472,8 +476,7 @@ export function InstalledTab() {
           return (
             <div
               key={meta.id}
-              className="rounded-xl overflow-hidden bg-(--t-bg-card)"
-              style={{ border: `1px solid ${enabled ? "var(--t-border-hover)" : "var(--t-border)"}`, opacity: enabled ? 1 : 0.7 }}
+              {...pluginCardShell(enabled, 0.7)}
             >
               <div className="flex items-center gap-3 px-4 py-3">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-elevated) border border-(--t-border)">
