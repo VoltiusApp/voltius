@@ -25,7 +25,6 @@ const h = vi.hoisted(() => ({
   manifests: {} as Record<string, { deviceName?: string }>,
   known: {} as Record<string, { name?: string }>,
   typeSynced: true,
-  isPro: true,
   market: {
     installing: new Set<string>(),
     installedMeta: [] as InstalledPluginMeta[],
@@ -59,7 +58,6 @@ vi.mock("@/stores/syncPrefsStore", () => ({
     }),
   },
 }));
-vi.mock("@/stores/subscriptionStore", () => ({ useSubscriptionStore: { getState: () => ({ isPro: h.isPro }) } }));
 vi.mock("@/plugins/runtime", () => ({ getLoadedPlugins: () => h.loaded }));
 vi.mock("@/stores/marketplaceStore", () => ({
   FIRST_PARTY_SOURCE: { id: "voltius" },
@@ -117,7 +115,6 @@ beforeEach(() => {
   h.manifests = {};
   h.known = {};
   h.typeSynced = true;
-  h.isPro = true;
   h.toggleExcluded.mockImplementation((id: string) => {
     if (!h.excluded.delete(id)) h.excluded.add(id);
   });
@@ -162,8 +159,8 @@ describe("pluginSync", () => {
 
   describe("pluginSyncBlockedReason", () => {
     const key = (k: string) => `settings.plugins.sync.blocked.${k}`;
-    const ON = { configured: true, paused: false };
-    const OFF = { configured: false, paused: false };
+    const OFF = { configured: false, paused: false, isPro: true, lanKnown: false };
+    const ON = { ...OFF, configured: true };
 
     it("local and url sources are blocked as localSource", () => {
       expect(pluginSyncBlockedReason("p1", "local", ON)).toBe(key("localSource"));
@@ -189,15 +186,12 @@ describe("pluginSync", () => {
     });
 
     it("paused Voltius sync counts as a channel only for a Pro account", () => {
-      const PAUSED = { configured: false, paused: true };
-      expect(pluginSyncBlockedReason("p1", "voltius", PAUSED)).toBeNull();
-      h.isPro = false;
-      expect(pluginSyncBlockedReason("p1", "voltius", PAUSED)).toBe(key("noChannel"));
+      expect(pluginSyncBlockedReason("p1", "voltius", { ...OFF, paused: true })).toBeNull();
+      expect(pluginSyncBlockedReason("p1", "voltius", { ...OFF, paused: true, isPro: false })).toBe(key("noChannel"));
     });
 
     it("a LAN group is enough without an account", () => {
-      h.known = { d1: {} };
-      expect(pluginSyncBlockedReason("p1", "voltius", OFF)).toBeNull();
+      expect(pluginSyncBlockedReason("p1", "voltius", { ...OFF, isPro: false, lanKnown: true })).toBeNull();
     });
   });
 
@@ -606,15 +600,15 @@ describe("notifySyncedChanges", () => {
     h.entries = [synced("p1", { name: "Alpha" }), synced("p2", { name: "Beta" })];
   });
 
-  it("toasts nothing for empty lists", () => {
-    notifySyncedChanges([], []);
+  it("toasts nothing for empty lists", async () => {
+    await notifySyncedChanges([], []);
 
     expect(h.appToast).not.toHaveBeenCalled();
   });
 
-  it("names the plugin and the device for a single install", () => {
+  it("names the plugin and the device for a single install", async () => {
     h.manifests = { "dev-b": { deviceName: "Laptop" } };
-    notifySyncedChanges(["p1"], []);
+    await notifySyncedChanges(["p1"], []);
 
     expect(h.appToast).toHaveBeenCalledTimes(1);
     expect(h.appToast.mock.calls[0][0]).toBe("info");
@@ -624,35 +618,35 @@ describe("notifySyncedChanges", () => {
     expect(toastAction().label).toContain("settings.plugins.sync.notHere");
   });
 
-  it("falls back to the lan-known name", () => {
+  it("falls back to the lan-known name", async () => {
     h.known = { "dev-b": { name: "Phone" } };
-    notifySyncedChanges(["p1"], []);
+    await notifySyncedChanges(["p1"], []);
 
     expect(h.appToast.mock.calls[0][1]).toContain('"device":"Phone"');
   });
 
-  it("uses the unknown-device form when the device has no name", () => {
-    notifySyncedChanges([], ["p1"]);
+  it("uses the unknown-device form when the device has no name", async () => {
+    await notifySyncedChanges([], ["p1"]);
 
     expect(h.appToast.mock.calls[0][1]).toBe('settings.plugins.sync.removedOneUnknown|{"plugin":"Alpha"}');
     expect(toastAction().label).toContain("settings.plugins.sync.keepHere");
   });
 
-  it("falls back to the id when the entry has no name", () => {
+  it("falls back to the id when the entry has no name", async () => {
     h.entries = [synced("p1", { name: "" })];
-    notifySyncedChanges(["p1"], []);
+    await notifySyncedChanges(["p1"], []);
 
     expect(h.appToast.mock.calls[0][1]).toContain('"plugin":"p1"');
   });
 
-  it("summarises several plugins with a count", () => {
-    notifySyncedChanges(["p1", "p2"], []);
+  it("summarises several plugins with a count", async () => {
+    await notifySyncedChanges(["p1", "p2"], []);
 
     expect(h.appToast.mock.calls[0][1]).toBe('settings.plugins.sync.installedMany|{"count":2}');
   });
 
-  it("raises one toast per non-empty list", () => {
-    notifySyncedChanges(["p1"], ["p2", "p1"]);
+  it("raises one toast per non-empty list", async () => {
+    await notifySyncedChanges(["p1"], ["p2", "p1"]);
 
     expect(h.appToast).toHaveBeenCalledTimes(2);
     expect(h.appToast.mock.calls[1][1]).toBe('settings.plugins.sync.removedMany|{"count":2}');
@@ -665,7 +659,7 @@ describe("notifySyncedChanges", () => {
       order.push("uninstall");
       return { ok: true, result: { id } };
     });
-    notifySyncedChanges(["p1"], []);
+    await notifySyncedChanges(["p1"], []);
 
     toastAction().onClick();
     await vi.waitFor(() => expect(h.uninstallPlugin).toHaveBeenCalledWith("p1"));
@@ -681,7 +675,7 @@ describe("notifySyncedChanges", () => {
       order.push("install");
       return { ok: true, result: {} };
     });
-    notifySyncedChanges([], ["p1"]);
+    await notifySyncedChanges([], ["p1"]);
 
     toastAction().onClick();
     await vi.waitFor(() => expect(h.installWithConsent).toHaveBeenCalled());

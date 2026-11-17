@@ -13,12 +13,10 @@ import { whenLoginSyncSettled } from "@/services/loginSyncGate";
 import { remoteSourceName } from "@/services/remoteSources";
 import type { EffectiveSync } from "@/services/syncProviders";
 import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
-import { useLanSyncStore } from "@/stores/lanSyncStore";
 import { FIRST_PARTY_SOURCE, useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
 import { installAllowed, policyInstallList } from "@/stores/pluginRegistryStore";
 import { lockedBool } from "@/stores/policyStore";
 import { loadSeededEntries, useSeededTombstoneStore, type SeededEntry } from "@/stores/seededTombstoneStore";
-import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useSyncedPluginStore, type SyncedPlugin, type SyncedPluginFields } from "@/stores/syncedPluginStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { toggleKey } from "@/stores/toggleSettingsStore";
@@ -28,15 +26,14 @@ export function syncEligible(id: string, sourceId: string): boolean {
   return sourceId !== "local" && sourceId !== "url" && !policyInstallList().includes(id);
 }
 
-function hasSyncChannel(sync: Pick<EffectiveSync, "configured" | "paused">): boolean {
-  const pausedPro = sync.paused && useSubscriptionStore.getState().isPro;
-  return sync.configured || pausedPro || Object.keys(useLanSyncStore.getState().known).length > 0;
-}
+export type SyncChannels = Pick<EffectiveSync, "configured" | "paused"> & { isPro: boolean; lanKnown: boolean };
+
+const hasSyncChannel = (c: SyncChannels): boolean => c.configured || (c.paused && c.isPro) || c.lanKnown;
 
 export function pluginSyncBlockedReason(
   id: string,
   sourceId: string,
-  sync: Pick<EffectiveSync, "configured" | "paused">,
+  channels: SyncChannels,
 ): string | null {
   if (!syncEligible(id, sourceId)) {
     return sourceId === "local" || sourceId === "url"
@@ -44,7 +41,7 @@ export function pluginSyncBlockedReason(
       : "settings.plugins.sync.blocked.managed";
   }
   if (!useSyncPrefsStore.getState().isTypeSynced("plugin")) return "settings.plugins.sync.blocked.typeOff";
-  return hasSyncChannel(sync) ? null : "settings.plugins.sync.blocked.noChannel";
+  return hasSyncChannel(channels) ? null : "settings.plugins.sync.blocked.noChannel";
 }
 
 async function swallowed(id: string, record: () => Promise<void>): Promise<void> {
@@ -222,7 +219,7 @@ export async function keepOnThisDevice(ids: string[]): Promise<void> {
   }
 }
 
-function toastChange(kind: "installed" | "removed", ids: string[], action: { label: string; onClick: () => void }) {
+async function toastChange(kind: "installed" | "removed", ids: string[], action: { label: string; onClick: () => void }) {
   if (ids.length === 0) return;
   const key = (suffix: string) => `settings.plugins.sync.${kind}${suffix}`;
   let message = i18n.t(key("Many"), { count: ids.length });
@@ -230,19 +227,20 @@ function toastChange(kind: "installed" | "removed", ids: string[], action: { lab
     const entry = syncedEntry(ids[0]);
     const plugin = entry?.name || ids[0];
     const { manifests } = useCrossDeviceSessionsStore.getState();
-    const { known } = useLanSyncStore.getState();
+    // lanSyncStore hooks into sync merges when loaded; a static import would drag that into every importer.
+    const { known } = (await import("@/stores/lanSyncStore")).useLanSyncStore.getState();
     const device = entry ? remoteSourceName(entry.device_id, manifests, known) : null;
     message = device ? i18n.t(key("One"), { plugin, device }) : i18n.t(key("OneUnknown"), { plugin });
   }
   appToast("info", message, { action });
 }
 
-export function notifySyncedChanges(installed: string[], removed: string[]): void {
-  toastChange("installed", installed, {
+export async function notifySyncedChanges(installed: string[], removed: string[]): Promise<void> {
+  await toastChange("installed", installed, {
     label: i18n.t("settings.plugins.sync.notHere"),
     onClick: () => void keepOffThisDevice(installed),
   });
-  toastChange("removed", removed, {
+  await toastChange("removed", removed, {
     label: i18n.t("settings.plugins.sync.keepHere"),
     onClick: () => void keepOnThisDevice(removed),
   });
@@ -285,7 +283,7 @@ async function reconcile(): Promise<void> {
     if (!userInstalling(id) && (await removeHere(id)) === null) removed.push(id);
   }
 
-  notifySyncedChanges(installed, removed);
+  await notifySyncedChanges(installed, removed);
 }
 
 const reconcileFlight = singleFlight(

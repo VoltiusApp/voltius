@@ -4,6 +4,7 @@ import { renderHook } from "@testing-library/react";
 
 const h = vi.hoisted(() => ({
   excluded: [] as string[],
+  known: {} as Record<string, object>,
   effective: { configured: false, paused: true },
   toggleExcluded: vi.fn(),
   blockedReason: vi.fn((..._args: unknown[]): string | null => null),
@@ -20,7 +21,10 @@ vi.mock("@/stores/syncPrefsStore", () => ({
     { getState: () => ({ toggleExcluded: h.toggleExcluded }) },
   ),
 }));
-vi.mock("@/stores/lanSyncStore", () => ({ useLanSyncStore: (sel: (s: { known: object }) => unknown) => sel({ known: {} }) }));
+vi.mock("@/stores/lanSyncStore", () => ({ useLanSyncStore: (sel: (s: { known: object }) => unknown) => sel({ known: h.known }) }));
+vi.mock("@/stores/subscriptionStore", () => ({
+  useSubscriptionStore: (sel: (s: { isPro: boolean }) => unknown) => sel({ isPro: false }),
+}));
 
 import { usePluginSyncSwitch } from "./usePluginSyncSwitch";
 
@@ -28,6 +32,7 @@ const seeded = new Map([["b1", { folder: "b1", manifest: { id: "b1" } }]]) as un
 
 beforeEach(() => {
   h.excluded = [];
+  h.known = {};
   h.toggleExcluded.mockReset();
   h.blockedReason.mockReset().mockReturnValue(null);
 });
@@ -36,14 +41,14 @@ test("a bundled plugin is judged by its seeded source and the provider-wide sync
   h.blockedReason.mockReturnValue("settings.plugins.sync.blocked.noChannel");
   const { result } = renderHook(() => usePluginSyncSwitch("b1", seeded));
 
-  expect(h.blockedReason).toHaveBeenCalledWith("b1", "voltius", h.effective);
+  expect(h.blockedReason).toHaveBeenCalledWith("b1", "voltius", { ...h.effective, isPro: false, lanKnown: false });
   expect(result.current.reason).toBe("settings.plugins.sync.blocked.noChannel");
 });
 
 test("a loaded plugin with no meta and no seeded artifact is local", () => {
   renderHook(() => usePluginSyncSwitch("dev", seeded));
 
-  expect(h.blockedReason).toHaveBeenCalledWith("dev", "local", h.effective);
+  expect(h.blockedReason).toHaveBeenCalledWith("dev", "local", expect.objectContaining({ isPro: false }));
 });
 
 test("reflects the exclusion and toggles it", () => {
@@ -53,4 +58,11 @@ test("reflects the exclusion and toggles it", () => {
   expect(result.current.synced).toBe(false);
   result.current.toggle();
   expect(h.toggleExcluded).toHaveBeenCalledWith("b1");
+});
+
+test("a known LAN device is passed on as a channel", () => {
+  h.known = { d1: {} };
+  renderHook(() => usePluginSyncSwitch("b1", seeded));
+
+  expect(h.blockedReason).toHaveBeenCalledWith("b1", "voltius", expect.objectContaining({ lanKnown: true }));
 });
