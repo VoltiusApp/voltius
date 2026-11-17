@@ -83,12 +83,9 @@ const VOLTIUS_PAUSE_TOGGLES: Partial<Record<SyncProviderAvailability, SyncProvid
   paused: { kind: "resume" },
 };
 
-export function voltiusAvailability(v: Pick<VoltiusSyncInput, "accountMode" | "isPro" | "paused">): SyncProviderAvailability {
-  return v.accountMode !== "server" ? "locked" : v.paused ? "paused" : !v.isPro ? "needs_upgrade" : "active";
-}
-
 function voltiusProvider(v: VoltiusSyncInput): SyncProviderView {
-  const availability = voltiusAvailability(v);
+  const availability: SyncProviderAvailability =
+    v.accountMode !== "server" ? "locked" : v.paused ? "paused" : !v.isPro ? "needs_upgrade" : "active";
   const active = availability === "active";
   return {
     id: VOLTIUS_PROVIDER_ID,

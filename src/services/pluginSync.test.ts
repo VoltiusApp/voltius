@@ -11,7 +11,7 @@ const h = vi.hoisted(() => ({
   policy: [] as string[],
   blocked: new Set<string>(),
   locks: {} as Record<string, unknown>,
-  recordInstall: vi.fn(async () => {}),
+  recordInstall: vi.fn(async (_id: string, _fields: SyncedPluginFields, _opts?: { force?: boolean }) => {}),
   recordUninstall: vi.fn(async () => {}),
   seed: vi.fn(async (_items: Array<{ id: string } & SyncedPluginFields>) => {}),
   entries: [] as SyncedPlugin[],
@@ -25,8 +25,8 @@ const h = vi.hoisted(() => ({
   manifests: {} as Record<string, { deviceName?: string }>,
   known: {} as Record<string, { name?: string }>,
   typeSynced: true,
-  sub: { accountMode: null as string | null, isPro: false },
   market: {
+    installing: new Set<string>(),
     installedMeta: [] as InstalledPluginMeta[],
     catalog: [] as MarketplacePlugin[],
     appVersion: null as string | null,
@@ -49,10 +49,14 @@ vi.mock("@/stores/syncedPluginStore", () => ({
   },
 }));
 vi.mock("@/stores/syncPrefsStore", () => ({
-  useSyncPrefsStore: { getState: () => ({ isExcluded: (id: string) => h.excluded.has(id), toggleExcluded: h.toggleExcluded, isTypeSynced: () => h.typeSynced }) },
-}));
-vi.mock("@/stores/subscriptionStore", () => ({
-  useSubscriptionStore: { getState: () => h.sub },
+  useSyncPrefsStore: {
+    getState: () => ({
+      isExcluded: (id: string) => h.excluded.has(id),
+      toggleExcluded: h.toggleExcluded,
+      isTypeSynced: () => h.typeSynced,
+      isObjectSynced: (id: string) => h.typeSynced && !h.excluded.has(id),
+    }),
+  },
 }));
 vi.mock("@/plugins/runtime", () => ({ getLoadedPlugins: () => h.loaded }));
 vi.mock("@/stores/marketplaceStore", () => ({
@@ -78,6 +82,8 @@ vi.mock("@/stores/policyStore", () => ({ lockedBool: (key: string) => h.locks[ke
 vi.mock("@/stores/toggleSettingsStore", () => ({ toggleKey: (id: string) => `appSettings.toggles.${id}` }));
 
 import {
+  consentStillWanted,
+  installedSourceId,
   keepOffThisDevice,
   keepOnThisDevice,
   notifySyncedChanges,
@@ -109,7 +115,10 @@ beforeEach(() => {
   h.manifests = {};
   h.known = {};
   h.typeSynced = true;
-  h.sub = { accountMode: null, isPro: false };
+  h.toggleExcluded.mockImplementation((id: string) => {
+    if (!h.excluded.delete(id)) h.excluded.add(id);
+  });
+  h.market.installing = new Set();
   h.market.installedMeta = [];
   h.market.catalog = [];
   h.market.appVersion = null;
@@ -120,15 +129,21 @@ describe("pluginSync", () => {
   it("records an eligible install with entry and manifest fields", async () => {
     await recordUserInstall(entry(), manifest);
 
-    expect(h.recordInstall).toHaveBeenCalledWith("p1", {
-      repo: "o/p1", source_id: "voltius", hash: "h", css_hash: "c", permissions: ["net"], name: "Plugin One",
-    });
+    expect(h.recordInstall).toHaveBeenCalledWith(
+      "p1",
+      { repo: "o/p1", source_id: "voltius", hash: "h", css_hash: "c", permissions: ["net"], name: "Plugin One" },
+      { force: false },
+    );
   });
 
   it("uses null hashes and empty permissions when absent", async () => {
     await recordUserInstall(entry({ hash: undefined, cssHash: undefined }), { id: "p1", name: "P1", version: "1" } as PluginManifest);
 
-    expect(h.recordInstall).toHaveBeenCalledWith("p1", expect.objectContaining({ hash: null, css_hash: null, permissions: [] }));
+    expect(h.recordInstall).toHaveBeenCalledWith(
+      "p1",
+      expect.objectContaining({ hash: null, css_hash: null, permissions: [] }),
+      { force: false },
+    );
   });
 
   it("policy-listed and local-source installs record nothing", async () => {
@@ -144,46 +159,53 @@ describe("pluginSync", () => {
 
   describe("pluginSyncBlockedReason", () => {
     const key = (k: string) => `settings.plugins.sync.blocked.${k}`;
+    const ON = { configured: true, paused: false };
+    const OFF = { configured: false, paused: false };
 
     it("local and url sources are blocked as localSource", () => {
-      h.sub = { accountMode: "server", isPro: true };
-      expect(pluginSyncBlockedReason("p1", "local")).toBe(key("localSource"));
-      expect(pluginSyncBlockedReason("p1", "url")).toBe(key("localSource"));
+      expect(pluginSyncBlockedReason("p1", "local", ON)).toBe(key("localSource"));
+      expect(pluginSyncBlockedReason("p1", "url", ON)).toBe(key("localSource"));
     });
 
     it("policy-listed ids are blocked as managed", () => {
       h.policy = ["p1"];
-      expect(pluginSyncBlockedReason("p1", "voltius")).toBe(key("managed"));
+      expect(pluginSyncBlockedReason("p1", "voltius", ON)).toBe(key("managed"));
     });
 
     it("a turned-off plugin sync type is blocked as typeOff", () => {
-      h.sub = { accountMode: "server", isPro: true };
       h.typeSynced = false;
-      expect(pluginSyncBlockedReason("p1", "voltius")).toBe(key("typeOff"));
+      expect(pluginSyncBlockedReason("p1", "voltius", ON)).toBe(key("typeOff"));
     });
 
-    it("no account sync and no LAN group is blocked as noChannel", () => {
-      h.sub = { accountMode: "server", isPro: false };
-      expect(pluginSyncBlockedReason("p1", "voltius")).toBe(key("noChannel"));
+    it("no active provider and no LAN group is blocked as noChannel", () => {
+      expect(pluginSyncBlockedReason("p1", "voltius", OFF)).toBe(key("noChannel"));
     });
 
-    it("a signed-in Pro account is enough", () => {
-      h.sub = { accountMode: "server", isPro: true };
-      expect(pluginSyncBlockedReason("p1", "voltius")).toBeNull();
+    it("any active sync provider is enough", () => {
+      expect(pluginSyncBlockedReason("p1", "voltius", ON)).toBeNull();
+    });
+
+    it("paused Voltius sync still counts as a channel", () => {
+      expect(pluginSyncBlockedReason("p1", "voltius", { configured: false, paused: true })).toBeNull();
     });
 
     it("a LAN group is enough without an account", () => {
       h.known = { d1: {} };
-      expect(pluginSyncBlockedReason("p1", "voltius")).toBeNull();
+      expect(pluginSyncBlockedReason("p1", "voltius", OFF)).toBeNull();
     });
   });
 
-  it("user install clears this device's exclusion", async () => {
+  it("user install of an excluded id clears the exclusion first, then forces a fresh entry", async () => {
     h.excluded.add("p1");
+    const excludedWhenRecorded: boolean[] = [];
+    h.recordInstall.mockImplementation(async () => {
+      excludedWhenRecorded.push(h.excluded.has("p1"));
+    });
     await recordUserInstall(entry(), manifest);
 
     expect(h.toggleExcluded).toHaveBeenCalledWith("p1");
-    expect(h.recordInstall).toHaveBeenCalled();
+    expect(excludedWhenRecorded).toEqual([false]);
+    expect(h.recordInstall).toHaveBeenCalledWith("p1", expect.anything(), { force: true });
   });
 
   it("leaves a non-excluded id's preference alone", async () => {
@@ -192,7 +214,7 @@ describe("pluginSync", () => {
     expect(h.toggleExcluded).not.toHaveBeenCalled();
   });
 
-  it("a failing record is swallowed and leaves the exclusion alone", async () => {
+  it("a failing record is swallowed and restores the exclusion", async () => {
     h.excluded.add("p1");
     h.recordInstall.mockRejectedValueOnce(new Error("corrupt"));
     h.recordUninstall.mockRejectedValueOnce(new Error("corrupt"));
@@ -201,7 +223,7 @@ describe("pluginSync", () => {
     await expect(recordUserInstall(entry(), manifest)).resolves.toBeUndefined();
     await expect(recordUserUninstall("p1")).resolves.toBeUndefined();
 
-    expect(h.toggleExcluded).not.toHaveBeenCalled();
+    expect(h.excluded.has("p1")).toBe(true);
   });
 
   it("uninstall delegates to recordUninstall", async () => {
@@ -223,7 +245,7 @@ const meta = (id: string, over: Partial<InstalledPluginMeta> = {}): InstalledPlu
 });
 const seededEntry = (id: string): SeededEntry => ({ folder: id, manifest: loadedManifest(id) });
 const seededIds = () => h.seed.mock.calls.flatMap(([items]) => items.map((i) => i.id));
-const queue = () => useSyncedPluginConsentStore.getState().queue;
+const queued = () => useSyncedPluginConsentStore.getState().queue.map((r) => r.id);
 const REVIEW_KEY = "appSettings.toggles.plugin-install-review";
 
 const reconcileAfterBoot = () => reconcileSyncedPlugins({ boot: true });
@@ -231,6 +253,15 @@ const target = (over: Partial<MarketplacePlugin>) => expect.objectContaining(ove
 const SYNC = { syncDriven: true };
 
 describe("reconcileSyncedPlugins", () => {
+  it("installedSourceId reads the meta, then a seeded artifact, else local", () => {
+    h.market.installedMeta = [meta("ext", { sourceId: "custom" })];
+    h.seeded = new Map([["b1", seededEntry("b1")]]);
+
+    expect(installedSourceId("ext", h.seeded)).toBe("custom");
+    expect(installedSourceId("b1", h.seeded)).toBe("voltius");
+    expect(installedSourceId("dev", h.seeded)).toBe("local");
+  });
+
   it("a merge before plugins have booted reconciles nothing", async () => {
     vi.resetModules();
     const fresh = await import("./pluginSync");
@@ -305,18 +336,28 @@ describe("reconcileSyncedPlugins", () => {
     expect(h.installWithConsent).toHaveBeenCalledWith(target({ id: "p2" }), ["net"], SYNC);
   });
 
-  it("prefers the catalogue row from the entry's own source", async () => {
-    h.entries = [synced("p2", { source_id: "custom" }), synced("p4", { source_id: "gone" })];
+  it("prefers the entry's own source, then its recorded repo and hash, then another source", async () => {
+    h.entries = [
+      synced("p2", { source_id: "custom" }),
+      synced("p4", { source_id: "gone" }),
+      synced("p6", { source_id: "gone", hash: null }),
+    ];
     h.market.catalog = [
       entry({ id: "p2", sourceId: "voltius" }),
       entry({ id: "p2", sourceId: "custom" }),
-      entry({ id: "p4", sourceId: "voltius" }),
+      entry({ id: "p4", sourceId: "voltius", repo: "other/p4", hash: "h-other" }),
+      entry({ id: "p6", sourceId: "voltius" }),
     ];
 
     await reconcileAfterBoot();
 
     expect(h.installWithConsent).toHaveBeenCalledWith(target({ id: "p2", sourceId: "custom" }), ["net"], SYNC);
-    expect(h.installWithConsent).toHaveBeenCalledWith(target({ id: "p4", sourceId: "voltius" }), ["net"], SYNC);
+    expect(h.installWithConsent).toHaveBeenCalledWith(
+      target({ id: "p4", sourceId: "gone", repo: "o/p4", hash: "h-p4" }),
+      ["net"],
+      SYNC,
+    );
+    expect(h.installWithConsent).toHaveBeenCalledWith(target({ id: "p6", sourceId: "voltius" }), ["net"], SYNC);
   });
 
   it("installs an entry its catalogue lacks from the recorded repo and hash", async () => {
@@ -428,7 +469,7 @@ describe("reconcileSyncedPlugins", () => {
     await reconcileAfterBoot();
     await reconcileAfterBoot();
 
-    expect(queue()).toEqual(["p2", "p3"]);
+    expect(queued()).toEqual(["p2", "p3"]);
     expect(h.toggleExcluded).not.toHaveBeenCalled();
   });
 
@@ -445,7 +486,7 @@ describe("reconcileSyncedPlugins", () => {
     await reconcileAfterBoot();
 
     expect(h.installWithConsent).not.toHaveBeenCalled();
-    expect(queue()).toEqual(["p2", "p3", "p5"]);
+    expect(queued()).toEqual(["p2", "p3", "p5"]);
   });
 
   it("review locked on queues consent for a plugin with no permissions", async () => {
@@ -456,7 +497,7 @@ describe("reconcileSyncedPlugins", () => {
     await reconcileAfterBoot();
 
     expect(h.installWithConsent).not.toHaveBeenCalled();
-    expect(queue()).toEqual(["p5"]);
+    expect(queued()).toEqual(["p5"]);
   });
 
   it("a review toggle locked off keeps the recorded consent", async () => {
@@ -480,7 +521,47 @@ describe("reconcileSyncedPlugins", () => {
 
     expect(h.installWithConsent).toHaveBeenCalledTimes(4);
     expect(h.toggleExcluded).not.toHaveBeenCalled();
-    expect(queue()).toEqual([]);
+    expect(queued()).toEqual([]);
+  });
+
+  it("with the plugin type off nothing is installed, removed or queued", async () => {
+    h.typeSynced = false;
+    h.entries = [synced("remote-only"), tombstone("p1")];
+    h.loaded = [loadedManifest("p1")];
+    h.market.installedMeta = [meta("p1")];
+    h.market.catalog = [entry({ id: "remote-only" })];
+    h.installWithConsent.mockResolvedValue({ ok: false, error: h.GREW });
+
+    await reconcileAfterBoot();
+
+    expect(h.installWithConsent).not.toHaveBeenCalled();
+    expect(h.uninstallPlugin).not.toHaveBeenCalled();
+    expect(queued()).toEqual([]);
+    expect(h.appToast).not.toHaveBeenCalled();
+  });
+
+  it("leaves ids the user is installing right now alone both ways", async () => {
+    h.market.installing = new Set(["p1", "p2"]);
+    h.entries = [tombstone("p1"), synced("p2")];
+    h.loaded = [loadedManifest("p1")];
+    h.market.installedMeta = [meta("p1")];
+    h.market.catalog = [entry({ id: "p2" })];
+
+    await reconcileAfterBoot();
+
+    expect(h.uninstallPlugin).not.toHaveBeenCalled();
+    expect(h.installWithConsent).not.toHaveBeenCalled();
+  });
+
+  it("does not reinstall a plugin that is on disk but failed to load", async () => {
+    h.entries = [synced("broken")];
+    h.market.installedMeta = [meta("broken")];
+    h.market.catalog = [entry({ id: "broken" })];
+
+    await reconcileAfterBoot();
+
+    expect(h.installWithConsent).not.toHaveBeenCalled();
+    expect(h.appToast).not.toHaveBeenCalled();
   });
 
   it("seeds installed plugins without removal markers", async () => {
@@ -628,10 +709,77 @@ describe("keep actions", () => {
     );
   });
 
+  it("keepOnThisDevice queues consent when review is locked on, marked as kept", async () => {
+    h.locks = { [REVIEW_KEY]: true };
+    h.entries = [tombstone("p1")];
+    h.market.catalog = [entry({ id: "p1" })];
+
+    await keepOnThisDevice(["p1"]);
+
+    expect(h.installWithConsent).not.toHaveBeenCalled();
+    expect(useSyncedPluginConsentStore.getState().queue).toEqual([{ id: "p1", keep: true }]);
+  });
+
+  it("keepOnThisDevice queues consent when permissions grew", async () => {
+    h.entries = [tombstone("p1")];
+    h.market.catalog = [entry({ id: "p1" })];
+    h.installWithConsent.mockResolvedValue({ ok: false, error: h.GREW });
+
+    await keepOnThisDevice(["p1"]);
+
+    expect(useSyncedPluginConsentStore.getState().queue).toEqual([{ id: "p1", keep: true }]);
+  });
+
+  it("keepOffThisDevice swallows a failed removal", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    h.uninstallPlugin.mockRejectedValueOnce(new Error("busy")).mockResolvedValueOnce({ ok: false, error: "locked" });
+
+    await expect(keepOffThisDevice(["p1", "p2"])).resolves.toBeUndefined();
+
+    expect(h.excluded).toEqual(new Set(["p1", "p2"]));
+    expect(h.uninstallPlugin).toHaveBeenCalledTimes(2);
+  });
+
   it("resolveSyncedCandidate is null for an unknown id and for an entry with no source", async () => {
     h.entries = [synced("p3", { hash: null })];
 
     expect(await resolveSyncedCandidate("nope")).toBeNull();
     expect(await resolveSyncedCandidate("p3")).toBeNull();
+  });
+});
+
+describe("consentStillWanted", () => {
+  it("wants a live, synced, allowed entry that is not loaded", () => {
+    h.entries = [synced("p1")];
+
+    expect(consentStillWanted({ id: "p1", keep: false })).toBe(true);
+  });
+
+  it("drops an entry removed, excluded or turned off since it was queued", () => {
+    h.entries = [tombstone("dead"), synced("off")];
+    h.excluded.add("off");
+
+    expect(consentStillWanted({ id: "dead", keep: false })).toBe(false);
+    expect(consentStillWanted({ id: "off", keep: false })).toBe(false);
+    expect(consentStillWanted({ id: "missing", keep: false })).toBe(false);
+    h.typeSynced = false;
+    h.entries = [synced("p1")];
+    expect(consentStillWanted({ id: "p1", keep: false })).toBe(false);
+  });
+
+  it("drops an id blocked by policy or already loaded, even when kept", () => {
+    h.entries = [synced("p1"), synced("p2")];
+    h.blocked = new Set(["p1"]);
+    h.loaded = [loadedManifest("p2")];
+
+    expect(consentStillWanted({ id: "p1", keep: true })).toBe(false);
+    expect(consentStillWanted({ id: "p2", keep: true })).toBe(false);
+  });
+
+  it("a kept removal stays wanted although its entry is removed and excluded", () => {
+    h.entries = [tombstone("p1")];
+    h.excluded.add("p1");
+
+    expect(consentStillWanted({ id: "p1", keep: true })).toBe(true);
   });
 });

@@ -3,9 +3,11 @@ import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import type { PluginManifest } from "@/plugins/api";
 
 const h = vi.hoisted(() => ({
-  excluded: [] as string[],
+  synced: true,
   reason: null as string | null,
-  toggleExcluded: vi.fn(),
+  mobile: false,
+  toggle: vi.fn(),
+  switchCalls: [] as Array<[string, Map<string, unknown>]>,
   loaded: [] as unknown[],
   state: {
     installedMeta: [] as unknown[], catalog: [] as unknown[],
@@ -32,17 +34,12 @@ vi.mock("@/stores/marketplaceStore", () => ({
   useMarketplaceStore: (selector?: (s: typeof h.state) => unknown) => (selector ? selector(h.state) : h.state),
   FIRST_PARTY_SOURCE: { id: "voltius", name: "Voltius Marketplace", url: "", enabled: true, deletable: false },
 }));
-vi.mock("@/services/pluginSync", () => ({ pluginSyncBlockedReason: () => h.reason }));
-vi.mock("@/stores/syncPrefsStore", () => ({
-  useSyncPrefsStore: Object.assign(
-    (sel: (s: { excludedIds: string[]; syncTypes: object }) => unknown) => sel({ excludedIds: h.excluded, syncTypes: {} }),
-    { getState: () => ({ toggleExcluded: h.toggleExcluded }) },
-  ),
+vi.mock("@/hooks/usePluginSyncSwitch", () => ({
+  usePluginSyncSwitch: (id: string, seeded: Map<string, unknown>) => {
+    h.switchCalls.push([id, seeded]);
+    return { synced: h.synced, reason: h.reason, toggle: () => h.toggle(id) };
+  },
 }));
-vi.mock("@/stores/subscriptionStore", () => ({
-  useSubscriptionStore: (sel: (s: { isPro: boolean; accountMode: null }) => unknown) => sel({ isPro: false, accountMode: null }),
-}));
-vi.mock("@/stores/lanSyncStore", () => ({ useLanSyncStore: (sel: (s: { known: object }) => unknown) => sel({ known: {} }) }));
 vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" },
   useNotificationStore: Object.assign(() => ({ push: vi.fn() }), { getState: () => ({ push: vi.fn() }) }),
 }));
@@ -50,12 +47,12 @@ vi.mock("@/stores/toggleSettingsStore", () => ({ getToggle: () => false, useTogg
 vi.mock("@/components/shared/ToolbarViewControls", () => ({ useFilterShortcut: () => {} }));
 vi.mock("@/components/shared/Toggle", () => ({ Toggle: () => null }));
 vi.mock("@/components/settings/sections/PluginPermissionModal", () => ({ PluginPermissionModal: () => null }));
-vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", useIsIOS: () => false, useIsAndroid: () => false, useIsMobile: () => false }));
+vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", useIsIOS: () => false, useIsAndroid: () => false, useIsMobile: () => h.mobile }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
-vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("@iconify/react", () => ({ Icon: ({ icon }: { icon: string }) => <i data-icon={icon} /> }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => {}) }));
 
 import { InstalledTab } from "./PluginsSection";
@@ -64,26 +61,44 @@ const manifest = (id: string): PluginManifest =>
   ({ id, name: id, version: "1.0.0", description: "", permissions: [] } as PluginManifest);
 
 beforeEach(() => {
-  h.excluded = [];
+  h.synced = true;
   h.reason = null;
-  h.toggleExcluded.mockReset();
+  h.mobile = false;
+  h.switchCalls = [];
+  h.toggle.mockReset();
   h.loaded = [manifest("plugin-docker")];
   h.state.installedMeta = [];
 });
 afterEach(cleanup);
 
-test("an eligible plugin offers to keep itself on this device and toggles its exclusion", () => {
+const syncButton = (title: string) => screen.getByTitle(title) as HTMLButtonElement;
+const iconOf = (el: HTMLElement) => el.querySelector("i")?.getAttribute("data-icon");
+
+test("a synced plugin shows the synced state, labels the action, and toggles its exclusion", () => {
   render(<InstalledTab />);
-  const btn = screen.getByTitle("common.objectSync.disable") as HTMLButtonElement;
+  const btn = syncButton("common.objectSync.disable");
   expect(btn.disabled).toBe(false);
+  expect(btn.getAttribute("aria-label")).toBe("common.objectSync.disable");
+  expect(iconOf(btn)).toBe("lucide:cloud");
   fireEvent.click(btn);
-  expect(h.toggleExcluded).toHaveBeenCalledWith("plugin-docker");
+  expect(h.toggle).toHaveBeenCalledWith("plugin-docker");
 });
 
-test("an excluded plugin offers to sync again", () => {
-  h.excluded = ["plugin-docker"];
+test("an excluded plugin shows it stays here and offers to sync again", () => {
+  h.synced = false;
   render(<InstalledTab />);
-  expect(screen.getByTitle("common.objectSync.enable")).toBeTruthy();
+  const btn = syncButton("common.objectSync.enable");
+  expect(iconOf(btn)).toBe("lucide:cloud-off");
+});
+
+test("bundled and installed cards pass the seeded entries so the hook resolves each source", () => {
+  h.state.installedMeta = [{ id: "ext", version: "1.0.0", sourceId: "local", hash: null }];
+  h.loaded = [manifest("plugin-docker"), manifest("ext")];
+  render(<InstalledTab />);
+  const ids = h.switchCalls.map(([id]) => id);
+  expect(ids).toContain("plugin-docker");
+  expect(ids).toContain("ext");
+  expect(h.switchCalls.every(([, seeded]) => seeded instanceof Map)).toBe(true);
 });
 
 test.each([
@@ -94,8 +109,22 @@ test.each([
 ])("a blocked plugin is greyed with its reason: %s", (reason) => {
   h.reason = reason;
   render(<InstalledTab />);
-  const btn = screen.getByTitle(reason) as HTMLButtonElement;
+  const btn = syncButton(reason);
   expect(btn.disabled).toBe(true);
+  expect(btn.style.opacity).toBe("0.4");
   fireEvent.click(btn);
-  expect(h.toggleExcluded).not.toHaveBeenCalled();
+  expect(h.toggle).not.toHaveBeenCalled();
+});
+
+test("on mobile the reason gets a line of its own", () => {
+  h.mobile = true;
+  h.reason = "settings.plugins.sync.blocked.noChannel";
+  render(<InstalledTab />);
+  expect(screen.getByText("settings.plugins.sync.blocked.noChannel")).toBeTruthy();
+});
+
+test("on desktop the reason stays in the tooltip", () => {
+  h.reason = "settings.plugins.sync.blocked.noChannel";
+  render(<InstalledTab />);
+  expect(screen.queryByText("settings.plugins.sync.blocked.noChannel")).toBeNull();
 });
