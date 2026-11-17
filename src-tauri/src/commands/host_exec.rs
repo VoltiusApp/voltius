@@ -291,12 +291,20 @@ async fn run<H: russh::client::Handler>(
             token.cancel();
         })
     });
+    // Boxed: Tauri builds a command's future on the main thread, whose stack is 1 MiB on Windows.
     let ran = match target {
         Target::Remote(handle, wrapped) => {
-            run_remote(&handle, &wrapped, stdin, &mut output, &token).await
+            Box::pin(run_remote(&handle, &wrapped, stdin, &mut output, &token)).await
         }
         Target::Local(shell, command) => {
-            run_local(shell.as_deref(), &command, stdin, &mut output, &token).await
+            Box::pin(run_local(
+                shell.as_deref(),
+                &command,
+                stdin,
+                &mut output,
+                &token,
+            ))
+            .await
         }
     };
     if let Some(timer) = timer {
