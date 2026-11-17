@@ -216,3 +216,15 @@ export function secretsDiffer(
   }
   return false;
 }
+
+export function stamped<T extends object>(
+  fields: T,
+  at: string,
+): T & { clocks: Record<string, string>; updated_at: string } {
+  const clocks = Object.fromEntries(Object.keys(fields).map((k) => [k, at]));
+  return { ...fields, clocks, updated_at: at };
+}
+
+export function tombstoned<T extends TimestampedEntity>(e: T, at: string): T {
+  return { ...e, updated_at: at, deleted_at: at, clocks: { ...e.clocks, __deleted__: at } };
+}
