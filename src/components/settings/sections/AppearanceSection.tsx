@@ -300,7 +300,7 @@ export default function AppearanceSection() {
                   aria-disabled={disabled || busy}
                   title={item.disabledReason ?? undefined}
                   onClick={() => { if (!disabled) marketplace.get(item); }}
-                  className="flex flex-col gap-2.5 p-3 rounded-xl text-left transition-all bg-(--t-bg-card) border-[1.5px] border-(--t-border) enabled:hover:border-(--t-border-hover) aria-disabled:cursor-not-allowed"
+                  className="flex flex-col gap-2.5 p-3 rounded-xl text-left transition-all bg-(--t-bg-card) border-[1.5px] border-(--t-border) hover-edge aria-disabled:cursor-not-allowed"
                 >
                   <div className={disabled ? "opacity-40" : undefined}>
                     <ThemeCardSwatches colors={item.preview?.ui ?? null} />

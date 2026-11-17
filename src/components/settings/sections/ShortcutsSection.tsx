@@ -247,7 +247,7 @@ export default function ShortcutsSection() {
                             setRecording(isRecording ? null : sc.id);
                             setConflict(null);
                           }}
-                          className="rounded-md text-[11px] font-mono leading-none transition-colors"
+                          className={`rounded-md text-[11px] font-mono leading-none transition-colors${isRecording || isConflict ? "" : " hover-edge"}`}
                           style={{
                             background: isRecording || isConflict
                               ? "transparent"
@@ -271,13 +271,11 @@ export default function ShortcutsSection() {
                           }}
                           onMouseEnter={(e) => {
                             if (!isRecording && !isConflict) {
-                              e.currentTarget.style.borderColor = "var(--t-border-hover)";
                               e.currentTarget.style.color = "var(--t-text-bright)";
                             }
                           }}
                           onMouseLeave={(e) => {
                             if (!isRecording && !isConflict) {
-                              e.currentTarget.style.borderColor = "var(--t-border)";
                               e.currentTarget.style.color = "var(--t-text-primary)";
                             }
                           }}

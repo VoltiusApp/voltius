@@ -67,6 +67,7 @@ import { useEnrollmentStore } from "@/stores/enrollmentStore";
 import type { EnrollmentTokenParts } from "@/services/enrollment/enrollmentToken";
 import { resolveFailure, tokenHost } from "@/services/enrollment/enrollmentPublic";
 import { parseEnrollInput } from "@/services/deepLinkUrl";
+import { choiceHover } from "@/components/shared/selectableChip";
 import { refuseWhilePreviewing, snippetTarget } from "@/services/previewGuard";
 
 interface OmniSearchProps {
@@ -706,7 +707,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         return (
           <OmniRow
             {...row}
-            leading={<OmniTile icon="lucide:braces" accent />}
+            leading={<OmniTile icon="lucide:braces" />}
             label={item.snippet.name}
             detail={<SnippetPreview snippet={item.snippet} />}
             detailMono
@@ -795,7 +796,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         return (
           <OmniRow
             {...row}
-            leading={<OmniTile icon="lucide:building-2" accent />}
+            leading={<OmniTile icon="lucide:building-2" />}
             label={resolvedEnrollment
               ? t("omni.enrollToken.title", { team: resolvedEnrollment.teamName })
               : t("omni.enrollToken.titleUnknown")}
@@ -807,7 +808,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         return (
           <OmniRow
             {...row}
-            leading={<OmniTile icon="lucide:log-in" accent />}
+            leading={<OmniTile icon="lucide:log-in" />}
             label={t("omni.joinCodeEntered.title")}
             detail={item.code}
             detailMono
@@ -819,7 +820,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         return (
           <OmniRow
             {...row}
-            leading={<OmniTile icon={shell ? shellIcon(shell.name) : "lucide:square-terminal"} accent />}
+            leading={<OmniTile icon={shell ? shellIcon(shell.name) : "lucide:square-terminal"} />}
             label={label}
             detail={shell && shellNeedsPath.has(label) ? shell.path : undefined}
             detailMono
@@ -827,14 +828,14 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         );
       }
       case "quick-connect": {
-        const { title, subtitle, icon, invalid } = quickConnectLabel(item.intent, t);
-        return <OmniRow {...row} leading={<OmniTile icon={icon} accent={!invalid} />} label={title} detail={subtitle} />;
+        const { title, subtitle, icon } = quickConnectLabel(item.intent, t);
+        return <OmniRow {...row} leading={<OmniTile icon={icon} />} label={title} detail={subtitle} />;
       }
       case "plugin":
         return (
           <OmniRow
             {...row}
-            leading={<OmniTile icon={catalogEntryIcon(item.plugin)} accent />}
+            leading={<OmniTile icon={catalogEntryIcon(item.plugin)} />}
             label={item.plugin.name}
             detail={item.plugin.description}
             trailing={<span className="text-xs shrink-0 text-(--t-text-dim)">{t("omni.pluginNotInstalled")}</span>}
@@ -890,7 +891,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
                   tabIndex={-1}
                   aria-pressed={isActive}
                   onClick={() => { setScope(s.category); inputRef.current?.focus(); }}
-                  className="flex items-center gap-1.5 whitespace-nowrap px-2 py-0.5 rounded-sm text-xs transition-colors border"
+                  className={`flex items-center gap-1.5 whitespace-nowrap px-2 py-0.5 rounded-sm text-xs transition-colors border${choiceHover(isActive)}`}
                   style={{
                     background: isActive ? "var(--t-accent)" : "var(--t-bg-base)",
                     color: isActive ? "var(--t-bg-terminal)" : "var(--t-text-dim)",

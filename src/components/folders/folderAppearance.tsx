@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { ColorSwatches } from "@/components/shared/ColorSwatches";
 import { PickerSurface } from "@/components/shared/PickerSurface";
+import { choiceHover } from "@/components/shared/selectableChip";
 import type { Folder } from "@/types";
 
 export const DEFAULT_FOLDER_ICON = "lucide:folder";
@@ -63,7 +64,7 @@ export function FolderAppearanceFields({ value, onChange }: {
                 key={icon}
                 type="button"
                 onClick={() => onChange({ ...value, icon: icon === DEFAULT_FOLDER_ICON ? undefined : icon })}
-                className="flex items-center justify-center p-0.5 rounded-lg border transition-colors"
+                className={`flex items-center justify-center p-0.5 rounded-lg border transition-colors${choiceHover(selected)}`}
                 style={{ borderColor: selected ? "var(--t-accent)" : "transparent" }}
                 title={icon.slice("lucide:".length)}
                 aria-label={icon.slice("lucide:".length)}

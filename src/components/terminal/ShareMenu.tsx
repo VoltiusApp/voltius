@@ -19,6 +19,7 @@ import { roleLabel } from "@/components/members/roleChips";
 import { PeopleTab } from "./PeopleTab";
 import { ParticipantsRatioNotice } from "./ParticipantsRatioNotice";
 import { avatarLabel, usePeerResolver } from "@/services/peerName";
+import { choiceHover } from "@/components/shared/selectableChip";
 import { usePlanDisplay } from "@/services/planDisplay";
 
 
@@ -587,7 +588,7 @@ function TeamTab({
                       return (
                         <button
                           key={role}
-                          className="text-[10px] px-1.5 py-0.5 rounded-full transition-colors"
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full transition-colors${choiceHover(active)}`}
                           style={{
                             background: active
                               ? "color-mix(in srgb, var(--t-accent) 18%, transparent)"

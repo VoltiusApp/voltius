@@ -119,10 +119,8 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
                 <label className={formLabelClass} style={formLabelStyle}>{t("keychain.exportPanel.destinationHost")}</label>
                 <button
                   onClick={() => setShowHostSelect(true)}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm outline-hidden transition-colors bg-(--t-bg-base) border border-(--t-border)"
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm outline-hidden transition-colors bg-(--t-bg-base) border border-(--t-border) hover-edge"
                   style={{ color: selectedHost ? "var(--t-text-primary)" : "var(--t-text-muted)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--t-border-hover)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     {selectedHost && (() => {

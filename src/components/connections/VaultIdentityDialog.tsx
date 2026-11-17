@@ -6,6 +6,7 @@ import { useIdentityPickStore } from "@/stores/identityPickStore";
 import { useVaultIdentityDialogStore } from "@/stores/vaultIdentityDialogStore";
 import { notifyError } from "@/utils/notifyError";
 import { useVaultPickChoices } from "@/hooks/useCredentialPlan";
+import { choiceHover } from "@/components/shared/selectableChip";
 import { useTeamName } from "@/hooks/useTeamName";
 
 function Choice({ icon, title, subtitle, selected, onClick }: { icon: string; title: string; subtitle: string; selected: boolean; onClick: () => void }) {
@@ -13,7 +14,7 @@ function Choice({ icon, title, subtitle, selected, onClick }: { icon: string; ti
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-left bg-(--t-bg-elevated) border"
+      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-left bg-(--t-bg-elevated) border${choiceHover(selected)}`}
       style={{ borderColor: selected ? "var(--t-accent)" : "var(--t-border)" }}
     >
       <Icon icon={icon} width={14} className={selected ? "shrink-0 text-(--t-accent)" : "shrink-0 text-(--t-text-dim)"} />

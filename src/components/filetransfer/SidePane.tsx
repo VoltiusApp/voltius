@@ -160,9 +160,9 @@ export function SidePane({
       <div className="flex items-center gap-2 px-2 py-2 shrink-0 border-b border-b-(--t-border) bg-(--t-bg-card)">
         <button
           onClick={canChangeHost ? onChangeHost : undefined}
-          className={`flex items-center gap-1.5 px-1.5 py-1 rounded-lg transition-all bg-(--t-bg-elevated) border border-(--t-border) ${canChangeHost ? "cursor-pointer" : "cursor-default"}`}
-          onMouseEnter={(e) => { if (canChangeHost) { e.currentTarget.style.borderColor = "var(--t-border-hover)"; e.currentTarget.style.background = "var(--t-bg-card-hover)"; } }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
+          className={`flex items-center gap-1.5 px-1.5 py-1 rounded-lg transition-all bg-(--t-bg-elevated) border border-(--t-border) ${canChangeHost ? "cursor-pointer hover-edge" : "cursor-default"}`}
+          onMouseEnter={(e) => { if (canChangeHost) e.currentTarget.style.background = "var(--t-bg-card-hover)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
         >
           <AvatarTile
             base={shown?.base}

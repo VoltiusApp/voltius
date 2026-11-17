@@ -59,13 +59,13 @@ export function OmniRow({
   );
 }
 
-export function OmniTile({ icon, accent = false }: { icon: string; accent?: boolean }) {
+export function OmniTile({ icon }: { icon: string }) {
   return (
     <AvatarTile
       icon={icon}
       iconSize={13}
       className="w-7 h-7 rounded-lg shrink-0"
-      iconClassName={accent ? "text-(--t-accent)" : "text-(--t-text-dim)"}
+      iconClassName="text-white"
     />
   );
 }

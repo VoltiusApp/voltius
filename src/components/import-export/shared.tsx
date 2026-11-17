@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
-import { selectableChipStyle } from "@/components/shared/selectableChip";
+import { choiceHover, selectableChipStyle } from "@/components/shared/selectableChip";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { getMyUserId } from "@/services/teamService";
@@ -85,7 +85,7 @@ export function VaultChipSelect({ selectedIds, onChange, writableOnly = false }:
         const active = selectedIds.includes(v.id);
         return (
           <button key={v.id} type="button" onClick={() => toggle(v.id)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors${choiceHover(active)}`}
             aria-pressed={active}
             style={selectableChipStyle(active)}
           >

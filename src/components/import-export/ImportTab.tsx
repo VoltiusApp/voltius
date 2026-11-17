@@ -20,6 +20,7 @@ import { defaultActions, setActions, type ItemAction } from "./importActions";
 import { useTeamStore } from "@/stores/teamStore";
 import { isTeamVaultId } from "@/stores/teamVaultMap";
 import { isMobileShell, useIsMobile } from "@/utils/platform";
+import { choiceHover } from "@/components/shared/selectableChip";
 import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 
 type ItemMeta = { isDupe: boolean };
@@ -737,7 +738,7 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
                 key={importer.key}
                 type="button"
                 onClick={() => setSelectedSource(importer.key)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors${active ? "" : " hover-edge"}`}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors${choiceHover(active)}`}
                 style={{
                   background: active ? "color-mix(in srgb, var(--t-accent) 12%, transparent)" : "var(--t-bg-elevated)",
                   border: `1px solid ${active ? "var(--t-accent)" : "var(--t-border-hover)"}`,

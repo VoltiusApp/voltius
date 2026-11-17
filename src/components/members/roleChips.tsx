@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { Icon } from "@iconify/react";
-import { tint } from "@/components/shared/selectableChip";
+import { choiceHover, tint } from "@/components/shared/selectableChip";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import type { TeamMember, TeamRole } from "@/services/teamService";
@@ -169,7 +169,7 @@ export function RoleToggleChip({
       onClick={onClick}
       disabled={disabled || !!disabledReason}
       title={disabledReason}
-      className={`${VARIANT_CLASS[variant]} disabled:opacity-50 disabled:cursor-not-allowed`}
+      className={`${VARIANT_CLASS[variant]} disabled:opacity-50 disabled:cursor-not-allowed${choiceHover(active)}`}
       aria-pressed={active}
       style={roleToggleStyle(name, active, override, fallbackColor)}
     >
