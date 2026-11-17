@@ -10,8 +10,9 @@ const h = vi.hoisted(() => ({
   unloadPlugin: vi.fn(),
   getLoadedPlugins: vi.fn(() => []),
   importPluginModule: vi.fn(async () => ({ default: () => {} })),
+  recordUserInstall: vi.fn(),
 }));
-vi.mock("@/services/pluginSync", () => ({ recordUserInstall: vi.fn(), recordUserUninstall: vi.fn() }));
+vi.mock("@/services/pluginSync", () => ({ recordUserInstall: h.recordUserInstall, recordUserUninstall: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/plugins/runtime", () => ({
   loadPlugin: h.loadPlugin, unloadPlugin: h.unloadPlugin, getLoadedPlugins: h.getLoadedPlugins,
@@ -70,6 +71,7 @@ test("offline restore falls back to the seeded floor, preserving trusted=true", 
   expect(manifest.id).toBe("plugin-docker");
   expect(active).toBe(true);
   expect(trusted).toBe(true);
+  expect(h.recordUserInstall).not.toHaveBeenCalled();
 });
 
 test("offline restore skips the seeded floor when the id is tombstoned", async () => {

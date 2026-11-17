@@ -71,6 +71,18 @@ describe("pluginSync", () => {
     expect(h.toggleExcluded).not.toHaveBeenCalled();
   });
 
+  it("a failing record is swallowed and leaves the exclusion alone", async () => {
+    h.excluded.add("p1");
+    h.recordInstall.mockRejectedValueOnce(new Error("corrupt"));
+    h.recordUninstall.mockRejectedValueOnce(new Error("corrupt"));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await expect(recordUserInstall(entry(), manifest)).resolves.toBeUndefined();
+    await expect(recordUserUninstall("p1")).resolves.toBeUndefined();
+
+    expect(h.toggleExcluded).not.toHaveBeenCalled();
+  });
+
   it("uninstall delegates to recordUninstall", async () => {
     await recordUserUninstall("p1");
 

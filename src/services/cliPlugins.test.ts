@@ -21,7 +21,7 @@ vi.mock("@/plugins/domains/plugins", () => ({
   setPluginEnabled: mocks.setPluginEnabled,
 }));
 
-import { applyPluginChange, applyPluginInstallPolicy, pluginInstallPolicyIdle } from "./cliPlugins";
+import { applyPluginChange, applyPluginInstallPolicy, installWithConsent, pluginInstallPolicyIdle } from "./cliPlugins";
 import { usePolicyStore } from "@/stores/policyStore";
 import { useAdminDefaultsStore } from "@/stores/adminDefaultsStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
@@ -168,5 +168,11 @@ describe("cliPlugins", () => {
     expect(applied["plugins.enabled/a"]).toBeUndefined();
     await applyPluginInstallPolicy();
     expect(mocks.applyPluginEnabled).toHaveBeenCalledTimes(2);
+  });
+
+  it("installWithConsent forwards opts to installVettedPlugin", async () => {
+    await installWithConsent("plugin-docker", [], { syncDriven: true });
+
+    expect(mocks.installVettedPlugin).toHaveBeenCalledWith("plugin-docker", expect.any(Function), { syncDriven: true });
   });
 });
