@@ -4,6 +4,7 @@ import { BusinessLapseNotice, BusinessLockLine } from "@/components/shared/Busin
 import { FormSection } from "@/components/shared/Panel";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { PickerOption, PickerSearch } from "@/components/shared/pickerParts";
+import { selectableChipStyle } from "@/components/shared/selectableChip";
 import { PermissionOverrideRow } from "@/components/members/panels/PermissionOverrideRow";
 import { permissionLabel, roleLabel, ruleSubjectLabel } from "@/components/members/roleChips";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
@@ -66,8 +67,9 @@ function SubjectChips({ listed, candidates, selected, nameOf, onSelect, onAdd, d
           key={ruleSubjectKey(s)}
           type="button"
           onClick={() => onSelect(s)}
-          className="px-2 py-0.5 rounded-md text-xs bg-(--t-bg-base) border border-(--t-border-hover) text-(--t-text-primary)"
-          style={ruleSubjectKey(s) === ruleSubjectKey(selected) ? { background: "var(--t-bg-elevated)" } : undefined}
+          aria-pressed={ruleSubjectKey(s) === ruleSubjectKey(selected)}
+          className="px-2 py-0.5 rounded-md text-xs font-medium transition-colors"
+          style={selectableChipStyle(ruleSubjectKey(s) === ruleSubjectKey(selected))}
         >
           {nameOf(s)}
         </button>

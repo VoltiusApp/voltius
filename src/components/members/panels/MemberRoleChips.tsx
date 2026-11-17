@@ -3,7 +3,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import type { TeamRole } from "@/stores/teamStore";
-import { ROLE_META, RoleBlurb, roleLabel } from "@/components/members/roleChips";
+import { RoleBlurb, roleLabel, roleToggleStyle } from "@/components/members/roleChips";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { isOwnerRole } from "@/components/vault-share/vaultShareModel";
 
@@ -20,6 +20,8 @@ export interface MemberRoleChipsProps {
   size?: "sm" | "touch";
   children?: ReactNode;
 }
+
+const FLASH_COLOR = "#34d399";
 
 export function roleChipBlockReason(t: TFunction, role: TeamRole, o: {
   hasRole: boolean; locked: boolean; readOnlyReason: string | null; ownerReason?: string;
@@ -44,9 +46,6 @@ export function MemberRoleChips({
       {visibleMemberRoles(roles, showOwner).map((role) => {
           const hasRole = roleIds.includes(role.id);
           const blockReason = roleChipBlockReason(t, role, { hasRole, locked, readOnlyReason, ownerReason });
-          const meta = ROLE_META[role.name];
-          const color = role.color ?? meta?.color ?? "var(--t-accent)";
-          const bg = meta?.bg ?? `${color}1a`;
           const flashed = flashRoleId === role.id;
           const busy = busyRoleId === role.id;
           return (
@@ -56,10 +55,9 @@ export function MemberRoleChips({
                 disabled={busy || blockReason !== null}
                 title={blockReason ?? undefined}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all${touch ? " min-h-12" : ""}`}
+                aria-pressed={hasRole}
                 style={{
-                  background: flashed ? "rgba(52,211,153,0.15)" : hasRole ? bg : "var(--t-bg-elevated)",
-                  color: flashed ? "#34d399" : hasRole ? color : "var(--t-text-dim)",
-                  border: `1px solid ${flashed ? "#34d39944" : hasRole ? `${color}44` : "var(--t-border)"}`,
+                  ...roleToggleStyle(role.name, flashed || hasRole, flashed ? FLASH_COLOR : role.color),
                   opacity: busy ? 0.6 : 1,
                   transition: "background 0.3s, color 0.3s, border-color 0.3s",
                 }}

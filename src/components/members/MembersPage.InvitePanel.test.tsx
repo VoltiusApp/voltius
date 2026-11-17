@@ -586,7 +586,7 @@ test("picking another role after Owner drops Owner", () => {
   render(<InvitePanel {...baseProps} teamRoles={roles} />);
   fireEvent.click(screen.getByText("members.roleName.owner"));
   fireEvent.click(screen.getByText("members.roleName.editor"));
-  expect(screen.getByText("members.roleName.owner").closest("button")!.style.background).toBe("var(--t-bg-elevated)");
+  expect(screen.getByText("members.roleName.owner").closest("button")!.getAttribute("aria-pressed")).toBe("false");
 });
 
 test("a member inviting into someone else's unlimited team sees ∞, not their own plan, and no buy-seats", () => {

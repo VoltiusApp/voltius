@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TeamMember, TeamRole } from "@/stores/teamStore";
 import { avatarColor } from "@/components/shared/AvatarStack";
-import { ROLE_META, RolePermissionTooltip, roleLabel } from "@/components/members/roleChips";
+import { ROLE_META, RolePermissionTooltip, roleChipColors, roleLabel } from "@/components/members/roleChips";
 
 const INLINE_WRAPPER_CLASS = "inline-flex items-center gap-1";
 
@@ -15,7 +15,7 @@ export function RoleChip({ role }: { role: TeamRole }) {
   const { t } = useTranslation();
   const [showTip, setShowTip] = useState(false);
   const color = roleColor(role);
-  const bg = ROLE_META[role.name]?.bg ?? `${color}1a`;
+  const { bg } = roleChipColors(role.name, color);
 
   return (
     <span className="relative inline-flex items-center" style={{ verticalAlign: "middle" }}>
