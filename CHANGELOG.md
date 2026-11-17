@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.76.1] - 2026-11-17
+
+### Changed
+
+- The default Voltius dark theme separates surfaces more clearly: pills, chips and secondary buttons stand out from panels, and borders are a soft translucent white (#896)
+
+### Fixed
+
+- In object permissions, the selected subject (Everyone, a role or a member) and the Allow / Inherit / Deny state are now easy to see, and selected role chips, including Member, are clearly marked (#896)
+- Hovering a theme card in Settings › Appearance no longer hides its outline, enabled plugins are outlined more strongly than disabled ones, and Import source choices show an edge on hover (#897)
+
 ## [0.76.0] - 2026-11-16
 
 ### Added
