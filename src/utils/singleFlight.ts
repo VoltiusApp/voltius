@@ -2,24 +2,29 @@ export function singleFlight(
   fn: () => Promise<void>,
   opts?: { rerunIfCalledDuring?: boolean },
 ): { run: () => Promise<void>; idle: () => Promise<void> } {
-  let running: Promise<void> | null = null;
+  let running: Promise<void> = Promise.resolve();
+  let active = false;
   let dirty = false;
   const loop = async () => {
-    do {
-      dirty = false;
-      await fn();
-    } while (dirty);
+    try {
+      do {
+        dirty = false;
+        await fn();
+      } while (dirty);
+    } finally {
+      active = false;
+    }
   };
   return {
     run: () => {
-      if (running) {
+      if (active) {
         if (opts?.rerunIfCalledDuring) dirty = true;
         return running;
       }
-      return (running = loop().finally(() => {
-        running = null;
-      }));
+      active = true;
+      running = loop();
+      return running;
     },
-    idle: () => running ?? Promise.resolve(),
+    idle: () => (active ? running : Promise.resolve()),
   };
 }

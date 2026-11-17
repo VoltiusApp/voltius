@@ -56,6 +56,25 @@ describe("singleFlight", () => {
     expect(fn).toHaveBeenCalledTimes(3);
   });
 
+  it("a call landing after the last rerun check starts a new run", async () => {
+    let late: Promise<void> | undefined;
+    let calls = 0;
+    const fn = vi.fn(() => {
+      calls += 1;
+      if (calls === 1) queueMicrotask(() => queueMicrotask(() => void (late = run())));
+      return Promise.resolve();
+    });
+    const { run } = singleFlight(fn, { rerunIfCalledDuring: true });
+
+    const first = run();
+    await first;
+    await vi.waitFor(() => expect(late).toBeDefined());
+    await late;
+
+    expect(late).not.toBe(first);
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
   it("without the option a call during a run does not rerun", async () => {
     let finish = () => {};
     const fn = vi.fn(() => new Promise<void>((r) => (finish = r)));
