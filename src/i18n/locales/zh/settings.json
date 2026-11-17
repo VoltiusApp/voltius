@@ -793,7 +793,7 @@
         "installedMany": "已从你的其他设备安装 {{count}} 个插件",
         "removedOne": "已移除 {{plugin}}（已在 {{device}} 上移除）",
         "removedOneUnknown": "已移除 {{plugin}}（已在其他设备上移除）",
-        "removedMany": "已移除 {{count}} 个在你的其他设备上被移除的插件",
+        "removedMany": "已移除 {{count}} 个插件（已在你的其他设备上移除）",
         "notHere": "不在此设备上",
         "keepHere": "保留在此设备上",
         "blocked": {

@@ -1382,7 +1382,7 @@
         "installedMany": "Diğer cihazlarınızdan {{count}} eklenti yüklendi",
         "removedOne": "{{plugin}} kaldırıldı ({{device}} cihazında kaldırılmıştı)",
         "removedOneUnknown": "{{plugin}} kaldırıldı (başka bir cihazda kaldırılmıştı)",
-        "removedMany": "Diğer cihazlarınızda kaldırılan {{count}} eklenti kaldırıldı",
+        "removedMany": "{{count}} eklenti kaldırıldı (diğer cihazlarınızda kaldırılmıştı)",
         "notHere": "Bu cihazda olmasın",
         "keepHere": "Bu cihazda tut",
         "blocked": {

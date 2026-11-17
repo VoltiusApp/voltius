@@ -970,7 +970,7 @@
         "installedMany": "{{count}} plugins instalados a partir dos seus outros dispositivos",
         "removedOne": "{{plugin}} removido (removido em {{device}})",
         "removedOneUnknown": "{{plugin}} removido (removido noutro dispositivo)",
-        "removedMany": "{{count}} plugins removidos, pois foram removidos nos seus outros dispositivos",
+        "removedMany": "{{count}} plugins removidos (removidos nos seus outros dispositivos)",
         "notHere": "Não neste dispositivo",
         "keepHere": "Manter neste dispositivo",
         "blocked": {

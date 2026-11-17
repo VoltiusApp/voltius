@@ -978,7 +978,7 @@
         "installedMany": "Nainstalováno pluginů z vašich ostatních zařízení: {{count}}",
         "removedOne": "Plugin {{plugin}} odebrán (odebrán na zařízení {{device}})",
         "removedOneUnknown": "Plugin {{plugin}} odebrán (odebrán na jiném zařízení)",
-        "removedMany": "Odebráno pluginů, které byly odebrány na vašich ostatních zařízeních: {{count}}",
+        "removedMany": "Odebráno pluginů: {{count}} (odebrány na vašich ostatních zařízeních)",
         "notHere": "Ne na tomto zařízení",
         "keepHere": "Ponechat na tomto zařízení",
         "blocked": {
