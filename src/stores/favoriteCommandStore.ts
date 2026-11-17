@@ -30,7 +30,7 @@ export const useFavoriteCommandStore = create<FavoriteCommandStore>((set, get) =
   const put = async (entry: FavoriteCommand, favorites: FavoriteCommand[]) => {
     set({ favorites });
     try {
-      await invoke("favorite_command_put", { entry });
+      await invoke("raw_entity_put", { file: "favorite_commands", entry });
       syncAfterEdit("snippet", entry.id);
     } catch (e) {
       await get().load();
@@ -42,7 +42,7 @@ export const useFavoriteCommandStore = create<FavoriteCommandStore>((set, get) =
     favorites: [],
 
     load: async () => {
-      const all = await invoke<FavoriteCommand[]>("favorite_command_list");
+      const all = await invoke<FavoriteCommand[]>("raw_entity_list", { file: "favorite_commands" });
       set({ favorites: all.filter(isAlive).sort(byNewest) });
     },
 

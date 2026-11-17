@@ -75,6 +75,7 @@ export const ENTITY_FILES = [
   "port_forwarding_rules.json",
   LAN_GROUP_FILE,
   "favorite_commands.json",
+  "synced_plugins.json",
 ] as const;
 
 export type SyncStatus = "idle" | "syncing" | "success" | "partial" | "error" | "offline";
