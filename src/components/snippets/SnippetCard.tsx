@@ -132,7 +132,7 @@ function SnippetCardBody({
       onClick: whenWritableOn(snippetTarget(snippet.id), () => pinSnippetForTeam(snippet.id, !snippet.favorite).catch(() => {})),
     }] : []),
     ...(onToggleSync ? [{
-      ...objectSyncItem(syncEnabled, t),
+      ...objectSyncItem(!!syncEnabled, t),
       onClick: onToggleSync,
     }] : []),
     {
