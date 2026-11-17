@@ -60,10 +60,12 @@ import { useBlockedTeamVault } from "@/hooks/useBlockedTeamVault";
 import { refitSession } from "@/hooks/useTerminal";
 import { installRipples } from "@/lib/ripple";
 import { useLauncherShortcuts } from "./useLauncherShortcuts";
+import { useIsAndroid } from "@/utils/platform";
 
 export default function MobileShell() {
   const { t } = useTranslation();
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
+  const isAndroid = useIsAndroid();
   useAndroidBack();
   useHostPingPolling(); // desktop mounts this in MainPanel; the mobile shell doesn't
   // Touch feedback on every row / button / key, delegated from the document (Android only).
@@ -127,11 +129,10 @@ export default function MobileShell() {
   // row lands flush above it) instead of the WebView growing behind the keyboard. This
   // must sit on the OUTER container — a flex-1 inner child would grow past the keyboard
   // regardless of an explicit height. usableHeight is 0 until first measured.
-  // On Android the native shell already shrinks the WebView above the keyboard
-  // (SystemInsets.kt), so usableHeight == full height there and this pin is a no-op;
-  // keyboardVisible then comes from the native IME inset.
+  // Not on Android: SystemInsets.kt already resizes the WebView, and a pin that lags it by a
+  // React render refits xterm after the frame started, which blanks the WebGL canvas for a frame.
   const { usableHeight, keyboardVisible } = useVisualViewport();
-  const shellHeight = immersive && usableHeight > 0 ? usableHeight : undefined;
+  const shellHeight = immersive && !isAndroid && usableHeight > 0 ? usableHeight : undefined;
   useEffect(() => {
     if (terminalVisible && activeSessionId) {
       const id = requestAnimationFrame(() => refitSession(activeSessionId));

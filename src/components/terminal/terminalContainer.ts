@@ -16,6 +16,7 @@ export interface CachedTerminal {
   /** The current mount's clipboard: a view-owned one would paste into whichever session the view shows next. */
   clip: TerminalClipboardHandle | null;
   hidden?: boolean;
+  fitHeld?: boolean;
   fitPending?: boolean;
 }
 
@@ -36,16 +37,28 @@ export function reattachTerminal(entry: CachedTerminal, container: HTMLDivElemen
   entry.fitAddon.fit();
 }
 
-/** Hidden terminals skip resize fits (each one reflows its whole buffer) and catch up when shown. */
-export function setTerminalVisible(entry: CachedTerminal, visible: boolean): void {
-  entry.hidden = !visible;
-  if (!visible || !entry.fitPending) return;
+const fitDeferred = (entry: CachedTerminal) => entry.hidden || entry.fitHeld;
+
+function flushPendingFit(entry: CachedTerminal): void {
+  if (fitDeferred(entry) || !entry.fitPending) return;
   entry.fitPending = false;
   entry.fitAddon.fit();
 }
 
-function fitIfVisible(entry: CachedTerminal): void {
-  if (entry.hidden) entry.fitPending = true;
+/** Hidden terminals skip resize fits (each one reflows its whole buffer) and catch up when shown. */
+export function setTerminalVisible(entry: CachedTerminal, visible: boolean): void {
+  entry.hidden = !visible;
+  flushPendingFit(entry);
+}
+
+/** Keeps the grid where it is (rows stay put on screen) until released, then catches up once. */
+export function holdTerminalFit(entry: CachedTerminal, held: boolean): void {
+  entry.fitHeld = held;
+  flushPendingFit(entry);
+}
+
+export function fitOrDefer(entry: CachedTerminal): void {
+  if (fitDeferred(entry)) entry.fitPending = true;
   else entry.fitAddon.fit();
 }
 
@@ -61,13 +74,13 @@ function bindTerminalContainer(entry: CachedTerminal, container: HTMLDivElement,
   const clip = attachTerminalClipboard(terminal, container, clipOptions);
   entry.clip = clip;
 
-  const handleWindowResize = () => fitIfVisible(entry);
+  const handleWindowResize = () => fitOrDefer(entry);
   window.addEventListener("resize", handleWindowResize);
 
   let fitTimer: ReturnType<typeof setTimeout> | null = null;
   const resizeObserver = new ResizeObserver(() => {
     if (fitTimer !== null) clearTimeout(fitTimer);
-    fitTimer = setTimeout(() => { fitTimer = null; fitIfVisible(entry); }, 50);
+    fitTimer = setTimeout(() => { fitTimer = null; fitOrDefer(entry); }, 50);
   });
   resizeObserver.observe(container);
 
