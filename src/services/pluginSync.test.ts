@@ -25,6 +25,7 @@ const h = vi.hoisted(() => ({
   manifests: {} as Record<string, { deviceName?: string }>,
   known: {} as Record<string, { name?: string }>,
   typeSynced: true,
+  isPro: true,
   market: {
     installing: new Set<string>(),
     installedMeta: [] as InstalledPluginMeta[],
@@ -58,6 +59,7 @@ vi.mock("@/stores/syncPrefsStore", () => ({
     }),
   },
 }));
+vi.mock("@/stores/subscriptionStore", () => ({ useSubscriptionStore: { getState: () => ({ isPro: h.isPro }) } }));
 vi.mock("@/plugins/runtime", () => ({ getLoadedPlugins: () => h.loaded }));
 vi.mock("@/stores/marketplaceStore", () => ({
   FIRST_PARTY_SOURCE: { id: "voltius" },
@@ -115,6 +117,7 @@ beforeEach(() => {
   h.manifests = {};
   h.known = {};
   h.typeSynced = true;
+  h.isPro = true;
   h.toggleExcluded.mockImplementation((id: string) => {
     if (!h.excluded.delete(id)) h.excluded.add(id);
   });
@@ -185,8 +188,11 @@ describe("pluginSync", () => {
       expect(pluginSyncBlockedReason("p1", "voltius", ON)).toBeNull();
     });
 
-    it("paused Voltius sync still counts as a channel", () => {
-      expect(pluginSyncBlockedReason("p1", "voltius", { configured: false, paused: true })).toBeNull();
+    it("paused Voltius sync counts as a channel only for a Pro account", () => {
+      const PAUSED = { configured: false, paused: true };
+      expect(pluginSyncBlockedReason("p1", "voltius", PAUSED)).toBeNull();
+      h.isPro = false;
+      expect(pluginSyncBlockedReason("p1", "voltius", PAUSED)).toBe(key("noChannel"));
     });
 
     it("a LAN group is enough without an account", () => {

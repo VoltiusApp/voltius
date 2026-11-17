@@ -18,6 +18,7 @@ import { FIRST_PARTY_SOURCE, useMarketplaceStore, type MarketplacePlugin } from 
 import { installAllowed, policyInstallList } from "@/stores/pluginRegistryStore";
 import { lockedBool } from "@/stores/policyStore";
 import { loadSeededEntries, useSeededTombstoneStore, type SeededEntry } from "@/stores/seededTombstoneStore";
+import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useSyncedPluginStore, type SyncedPlugin, type SyncedPluginFields } from "@/stores/syncedPluginStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { toggleKey } from "@/stores/toggleSettingsStore";
@@ -28,7 +29,8 @@ export function syncEligible(id: string, sourceId: string): boolean {
 }
 
 function hasSyncChannel(sync: Pick<EffectiveSync, "configured" | "paused">): boolean {
-  return sync.configured || sync.paused || Object.keys(useLanSyncStore.getState().known).length > 0;
+  const pausedPro = sync.paused && useSubscriptionStore.getState().isPro;
+  return sync.configured || pausedPro || Object.keys(useLanSyncStore.getState().known).length > 0;
 }
 
 export function pluginSyncBlockedReason(
