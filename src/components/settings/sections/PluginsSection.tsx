@@ -27,6 +27,7 @@ import { useIsMobile } from "@/utils/platform";
 import { visiblePlugins } from "@/components/settings/settingsMobileCore";
 import { searchMatcher } from "@/utils/search";
 import { isThemeEntry, isThemeOnly, THEME_TAG } from "@/themes/marketplaceThemes";
+import { choiceHover } from "@/components/shared/selectableChip";
 import { SettingMark } from "@/components/settings/Setting";
 
 // ─── Auto-generated settings form ─────────────────────────────────────────
@@ -764,7 +765,7 @@ function BrowseTab() {
                 key={tag}
                 onClick={() => setActiveTag(activeTag === tag ? null : tag)}
                 aria-pressed={activeTag === tag}
-                className="px-2 py-0.5 rounded-full text-xs transition-colors"
+                className={`px-2 py-0.5 rounded-full text-xs transition-colors${choiceHover(activeTag === tag)}`}
                 style={{
                   background: activeTag === tag ? "var(--t-accent)" : "var(--t-bg-elevated)",
                   color: activeTag === tag ? "var(--t-bg-base)" : "var(--t-text-dim)",

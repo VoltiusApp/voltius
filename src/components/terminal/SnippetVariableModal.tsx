@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { FormSelect } from "@/components/shared/FormSelect";
+import { choiceHover } from "@/components/shared/selectableChip";
 import {
   resolveTemplate,
   type ParsedVariable,
@@ -31,7 +32,7 @@ function VarInput({ variable, value, onChange }: VarInputProps) {
       return (
         <button
           onClick={() => onChange(value === "true" ? "false" : "true")}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-sm border text-xs transition-colors"
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-sm border text-xs transition-colors${choiceHover(value === "true")}`}
           style={{
             background: value === "true" ? "var(--t-accent)" : "var(--t-bg-input)",
             borderColor: value === "true" ? "var(--t-accent)" : "var(--t-border)",

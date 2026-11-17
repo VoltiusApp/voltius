@@ -207,7 +207,7 @@ export default function AboutSection() {
               onClick={() => void openUrl(href)}
               data-settings-card
               data-about-link={key}
-              className={`w-full text-left ${SETTINGS_SURFACE} px-4 py-3 flex items-center gap-3 transition-colors hover:border-(--t-border-hover)`}
+              className={`w-full text-left ${SETTINGS_SURFACE} px-4 py-3 flex items-center gap-3 transition-colors hover-edge`}
             >
               <Icon icon={icon} width={20} className="text-(--t-text-primary) shrink-0" />
               <div>
@@ -221,7 +221,7 @@ export default function AboutSection() {
             type="button"
             onClick={() => useUIStore.getState().openSettings("diagnostics")}
             data-settings-card
-            className={`w-full text-left ${SETTINGS_SURFACE} px-4 py-3 flex items-center gap-3 transition-colors hover:border-(--t-border-hover)`}
+            className={`w-full text-left ${SETTINGS_SURFACE} px-4 py-3 flex items-center gap-3 transition-colors hover-edge`}
           >
             <Icon icon="lucide:bug" width={20} className="text-(--t-text-primary) shrink-0" />
             <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.about.reportBug")}</p>

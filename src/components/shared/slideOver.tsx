@@ -24,7 +24,7 @@ export function DashedAddButton({ onClick, children, disabled }: { onClick: () =
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-(--t-border) text-xs text-(--t-text-dim) hover:text-(--t-text-primary) hover:border-(--t-border-hover) transition-colors"
+      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-(--t-border) text-xs text-(--t-text-dim) hover:text-(--t-text-primary) hover-edge transition-colors"
     >
       <Icon icon="lucide:plus" width={13} />
       {children}

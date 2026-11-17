@@ -188,10 +188,8 @@ export function StepListEditor({ value, onChange, snippets, onBrowseRemote }: Pr
             key={b.kind}
             type="button"
             onClick={() => add(b.make())}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors hover-edge"
             style={{ borderColor: "var(--t-border)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--t-border-hover)")}
-            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
           >
             <Icon icon={b.icon} width={13} />
             {t(`snippets.step.kind.${b.kind}`)}

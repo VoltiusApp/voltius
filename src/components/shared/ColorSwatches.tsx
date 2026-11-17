@@ -19,7 +19,7 @@ export function ColorSwatches({ value, onChange, clearLabel }: {
           key={c}
           type="button"
           onClick={() => onChange(value === c ? "" : c)}
-          className="w-6 h-6 rounded-full transition-all shrink-0"
+          className="w-6 h-6 rounded-full transition-all shrink-0 hover:opacity-100!"
           style={{
             background: c,
             outline: value === c ? `2px solid ${c}` : "2px solid transparent",

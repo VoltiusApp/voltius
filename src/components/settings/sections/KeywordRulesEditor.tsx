@@ -50,7 +50,7 @@ function RuleRow({ rule, onChange, onDelete }: {
         aria-haspopup="listbox"
         aria-expanded={picking}
         onClick={() => setPicking((open) => !open)}
-        className="mt-1.5 shrink-0 rounded-md p-1 border border-(--t-border) hover:border-(--t-border-hover) transition-colors"
+        className="mt-1.5 shrink-0 rounded-md p-1 border border-(--t-border) hover-edge transition-colors"
       >
         <RuleSwatch slot={rule.color} />
       </button>
@@ -67,7 +67,7 @@ function RuleRow({ rule, onChange, onDelete }: {
                 onChange({ ...rule, color: slot });
                 setPicking(false);
               }}
-              className={`rounded-md p-1 border transition-colors ${slot === rule.color ? "border-(--t-accent)" : "border-transparent hover:border-(--t-border-hover)"}`}
+              className={`rounded-md p-1 border transition-colors ${slot === rule.color ? "border-(--t-accent)" : "border-transparent hover-edge"}`}
             >
               <Swatch slot={slot} className="block w-5 h-5 rounded-sm" />
             </button>

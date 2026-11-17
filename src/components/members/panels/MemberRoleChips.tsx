@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import type { TeamRole } from "@/stores/teamStore";
 import { RoleBlurb, roleLabel, roleToggleStyle } from "@/components/members/roleChips";
+import { choiceHover } from "@/components/shared/selectableChip";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { isOwnerRole } from "@/components/vault-share/vaultShareModel";
 
@@ -54,7 +55,7 @@ export function MemberRoleChips({
                 onClick={() => onToggle(role)}
                 disabled={busy || blockReason !== null}
                 title={blockReason ?? undefined}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all${touch ? " min-h-12" : ""}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all${touch ? " min-h-12" : ""}${choiceHover(hasRole || flashed)}`}
                 aria-pressed={hasRole}
                 style={{
                   ...roleToggleStyle(role.name, flashed || hasRole, flashed ? FLASH_COLOR : role.color),
