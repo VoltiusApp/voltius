@@ -10,6 +10,7 @@ use super::{cli_device, server_cmd, whoami_cmd, CliError, Ctx, Net};
 use crate::auth::keys::key_lists;
 use crate::auth::{self, AuthError, LoginStep, Proof, Session};
 use crate::commands::crypto::{unwrap_b64, DeriveKeysResult};
+use crate::commands::raw_entities::RawEntityFile;
 use crate::commands::sync::ENTITY_FILES;
 use crate::commands::vault_secret::{self, State};
 use crate::policy::{self, PolicyDoc};
@@ -216,7 +217,11 @@ fn server_url(raw: &str) -> Result<String, CliError> {
 }
 
 fn leftover_data(data_dir: &Path, config_dir: &Path) -> bool {
-    data_dir.join(SECRETS_FILE).exists() || ENTITY_FILES.iter().any(|f| config_dir.join(f).exists())
+    let seeded_at_boot = RawEntityFile::SyncedPlugins.file_name();
+    data_dir.join(SECRETS_FILE).exists()
+        || ENTITY_FILES
+            .iter()
+            .any(|&f| f != seeded_at_boot && config_dir.join(f).exists())
 }
 
 fn sign_in(
@@ -968,9 +973,15 @@ mod tests {
     #[test]
     fn device_files_outside_the_account_are_not_leftovers() {
         let w = World::new();
-        std::fs::write(w.path("config/updater.json"), "{}").unwrap();
+        let files = [
+            w.path("config/updater.json"),
+            w.path("config/synced_plugins.json"),
+        ];
+        for f in &files {
+            std::fs::write(f, "[]").unwrap();
+        }
         w.run(args(Some(SERVER), Some(EMAIL))).result.unwrap();
-        assert!(w.path("config/updater.json").exists());
+        assert!(files.iter().all(|f| f.exists()));
     }
 
     #[test]
