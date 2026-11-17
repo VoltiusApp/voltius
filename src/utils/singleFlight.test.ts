@@ -35,6 +35,40 @@ describe("singleFlight", () => {
     expect(fn).toHaveBeenCalledTimes(2);
   });
 
+  it("calls during a run coalesce into exactly one rerun when asked", async () => {
+    const finishers: Array<() => void> = [];
+    const fn = vi.fn(() => new Promise<void>((r) => finishers.push(r)));
+    const { run } = singleFlight(fn, { rerunIfCalledDuring: true });
+
+    const first = run();
+    const second = run();
+    void run();
+    expect(second).toBe(first);
+    expect(fn).toHaveBeenCalledTimes(1);
+
+    finishers[0]();
+    await vi.waitFor(() => expect(fn).toHaveBeenCalledTimes(2));
+    finishers[1]();
+    await first;
+    expect(fn).toHaveBeenCalledTimes(2);
+
+    await run();
+    expect(fn).toHaveBeenCalledTimes(3);
+  });
+
+  it("without the option a call during a run does not rerun", async () => {
+    let finish = () => {};
+    const fn = vi.fn(() => new Promise<void>((r) => (finish = r)));
+    const { run } = singleFlight(fn);
+
+    const first = run();
+    void run();
+    finish();
+    await first;
+
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
   it("idle waits for the in-flight run and resolves when none is running", async () => {
     let finish = () => {};
     const { run, idle } = singleFlight(() => new Promise<void>((r) => (finish = r)));

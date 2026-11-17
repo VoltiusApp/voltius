@@ -374,7 +374,7 @@ async function installBundle(
   const newMeta: InstalledPluginMeta[] = [
     ...installedMeta.filter((m) => m.id !== plugin.id),
     {
-      id: plugin.id, version: entry.version, sourceId: entry.sourceId,
+      id: plugin.id, version: entry.version || manifest.version, sourceId: entry.sourceId,
       hash: verifiedHash, cssHash: verifiedCssHash, repo: entry.repo,
     },
   ];

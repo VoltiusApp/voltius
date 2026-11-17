@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PluginManifest } from "@/plugins/api";
+import type { MarketplacePlugin } from "@/stores/marketplaceStore";
 
 const mocks = vi.hoisted(() => ({
   loaded: [] as { id: string; version: string }[],
   manifestPermissions: [] as string[],
   installVettedPlugin: vi.fn(),
+  installVettedEntry: vi.fn(),
   installPlugin: vi.fn(),
   uninstallPlugin: vi.fn(),
   setPluginEnabled: vi.fn(),
@@ -16,6 +18,7 @@ vi.mock("@/plugins/runtime", () => ({ getLoadedPlugins: () => mocks.loaded }));
 vi.mock("@/plugins/applyPluginEnabled", () => ({ applyPluginEnabled: mocks.applyPluginEnabled }));
 vi.mock("@/plugins/domains/plugins", () => ({
   installVettedPlugin: mocks.installVettedPlugin,
+  installVettedEntry: mocks.installVettedEntry,
   installPlugin: mocks.installPlugin,
   uninstallPlugin: mocks.uninstallPlugin,
   setPluginEnabled: mocks.setPluginEnabled,
@@ -177,6 +180,20 @@ describe("cliPlugins", () => {
     expect(permissionsGrew(["storage"], [])).toBe(false);
     expect(permissionsGrew(["terminal:write"], [])).toBe(true);
     expect(permissionsGrew(undefined, [])).toBe(false);
+  });
+
+  it("installWithConsent vets a prebuilt entry with the same consent check", async () => {
+    const entry = { id: "plugin-docker", sourceId: "custom" } as MarketplacePlugin;
+    mocks.installVettedEntry.mockResolvedValue(OK);
+    await installWithConsent(entry, ["storage"], { syncDriven: true });
+
+    expect(mocks.installVettedPlugin).not.toHaveBeenCalled();
+    expect(mocks.installVettedEntry).toHaveBeenCalledWith(entry, expect.any(Function), { syncDriven: true });
+    const vet = mocks.installVettedEntry.mock.calls[0][1] as (m: PluginManifest) => string | null;
+    expect(vet({ permissions: ["storage"] } as PluginManifest)).toBeNull();
+    expect(vet({ permissions: ["storage", "terminal:write"] } as PluginManifest)).toBe(
+      "permissions changed since you confirmed; run the command again",
+    );
   });
 
   it("installWithConsent forwards opts to installVettedPlugin", async () => {

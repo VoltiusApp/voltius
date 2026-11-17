@@ -357,3 +357,15 @@ test("an id is installable again once its previous install has settled", async (
 
   await expect(useMarketplaceStore.getState().installPlugin(basePlugin())).resolves.toBeUndefined();
 });
+
+test("an entry with no version records the installed manifest's version", async () => {
+  mockBundle("v1");
+  h.invoke.mockImplementation(async (cmd: string, args: { url?: string }) => {
+    if (cmd === "plugin_fetch_url") return args.url!.endsWith("manifest.json") ? manifestFor("1.4.0") : "v1-js";
+    return undefined;
+  });
+
+  await useMarketplaceStore.getState().installPlugin(basePlugin({ version: "" }));
+
+  expect(useMarketplaceStore.getState().installedMeta.find((m) => m.id === "p1")?.version).toBe("1.4.0");
+});

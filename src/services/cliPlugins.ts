@@ -1,10 +1,11 @@
-import { installPlugin, installVettedPlugin, pluginState, setPluginEnabled, uninstallPlugin, type PluginView } from "@/plugins/domains/plugins";
+import { installPlugin, installVettedEntry, installVettedPlugin, pluginState, setPluginEnabled, uninstallPlugin, type PluginView } from "@/plugins/domains/plugins";
 import { errorOf, type DomainResult } from "@/plugins/domains/result";
+import type { PluginManifest } from "@/plugins/api";
 import { applyPluginEnabled } from "@/plugins/applyPluginEnabled";
 import { isGatedPermission } from "@/plugins/gatedPermissions";
 import { getLoadedPlugins } from "@/plugins/runtime";
 import { isAdminDefaulted, useAdminDefaultsStore } from "@/stores/adminDefaultsStore";
-import { useMarketplaceStore } from "@/stores/marketplaceStore";
+import { useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
 import { stringList, usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { adminDefault, lockedList } from "@/stores/policyStore";
 import { loadSeededEntries } from "@/stores/seededTombstoneStore";
@@ -29,11 +30,12 @@ export function permissionsGrew(perms: string[] | undefined, consented: string[]
 }
 
 export function installWithConsent(
-  id: string,
+  target: string | MarketplacePlugin,
   consented: string[],
   opts?: { syncDriven?: boolean },
 ): Promise<DomainResult<PluginView>> {
-  return installVettedPlugin(id, (m) => (permissionsGrew(m.permissions, consented) ? PERMISSIONS_GREW : null), opts);
+  const vet = (m: PluginManifest) => (permissionsGrew(m.permissions, consented) ? PERMISSIONS_GREW : null);
+  return typeof target === "string" ? installVettedPlugin(target, vet, opts) : installVettedEntry(target, vet, opts);
 }
 
 export async function applyPluginChange(c: CliPluginChange): Promise<string | null> {

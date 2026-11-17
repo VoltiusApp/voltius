@@ -555,7 +555,9 @@ export async function reloadAllStores(): Promise<void> {
     useFavoriteCommandStore.getState().load(),
     useSyncedPluginStore.getState().load(),
   ]);
-  void import("@/services/pluginSync").then((m) => m.reconcileSyncedPlugins());
+  void import("@/services/pluginSync")
+    .then((m) => m.reconcileSyncedPlugins())
+    .catch(logFailure("reconcile synced plugins"));
 }
 
 async function settleVault(): Promise<void> {

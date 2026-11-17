@@ -4,10 +4,11 @@ import type { InstalledPluginMeta, MarketplacePlugin } from "@/stores/marketplac
 import type { SeededEntry } from "@/stores/seededTombstoneStore";
 import type { SyncedPlugin, SyncedPluginFields } from "@/stores/syncedPluginStore";
 
+type Result = { ok: true; result: object } | { ok: false; error: string };
+
 const h = vi.hoisted(() => ({
   GREW: "permissions grew",
   policy: [] as string[],
-  locked: new Set<string>(),
   blocked: new Set<string>(),
   locks: {} as Record<string, unknown>,
   recordInstall: vi.fn(async () => {}),
@@ -18,21 +19,23 @@ const h = vi.hoisted(() => ({
   toggleExcluded: vi.fn(),
   loaded: [] as PluginManifest[],
   seeded: new Map<string, SeededEntry>(),
+  removed: [] as string[],
+  loginSettled: vi.fn(async () => {}),
   market: {
     installedMeta: [] as InstalledPluginMeta[],
     catalog: [] as MarketplacePlugin[],
+    appVersion: null as string | null,
     fetchCatalog: vi.fn(async () => {}),
-    fetchManifest: vi.fn(async (_p: MarketplacePlugin) => ({ manifest: {} as PluginManifest, manifestText: "" })),
-    installPlugin: vi.fn(async (_p: MarketplacePlugin, _text?: string, _opts?: { syncDriven?: boolean }) => {}),
+    loadAppVersion: vi.fn(async () => {}),
   },
-  installWithConsent: vi.fn(async (_id: string, _consented: string[], _opts?: { syncDriven?: boolean }) =>
-    ({ ok: true, result: {} }) as { ok: true; result: object } | { ok: false; error: string }),
-  uninstallPlugin: vi.fn(async (id: string) =>
-    ({ ok: true, result: { id } }) as { ok: true; result: { id: string } } | { ok: false; error: string }),
+  installWithConsent: vi.fn(
+    async (_target: string | MarketplacePlugin, _consented: string[], _opts?: { syncDriven?: boolean }): Promise<Result> =>
+      ({ ok: true, result: {} }),
+  ),
+  uninstallPlugin: vi.fn(async (id: string): Promise<Result> => ({ ok: true, result: { id } })),
 }));
 vi.mock("@/stores/pluginRegistryStore", () => ({
   policyInstallList: () => h.policy,
-  installLocked: (id: string) => h.locked.has(id),
   installAllowed: (id: string) => !h.blocked.has(id),
 }));
 vi.mock("@/stores/syncedPluginStore", () => ({
@@ -48,12 +51,12 @@ vi.mock("@/stores/marketplaceStore", () => ({
   FIRST_PARTY_SOURCE: { id: "voltius" },
   useMarketplaceStore: { getState: () => h.market },
 }));
-vi.mock("@/stores/seededTombstoneStore", () => ({ loadSeededEntries: async () => h.seeded }));
-vi.mock("@/services/cliPlugins", () => ({
-  PERMISSIONS_GREW: h.GREW,
-  installWithConsent: h.installWithConsent,
-  permissionsGrew: (perms: string[] | undefined, consented: string[]) => (perms ?? []).some((p) => !consented.includes(p)),
+vi.mock("@/stores/seededTombstoneStore", () => ({
+  loadSeededEntries: async () => h.seeded,
+  useSeededTombstoneStore: { getState: () => ({ removed: h.removed }) },
 }));
+vi.mock("@/services/loginSyncGate", () => ({ whenLoginSyncSettled: h.loginSettled }));
+vi.mock("@/services/cliPlugins", () => ({ PERMISSIONS_GREW: h.GREW, installWithConsent: h.installWithConsent }));
 vi.mock("@/plugins/domains/plugins", () => ({ uninstallPlugin: h.uninstallPlugin }));
 vi.mock("@/stores/policyStore", () => ({ lockedBool: (key: string) => h.locks[key] }));
 vi.mock("@/stores/toggleSettingsStore", () => ({ toggleKey: (id: string) => `appSettings.toggles.${id}` }));
@@ -76,14 +79,15 @@ beforeEach(() => {
   vi.resetAllMocks();
   h.policy = [];
   h.excluded = new Set();
-  h.locked = new Set();
   h.blocked = new Set();
   h.locks = {};
   h.entries = [];
   h.loaded = [];
   h.seeded = new Map();
+  h.removed = [];
   h.market.installedMeta = [];
   h.market.catalog = [];
+  h.market.appVersion = null;
   useSyncedPluginConsentStore.setState({ queue: [] });
 });
 
@@ -162,22 +166,26 @@ const queue = () => useSyncedPluginConsentStore.getState().queue;
 const REVIEW_KEY = "appSettings.toggles.plugin-install-review";
 
 const reconcileAfterBoot = () => reconcileSyncedPlugins({ boot: true });
+const target = (over: Partial<MarketplacePlugin>) => expect.objectContaining(over);
+const SYNC = { syncDriven: true };
 
 describe("reconcileSyncedPlugins", () => {
   it("a merge before plugins have booted reconciles nothing", async () => {
+    vi.resetModules();
+    const fresh = await import("./pluginSync");
     h.entries = [synced("p2"), tombstone("p1")];
     h.loaded = [loadedManifest("p1"), loadedManifest("p3")];
     h.market.installedMeta = [meta("p1"), meta("p3")];
     h.market.catalog = [entry({ id: "p2" })];
 
-    await reconcileSyncedPlugins();
+    await fresh.reconcileSyncedPlugins();
 
     expect(h.installWithConsent).not.toHaveBeenCalled();
     expect(h.uninstallPlugin).not.toHaveBeenCalled();
     expect(h.seed).not.toHaveBeenCalled();
 
-    await reconcileAfterBoot();
-    await reconcileSyncedPlugins();
+    await fresh.reconcileSyncedPlugins({ boot: true });
+    await fresh.reconcileSyncedPlugins();
 
     expect(h.installWithConsent).toHaveBeenCalledTimes(2);
   });
@@ -188,8 +196,40 @@ describe("reconcileSyncedPlugins", () => {
 
     await reconcileAfterBoot();
 
-    expect(h.installWithConsent).toHaveBeenCalledWith("p2", ["net"], { syncDriven: true });
+    expect(h.installWithConsent).toHaveBeenCalledWith(target({ id: "p2", sourceId: "voltius" }), ["net"], SYNC);
     expect(h.uninstallPlugin).not.toHaveBeenCalled();
+  });
+
+  it("waits for the login sync before reading the synced file", async () => {
+    let settle = () => {};
+    h.loginSettled.mockReturnValueOnce(new Promise<void>((r) => (settle = r)));
+    h.market.catalog = [entry({ id: "p2" })];
+
+    const run = reconcileAfterBoot();
+    h.entries = [synced("p2")];
+    await Promise.resolve();
+    expect(h.installWithConsent).not.toHaveBeenCalled();
+    settle();
+    await run;
+
+    expect(h.installWithConsent).toHaveBeenCalledWith(target({ id: "p2" }), ["net"], SYNC);
+  });
+
+  it("a merge during a run reconciles once more afterwards", async () => {
+    let finish = (_: Result) => {};
+    h.installWithConsent.mockReturnValueOnce(new Promise<Result>((r) => (finish = r)));
+    h.entries = [synced("p2")];
+    h.market.catalog = [entry({ id: "p2" })];
+
+    const run = reconcileAfterBoot();
+    await vi.waitFor(() => expect(h.installWithConsent).toHaveBeenCalledTimes(1));
+    void reconcileSyncedPlugins();
+    void reconcileSyncedPlugins();
+    finish({ ok: false, error: "offline" });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await run;
+
+    expect(h.installWithConsent).toHaveBeenCalledTimes(2);
   });
 
   it("fetches the catalogue before deciding when none is loaded", async () => {
@@ -201,42 +241,48 @@ describe("reconcileSyncedPlugins", () => {
     await reconcileAfterBoot();
 
     expect(h.market.fetchCatalog).toHaveBeenCalledTimes(1);
-    expect(h.installWithConsent).toHaveBeenCalledWith("p2", ["net"], { syncDriven: true });
-    expect(h.market.fetchManifest).not.toHaveBeenCalled();
+    expect(h.installWithConsent).toHaveBeenCalledWith(target({ id: "p2" }), ["net"], SYNC);
+  });
+
+  it("prefers the catalogue row from the entry's own source", async () => {
+    h.entries = [synced("p2", { source_id: "custom" }), synced("p4", { source_id: "gone" })];
+    h.market.catalog = [
+      entry({ id: "p2", sourceId: "voltius" }),
+      entry({ id: "p2", sourceId: "custom" }),
+      entry({ id: "p4", sourceId: "voltius" }),
+    ];
+
+    await reconcileAfterBoot();
+
+    expect(h.installWithConsent).toHaveBeenCalledWith(target({ id: "p2", sourceId: "custom" }), ["net"], SYNC);
+    expect(h.installWithConsent).toHaveBeenCalledWith(target({ id: "p4", sourceId: "voltius" }), ["net"], SYNC);
   });
 
   it("installs an entry its catalogue lacks from the recorded repo and hash", async () => {
     h.entries = [synced("p3", { source_id: "custom", css_hash: "c-p3" })];
     h.market.catalog = [entry({ id: "other" })];
-    h.market.fetchManifest.mockResolvedValueOnce({ manifest: { ...loadedManifest("p3"), version: "2.0.0" }, manifestText: "text" });
 
     await reconcileAfterBoot();
 
-    expect(h.market.fetchManifest).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "p3", repo: "o/p3", sourceId: "custom", hash: "h-p3", cssHash: "c-p3" }),
+    expect(h.installWithConsent).toHaveBeenCalledWith(
+      target({ id: "p3", repo: "o/p3", sourceId: "custom", hash: "h-p3", cssHash: "c-p3", version: "" }),
+      ["net"],
+      SYNC,
     );
-    expect(h.market.installPlugin).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "p3", repo: "o/p3", hash: "h-p3", version: "2.0.0" }),
-      "text",
-      { syncDriven: true },
-    );
-    expect(h.installWithConsent).not.toHaveBeenCalled();
   });
 
-  it("restores an unlisted built-in through the seeded floor", async () => {
-    h.entries = [synced("b1", { repo: "", hash: null })];
-    h.seeded = new Map([["b1", seededEntry("b1")]]);
-    h.market.catalog = [entry({ id: "other" })];
-    h.market.fetchManifest.mockResolvedValueOnce({ manifest: loadedManifest("b1"), manifestText: "seeded" });
+  it("restores a removed built-in through the seeded floor unless the catalogue is newer", async () => {
+    h.entries = [synced("b1", { repo: "", hash: null }), synced("b2"), synced("b3")];
+    h.seeded = new Map([["b1", seededEntry("b1")], ["b2", seededEntry("b2")], ["b3", seededEntry("b3")]]);
+    h.removed = ["b1", "b2", "b3"];
+    h.market.catalog = [entry({ id: "b2", version: "1.0.0" }), entry({ id: "b3", version: "2.0.0" })];
 
     await reconcileAfterBoot();
 
-    expect(h.market.fetchManifest).toHaveBeenCalledWith(expect.objectContaining({ id: "b1", builtin: true }));
-    expect(h.market.installPlugin).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "b1", builtin: true }),
-      "seeded",
-      { syncDriven: true },
-    );
+    expect(h.market.loadAppVersion).toHaveBeenCalled();
+    expect(h.installWithConsent).toHaveBeenCalledWith(target({ id: "b1", builtin: true }), ["net"], SYNC);
+    expect(h.installWithConsent).toHaveBeenCalledWith(target({ id: "b2", builtin: true }), ["net"], SYNC);
+    expect(h.installWithConsent).toHaveBeenCalledWith(target({ id: "b3", version: "2.0.0", sourceId: "voltius" }), ["net"], SYNC);
   });
 
   it("uninstalls tombstoned entries present here", async () => {
@@ -264,16 +310,14 @@ describe("reconcileSyncedPlugins", () => {
 
     expect(h.uninstallPlugin).not.toHaveBeenCalled();
     expect(h.installWithConsent).not.toHaveBeenCalled();
-    expect(h.market.installPlugin).not.toHaveBeenCalled();
     expect(seededIds()).toEqual([]);
   });
 
   it("locked plugins are never uninstalled", async () => {
-    h.locked = new Set(["p1"]);
-    h.policy = ["p1", "p5"];
-    h.entries = [tombstone("p1"), tombstone("p5")];
-    h.loaded = [loadedManifest("p1"), loadedManifest("p5")];
-    h.market.installedMeta = [meta("p1"), meta("p5")];
+    h.policy = ["locked", "defaulted"];
+    h.entries = [tombstone("locked"), tombstone("defaulted")];
+    h.loaded = [loadedManifest("locked"), loadedManifest("defaulted")];
+    h.market.installedMeta = [meta("locked"), meta("defaulted")];
 
     await reconcileAfterBoot();
 
@@ -298,7 +342,6 @@ describe("reconcileSyncedPlugins", () => {
     await reconcileAfterBoot();
 
     expect(h.installWithConsent).not.toHaveBeenCalled();
-    expect(h.market.installPlugin).not.toHaveBeenCalled();
   });
 
   it("skips retired and unverifiable entries", async () => {
@@ -313,8 +356,6 @@ describe("reconcileSyncedPlugins", () => {
     await reconcileAfterBoot();
 
     expect(h.installWithConsent).not.toHaveBeenCalled();
-    expect(h.market.fetchManifest).not.toHaveBeenCalled();
-    expect(h.market.installPlugin).not.toHaveBeenCalled();
     expect(h.uninstallPlugin).not.toHaveBeenCalled();
   });
 
@@ -322,13 +363,11 @@ describe("reconcileSyncedPlugins", () => {
     h.entries = [synced("p2"), synced("p3", { source_id: "custom" })];
     h.market.catalog = [entry({ id: "p2" })];
     h.installWithConsent.mockResolvedValue({ ok: false, error: h.GREW });
-    h.market.fetchManifest.mockResolvedValue({ manifest: loadedManifest("p3", ["net", "shell"]), manifestText: "t" });
 
     await reconcileAfterBoot();
     await reconcileAfterBoot();
 
     expect(queue()).toEqual(["p2", "p3"]);
-    expect(h.market.installPlugin).not.toHaveBeenCalled();
     expect(h.toggleExcluded).not.toHaveBeenCalled();
   });
 
@@ -336,14 +375,13 @@ describe("reconcileSyncedPlugins", () => {
     h.locks = { [REVIEW_KEY]: true };
     h.entries = [synced("p2"), synced("p3", { source_id: "custom" })];
     h.market.catalog = [entry({ id: "p2" })];
-    h.installWithConsent.mockImplementation(async (_id, consented) =>
+    h.installWithConsent.mockImplementation(async (_target, consented) =>
       consented.includes("net") ? { ok: true, result: {} } : { ok: false, error: h.GREW });
-    h.market.fetchManifest.mockResolvedValueOnce({ manifest: loadedManifest("p3", ["net"]), manifestText: "t" });
 
     await reconcileAfterBoot();
 
-    expect(h.installWithConsent).toHaveBeenCalledWith("p2", [], { syncDriven: true });
-    expect(h.market.installPlugin).not.toHaveBeenCalled();
+    expect(h.installWithConsent).toHaveBeenCalledWith(target({ id: "p2" }), [], SYNC);
+    expect(h.installWithConsent).toHaveBeenCalledWith(target({ id: "p3" }), [], SYNC);
     expect(queue()).toEqual(["p2", "p3"]);
   });
 
@@ -354,21 +392,19 @@ describe("reconcileSyncedPlugins", () => {
 
     await reconcileAfterBoot();
 
-    expect(h.installWithConsent).toHaveBeenCalledWith("p2", ["net"], { syncDriven: true });
+    expect(h.installWithConsent).toHaveBeenCalledWith(target({ id: "p2" }), ["net"], SYNC);
   });
 
   it("failed install is retried, not excluded", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     h.entries = [synced("p2"), synced("p3", { source_id: "custom" })];
     h.market.catalog = [entry({ id: "p2" })];
-    h.installWithConsent.mockResolvedValueOnce({ ok: false, error: "HTTP 404" });
-    h.market.fetchManifest.mockRejectedValueOnce(new Error("offline"));
+    h.installWithConsent.mockResolvedValueOnce({ ok: false, error: "HTTP 404" }).mockRejectedValueOnce(new Error("offline"));
 
     await reconcileAfterBoot();
     await reconcileAfterBoot();
 
-    expect(h.installWithConsent).toHaveBeenCalledTimes(2);
-    expect(h.market.fetchManifest).toHaveBeenCalledTimes(2);
+    expect(h.installWithConsent).toHaveBeenCalledTimes(4);
     expect(h.toggleExcluded).not.toHaveBeenCalled();
     expect(queue()).toEqual([]);
   });

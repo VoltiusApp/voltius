@@ -2,15 +2,16 @@ import { create } from "zustand";
 import type { PluginManifest } from "@/plugins/api";
 import { uninstallPlugin } from "@/plugins/domains/plugins";
 import { errorOf } from "@/plugins/domains/result";
-import { floorPluginFrom, recordedPlugin } from "@/plugins/floor";
+import { mergeBrowseCatalog, recordedPlugin } from "@/plugins/floor";
 import { isRetiredPlugin } from "@/plugins/retired";
 import { getLoadedPlugins } from "@/plugins/runtime";
 import { isAlive } from "@/services/crdt";
-import { installWithConsent, permissionsGrew, PERMISSIONS_GREW } from "@/services/cliPlugins";
+import { installWithConsent, PERMISSIONS_GREW } from "@/services/cliPlugins";
+import { whenLoginSyncSettled } from "@/services/loginSyncGate";
 import { FIRST_PARTY_SOURCE, useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
-import { installAllowed, installLocked, policyInstallList } from "@/stores/pluginRegistryStore";
+import { installAllowed, policyInstallList } from "@/stores/pluginRegistryStore";
 import { lockedBool } from "@/stores/policyStore";
-import { loadSeededEntries, type SeededEntry } from "@/stores/seededTombstoneStore";
+import { loadSeededEntries, useSeededTombstoneStore, type SeededEntry } from "@/stores/seededTombstoneStore";
 import { useSyncedPluginStore, type SyncedPlugin, type SyncedPluginFields } from "@/stores/syncedPluginStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { toggleKey } from "@/stores/toggleSettingsStore";
@@ -95,9 +96,10 @@ function seedItem(m: PluginManifest, seeded: SeededEntries): { id: string } & Sy
   return { id: m.id, ...syncedFields({ repo: src?.repo ?? "", sourceId, hash: src?.hash, cssHash: src?.cssHash }, m) };
 }
 
-function unlistedPlugin(entry: SyncedPlugin, seeded: SeededEntries): MarketplacePlugin | null {
-  const floor = seeded.get(entry.id);
-  if (floor) return floorPluginFrom(floor);
+function installCandidate(entry: SyncedPlugin, rows: MarketplacePlugin[]): MarketplacePlugin | null {
+  const listed = rows.filter((p) => p.id === entry.id);
+  const row = listed.find((p) => p.sourceId === entry.source_id) ?? listed[0];
+  if (row) return row;
   if (!entry.repo || !entry.hash) return null;
   return recordedPlugin({
     id: entry.id,
@@ -107,16 +109,6 @@ function unlistedPlugin(entry: SyncedPlugin, seeded: SeededEntries): Marketplace
     hash: entry.hash,
     cssHash: entry.css_hash ?? undefined,
   });
-}
-
-async function installSynced(entry: SyncedPlugin, unlisted: MarketplacePlugin | null): Promise<string | null> {
-  const consented = lockedBool(toggleKey("plugin-install-review")) === true ? [] : entry.permissions;
-  if (!unlisted) return errorOf(await installWithConsent(entry.id, consented, { syncDriven: true }));
-  const market = useMarketplaceStore.getState();
-  const { manifest, manifestText } = await market.fetchManifest(unlisted);
-  if (permissionsGrew(manifest.permissions, consented)) return PERMISSIONS_GREW;
-  await market.installPlugin({ ...unlisted, version: manifest.version }, manifestText, { syncDriven: true });
-  return null;
 }
 
 async function attempt(verb: string, id: string, run: () => Promise<string | null>): Promise<boolean> {
@@ -132,6 +124,7 @@ async function attempt(verb: string, id: string, run: () => Promise<string | nul
 }
 
 async function reconcile(): Promise<void> {
+  await whenLoginSyncSettled();
   const { entries } = useSyncedPluginStore.getState();
   const loaded = getLoadedPlugins();
   const loadedIds = new Set(loaded.map((m) => m.id));
@@ -143,21 +136,24 @@ async function reconcile(): Promise<void> {
   );
   const market = useMarketplaceStore.getState();
   if (market.catalog.length === 0 && (unseeded.length > 0 || missing.length > 0)) await market.fetchCatalog();
+  if (missing.length > 0) await market.loadAppVersion();
 
   if (unseeded.length > 0) await useSyncedPluginStore.getState().seed(unseeded.map((m) => seedItem(m, seeded)));
 
+  const { catalog, appVersion } = useMarketplaceStore.getState();
+  const rows = mergeBrowseCatalog(catalog, seeded, useSeededTombstoneStore.getState().removed, appVersion);
+  const reviewLocked = lockedBool(toggleKey("plugin-install-review")) === true;
   const installed: string[] = [];
   for (const entry of missing) {
-    const listed = useMarketplaceStore.getState().catalog.some((p) => p.id === entry.id);
-    const unlisted = listed ? null : unlistedPlugin(entry, seeded);
-    if (!listed && !unlisted) continue;
-    if (await attempt("installing", entry.id, () => installSynced(entry, unlisted))) installed.push(entry.id);
+    const candidate = installCandidate(entry, rows);
+    if (!candidate) continue;
+    const consented = reviewLocked ? [] : entry.permissions;
+    const install = async () => errorOf(await installWithConsent(candidate, consented, { syncDriven: true }));
+    if (await attempt("installing", entry.id, install)) installed.push(entry.id);
   }
 
   const removed: string[] = [];
-  const removable = entries.filter(
-    (e) => !isAlive(e) && loadedIds.has(e.id) && installedHere(e.id, seeded).synced && !installLocked(e.id),
-  );
+  const removable = entries.filter((e) => !isAlive(e) && loadedIds.has(e.id) && installedHere(e.id, seeded).synced);
   for (const { id } of removable) {
     if (await attempt("removing", id, async () => errorOf(await uninstallPlugin(id)))) removed.push(id);
   }
@@ -165,8 +161,9 @@ async function reconcile(): Promise<void> {
   notifySyncedChanges(installed, removed);
 }
 
-const reconcileFlight = singleFlight(() =>
-  reconcile().catch((e) => console.warn("[plugin-sync] Reconciling synced plugins failed:", e)),
+const reconcileFlight = singleFlight(
+  () => reconcile().catch((e) => console.warn("[plugin-sync] Reconciling synced plugins failed:", e)),
+  { rerunIfCalledDuring: true },
 );
 
 let pluginsBooted = false;
