@@ -32,6 +32,7 @@ export function ResizeHandle({
       dragging={dragging}
       className={horizontal ? "w-2 -mx-0.5" : "h-2 -my-0.5"}
       {...handlers}
+      onDoubleClick={() => setRatio(splitNodeId, 0.5)}
     />
   );
 }
