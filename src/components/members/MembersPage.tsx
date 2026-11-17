@@ -29,7 +29,6 @@ import { OffboardingDialog } from "@/components/members/OffboardingDialog";
 import { PendingInviteCard } from "@/components/members/cards/PendingInviteCard";
 import { JoinRequestsSection } from "@/components/members/cards/JoinRequests";
 import { MembersToolbar } from "@/components/members/MembersToolbar";
-import { RoleBadges } from "@/components/members/roleBadges";
 import { MemberCard, memberOpenAction } from "@/components/members/cards/MemberCard";
 import { PrivateVaultMembers, privateVaultGate, useMyHandle } from "@/components/members/cards/PrivateVaultMembers";
 import { MembersEmptyState } from "@/components/members/cards/MembersEmptyState";
@@ -409,7 +408,7 @@ const vaultTabs = selectedVaultIds.length > 1
                 {[...teamRoles].sort((a, b) => a.position - b.position).map((r) => (
                   <RoleToggleChip
                     key={r.id}
-                    variant="pill"
+                    variant="chip-sm"
                     name={r.name}
                     color={r.color}
                     fallbackColor={avatarColor(r.name)}
@@ -420,8 +419,7 @@ const vaultTabs = selectedVaultIds.length > 1
                 {roleFilter.length > 0 && (
                   <button
                     onClick={() => setRoleFilter([])}
-                    className="text-[10px] px-2 py-0.5 rounded-full transition-colors"
-                    style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)" }}
+                    className="text-xs px-2.5 py-1 rounded-lg transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
                   >
                     {t("members.toolbar.clear")}
                   </button>
@@ -434,7 +432,6 @@ const vaultTabs = selectedVaultIds.length > 1
               <SectionHeader
                 label={t("members.heading.members")}
                 count={sortedMembers.length}
-                aside={myMember && <RoleBadges member={myMember} roles={teamRoles} />}
               />
 
               {sortedMembers.length === 0 && members.length === 0 && (

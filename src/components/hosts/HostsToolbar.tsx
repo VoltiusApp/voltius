@@ -1,9 +1,9 @@
 import { useTranslation } from "react-i18next";
-import { Icon } from "@iconify/react";
 import { ToolbarViewControls, type LayoutMode, type SortMode } from "@/components/shared/ToolbarViewControls";
 import { ToolbarDropdown } from "@/components/shared/ToolbarDropdown";
 import { useToolbarResize } from "@/hooks/useToolbarResize";
 import { useRipple } from "@/hooks/useRipple";
+import { ToolbarButton } from "@/components/shared/ToolbarButton";
 import { preferredShellSetting, useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { allowedShells, pickShell } from "@/services/local";
 import { usePolicyLock, usePolicyRange } from "@/stores/policyStore";
@@ -111,19 +111,17 @@ export function HomeToolbar({
         <div ref={rightRef} className="ml-auto flex items-center gap-2 shrink-0">
           {/* Android sandbox has no /dev/tty* access — hide serial console. */}
           {!isMobile && (
-            <button
-              className="flex items-center gap-2 px-3 py-2 h-8 rounded-lg text-sm font-bold tracking-wider transition-colors shrink-0 whitespace-nowrap bg-(--t-bg-input) text-(--t-text-primary) border border-(--t-border-hover) relative overflow-hidden"
-              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-input-hover)")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-input)")}
+            <ToolbarButton
+              icon="lucide:ethernet-port"
+              label={t("hosts.toolbar.serial")}
+              compact={compact}
+              className="overflow-hidden"
               onPointerDown={rippleSerial}
               onClick={onOpenSerial}
               title={t("hosts.toolbar.openSerialConsole")}
-              type="button"
             >
               {ripplesSerial}
-              <Icon icon="lucide:ethernet-port" width={20} />
-              {!compact && t("hosts.toolbar.serial")}
-            </button>
+            </ToolbarButton>
           )}
 
           {!isMobile && (

@@ -1,10 +1,10 @@
 import { useTranslation } from "react-i18next";
-import { Icon } from "@iconify/react";
 import { ToolbarViewControls, type LayoutMode, type SortMode } from "@/components/shared/ToolbarViewControls";
 import { useToolbarResize } from "@/hooks/useToolbarResize";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { useRipple } from "@/hooks/useRipple";
 import { SplitMenuChevron } from "@/components/shared/SplitMenuChevron";
+import { ToolbarButton } from "@/components/shared/ToolbarButton";
 
 interface KeychainToolbarProps {
   search: string;
@@ -64,21 +64,20 @@ export function KeychainToolbar({
         </div>
 
         <div ref={rightRef} className="ml-auto flex items-center gap-px shrink-0">
-          <button
+          <ToolbarButton
+            variant="accent"
+            round="left"
+            icon="lucide:key-round"
+            iconSize={18}
+            label={t("keychain.toolbar.newKey")}
+            compact={compact}
+            className="overflow-hidden"
             onClick={onImportKey}
             onPointerDown={rippleKey}
             disabled={!onImportKey}
-            title={compact ? t("keychain.toolbar.newKey") : undefined}
-            className="flex items-center gap-2 px-3 h-8 text-sm font-bold tracking-wider transition-colors shrink-0 whitespace-nowrap relative overflow-hidden rounded-tl-[0.533rem] rounded-bl-[0.533rem]"
-            style={{ background: "var(--t-accent)", color: "var(--t-on-accent)", opacity: !onImportKey ? 0.4 : 1, cursor: !onImportKey ? "default" : undefined }}
-            onMouseEnter={(e) => { if (onImportKey) e.currentTarget.style.background = "var(--t-accent-hover)"; }}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-accent)")}
-            type="button"
           >
             {ripplesKey}
-            <Icon icon="lucide:key-round" width={18} />
-            {!compact && t("keychain.toolbar.newKey")}
-          </button>
+          </ToolbarButton>
           <SplitMenuChevron label={t("keychain.toolbar.newKeyOptionsAriaLabel")}>
             {(close) => (
               <>
