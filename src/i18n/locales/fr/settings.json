@@ -957,7 +957,13 @@
         "removedOneUnknown": "{{plugin}} supprimé (supprimé sur un autre appareil)",
         "removedMany": "{{count}} extensions supprimées, car supprimées sur vos autres appareils",
         "notHere": "Pas sur cet appareil",
-        "keepHere": "Garder sur cet appareil"
+        "keepHere": "Garder sur cet appareil",
+        "blocked": {
+          "localSource": "Installé depuis un fichier ou une URL : les autres appareils ne peuvent pas le récupérer",
+          "managed": "Géré par votre organisation",
+          "typeOff": "La synchronisation des plugins est désactivée dans les paramètres de synchronisation",
+          "noChannel": "Activez la synchronisation ou rejoignez un groupe de synchronisation local pour synchroniser les plugins"
+        }
       },
       "tabs": {
         "installed": "Installées ({{count}})",

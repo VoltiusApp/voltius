@@ -972,7 +972,13 @@
         "removedOneUnknown": "{{plugin}} removido (removido noutro dispositivo)",
         "removedMany": "{{count}} plugins removidos, pois foram removidos nos seus outros dispositivos",
         "notHere": "Não neste dispositivo",
-        "keepHere": "Manter neste dispositivo"
+        "keepHere": "Manter neste dispositivo",
+        "blocked": {
+          "localSource": "Instalado a partir de um ficheiro ou URL, por isso outros dispositivos não o conseguem obter",
+          "managed": "Gerido pela sua organização",
+          "typeOff": "A sincronização de plugins está desativada nas definições de sincronização",
+          "noChannel": "Ative a sincronização ou junte-se a um grupo de sincronização local para sincronizar plugins"
+        }
       },
       "tabs": {
         "installed": "Instalados ({{count}})",

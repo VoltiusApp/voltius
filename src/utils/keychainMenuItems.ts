@@ -3,6 +3,7 @@ import type { VaultOption } from "@/types";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
+import { objectSyncItem } from "@/utils/objectSyncItem";
 
 export interface KeychainMenuOptions {
   t: TFunction;
@@ -36,8 +37,7 @@ export function buildKeychainMenuItems({
     ...contributions.map((a, i) => ({ ...a, icon: a.icon ?? "lucide:chevron-right", divider: i === 0 && leading.length > 0 })),
     ...vaultMenuItems(vaults, canEdit, onMoveToVault, onCopyToVault, t),
     {
-      label: isSynced ? t("common.objectSync.disable") : t("common.objectSync.enable"),
-      icon: isSynced ? "lucide:cloud-off" : "lucide:cloud",
+      ...objectSyncItem(isSynced, t),
       onClick: onToggleSync,
       divider: true,
     },

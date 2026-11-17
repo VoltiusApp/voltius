@@ -980,7 +980,13 @@
         "removedOneUnknown": "Plugin {{plugin}} odebrán (odebrán na jiném zařízení)",
         "removedMany": "Odebráno pluginů, které byly odebrány na vašich ostatních zařízeních: {{count}}",
         "notHere": "Ne na tomto zařízení",
-        "keepHere": "Ponechat na tomto zařízení"
+        "keepHere": "Ponechat na tomto zařízení",
+        "blocked": {
+          "localSource": "Nainstalováno ze souboru nebo URL, takže ostatní zařízení si ho nemohou stáhnout",
+          "managed": "Spravuje vaše organizace",
+          "typeOff": "Synchronizace pluginů je vypnutá v nastavení synchronizace",
+          "noChannel": "Zapněte synchronizaci nebo se připojte k místní skupině synchronizace, aby se pluginy synchronizovaly"
+        }
       },
       "tabs": {
         "installed": "Nainstalované ({{count}})",

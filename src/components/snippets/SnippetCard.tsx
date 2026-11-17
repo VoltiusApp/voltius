@@ -21,6 +21,7 @@ import { useSnippetStore, snippetToFormData } from "@/stores/snippetStore";
 import { useInlineRename } from "@/hooks/useInlineRename";
 import { useTeamStore } from "@/stores/teamStore";
 import { useUIStore } from "@/stores/uiStore";
+import { objectSyncItem } from "@/utils/objectSyncItem";
 import {
   useEffectivePinned,
   useEffectivePinSource,
@@ -131,8 +132,7 @@ function SnippetCardBody({
       onClick: whenWritableOn(snippetTarget(snippet.id), () => pinSnippetForTeam(snippet.id, !snippet.favorite).catch(() => {})),
     }] : []),
     ...(onToggleSync ? [{
-      label: syncEnabled ? t("common.objectSync.disable") : t("common.objectSync.enable"),
-      icon: syncEnabled ? "lucide:cloud-off" : "lucide:cloud",
+      ...objectSyncItem(syncEnabled, t),
       onClick: onToggleSync,
     }] : []),
     {

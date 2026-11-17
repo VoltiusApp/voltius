@@ -18,12 +18,30 @@ import { installAllowed, policyInstallList } from "@/stores/pluginRegistryStore"
 import { lockedBool } from "@/stores/policyStore";
 import { loadSeededEntries, useSeededTombstoneStore, type SeededEntry } from "@/stores/seededTombstoneStore";
 import { useSyncedPluginStore, type SyncedPlugin, type SyncedPluginFields } from "@/stores/syncedPluginStore";
+import { voltiusAvailability } from "@/services/syncProviders";
+import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { toggleKey } from "@/stores/toggleSettingsStore";
 import { singleFlight } from "@/utils/singleFlight";
 
 export function syncEligible(id: string, sourceId: string): boolean {
   return sourceId !== "local" && sourceId !== "url" && !policyInstallList().includes(id);
+}
+
+function hasSyncChannel(): boolean {
+  const { accountMode, isPro } = useSubscriptionStore.getState();
+  if (voltiusAvailability({ accountMode, isPro, paused: false }) === "active") return true;
+  return Object.keys(useLanSyncStore.getState().known).length > 0;
+}
+
+export function pluginSyncBlockedReason(id: string, sourceId: string): string | null {
+  if (!syncEligible(id, sourceId)) {
+    return sourceId === "local" || sourceId === "url"
+      ? "settings.plugins.sync.blocked.localSource"
+      : "settings.plugins.sync.blocked.managed";
+  }
+  if (!useSyncPrefsStore.getState().isTypeSynced("plugin")) return "settings.plugins.sync.blocked.typeOff";
+  return hasSyncChannel() ? null : "settings.plugins.sync.blocked.noChannel";
 }
 
 async function swallowed(id: string, record: () => Promise<void>): Promise<void> {

@@ -1,3 +1,4 @@
+import { objectSyncItem } from "@/utils/objectSyncItem";
 import { useCallback, useMemo, type ReactNode } from "react";
 import { cardGridProps } from "@/components/shared/cardGrid";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -172,8 +173,7 @@ function KeyCardBody({
       t,
     ),
     {
-      label: isSynced ? t("common.objectSync.disable") : t("common.objectSync.enable"),
-      icon: isSynced ? "lucide:cloud-off" : "lucide:cloud",
+      ...objectSyncItem(isSynced, t),
       onClick: () => useSyncPrefsStore.getState().toggleExcluded(sshKey.id),
       divider: true,
     },
@@ -432,8 +432,7 @@ function IdentityCardBody({
       t,
     ),
     {
-      label: isSynced ? t("common.objectSync.disable") : t("common.objectSync.enable"),
-      icon: isSynced ? "lucide:cloud-off" : "lucide:cloud",
+      ...objectSyncItem(isSynced, t),
       onClick: () => useSyncPrefsStore.getState().toggleExcluded(identity.id),
       divider: true,
     },

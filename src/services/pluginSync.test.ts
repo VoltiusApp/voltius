@@ -24,6 +24,8 @@ const h = vi.hoisted(() => ({
   appToast: vi.fn(),
   manifests: {} as Record<string, { deviceName?: string }>,
   known: {} as Record<string, { name?: string }>,
+  typeSynced: true,
+  sub: { accountMode: null as string | null, isPro: false },
   market: {
     installedMeta: [] as InstalledPluginMeta[],
     catalog: [] as MarketplacePlugin[],
@@ -47,7 +49,10 @@ vi.mock("@/stores/syncedPluginStore", () => ({
   },
 }));
 vi.mock("@/stores/syncPrefsStore", () => ({
-  useSyncPrefsStore: { getState: () => ({ isExcluded: (id: string) => h.excluded.has(id), toggleExcluded: h.toggleExcluded }) },
+  useSyncPrefsStore: { getState: () => ({ isExcluded: (id: string) => h.excluded.has(id), toggleExcluded: h.toggleExcluded, isTypeSynced: () => h.typeSynced }) },
+}));
+vi.mock("@/stores/subscriptionStore", () => ({
+  useSubscriptionStore: { getState: () => h.sub },
 }));
 vi.mock("@/plugins/runtime", () => ({ getLoadedPlugins: () => h.loaded }));
 vi.mock("@/stores/marketplaceStore", () => ({
@@ -76,6 +81,7 @@ import {
   keepOffThisDevice,
   keepOnThisDevice,
   notifySyncedChanges,
+  pluginSyncBlockedReason,
   reconcileSyncedPlugins,
   resolveSyncedCandidate,
   recordUserInstall,
@@ -102,6 +108,8 @@ beforeEach(() => {
   h.removed = [];
   h.manifests = {};
   h.known = {};
+  h.typeSynced = true;
+  h.sub = { accountMode: null, isPro: false };
   h.market.installedMeta = [];
   h.market.catalog = [];
   h.market.appVersion = null;
@@ -132,6 +140,42 @@ describe("pluginSync", () => {
 
     expect(h.recordInstall).not.toHaveBeenCalled();
     expect(syncEligible("p1", "voltius")).toBe(true);
+  });
+
+  describe("pluginSyncBlockedReason", () => {
+    const key = (k: string) => `settings.plugins.sync.blocked.${k}`;
+
+    it("local and url sources are blocked as localSource", () => {
+      h.sub = { accountMode: "server", isPro: true };
+      expect(pluginSyncBlockedReason("p1", "local")).toBe(key("localSource"));
+      expect(pluginSyncBlockedReason("p1", "url")).toBe(key("localSource"));
+    });
+
+    it("policy-listed ids are blocked as managed", () => {
+      h.policy = ["p1"];
+      expect(pluginSyncBlockedReason("p1", "voltius")).toBe(key("managed"));
+    });
+
+    it("a turned-off plugin sync type is blocked as typeOff", () => {
+      h.sub = { accountMode: "server", isPro: true };
+      h.typeSynced = false;
+      expect(pluginSyncBlockedReason("p1", "voltius")).toBe(key("typeOff"));
+    });
+
+    it("no account sync and no LAN group is blocked as noChannel", () => {
+      h.sub = { accountMode: "server", isPro: false };
+      expect(pluginSyncBlockedReason("p1", "voltius")).toBe(key("noChannel"));
+    });
+
+    it("a signed-in Pro account is enough", () => {
+      h.sub = { accountMode: "server", isPro: true };
+      expect(pluginSyncBlockedReason("p1", "voltius")).toBeNull();
+    });
+
+    it("a LAN group is enough without an account", () => {
+      h.known = { d1: {} };
+      expect(pluginSyncBlockedReason("p1", "voltius")).toBeNull();
+    });
   });
 
   it("user install clears this device's exclusion", async () => {

@@ -1384,7 +1384,13 @@
         "removedOneUnknown": "{{plugin}} kaldırıldı (başka bir cihazda kaldırılmıştı)",
         "removedMany": "Diğer cihazlarınızda kaldırılan {{count}} eklenti kaldırıldı",
         "notHere": "Bu cihazda olmasın",
-        "keepHere": "Bu cihazda tut"
+        "keepHere": "Bu cihazda tut",
+        "blocked": {
+          "localSource": "Bir dosyadan veya URL'den yüklendi, bu yüzden diğer cihazlar alamaz",
+          "managed": "Kuruluşunuz tarafından yönetiliyor",
+          "typeOff": "Eklenti eşitleme, Eşitleme ayarlarında kapalı",
+          "noChannel": "Eklentileri eşitlemek için eşitlemeyi açın veya yerel bir eşitleme grubuna katılın"
+        }
       },
       "tabs": {
         "installed": "Kurulu ({{count}})",

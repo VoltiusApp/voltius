@@ -17,6 +17,7 @@ import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { ruleToForm } from "@/utils/portForwardingForm";
 import { useInlineRename } from "@/hooks/useInlineRename";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
+import { objectSyncItem } from "@/utils/objectSyncItem";
 import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 
 interface Props {
@@ -80,8 +81,7 @@ function RuleCardBody({
       t,
     ),
     {
-      label: isSynced ? t("common.objectSync.disable") : t("common.objectSync.enable"),
-      icon: isSynced ? "lucide:cloud-off" : "lucide:cloud",
+      ...objectSyncItem(isSynced, t),
       onClick: () => useSyncPrefsStore.getState().toggleExcluded(rule.id),
       divider: true,
     },

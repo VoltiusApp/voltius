@@ -5,7 +5,12 @@ import { FormSelect } from "@/components/shared/FormSelect";
 import { Icon } from "@iconify/react";
 import { usePluginStore } from "@/stores/pluginStore";
 import { installsBlocked, pluginLock, policyInstallList, useInstallPolicy, usePluginRegistryStore } from "@/stores/pluginRegistryStore";
-import { useMarketplaceStore } from "@/stores/marketplaceStore";
+import { FIRST_PARTY_SOURCE, useMarketplaceStore } from "@/stores/marketplaceStore";
+import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
+import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { useLanSyncStore } from "@/stores/lanSyncStore";
+import { pluginSyncBlockedReason } from "@/services/pluginSync";
+import { objectSyncItem } from "@/utils/objectSyncItem";
 import { useUIStore } from "@/stores/uiStore";
 import { catalogIcon, catalogEntryIcon } from "@/plugins/catalogIcon";
 import { satisfiesMinAppVersion } from "@/plugins/version";
@@ -188,6 +193,29 @@ function MobileManagedLine({ manifest }: { manifest: PluginManifest | undefined 
   const isMobile = useIsMobile();
   if (!isMobile || !manifest || !isToggleLocked(manifest)) return null;
   return <div className="px-4 pb-2.5"><ManagedNote /></div>;
+}
+
+function PluginSyncButton({ id, sourceId }: { id: string; sourceId: string }) {
+  const { t } = useTranslation();
+  const isSynced = useSyncPrefsStore((s) => !s.excludedIds.includes(id));
+  useSyncPrefsStore((s) => s.syncTypes);
+  useSubscriptionStore((s) => s.isPro);
+  useSubscriptionStore((s) => s.accountMode);
+  useLanSyncStore((s) => s.known);
+  const reason = pluginSyncBlockedReason(id, sourceId);
+  const item = objectSyncItem(isSynced, t);
+  return (
+    <button
+      onClick={() => useSyncPrefsStore.getState().toggleExcluded(id)}
+      disabled={reason !== null}
+      className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim) disabled:opacity-40 disabled:cursor-not-allowed"
+      onMouseEnter={(e) => { if (reason !== null) return; (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
+      title={reason ? t(reason) : item.label}
+    >
+      <Icon icon={item.icon} width={15} />
+    </button>
+  );
 }
 
 function PluginSettingsButton({ manifest, settingsPages, onOpenPage, onOpenConfig }: {
@@ -425,6 +453,7 @@ export function InstalledTab() {
                     {isUpdating ? t("settings.plugins.installed.updating") : t("settings.plugins.installed.update")}
                   </button>
                 )}
+                <PluginSyncButton id={manifest.id} sourceId={FIRST_PARTY_SOURCE.id} />
                 <PluginSettingsButton
                   manifest={manifest}
                   settingsPages={settingsPages}
@@ -525,6 +554,7 @@ export function InstalledTab() {
                     {isUpdating ? t("settings.plugins.installed.updating") : t("settings.plugins.installed.update")}
                   </button>
                 )}
+                <PluginSyncButton id={meta.id} sourceId={meta.sourceId} />
                 {manifest && (
                   <PluginSettingsButton
                     manifest={manifest}

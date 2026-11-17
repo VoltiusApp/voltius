@@ -42,6 +42,14 @@ vi.mock("@/stores/marketplaceStore", () => ({
     selector ? selector(marketplaceState) : marketplaceState,
   FIRST_PARTY_SOURCE,
 }));
+vi.mock("@/services/pluginSync", () => ({ pluginSyncBlockedReason: () => null }));
+vi.mock("@/stores/syncPrefsStore", () => ({
+  useSyncPrefsStore: Object.assign((sel: (s: { excludedIds: string[]; syncTypes: object }) => unknown) => sel({ excludedIds: [], syncTypes: {} }), { getState: () => ({ toggleExcluded: () => {} }) }),
+}));
+vi.mock("@/stores/subscriptionStore", () => ({
+  useSubscriptionStore: (sel: (s: { isPro: boolean; accountMode: null }) => unknown) => sel({ isPro: false, accountMode: null }),
+}));
+vi.mock("@/stores/lanSyncStore", () => ({ useLanSyncStore: (sel: (s: { known: object }) => unknown) => sel({ known: {} }) }));
 vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" },
   useNotificationStore: Object.assign(() => ({ push: vi.fn() }), { getState: () => ({ push: vi.fn() }) }),
 }));

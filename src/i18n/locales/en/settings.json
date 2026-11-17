@@ -949,7 +949,13 @@
         "removedOneUnknown": "Removed {{plugin}} (removed on another device)",
         "removedMany": "Removed {{count}} plugins removed on your other devices",
         "notHere": "Not on this device",
-        "keepHere": "Keep on this device"
+        "keepHere": "Keep on this device",
+        "blocked": {
+          "localSource": "Installed from a file or URL, so other devices can't fetch it",
+          "managed": "Managed by your organisation",
+          "typeOff": "Plugin sync is off in Sync settings",
+          "noChannel": "Turn on sync or join a local sync group to sync plugins"
+        }
       },
       "tabs": {
         "installed": "Installed ({{count}})",
