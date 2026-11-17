@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { Icon } from "@iconify/react";
-import { GREYED_CLASS } from "@/hooks/useGreyedUnless";
+import { GREYED_CLASS } from "@/components/shared/greyed";
 
 export type ToolbarVariant = "neutral" | "accent";
 type Round = "all" | "left" | "right";
