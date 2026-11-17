@@ -9,6 +9,8 @@ const h = vi.hoisted(() => ({
   loadPlugin: vi.fn(),
   unloadPlugin: vi.fn(),
   getLoadedPlugins: vi.fn(() => []),
+  recordUserInstall: vi.fn(async () => {}),
+  recordUserUninstall: vi.fn(async () => {}),
   importPluginModule: vi.fn(async () => ({ default: () => {} })),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
@@ -17,6 +19,7 @@ vi.mock("@/plugins/importPluginModule", () => ({
   importPluginModule: h.importPluginModule,
   pluginRegisterOf: (mod: { default?: unknown; register?: unknown }) => mod.default ?? mod.register,
 }));
+vi.mock("@/services/pluginSync", () => ({ recordUserInstall: h.recordUserInstall, recordUserUninstall: h.recordUserUninstall }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/http", () => ({ appFetch: vi.fn() }));
 vi.mock("@/stores/pluginRegistryStore", () => ({
@@ -106,4 +109,50 @@ test("uninstallSeededPlugin with no seeded artifact falls through to a real dele
   expect(h.unloadPlugin).toHaveBeenCalledWith("orphan-plugin");
   expect(h.invoke).toHaveBeenCalledWith("plugin_delete", { id: "orphan-plugin" });
   expect(useSeededTombstoneStore.getState().isRemoved("orphan-plugin")).toBe(false);
+});
+
+test("user install records an entry", async () => {
+  await useMarketplaceStore.getState().installPlugin(basePlugin());
+
+  expect(h.recordUserInstall).toHaveBeenCalledTimes(1);
+  expect(h.recordUserInstall).toHaveBeenCalledWith(expect.objectContaining({ id: "p1" }), expect.objectContaining({ id: "p1" }));
+});
+
+test("update of an installed plugin records nothing", async () => {
+  useMarketplaceStore.setState({
+    installedMeta: [{ id: "p1", version: "0.9.0", sourceId: "voltius", hash: null }],
+  });
+
+  await useMarketplaceStore.getState().installPlugin(basePlugin());
+
+  expect(h.recordUserInstall).not.toHaveBeenCalled();
+});
+
+test("sync-driven install records nothing", async () => {
+  await useMarketplaceStore.getState().installPlugin(basePlugin(), undefined, { syncDriven: true });
+
+  expect(h.recordUserInstall).not.toHaveBeenCalled();
+});
+
+test("reinstalling a removed built-in through the floor records the install", async () => {
+  useSeededTombstoneStore.setState({ removed: ["plugin-docker"] });
+
+  await useMarketplaceStore.getState().installPlugin(basePlugin({ id: "plugin-docker", builtin: true }));
+
+  expect(h.recordUserInstall).toHaveBeenCalledTimes(1);
+  expect(h.recordUserInstall).toHaveBeenCalledWith(expect.objectContaining({ id: "plugin-docker" }), expect.objectContaining({ id: "plugin-docker" }));
+});
+
+test("uninstall tombstones; seeded uninstall tombstones once", async () => {
+  await useMarketplaceStore.getState().uninstallPlugin("p1");
+  expect(h.recordUserUninstall).toHaveBeenCalledWith("p1");
+  expect(h.recordUserUninstall).toHaveBeenCalledTimes(1);
+
+  h.recordUserUninstall.mockClear();
+  await useMarketplaceStore.getState().uninstallSeededPlugin("plugin-docker");
+  expect(h.recordUserUninstall).toHaveBeenCalledTimes(1);
+
+  h.recordUserUninstall.mockClear();
+  await useMarketplaceStore.getState().uninstallSeededPlugin("orphan-plugin");
+  expect(h.recordUserUninstall).toHaveBeenCalledTimes(1);
 });

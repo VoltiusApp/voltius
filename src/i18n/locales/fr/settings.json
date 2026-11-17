@@ -801,6 +801,10 @@
         "port-forwarding-rule": {
           "label": "Transfert de ports",
           "sub": "Règles de tunnel enregistrées"
+        },
+        "plugin": {
+          "label": "Plugins",
+          "sub": "Plugins installés"
         }
       },
       "settingsTitle": "Paramètres",
@@ -945,6 +949,22 @@
     },
     "plugins": {
       "categoryLabel": "Extension",
+      "sync": {
+        "installedOne": "{{plugin}} installé depuis {{device}}",
+        "installedOneUnknown": "{{plugin}} installé depuis un autre appareil",
+        "installedMany": "{{count}} extensions installées depuis vos autres appareils",
+        "removedOne": "{{plugin}} supprimé (supprimé sur {{device}})",
+        "removedOneUnknown": "{{plugin}} supprimé (supprimé sur un autre appareil)",
+        "removedMany": "{{count}} extensions supprimées (supprimées sur vos autres appareils)",
+        "notHere": "Pas sur cet appareil",
+        "keepHere": "Garder sur cet appareil",
+        "blocked": {
+          "localSource": "Installé depuis un fichier ou une URL : les autres appareils ne peuvent pas le récupérer",
+          "managed": "Géré par votre organisation",
+          "typeOff": "La synchronisation des plugins est désactivée dans les paramètres de synchronisation",
+          "noChannel": "Activez la synchronisation ou rejoignez un groupe de synchronisation local pour synchroniser les plugins"
+        }
+      },
       "tabs": {
         "installed": "Installées ({{count}})",
         "browse": "Parcourir",

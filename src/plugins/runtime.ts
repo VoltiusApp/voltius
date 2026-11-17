@@ -35,9 +35,10 @@ import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { vaultOptionsFrom } from "@/hooks/useVaultOptions";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
+import { useSyncedPluginStore } from "@/stores/syncedPluginStore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
-import { getSyncState, onSyncStateChange, getExcludedObjectIds, getPluginSkippedSyncFiles, writeFilteredSettings, openRemoteBlob, forEachRemoteBlob, mergeBlobPayload, importMergedPayload, serialMerge, blobDeviceId, notifyRemotePayloadMerged, type BlobPayload } from "@/services/sync";
+import { getSyncState, onSyncStateChange, getExcludedObjectIds, getPluginSkippedSyncFiles, writeFilteredSettings, openRemoteBlob, forEachRemoteBlob, mergeBlobPayload, importMergedPayload, serialMerge, blobDeviceId, notifyRemotePayloadMerged, reconcilePluginsAfterMerge, type BlobPayload } from "@/services/sync";
 import { useThemeStore } from "@/stores/themeStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import type {
@@ -709,6 +710,7 @@ const RELOADABLE_STORES: Record<string, () => Promise<void>> = {
   keys: () => useKeyStore.getState().loadKeys(),
   snippets: () => useSnippetStore.getState().loadSnippets(),
   folders: () => useFolderStore.getState().loadFolders(),
+  syncedPlugins: () => useSyncedPluginStore.getState().load(),
 };
 
 // ─── Settings schema validation ───────────────────────────────────────────
@@ -2290,6 +2292,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         for (const reload of Object.values(RELOADABLE_STORES)) {
           await reload();
         }
+        reconcilePluginsAfterMerge();
         return { unreadable: failed.map((f) => f.source.i) };
       },
     },

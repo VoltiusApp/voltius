@@ -11,6 +11,8 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useFavoriteCommandStore } from "@/stores/favoriteCommandStore";
+import { useSyncedPluginStore } from "@/stores/syncedPluginStore";
+import { reconcileSyncedPlugins } from "@/services/pluginSync";
 import { announceWithdrawnInvitations, autoLogin, getAccountId, getAccountMode, getAppLock, isServerMode, setAppLock } from "@/services/account";
 import { lockOnLaunchIfIdle, systemAuthAvailable } from "@/services/appLock";
 import { secretState } from "@/services/vaultSecret";
@@ -192,6 +194,7 @@ export default function SplashScreen({ onReady }: Props) {
         useSnippetFolderStore.getState().loadFolders(),
         usePortForwardingStore.getState().loadRules(),
         useFavoriteCommandStore.getState().load(),
+        useSyncedPluginStore.getState().load(),
       ]);
       setStep("connections", "done");
     } catch {
@@ -230,6 +233,7 @@ export default function SplashScreen({ onReady }: Props) {
       await loadSeededPlugins();
       await loadInstalledPlugins();
       applyPluginPolicy();
+      void reconcileSyncedPlugins({ boot: true });
       onPolicyLoaded(applyPluginPolicy);
     } catch (e) {
       console.warn("[splash] plugin loading failed, continuing to app:", e);

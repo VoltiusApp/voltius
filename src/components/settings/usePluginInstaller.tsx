@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { FIRST_PARTY_SOURCE, useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
 import { isThemeOnly } from "@/themes/marketplaceThemes";
-import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
+import { appToast } from "@/services/appToast";
 import { pluginInstallErrorMessage } from "@/plugins/installErrors";
 import { addedPermissions } from "@/plugins/updates";
 import { requiresInstallConsent } from "@/plugins/gatedPermissions";
@@ -20,6 +21,11 @@ interface PendingReview {
   onInstalled?: () => void;
 }
 
+export function notifyInstallError(e: unknown, t: TFunction): void {
+  const { key, params } = pluginInstallErrorMessage(e, "settings.plugins.install.failed");
+  appToast("error", t(key, params), { duration: 0 });
+}
+
 // Gated permissions always force the consent dialog; installPlugin is passed the
 // exact reviewed manifest text so the loaded permissions match what was consented.
 export function usePluginInstaller() {
@@ -32,16 +38,7 @@ export function usePluginInstaller() {
 
   const busy = new Set<string>([...installing, ...preparing]);
 
-  const notifyError = (e: unknown) => {
-    const { key, params } = pluginInstallErrorMessage(e, "settings.plugins.install.failed");
-    useNotificationStore.getState().addToast({
-      source: APP_SOURCE,
-      type: "toast",
-      severity: "error",
-      message: t(key, params),
-      duration: 0,
-    });
-  };
+  const notifyError = (e: unknown) => notifyInstallError(e, t);
 
   const runInstall = async (plugin: MarketplacePlugin, reviewedManifestText?: string, onInstalled?: () => void) => {
     try { await installPlugin(plugin, reviewedManifestText); } catch (e) { notifyError(e); return; }

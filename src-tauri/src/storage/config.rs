@@ -1,3 +1,4 @@
+use crate::commands::raw_entities::RawEntityFile;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
@@ -875,17 +876,13 @@ pub fn save_port_forwarding_rules(rules: &[PortForwardingRule]) -> Result<(), St
     save_json(port_forwarding_rules_file(), rules)
 }
 
-fn favorite_commands_file() -> PathBuf {
-    config_dir().join("favorite_commands.json")
-}
-
 /// Kept as raw JSON: the frontend owns the record shape and its CRDT stamps.
-pub fn load_favorite_commands() -> Result<Vec<serde_json::Value>, String> {
-    load_json(favorite_commands_file())
+pub fn load_raw_entities(file: RawEntityFile) -> Result<Vec<serde_json::Value>, String> {
+    load_json(config_dir().join(file.file_name()))
 }
 
-pub fn save_favorite_commands(items: &[serde_json::Value]) -> Result<(), String> {
-    save_json(favorite_commands_file(), items)
+pub fn save_raw_entities(file: RawEntityFile, items: &[serde_json::Value]) -> Result<(), String> {
+    save_json(config_dir().join(file.file_name()), items)
 }
 
 type SuppressedPorts = BTreeMap<String, BTreeSet<u16>>;

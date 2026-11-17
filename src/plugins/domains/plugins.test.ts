@@ -57,7 +57,7 @@ vi.mock("@/stores/seededTombstoneStore", () => ({
 
 import {
   listPlugins, setPluginEnabled, readPluginConfig, writePluginConfig,
-  removeSource, updatePlugin, installVettedPlugin, uninstallPlugin,
+  removeSource, updatePlugin, installVettedEntry, installVettedPlugin, uninstallPlugin,
 } from "./plugins";
 import { PluginInstallManagedError } from "@/plugins/installErrors";
 
@@ -170,6 +170,14 @@ describe("plugin domain", () => {
     expect(vet).toHaveBeenCalledWith(expect.objectContaining({ id: "acme" }));
     expect(marketplace.installPlugin).not.toHaveBeenCalled();
     expect(marketplace.fetchManifest).toHaveBeenCalledTimes(1);
+  });
+
+  it("installs a prebuilt entry the catalogue does not list, as given", async () => {
+    const entry = { ...marketplace.catalog[1], sourceId: "custom", repo: "o/widget", hash: "h" };
+    const r = await installVettedEntry(entry, () => null, { syncDriven: true });
+    expect(r.ok).toBe(true);
+    expect(marketplace.fetchManifest).toHaveBeenCalledWith(entry);
+    expect(marketplace.installPlugin).toHaveBeenCalledWith(entry, "{}", { syncDriven: true });
   });
 
   it("domain_install_reports_managed", async () => {

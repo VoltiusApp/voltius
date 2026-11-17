@@ -4,11 +4,16 @@ import { useTranslation } from "react-i18next";
 import { inPolicyRange, usePolicyLock, usePolicyRange, usePolicyRefresh, type PolicyRange } from "@/stores/policyStore";
 import { installLocked } from "@/stores/pluginRegistryStore";
 
-export function ManagedNote({ className = "", teams, children }: { className?: string; teams?: string[]; children?: ReactNode }) {
+export function ManagedNote({ className = "", teams, icon = "lucide:building-2", children }: {
+  className?: string;
+  teams?: string[];
+  icon?: string;
+  children?: ReactNode;
+}) {
   const { t } = useTranslation();
   return (
     <span className={`inline-flex items-center gap-1 text-xs text-(--t-text-dim) ${className}`}>
-      <Icon icon="lucide:building-2" width={12} height={12} className="shrink-0" />
+      <Icon icon={icon} width={12} height={12} className="shrink-0" />
       {children ?? (teams?.length ? t("common.policy.managedByTeam", { team: teams[0] }) : t("common.policy.managed"))}
     </span>
   );

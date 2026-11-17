@@ -701,6 +701,10 @@
         "port-forwarding-rule": {
           "label": "Port Yönlendirme",
           "sub": "Kaydedilmiş tünel kuralları"
+        },
+        "plugin": {
+          "label": "Eklentiler",
+          "sub": "Yüklü eklentiler"
         }
       },
       "settingsTitle": "Ayarlar",
@@ -1372,6 +1376,22 @@
     },
     "plugins": {
       "categoryLabel": "Eklenti",
+      "sync": {
+        "installedOne": "{{plugin}}, {{device}} cihazından yüklendi",
+        "installedOneUnknown": "{{plugin}}, başka bir cihazdan yüklendi",
+        "installedMany": "Diğer cihazlarınızdan {{count}} eklenti yüklendi",
+        "removedOne": "{{plugin}} kaldırıldı ({{device}} cihazında kaldırılmıştı)",
+        "removedOneUnknown": "{{plugin}} kaldırıldı (başka bir cihazda kaldırılmıştı)",
+        "removedMany": "{{count}} eklenti kaldırıldı (diğer cihazlarınızda kaldırılmıştı)",
+        "notHere": "Bu cihazda olmasın",
+        "keepHere": "Bu cihazda tut",
+        "blocked": {
+          "localSource": "Bir dosyadan veya URL'den yüklendi, bu yüzden diğer cihazlar alamaz",
+          "managed": "Kuruluşunuz tarafından yönetiliyor",
+          "typeOff": "Eklenti eşitleme, Eşitleme ayarlarında kapalı",
+          "noChannel": "Eklentileri eşitlemek için eşitlemeyi açın veya yerel bir eşitleme grubuna katılın"
+        }
+      },
       "tabs": {
         "installed": "Kurulu ({{count}})",
         "browse": "Göz at",

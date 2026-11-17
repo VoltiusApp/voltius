@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type MouseEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
@@ -6,6 +6,8 @@ import { Icon } from "@iconify/react";
 import { usePluginStore } from "@/stores/pluginStore";
 import { installsBlocked, pluginLock, policyInstallList, useInstallPolicy, usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useMarketplaceStore } from "@/stores/marketplaceStore";
+import { usePluginSyncGlobalReason, usePluginSyncSwitch } from "@/hooks/usePluginSyncSwitch";
+import { objectSyncItem } from "@/utils/objectSyncItem";
 import { useUIStore } from "@/stores/uiStore";
 import { catalogIcon, catalogEntryIcon } from "@/plugins/catalogIcon";
 import { satisfiesMinAppVersion } from "@/plugins/version";
@@ -184,11 +186,66 @@ function EnableToggle({ manifest, enabled, onToggle }: {
 const sourceBadgeKey = (id: string, fallback: string): string =>
   policyInstallList().includes(id) ? "settings.plugins.installed.sourceOrganization" : fallback;
 
-/** On mobile the header row has no room for the note, so it gets a line of its own. */
-function MobileManagedLine({ manifest }: { manifest: PluginManifest | undefined }) {
+/** On mobile the header row has no room for a note, so it gets a line of its own. */
+function MobileNoteLine({ children }: { children: ReactNode }) {
   const isMobile = useIsMobile();
-  if (!isMobile || !manifest || !isToggleLocked(manifest)) return null;
-  return <div className="px-4 pb-2.5"><ManagedNote /></div>;
+  if (!isMobile || !children) return null;
+  return <div className="px-4 pb-2.5">{children}</div>;
+}
+
+function MobileManagedLine({ manifest }: { manifest: PluginManifest | undefined }) {
+  return <MobileNoteLine>{manifest && isToggleLocked(manifest) && <ManagedNote />}</MobileNoteLine>;
+}
+
+type Seeded = Map<string, SeededEntry>;
+
+function MobileSyncLine({ id, seeded }: { id: string; seeded: Seeded }) {
+  const { t } = useTranslation();
+  const { reason } = usePluginSyncSwitch(id, seeded);
+  const globalReason = usePluginSyncGlobalReason();
+  return <MobileNoteLine>{reason && reason !== globalReason && <ManagedNote icon="lucide:cloud-off">{t(reason)}</ManagedNote>}</MobileNoteLine>;
+}
+
+function MobileSyncListLine() {
+  const { t } = useTranslation();
+  const reason = usePluginSyncGlobalReason();
+  return <MobileNoteLine>{reason && <ManagedNote icon="lucide:cloud-off">{t(reason)}</ManagedNote>}</MobileNoteLine>;
+}
+
+const ERROR_HOVER = { background: "color-mix(in srgb, var(--t-status-error) 15%, transparent)", color: "var(--t-status-error)" };
+
+function iconButtonHover(disabled = false, hover = { background: "var(--t-bg-elevated)", color: "var(--t-text-primary)" }) {
+  return {
+    onMouseEnter: (e: MouseEvent<HTMLButtonElement>) => {
+      if (disabled) return;
+      e.currentTarget.style.background = hover.background;
+      e.currentTarget.style.color = hover.color;
+    },
+    onMouseLeave: (e: MouseEvent<HTMLButtonElement>) => {
+      e.currentTarget.style.background = "transparent";
+      e.currentTarget.style.color = "var(--t-text-dim)";
+    },
+  };
+}
+
+function PluginSyncButton({ id, seeded }: { id: string; seeded: Seeded }) {
+  const { t } = useTranslation();
+  const { synced, reason, toggle } = usePluginSyncSwitch(id, seeded);
+  const item = objectSyncItem(synced, t, "state");
+  const blocked = reason !== null;
+  return (
+    <button
+      onClick={toggle}
+      disabled={blocked}
+      className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
+      style={blocked ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+      {...iconButtonHover(blocked)}
+      title={reason ? t(reason) : item.label}
+      aria-label={item.label}
+    >
+      <Icon icon={item.icon} width={15} />
+    </button>
+  );
 }
 
 function PluginSettingsButton({ manifest, settingsPages, onOpenPage, onOpenConfig }: {
@@ -206,8 +263,7 @@ function PluginSettingsButton({ manifest, settingsPages, onOpenPage, onOpenConfi
     <button
       onClick={() => (page ? onOpenPage(page.id) : onOpenConfig(manifest))}
       className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
-      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
+      {...iconButtonHover()}
       title={t("settings.plugins.installed.settingsTitle")}
     >
       <Icon icon="lucide:settings" width={15} />
@@ -381,6 +437,7 @@ export function InstalledTab() {
     </div>
     <div className="flex-1 overflow-y-auto p-6 space-y-5">
       <div className="space-y-2">
+        <MobileSyncListLine />
         {/* Plugins bundled with the app */}
         {filteredBundled.map(({ manifest }) => {
           const enabled = isEnabled(manifest.id, manifest.defaultEnabled ?? true) && loadedIds.has(manifest.id);
@@ -426,6 +483,7 @@ export function InstalledTab() {
                     {isUpdating ? t("settings.plugins.installed.updating") : t("settings.plugins.installed.update")}
                   </button>
                 )}
+                <PluginSyncButton id={manifest.id} seeded={seededEntries} />
                 <PluginSettingsButton
                   manifest={manifest}
                   settingsPages={settingsPages}
@@ -437,8 +495,7 @@ export function InstalledTab() {
                     onClick={() => setConfirmUninstallSeeded(manifest)}
                     disabled={isUninstalling}
                     className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, var(--t-status-error) 15%, transparent)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
+                    {...iconButtonHover(false, ERROR_HOVER)}
                     title={t("settings.plugins.installed.uninstallTitle")}
                   >
                     <Icon icon={isUninstalling ? "lucide:loader" : "lucide:trash-2"} width={14} className={isUninstalling ? "animate-spin" : ""} />
@@ -447,6 +504,7 @@ export function InstalledTab() {
                 <EnableToggle manifest={manifest} enabled={enabled} onToggle={handleToggle} />
               </div>
               <MobileManagedLine manifest={manifest} />
+              <MobileSyncLine id={manifest.id} seeded={seededEntries} />
               {manifest.permissions.length > 0 && (
                 <div className="flex flex-wrap gap-1 px-4 py-2 border-t border-t-(--t-border)">
                   {manifest.permissions.map((perm) => (
@@ -526,6 +584,7 @@ export function InstalledTab() {
                     {isUpdating ? t("settings.plugins.installed.updating") : t("settings.plugins.installed.update")}
                   </button>
                 )}
+                <PluginSyncButton id={meta.id} seeded={seededEntries} />
                 {manifest && (
                   <PluginSettingsButton
                     manifest={manifest}
@@ -538,8 +597,7 @@ export function InstalledTab() {
                   onClick={() => void handleReload(meta.id)}
                   disabled={isReloading}
                   className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
+                  {...iconButtonHover()}
                   title={t("settings.plugins.installed.reloadTitle")}
                 >
                   <Icon icon="lucide:refresh-cw" width={14} className={isReloading ? "animate-spin" : ""} />
@@ -549,8 +607,7 @@ export function InstalledTab() {
                     onClick={() => void handleUninstall(meta.id)}
                     disabled={isUninstalling}
                     className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, var(--t-status-error) 15%, transparent)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
+                    {...iconButtonHover(false, ERROR_HOVER)}
                     title={t("settings.plugins.installed.uninstallTitle")}
                   >
                     <Icon icon={isUninstalling ? "lucide:loader" : "lucide:trash-2"} width={14} className={isUninstalling ? "animate-spin" : ""} />
@@ -559,6 +616,7 @@ export function InstalledTab() {
                 {manifest && <EnableToggle manifest={manifest} enabled={enabled} onToggle={handleToggle} />}
               </div>
               <MobileManagedLine manifest={manifest} />
+              <MobileSyncLine id={meta.id} seeded={seededEntries} />
               {manifest && manifest.permissions.length > 0 && (
                 <div className="flex flex-wrap gap-1 px-4 py-2 border-t border-t-(--t-border)">
                   {manifest.permissions.map((perm) => (

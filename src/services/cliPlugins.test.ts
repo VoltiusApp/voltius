@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PluginManifest } from "@/plugins/api";
+import type { MarketplacePlugin } from "@/stores/marketplaceStore";
 
 const mocks = vi.hoisted(() => ({
   loaded: [] as { id: string; version: string }[],
   manifestPermissions: [] as string[],
   installVettedPlugin: vi.fn(),
+  installVettedEntry: vi.fn(),
   installPlugin: vi.fn(),
   uninstallPlugin: vi.fn(),
   setPluginEnabled: vi.fn(),
@@ -16,12 +18,13 @@ vi.mock("@/plugins/runtime", () => ({ getLoadedPlugins: () => mocks.loaded }));
 vi.mock("@/plugins/applyPluginEnabled", () => ({ applyPluginEnabled: mocks.applyPluginEnabled }));
 vi.mock("@/plugins/domains/plugins", () => ({
   installVettedPlugin: mocks.installVettedPlugin,
+  installVettedEntry: mocks.installVettedEntry,
   installPlugin: mocks.installPlugin,
   uninstallPlugin: mocks.uninstallPlugin,
   setPluginEnabled: mocks.setPluginEnabled,
 }));
 
-import { applyPluginChange, applyPluginInstallPolicy, pluginInstallPolicyIdle } from "./cliPlugins";
+import { applyPluginChange, applyPluginInstallPolicy, installWithConsent, permissionsGrew, pluginInstallPolicyIdle } from "./cliPlugins";
 import { usePolicyStore } from "@/stores/policyStore";
 import { useAdminDefaultsStore } from "@/stores/adminDefaultsStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
@@ -57,7 +60,7 @@ describe("cliPlugins", () => {
     useToggleSettingsStore.setState({ values: { "plugin-install-review": false } });
     mocks.manifestPermissions = ["docker:manage", "storage"];
     expect(await install(["docker:manage"])).toBeNull();
-    expect(mocks.installVettedPlugin).toHaveBeenCalledWith("plugin-docker", expect.any(Function));
+    expect(mocks.installVettedPlugin).toHaveBeenCalledWith("plugin-docker", expect.any(Function), undefined);
   });
 
   it("review_on_needs_every_permission_consented", async () => {
@@ -168,5 +171,34 @@ describe("cliPlugins", () => {
     expect(applied["plugins.enabled/a"]).toBeUndefined();
     await applyPluginInstallPolicy();
     expect(mocks.applyPluginEnabled).toHaveBeenCalledTimes(2);
+  });
+
+  it("permissions_grew_follows_the_review_toggle", () => {
+    expect(permissionsGrew(["storage"], [])).toBe(true);
+    expect(permissionsGrew(["storage"], ["storage"])).toBe(false);
+    useToggleSettingsStore.setState({ values: { "plugin-install-review": false } });
+    expect(permissionsGrew(["storage"], [])).toBe(false);
+    expect(permissionsGrew(["terminal:write"], [])).toBe(true);
+    expect(permissionsGrew(undefined, [])).toBe(false);
+  });
+
+  it("installWithConsent vets a prebuilt entry with the same consent check", async () => {
+    const entry = { id: "plugin-docker", sourceId: "custom" } as MarketplacePlugin;
+    mocks.installVettedEntry.mockResolvedValue(OK);
+    await installWithConsent(entry, ["storage"], { syncDriven: true });
+
+    expect(mocks.installVettedPlugin).not.toHaveBeenCalled();
+    expect(mocks.installVettedEntry).toHaveBeenCalledWith(entry, expect.any(Function), { syncDriven: true });
+    const vet = mocks.installVettedEntry.mock.calls[0][1] as (m: PluginManifest) => string | null;
+    expect(vet({ permissions: ["storage"] } as PluginManifest)).toBeNull();
+    expect(vet({ permissions: ["storage", "terminal:write"] } as PluginManifest)).toBe(
+      "permissions changed since you confirmed; run the command again",
+    );
+  });
+
+  it("installWithConsent forwards opts to installVettedPlugin", async () => {
+    await installWithConsent("plugin-docker", [], { syncDriven: true });
+
+    expect(mocks.installVettedPlugin).toHaveBeenCalledWith("plugin-docker", expect.any(Function), { syncDriven: true });
   });
 });

@@ -1,4 +1,5 @@
-use crate::storage::config::{load_favorite_commands, save_favorite_commands};
+use crate::storage::config::{load_raw_entities, save_raw_entities};
+use serde::Deserialize;
 use serde_json::Value;
 use std::sync::Mutex;
 
@@ -7,9 +8,7 @@ fn id_of(item: &Value) -> Option<&str> {
 }
 
 fn upsert(items: &mut Vec<Value>, entry: Value) -> Result<(), String> {
-    let id = id_of(&entry)
-        .ok_or("favorite command has no id")?
-        .to_string();
+    let id = id_of(&entry).ok_or("record has no id")?.to_string();
     match items.iter_mut().find(|it| id_of(it) == Some(id.as_str())) {
         Some(slot) => *slot = entry,
         None => items.push(entry),
@@ -17,19 +16,35 @@ fn upsert(items: &mut Vec<Value>, entry: Value) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Deserialize, Clone, Copy)]
+#[serde(rename_all = "snake_case")]
+pub enum RawEntityFile {
+    FavoriteCommands,
+    SyncedPlugins,
+}
+
+impl RawEntityFile {
+    pub fn file_name(self) -> &'static str {
+        match self {
+            Self::FavoriteCommands => "favorite_commands.json",
+            Self::SyncedPlugins => "synced_plugins.json",
+        }
+    }
+}
+
 #[tauri::command]
-pub fn favorite_command_list() -> Result<Vec<Value>, String> {
-    load_favorite_commands()
+pub fn raw_entity_list(file: RawEntityFile) -> Result<Vec<Value>, String> {
+    load_raw_entities(file)
 }
 
 /// Deletion is a `put` of the tombstoned record, so it keeps propagating through sync.
 #[tauri::command]
-pub fn favorite_command_put(entry: Value) -> Result<(), String> {
+pub fn raw_entity_put(file: RawEntityFile, entry: Value) -> Result<(), String> {
     static WRITE: Mutex<()> = Mutex::new(());
     let _guard = WRITE.lock().unwrap_or_else(|e| e.into_inner());
-    let mut items = load_favorite_commands()?;
+    let mut items = load_raw_entities(file)?;
     upsert(&mut items, entry)?;
-    save_favorite_commands(&items)
+    save_raw_entities(file, &items)
 }
 
 #[cfg(test)]
@@ -60,5 +75,15 @@ mod tests {
         let mut items = vec![];
         assert!(upsert(&mut items, json!({"command": "ls"})).is_err());
         assert!(items.is_empty());
+    }
+
+    #[test]
+    fn file_names_match_entity_files() {
+        for file in [
+            RawEntityFile::FavoriteCommands,
+            RawEntityFile::SyncedPlugins,
+        ] {
+            assert!(crate::commands::sync::ENTITY_FILES.contains(&file.file_name()));
+        }
     }
 }

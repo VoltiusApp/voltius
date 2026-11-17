@@ -13,6 +13,8 @@ import { isRetiredPlugin } from "@/plugins/retired";
 import { PluginInstallInProgressError, PluginInstallManagedError } from "@/plugins/installErrors";
 import { satisfiesMinAppVersion, MinAppVersionError, beatsSeededVersion, isParsableVersion } from "@/plugins/version";
 import { useSeededTombstoneStore, loadSeededEntries } from "@/stores/seededTombstoneStore";
+import { recordUserInstall, recordUserUninstall } from "@/services/pluginSync";
+import { recordedPlugin } from "@/plugins/floor";
 
 export { PluginInstallManagedError };
 
@@ -142,7 +144,7 @@ async function readLocalCss(id: string): Promise<string | undefined> {
  * oversight — the "never execute an unvouched-for bundle" rule is about network
  * fetches, which this path makes none of.
  */
-async function installFromSeededFloor(id: string): Promise<void> {
+async function installFromSeededFloor(id: string): Promise<PluginManifest> {
   const entry = (await loadSeededEntries()).get(id);
   if (!entry) throw new Error(`No seeded artifact found for "${id}".`);
   const { folder } = entry;
@@ -169,6 +171,7 @@ async function installFromSeededFloor(id: string): Promise<void> {
   // exactly where it was before uninstall: a seeded plugin with no external shadow,
   // so `loadSeededPlugins` picks it up again on the next boot.
   await useSeededTombstoneStore.getState().restore(manifest.id);
+  return manifest;
 }
 
 /**
@@ -301,13 +304,88 @@ interface MarketplaceState {
   // Install / uninstall
   installing: Set<string>;
   fetchManifest: (plugin: MarketplacePlugin) => Promise<{ manifest: PluginManifest; manifestText: string }>;
-  installPlugin: (plugin: MarketplacePlugin, reviewedManifestText?: string) => Promise<void>;
+  installPlugin: (plugin: MarketplacePlugin, reviewedManifestText?: string, opts?: { syncDriven?: boolean }) => Promise<void>;
   uninstallPlugin: (id: string) => Promise<void>;
   uninstallSeededPlugin: (id: string) => Promise<void>;
   reloadPlugin: (id: string) => Promise<void>;
 
   // Dev: scan local plugin folders
   scanLocal: () => Promise<void>;
+}
+
+async function installBundle(
+  plugin: MarketplacePlugin,
+  reviewedManifestText: string | undefined,
+  installedMeta: InstalledPluginMeta[],
+): Promise<{ entry: MarketplacePlugin; manifest: PluginManifest }> {
+  if (await takesFloorPath(plugin)) {
+    // The floor never touches the network or the appVersion gate below — its
+    // bytes ship in the running app, so they're inherently version-compatible.
+    return { entry: plugin, manifest: await installFromSeededFloor(plugin.id) };
+  }
+
+  let entry = plugin;
+  let bundle;
+  try {
+    bundle = await fetchVerifiedBundle(entry, reviewedManifestText);
+  } catch (e) {
+    // A catalogue fetched earlier this session can predate a release; only a still-mismatching bundle is refused.
+    const fresh = e instanceof PluginHashMismatchError ? await refreshedCatalogEntry(plugin) : null;
+    if (!fresh) throw e;
+    entry = fresh;
+    bundle = await fetchVerifiedBundle(entry, reviewedManifestText);
+  }
+  const { manifestText, manifest, jsText, cssText, verifiedHash, verifiedCssHash } = bundle;
+
+  await invoke("plugin_write_file", { id: plugin.id, filename: "manifest.json", content: manifestText });
+  await invoke("plugin_write_file", { id: plugin.id, filename: "index.js", content: jsText });
+  if (cssText !== undefined) {
+    await invoke("plugin_write_file", { id: plugin.id, filename: "voltius.css", content: cssText });
+  }
+
+  const mod = (await importPluginModule(jsText, cssText, plugin.id)) as PluginModule;
+  // Honour a stored enable/disable override: reinstalling — or restoring on
+  // another device — must not silently re-enable something the user turned off.
+  const active = externalPluginActive(manifest.id);
+  // An update over an id that's still registered must tear down the OLD code
+  // first — loadPlugin silently no-ops on an id it already has, which would
+  // leave the previous version running for the rest of the session while the
+  // UI reports the new one installed. Only done here, this late: both hashes
+  // are verified and the new files are on disk, so a failed install above
+  // never reaches this point and the running plugin is left untouched.
+  // unloadPlugin also clears the old stylesheet, so an update with no cssHash
+  // doesn't leave the previous one injected.
+  const wasLoaded = getLoadedPlugins().some((m) => m.id === plugin.id);
+  if (wasLoaded) unloadPlugin(plugin.id);
+  loadPlugin(manifest, pluginRegisterOf(mod), active, false, cssText);
+  if (wasLoaded && active) {
+    // importPluginModule (above) already injected the NEW stylesheet, but the
+    // unloadPlugin above removed it again (it clears whatever is currently
+    // injected under this id, which by now is the new one, not the old one).
+    // loadPlugin itself never injects (see its own doc comment) — re-inject
+    // here so an update doesn't leave the plugin with no stylesheet at all
+    // until a reload. Only needed on this branch: a fresh install (wasLoaded
+    // false) never had its injection torn down, so it's already correct.
+    // Skipped when inactive: loadPlugin's own disabled-load teardown has
+    // already removed the stylesheet, and re-injecting would put it back.
+    if (cssText !== undefined) injectPluginStyle(plugin.id, cssText);
+  }
+
+  const newMeta: InstalledPluginMeta[] = [
+    ...installedMeta.filter((m) => m.id !== plugin.id),
+    {
+      id: plugin.id, version: entry.version || manifest.version, sourceId: entry.sourceId,
+      hash: verifiedHash, cssHash: verifiedCssHash, repo: entry.repo,
+    },
+  ];
+  await writeInstalledMeta(newMeta);
+  useMarketplaceStore.setState({ installedMeta: newMeta });
+
+  // Reinstalling any id — including one that shadows a seeded plugin —
+  // clears its uninstall tombstone, so a future removal of the external
+  // copy falls back to the bundled one instead of staying gone forever.
+  await useSeededTombstoneStore.getState().restore(plugin.id);
+  return { entry, manifest };
 }
 
 export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
@@ -428,7 +506,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
     return { manifest: JSON.parse(manifestText) as PluginManifest, manifestText };
   },
 
-  async installPlugin(plugin: MarketplacePlugin, reviewedManifestText?: string) {
+  async installPlugin(plugin: MarketplacePlugin, reviewedManifestText?: string, opts?: { syncDriven?: boolean }) {
     // The catalogue id is attacker-controlled and becomes the on-disk directory
     // name, so it is checked before any path is built from it. The manifest id is
     // checked separately by loadPlugin, since the two are not required to match.
@@ -444,74 +522,8 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
 
     set((s) => ({ installing: new Set([...s.installing, plugin.id]) }));
     try {
-      if (await takesFloorPath(plugin)) {
-        // The floor never touches the network or the appVersion gate below — its
-        // bytes ship in the running app, so they're inherently version-compatible.
-        await installFromSeededFloor(plugin.id);
-        return;
-      }
-
-      let entry = plugin;
-      let bundle;
-      try {
-        bundle = await fetchVerifiedBundle(entry, reviewedManifestText);
-      } catch (e) {
-        // A catalogue fetched earlier this session can predate a release; only a still-mismatching bundle is refused.
-        const fresh = e instanceof PluginHashMismatchError ? await refreshedCatalogEntry(plugin) : null;
-        if (!fresh) throw e;
-        entry = fresh;
-        bundle = await fetchVerifiedBundle(entry, reviewedManifestText);
-      }
-      const { manifestText, manifest, jsText, cssText, verifiedHash, verifiedCssHash } = bundle;
-
-      await invoke("plugin_write_file", { id: plugin.id, filename: "manifest.json", content: manifestText });
-      await invoke("plugin_write_file", { id: plugin.id, filename: "index.js", content: jsText });
-      if (cssText !== undefined) {
-        await invoke("plugin_write_file", { id: plugin.id, filename: "voltius.css", content: cssText });
-      }
-
-      const mod = (await importPluginModule(jsText, cssText, plugin.id)) as PluginModule;
-      // Honour a stored enable/disable override: reinstalling — or restoring on
-      // another device — must not silently re-enable something the user turned off.
-      const active = externalPluginActive(manifest.id);
-      // An update over an id that's still registered must tear down the OLD code
-      // first — loadPlugin silently no-ops on an id it already has, which would
-      // leave the previous version running for the rest of the session while the
-      // UI reports the new one installed. Only done here, this late: both hashes
-      // are verified and the new files are on disk, so a failed install above
-      // never reaches this point and the running plugin is left untouched.
-      // unloadPlugin also clears the old stylesheet, so an update with no cssHash
-      // doesn't leave the previous one injected.
-      const wasLoaded = getLoadedPlugins().some((m) => m.id === plugin.id);
-      if (wasLoaded) unloadPlugin(plugin.id);
-      loadPlugin(manifest, pluginRegisterOf(mod), active, false, cssText);
-      if (wasLoaded && active) {
-        // importPluginModule (above) already injected the NEW stylesheet, but the
-        // unloadPlugin above removed it again (it clears whatever is currently
-        // injected under this id, which by now is the new one, not the old one).
-        // loadPlugin itself never injects (see its own doc comment) — re-inject
-        // here so an update doesn't leave the plugin with no stylesheet at all
-        // until a reload. Only needed on this branch: a fresh install (wasLoaded
-        // false) never had its injection torn down, so it's already correct.
-        // Skipped when inactive: loadPlugin's own disabled-load teardown has
-        // already removed the stylesheet, and re-injecting would put it back.
-        if (cssText !== undefined) injectPluginStyle(plugin.id, cssText);
-      }
-
-      const newMeta: InstalledPluginMeta[] = [
-        ...installedMeta.filter((m) => m.id !== plugin.id),
-        {
-          id: plugin.id, version: entry.version, sourceId: entry.sourceId,
-          hash: verifiedHash, cssHash: verifiedCssHash, repo: entry.repo,
-        },
-      ];
-      await writeInstalledMeta(newMeta);
-      set({ installedMeta: newMeta });
-
-      // Reinstalling any id — including one that shadows a seeded plugin —
-      // clears its uninstall tombstone, so a future removal of the external
-      // copy falls back to the bundled one instead of staying gone forever.
-      await useSeededTombstoneStore.getState().restore(plugin.id);
+      const { entry, manifest } = await installBundle(plugin, reviewedManifestText, installedMeta);
+      if (!opts?.syncDriven && !alreadyInstalled) await recordUserInstall(entry, manifest);
     } finally {
       set((s) => {
         const next = new Set(s.installing);
@@ -536,6 +548,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
     if (await tombstones.hasSeededArtifact(id)) {
       await tombstones.remove(id);
     }
+    await recordUserUninstall(id);
   },
 
   // Built-in plugins are read-only app resources — uninstalling one never
@@ -556,6 +569,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
     }
     unloadPlugin(id);
     await tombstones.remove(id);
+    await recordUserUninstall(id);
   },
 
   // ── Reload (dev) ──────────────────────────────────────────────────────
@@ -639,11 +653,11 @@ export async function restoreMissingPlugins(): Promise<void> {
       continue;
     }
     try {
-      await useMarketplaceStore.getState().installPlugin({
-        id: meta.id, name: meta.id, author: "", description: "", repo,
-        version: meta.version, tags: [], theme: false, sourceId: meta.sourceId,
-        ...listed, hash, cssHash,
-      });
+      await useMarketplaceStore.getState().installPlugin(
+        recordedPlugin({ id: meta.id, repo, version: meta.version, sourceId: meta.sourceId, hash, cssHash }, listed),
+        undefined,
+        { syncDriven: true },
+      );
     } catch (e) {
       console.warn(`[marketplace] Failed to restore "${meta.id}":`, e);
     }

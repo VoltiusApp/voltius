@@ -795,6 +795,10 @@
         "port-forwarding-rule": {
           "label": "Port Forwarding",
           "sub": "Saved tunnel rules"
+        },
+        "plugin": {
+          "label": "Plugins",
+          "sub": "Installed plugins"
         }
       },
       "settingsTitle": "Settings",
@@ -937,6 +941,22 @@
     },
     "plugins": {
       "categoryLabel": "Plugin",
+      "sync": {
+        "installedOne": "Installed {{plugin}} from {{device}}",
+        "installedOneUnknown": "Installed {{plugin}} from another device",
+        "installedMany": "Installed {{count}} plugins from your other devices",
+        "removedOne": "Removed {{plugin}} (removed on {{device}})",
+        "removedOneUnknown": "Removed {{plugin}} (removed on another device)",
+        "removedMany": "Removed {{count}} plugins (removed on your other devices)",
+        "notHere": "Not on this device",
+        "keepHere": "Keep on this device",
+        "blocked": {
+          "localSource": "Installed from a file or URL, so other devices can't fetch it",
+          "managed": "Managed by your organisation",
+          "typeOff": "Plugin sync is off in Sync settings",
+          "noChannel": "Turn on sync or join a local sync group to sync plugins"
+        }
+      },
       "tabs": {
         "installed": "Installed ({{count}})",
         "browse": "Browse",

@@ -158,6 +158,12 @@
     "defaultApplied": false
   },
   {
+    "id": "sync.types.plugin",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
     "id": "sync.settings.appSettings.terminal.preferredShell",
     "type": "bool",
     "enforced": true,

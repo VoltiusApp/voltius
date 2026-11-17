@@ -807,6 +807,10 @@
         "port-forwarding-rule": {
           "label": "Přesměrování portů",
           "sub": "Uložená pravidla tunelů"
+        },
+        "plugin": {
+          "label": "Pluginy",
+          "sub": "Nainstalované pluginy"
         }
       },
       "settingsTitle": "Nastavení",
@@ -968,6 +972,22 @@
     },
     "plugins": {
       "categoryLabel": "Plugin",
+      "sync": {
+        "installedOne": "Plugin {{plugin}} nainstalován ze zařízení {{device}}",
+        "installedOneUnknown": "Plugin {{plugin}} nainstalován z jiného zařízení",
+        "installedMany": "Nainstalováno pluginů z vašich ostatních zařízení: {{count}}",
+        "removedOne": "Plugin {{plugin}} odebrán (odebrán na zařízení {{device}})",
+        "removedOneUnknown": "Plugin {{plugin}} odebrán (odebrán na jiném zařízení)",
+        "removedMany": "Odebráno pluginů: {{count}} (odebrány na vašich ostatních zařízeních)",
+        "notHere": "Ne na tomto zařízení",
+        "keepHere": "Ponechat na tomto zařízení",
+        "blocked": {
+          "localSource": "Nainstalováno ze souboru nebo URL, takže ostatní zařízení si ho nemohou stáhnout",
+          "managed": "Spravuje vaše organizace",
+          "typeOff": "Synchronizace pluginů je vypnutá v nastavení synchronizace",
+          "noChannel": "Zapněte synchronizaci nebo se připojte k místní skupině synchronizace, aby se pluginy synchronizovaly"
+        }
+      },
       "tabs": {
         "installed": "Nainstalované ({{count}})",
         "browse": "Procházet",

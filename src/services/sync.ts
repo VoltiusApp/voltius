@@ -1,7 +1,7 @@
 import { invoke } from "@/lib/invoke";
 import i18n from "@/i18n";
 import { logFailure } from "@/lib/logger";
-import { createSerialQueue } from "@/lib/serialQueue";
+import { serialMerge } from "@/services/serialMerge";
 import { forgetMergedRemoteBlobs, settledBlobs } from "@/services/settledBlobs";
 import { remoteSources, type RemoteSourceFailure } from "@/services/remoteSources";
 import { useSubscriptionStore, type LoadSource } from "@/stores/subscriptionStore";
@@ -24,6 +24,7 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useFavoriteCommandStore } from "@/stores/favoriteCommandStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
+import { useSyncedPluginStore } from "@/stores/syncedPluginStore";
 import { entitiesDiffer, mergeEntities, mergeSecrets, secretsDiffer, type TimestampedEntity } from "@/services/crdt";
 import { filterRemoteExcluded, filterSecrets, collectExcludedIds, type SecretMaps } from "./syncExclusion";
 import { deviceScopedSecretIds } from "@/services/deviceScopedSecrets";
@@ -75,6 +76,7 @@ export const ENTITY_FILES = [
   "port_forwarding_rules.json",
   LAN_GROUP_FILE,
   "favorite_commands.json",
+  "synced_plugins.json",
 ] as const;
 
 export type SyncStatus = "idle" | "syncing" | "success" | "partial" | "error" | "offline";
@@ -395,6 +397,7 @@ export function getExcludedObjectIds(): string[] {
         ids: [...useSnippetStore.getState().snippets, ...useFavoriteCommandStore.getState().favorites].map((s) => s.id),
       },
       { type: "port-forwarding-rule", ids: usePortForwardingStore.getState().rules.map((r) => r.id) },
+      { type: "plugin", ids: useSyncedPluginStore.getState().entries.map((e) => e.id) },
     ],
     prefs.isObjectSynced,
     prefs.excludedIds,
@@ -550,7 +553,15 @@ export async function reloadAllStores(): Promise<void> {
     useSnippetFolderStore.getState().loadFolders(),
     usePortForwardingStore.getState().loadRules(),
     useFavoriteCommandStore.getState().load(),
+    useSyncedPluginStore.getState().load(),
   ]);
+  reconcilePluginsAfterMerge();
+}
+
+export function reconcilePluginsAfterMerge(): void {
+  void import("@/services/pluginSync")
+    .then((m) => m.reconcileSyncedPlugins())
+    .catch(logFailure("reconcile synced plugins"));
 }
 
 async function settleVault(): Promise<void> {
@@ -605,8 +616,7 @@ async function completeTeamLoginSetup(): Promise<void> {
 
 type MergedPayload = Required<BlobPayload>;
 
-// `state_import` rewrites whole files: every read-merge-write of local state runs here, one at a time.
-export const serialMerge = createSerialQueue();
+export { serialMerge };
 
 export function parseEntities(json: string | undefined): TimestampedEntity[] {
   try {

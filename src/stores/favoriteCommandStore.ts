@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import { invoke } from "@/lib/invoke";
-import { isAlive, type TimestampedEntity } from "@/services/crdt";
+import { isAlive, stamped, tombstoned, type TimestampedEntity } from "@/services/crdt";
 import { sha256Hex } from "@/plugins/integrity";
-import { syncAfterEdit } from "@/stores/syncAfterEdit";
+import { putRawEntity } from "@/stores/rawEntityPut";
 
 export interface FavoriteCommand extends TimestampedEntity {
   command: string;
@@ -29,20 +29,14 @@ const byNewest = (a: FavoriteCommand, b: FavoriteCommand) => b.created_at.locale
 export const useFavoriteCommandStore = create<FavoriteCommandStore>((set, get) => {
   const put = async (entry: FavoriteCommand, favorites: FavoriteCommand[]) => {
     set({ favorites });
-    try {
-      await invoke("favorite_command_put", { entry });
-      syncAfterEdit("snippet", entry.id);
-    } catch (e) {
-      await get().load();
-      throw e;
-    }
+    await putRawEntity("favorite_commands", "snippet", entry, get().load);
   };
 
   return {
     favorites: [],
 
     load: async () => {
-      const all = await invoke<FavoriteCommand[]>("favorite_command_list");
+      const all = await invoke<FavoriteCommand[]>("raw_entity_list", { file: "favorite_commands" });
       set({ favorites: all.filter(isAlive).sort(byNewest) });
     },
 
@@ -52,12 +46,7 @@ export const useFavoriteCommandStore = create<FavoriteCommandStore>((set, get) =
       const now = new Date().toISOString();
       const entry: FavoriteCommand = {
         id,
-        command,
-        connection_id: connectionId,
-        session_name: sessionName,
-        created_at: now,
-        updated_at: now,
-        clocks: { command: now, connection_id: now, session_name: now, created_at: now },
+        ...stamped({ command, connection_id: connectionId, session_name: sessionName, created_at: now }, now),
       };
       await put(entry, [entry, ...get().favorites]);
     },
@@ -65,13 +54,7 @@ export const useFavoriteCommandStore = create<FavoriteCommandStore>((set, get) =
     remove: async (id) => {
       const favorite = get().favorites.find((f) => f.id === id);
       if (!favorite) return;
-      const now = new Date().toISOString();
-      const tombstone: FavoriteCommand = {
-        ...favorite,
-        updated_at: now,
-        deleted_at: now,
-        clocks: { ...favorite.clocks, __deleted__: now },
-      };
+      const tombstone = tombstoned(favorite, new Date().toISOString());
       await put(tombstone, get().favorites.filter((f) => f.id !== id));
     },
   };

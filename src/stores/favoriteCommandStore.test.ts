@@ -5,8 +5,8 @@ const disk = vi.hoisted(() => ({ items: [] as Array<Record<string, unknown>>, fa
 
 vi.mock("@/lib/invoke", () => ({
   invoke: vi.fn(async (cmd: string, args?: { entry: Record<string, unknown> }) => {
-    if (cmd === "favorite_command_list") return structuredClone(disk.items);
-    if (cmd === "favorite_command_put") {
+    if (cmd === "raw_entity_list") return structuredClone(disk.items);
+    if (cmd === "raw_entity_put") {
       if (disk.failPut) throw new Error("disk full");
       const entry = structuredClone(args!.entry);
       const i = disk.items.findIndex((it) => it.id === entry.id);

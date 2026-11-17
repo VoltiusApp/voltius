@@ -801,6 +801,10 @@
         "port-forwarding-rule": {
           "label": "Encaminhamento de portas",
           "sub": "Regras de túnel salvas"
+        },
+        "plugin": {
+          "label": "Plugins",
+          "sub": "Plugins instalados"
         }
       },
       "settingsTitle": "Configurações",
@@ -945,6 +949,22 @@
     },
     "plugins": {
       "categoryLabel": "Plugin",
+      "sync": {
+        "installedOne": "{{plugin}} instalado a partir de {{device}}",
+        "installedOneUnknown": "{{plugin}} instalado a partir de outro dispositivo",
+        "installedMany": "{{count}} plugins instalados a partir dos seus outros dispositivos",
+        "removedOne": "{{plugin}} removido (removido em {{device}})",
+        "removedOneUnknown": "{{plugin}} removido (removido em outro dispositivo)",
+        "removedMany": "{{count}} plugins removidos (removidos nos seus outros dispositivos)",
+        "notHere": "Não neste dispositivo",
+        "keepHere": "Manter neste dispositivo",
+        "blocked": {
+          "localSource": "Instalado a partir de um ficheiro ou URL, por isso outros dispositivos não o conseguem obter",
+          "managed": "Gerido pela sua organização",
+          "typeOff": "A sincronização de plugins está desativada nas definições de sincronização",
+          "noChannel": "Ative a sincronização ou junte-se a um grupo de sincronização local para sincronizar plugins"
+        }
+      },
       "tabs": {
         "installed": "Instalados ({{count}})",
         "browse": "Explorar",

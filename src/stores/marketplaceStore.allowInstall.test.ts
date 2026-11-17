@@ -1,6 +1,7 @@
 import { test, expect, vi, beforeEach } from "vitest";
 
 const h = vi.hoisted(() => ({ invoke: vi.fn(), loaded: [] as { id: string }[] }));
+vi.mock("@/services/pluginSync", () => ({ recordUserInstall: vi.fn(), recordUserUninstall: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@tauri-apps/api/app", () => ({ getVersion: async () => "2.5.0" }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));

@@ -4,6 +4,7 @@ import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
+import { objectSyncItem } from "@/utils/objectSyncItem";
 
 export interface ConnectionMenuOptions {
   canEdit?: boolean;
@@ -55,8 +56,7 @@ export function buildConnectionMenuItems({
     ...contributions.map((a, i) => ({ ...a, divider: i === 0 })),
     ...vaultMenuItems(vaults, canEdit, onMoveToVault, onCopyToVault, t),
     {
-      label: isSynced ? t("common.objectSync.disable") : t("common.objectSync.enable"),
-      icon: isSynced ? "lucide:cloud-off" : "lucide:cloud",
+      ...objectSyncItem(isSynced, t),
       onClick: onToggleSync,
       divider: true,
     },

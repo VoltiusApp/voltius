@@ -40,6 +40,7 @@ import CloudAuthModal from "@/components/layout/CloudAuthModal";
 import EnrollModal from "@/components/enrollment/EnrollModal";
 import WhatsNewModal from "@/components/changelog/WhatsNewModal";
 import { EmailVerificationRequiredModal } from "@/components/notifications/EmailVerificationRequiredModal";
+import { SyncedPluginConsentHost } from "@/components/settings/SyncedPluginConsentHost";
 import { DeepLinkConfirmModal } from "@/components/terminal/DeepLinkConfirmModal";
 import { FileAccessRequestModal } from "@/components/shared/FileAccessRequestModal";
 import { LanSyncIntroModal } from "@/components/shared/LanSyncIntroModal";
@@ -113,6 +114,7 @@ function App() {
       <WhatsNewModal />
       <EmailVerificationRequiredModal />
       <DeepLinkConfirmModal />
+      <SyncedPluginConsentHost />
       <LanSyncIntroModal />
       <PairDeviceDialog />
       <RuleSetPromptHost />
