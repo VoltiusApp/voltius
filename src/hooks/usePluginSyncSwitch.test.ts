@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   known: {} as Record<string, object>,
   effective: { configured: false, paused: true },
   toggleExcluded: vi.fn(),
+  globalReason: vi.fn((..._args: unknown[]): string | null => null),
   blockedReason: vi.fn((..._args: unknown[]): string | null => null),
 }));
 
@@ -14,6 +15,7 @@ vi.mock("@/hooks/useSyncProviders", () => ({ useSyncProviders: () => ({ provider
 vi.mock("@/services/pluginSync", () => ({
   installedSourceId: (id: string, seeded: Map<string, unknown>) => (seeded.has(id) ? "voltius" : "local"),
   pluginSyncBlockedReason: h.blockedReason,
+  pluginSyncGlobalBlockedReason: h.globalReason,
 }));
 vi.mock("@/stores/syncPrefsStore", () => ({
   useSyncPrefsStore: Object.assign(
@@ -26,7 +28,7 @@ vi.mock("@/stores/subscriptionStore", () => ({
   useSubscriptionStore: (sel: (s: { isPro: boolean }) => unknown) => sel({ isPro: false }),
 }));
 
-import { usePluginSyncSwitch } from "./usePluginSyncSwitch";
+import { usePluginSyncGlobalReason, usePluginSyncSwitch } from "./usePluginSyncSwitch";
 
 const seeded = new Map([["b1", { folder: "b1", manifest: { id: "b1" } }]]) as unknown as Parameters<typeof usePluginSyncSwitch>[1];
 
@@ -65,4 +67,13 @@ test("a known LAN device is passed on as a channel", () => {
   renderHook(() => usePluginSyncSwitch("b1", seeded));
 
   expect(h.blockedReason).toHaveBeenCalledWith("b1", "voltius", expect.objectContaining({ lanKnown: true }));
+});
+
+test("the list-level reason is the provider-wide one, judged on the same channels", () => {
+  h.known = { d1: {} };
+  h.globalReason.mockReturnValue("settings.plugins.sync.blocked.typeOff");
+  const { result } = renderHook(() => usePluginSyncGlobalReason());
+
+  expect(h.globalReason).toHaveBeenCalledWith({ ...h.effective, isPro: false, lanKnown: true });
+  expect(result.current).toBe("settings.plugins.sync.blocked.typeOff");
 });

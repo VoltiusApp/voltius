@@ -6,7 +6,7 @@ import { Icon } from "@iconify/react";
 import { usePluginStore } from "@/stores/pluginStore";
 import { installsBlocked, pluginLock, policyInstallList, useInstallPolicy, usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useMarketplaceStore } from "@/stores/marketplaceStore";
-import { usePluginSyncSwitch } from "@/hooks/usePluginSyncSwitch";
+import { usePluginSyncGlobalReason, usePluginSyncSwitch } from "@/hooks/usePluginSyncSwitch";
 import { objectSyncItem } from "@/utils/objectSyncItem";
 import { useUIStore } from "@/stores/uiStore";
 import { catalogIcon, catalogEntryIcon } from "@/plugins/catalogIcon";
@@ -201,6 +201,13 @@ type Seeded = Map<string, SeededEntry>;
 function MobileSyncLine({ id, seeded }: { id: string; seeded: Seeded }) {
   const { t } = useTranslation();
   const { reason } = usePluginSyncSwitch(id, seeded);
+  const globalReason = usePluginSyncGlobalReason();
+  return <MobileNoteLine>{reason && reason !== globalReason && <ManagedNote icon="lucide:cloud-off">{t(reason)}</ManagedNote>}</MobileNoteLine>;
+}
+
+function MobileSyncListLine() {
+  const { t } = useTranslation();
+  const reason = usePluginSyncGlobalReason();
   return <MobileNoteLine>{reason && <ManagedNote icon="lucide:cloud-off">{t(reason)}</ManagedNote>}</MobileNoteLine>;
 }
 
@@ -429,6 +436,7 @@ export function InstalledTab() {
     </div>
     <div className="flex-1 overflow-y-auto p-6 space-y-5">
       <div className="space-y-2">
+        <MobileSyncListLine />
         {/* Plugins bundled with the app */}
         {filteredBundled.map(({ manifest }) => {
           const enabled = isEnabled(manifest.id, manifest.defaultEnabled ?? true) && loadedIds.has(manifest.id);

@@ -30,6 +30,11 @@ export type SyncChannels = Pick<EffectiveSync, "configured" | "paused"> & { isPr
 
 const hasSyncChannel = (c: SyncChannels): boolean => c.configured || (c.paused && c.isPro) || c.lanKnown;
 
+export function pluginSyncGlobalBlockedReason(channels: SyncChannels): string | null {
+  if (!useSyncPrefsStore.getState().isTypeSynced("plugin")) return "settings.plugins.sync.blocked.typeOff";
+  return hasSyncChannel(channels) ? null : "settings.plugins.sync.blocked.noChannel";
+}
+
 export function pluginSyncBlockedReason(
   id: string,
   sourceId: string,
@@ -40,8 +45,7 @@ export function pluginSyncBlockedReason(
       ? "settings.plugins.sync.blocked.localSource"
       : "settings.plugins.sync.blocked.managed";
   }
-  if (!useSyncPrefsStore.getState().isTypeSynced("plugin")) return "settings.plugins.sync.blocked.typeOff";
-  return hasSyncChannel(channels) ? null : "settings.plugins.sync.blocked.noChannel";
+  return pluginSyncGlobalBlockedReason(channels);
 }
 
 async function swallowed(id: string, record: () => Promise<void>): Promise<void> {

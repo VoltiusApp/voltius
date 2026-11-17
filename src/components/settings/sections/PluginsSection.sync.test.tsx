@@ -5,6 +5,8 @@ import type { PluginManifest } from "@/plugins/api";
 const h = vi.hoisted(() => ({
   synced: true,
   reason: null as string | null,
+  globalReason: null as string | null,
+  reasonOf: null as ((id: string) => string | null) | null,
   mobile: false,
   toggle: vi.fn(),
   switchCalls: [] as Array<[string, Map<string, unknown>]>,
@@ -35,9 +37,10 @@ vi.mock("@/stores/marketplaceStore", () => ({
   FIRST_PARTY_SOURCE: { id: "voltius", name: "Voltius Marketplace", url: "", enabled: true, deletable: false },
 }));
 vi.mock("@/hooks/usePluginSyncSwitch", () => ({
+  usePluginSyncGlobalReason: () => h.globalReason,
   usePluginSyncSwitch: (id: string, seeded: Map<string, unknown>) => {
     h.switchCalls.push([id, seeded]);
-    return { synced: h.synced, reason: h.reason, toggle: () => h.toggle(id) };
+    return { synced: h.synced, reason: h.reasonOf ? h.reasonOf(id) : h.reason, toggle: () => h.toggle(id) };
   },
 }));
 vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" },
@@ -63,6 +66,8 @@ const manifest = (id: string): PluginManifest =>
 beforeEach(() => {
   h.synced = true;
   h.reason = null;
+  h.globalReason = null;
+  h.reasonOf = null;
   h.mobile = false;
   h.switchCalls = [];
   h.toggle.mockReset();
@@ -116,15 +121,41 @@ test.each([
   expect(h.toggle).not.toHaveBeenCalled();
 });
 
-test("on mobile the reason gets a line of its own", () => {
+test("on mobile a per-plugin reason gets a line of its own", () => {
   h.mobile = true;
-  h.reason = "settings.plugins.sync.blocked.noChannel";
+  h.reason = "settings.plugins.sync.blocked.localSource";
   render(<InstalledTab />);
-  expect(screen.getByText("settings.plugins.sync.blocked.noChannel")).toBeTruthy();
+  expect(screen.getByText("settings.plugins.sync.blocked.localSource")).toBeTruthy();
+});
+
+test.each([
+  "settings.plugins.sync.blocked.typeOff",
+  "settings.plugins.sync.blocked.noChannel",
+])("on mobile a list-wide reason shows once at the top, not per card: %s", (reason) => {
+  h.mobile = true;
+  h.globalReason = reason;
+  h.reasonOf = () => reason;
+  h.state.installedMeta = [{ id: "ext", version: "1.0.0", sourceId: "voltius", hash: null }];
+  h.loaded = [manifest("plugin-docker"), manifest("ext")];
+  render(<InstalledTab />);
+  expect(screen.getAllByText(reason)).toHaveLength(1);
+  expect(screen.getAllByTitle(reason)).toHaveLength(2);
+});
+
+test("on mobile a local plugin keeps its own line under a list-wide reason", () => {
+  h.mobile = true;
+  h.globalReason = "settings.plugins.sync.blocked.typeOff";
+  h.reasonOf = (id) => (id === "ext" ? "settings.plugins.sync.blocked.localSource" : h.globalReason);
+  h.state.installedMeta = [{ id: "ext", version: "1.0.0", sourceId: "local", hash: null }];
+  h.loaded = [manifest("plugin-docker"), manifest("ext")];
+  render(<InstalledTab />);
+  expect(screen.getAllByText("settings.plugins.sync.blocked.typeOff")).toHaveLength(1);
+  expect(screen.getAllByText("settings.plugins.sync.blocked.localSource")).toHaveLength(1);
 });
 
 test("on desktop the reason stays in the tooltip", () => {
   h.reason = "settings.plugins.sync.blocked.noChannel";
+  h.globalReason = h.reason;
   render(<InstalledTab />);
   expect(screen.queryByText("settings.plugins.sync.blocked.noChannel")).toBeNull();
 });

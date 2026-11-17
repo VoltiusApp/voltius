@@ -88,6 +88,7 @@ import {
   keepOnThisDevice,
   notifySyncedChanges,
   pluginSyncBlockedReason,
+  pluginSyncGlobalBlockedReason,
   reconcileSyncedPlugins,
   resolveSyncedCandidate,
   recordUserInstall,
@@ -192,6 +193,13 @@ describe("pluginSync", () => {
 
     it("a LAN group is enough without an account", () => {
       expect(pluginSyncBlockedReason("p1", "voltius", { ...OFF, isPro: false, lanKnown: true })).toBeNull();
+    });
+
+    it("the global reason ignores the plugin and covers only type and channel", () => {
+      expect(pluginSyncGlobalBlockedReason(ON)).toBeNull();
+      expect(pluginSyncGlobalBlockedReason(OFF)).toBe(key("noChannel"));
+      h.typeSynced = false;
+      expect(pluginSyncGlobalBlockedReason(ON)).toBe(key("typeOff"));
     });
   });
 

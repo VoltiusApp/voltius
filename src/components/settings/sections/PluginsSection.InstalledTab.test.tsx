@@ -36,7 +36,7 @@ vi.mock("@/stores/marketplaceStore", () => ({
     selector ? selector(marketplaceState) : marketplaceState,
   FIRST_PARTY_SOURCE,
 }));
-vi.mock("@/hooks/usePluginSyncSwitch", () => ({ usePluginSyncSwitch: () => ({ synced: true, reason: null, toggle: () => {} }) }));
+vi.mock("@/hooks/usePluginSyncSwitch", () => ({ usePluginSyncGlobalReason: () => null, usePluginSyncSwitch: () => ({ synced: true, reason: null, toggle: () => {} }) }));
 vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" },
   useNotificationStore: Object.assign(() => ({ push: vi.fn() }), { getState: () => ({ push: vi.fn() }) }),
 }));
