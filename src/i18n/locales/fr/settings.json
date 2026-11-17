@@ -949,6 +949,16 @@
     },
     "plugins": {
       "categoryLabel": "Extension",
+      "sync": {
+        "installedOne": "{{plugin}} installé depuis {{device}}",
+        "installedOneUnknown": "{{plugin}} installé depuis un autre appareil",
+        "installedMany": "{{count}} extensions installées depuis vos autres appareils",
+        "removedOne": "{{plugin}} supprimé (supprimé sur {{device}})",
+        "removedOneUnknown": "{{plugin}} supprimé (supprimé sur un autre appareil)",
+        "removedMany": "{{count}} extensions supprimées, car supprimées sur vos autres appareils",
+        "notHere": "Pas sur cet appareil",
+        "keepHere": "Garder sur cet appareil"
+      },
       "tabs": {
         "installed": "Installées ({{count}})",
         "browse": "Parcourir",

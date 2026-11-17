@@ -941,6 +941,16 @@
     },
     "plugins": {
       "categoryLabel": "Plugin",
+      "sync": {
+        "installedOne": "Installed {{plugin}} from {{device}}",
+        "installedOneUnknown": "Installed {{plugin}} from another device",
+        "installedMany": "Installed {{count}} plugins from your other devices",
+        "removedOne": "Removed {{plugin}} (removed on {{device}})",
+        "removedOneUnknown": "Removed {{plugin}} (removed on another device)",
+        "removedMany": "Removed {{count}} plugins removed on your other devices",
+        "notHere": "Not on this device",
+        "keepHere": "Keep on this device"
+      },
       "tabs": {
         "installed": "Installed ({{count}})",
         "browse": "Browse",

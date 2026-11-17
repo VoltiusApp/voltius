@@ -21,6 +21,9 @@ const h = vi.hoisted(() => ({
   seeded: new Map<string, SeededEntry>(),
   removed: [] as string[],
   loginSettled: vi.fn(async () => {}),
+  appToast: vi.fn(),
+  manifests: {} as Record<string, { deviceName?: string }>,
+  known: {} as Record<string, { name?: string }>,
   market: {
     installedMeta: [] as InstalledPluginMeta[],
     catalog: [] as MarketplacePlugin[],
@@ -55,6 +58,14 @@ vi.mock("@/stores/seededTombstoneStore", () => ({
   loadSeededEntries: async () => h.seeded,
   useSeededTombstoneStore: { getState: () => ({ removed: h.removed }) },
 }));
+vi.mock("@/i18n", () => ({
+  default: { t: (key: string, o?: Record<string, unknown>) => `${key}|${JSON.stringify(o ?? {})}` },
+}));
+vi.mock("@/services/appToast", () => ({ appToast: h.appToast }));
+vi.mock("@/stores/crossDeviceSessionsStore", () => ({
+  useCrossDeviceSessionsStore: { getState: () => ({ manifests: h.manifests }) },
+}));
+vi.mock("@/stores/lanSyncStore", () => ({ useLanSyncStore: { getState: () => ({ known: h.known }) } }));
 vi.mock("@/services/loginSyncGate", () => ({ whenLoginSyncSettled: h.loginSettled }));
 vi.mock("@/services/cliPlugins", () => ({ PERMISSIONS_GREW: h.GREW, installWithConsent: h.installWithConsent }));
 vi.mock("@/plugins/domains/plugins", () => ({ uninstallPlugin: h.uninstallPlugin }));
@@ -62,7 +73,11 @@ vi.mock("@/stores/policyStore", () => ({ lockedBool: (key: string) => h.locks[ke
 vi.mock("@/stores/toggleSettingsStore", () => ({ toggleKey: (id: string) => `appSettings.toggles.${id}` }));
 
 import {
+  keepOffThisDevice,
+  keepOnThisDevice,
+  notifySyncedChanges,
   reconcileSyncedPlugins,
+  resolveSyncedCandidate,
   recordUserInstall,
   recordUserUninstall,
   syncEligible,
@@ -85,6 +100,8 @@ beforeEach(() => {
   h.loaded = [];
   h.seeded = new Map();
   h.removed = [];
+  h.manifests = {};
+  h.known = {};
   h.market.installedMeta = [];
   h.market.catalog = [];
   h.market.appVersion = null;
@@ -448,5 +465,129 @@ describe("reconcileSyncedPlugins", () => {
       { id: "b2", repo: "", source_id: "voltius", hash: null, css_hash: null, permissions: ["perm-b2"], name: "Name b2" },
     ]);
     expect(items.some((i) => "deleted_at" in i)).toBe(false);
+  });
+});
+
+const toastAction = () => h.appToast.mock.calls[0][2].action as { label: string; onClick: () => void };
+
+describe("notifySyncedChanges", () => {
+  beforeEach(() => {
+    h.entries = [synced("p1", { name: "Alpha" }), synced("p2", { name: "Beta" })];
+  });
+
+  it("toasts nothing for empty lists", () => {
+    notifySyncedChanges([], []);
+
+    expect(h.appToast).not.toHaveBeenCalled();
+  });
+
+  it("names the plugin and the device for a single install", () => {
+    h.manifests = { "dev-b": { deviceName: "Laptop" } };
+    notifySyncedChanges(["p1"], []);
+
+    expect(h.appToast).toHaveBeenCalledTimes(1);
+    expect(h.appToast.mock.calls[0][0]).toBe("info");
+    expect(h.appToast.mock.calls[0][1]).toBe(
+      'settings.plugins.sync.installedOne|{"plugin":"Alpha","device":"Laptop"}',
+    );
+    expect(toastAction().label).toContain("settings.plugins.sync.notHere");
+  });
+
+  it("falls back to the lan-known name", () => {
+    h.known = { "dev-b": { name: "Phone" } };
+    notifySyncedChanges(["p1"], []);
+
+    expect(h.appToast.mock.calls[0][1]).toContain('"device":"Phone"');
+  });
+
+  it("uses the unknown-device form when the device has no name", () => {
+    notifySyncedChanges([], ["p1"]);
+
+    expect(h.appToast.mock.calls[0][1]).toBe('settings.plugins.sync.removedOneUnknown|{"plugin":"Alpha"}');
+    expect(toastAction().label).toContain("settings.plugins.sync.keepHere");
+  });
+
+  it("falls back to the id when the entry has no name", () => {
+    h.entries = [synced("p1", { name: "" })];
+    notifySyncedChanges(["p1"], []);
+
+    expect(h.appToast.mock.calls[0][1]).toContain('"plugin":"p1"');
+  });
+
+  it("summarises several plugins with a count", () => {
+    notifySyncedChanges(["p1", "p2"], []);
+
+    expect(h.appToast.mock.calls[0][1]).toBe('settings.plugins.sync.installedMany|{"count":2}');
+  });
+
+  it("raises one toast per non-empty list", () => {
+    notifySyncedChanges(["p1"], ["p2", "p1"]);
+
+    expect(h.appToast).toHaveBeenCalledTimes(2);
+    expect(h.appToast.mock.calls[1][1]).toBe('settings.plugins.sync.removedMany|{"count":2}');
+  });
+
+  it("Not on this device excludes then uninstalls", async () => {
+    const order: string[] = [];
+    h.toggleExcluded.mockImplementation(() => order.push("exclude"));
+    h.uninstallPlugin.mockImplementation(async (id: string) => {
+      order.push("uninstall");
+      return { ok: true, result: { id } };
+    });
+    notifySyncedChanges(["p1"], []);
+
+    toastAction().onClick();
+    await vi.waitFor(() => expect(h.uninstallPlugin).toHaveBeenCalledWith("p1"));
+
+    expect(order).toEqual(["exclude", "uninstall"]);
+  });
+
+  it("Keep on this device excludes then installs the resolved row", async () => {
+    h.market.catalog = [entry({ id: "p1" })];
+    const order: string[] = [];
+    h.toggleExcluded.mockImplementation(() => order.push("exclude"));
+    h.installWithConsent.mockImplementation(async () => {
+      order.push("install");
+      return { ok: true, result: {} };
+    });
+    notifySyncedChanges([], ["p1"]);
+
+    toastAction().onClick();
+    await vi.waitFor(() => expect(h.installWithConsent).toHaveBeenCalled());
+
+    expect(order).toEqual(["exclude", "install"]);
+    expect(h.installWithConsent).toHaveBeenCalledWith(target({ id: "p1" }), ["net"], SYNC);
+  });
+});
+
+describe("keep actions", () => {
+  it("do not re-toggle an id that is already excluded", async () => {
+    h.entries = [synced("p1")];
+    h.market.catalog = [entry({ id: "p1" })];
+    h.excluded.add("p1");
+
+    await keepOffThisDevice(["p1"]);
+    await keepOnThisDevice(["p1"]);
+
+    expect(h.toggleExcluded).not.toHaveBeenCalled();
+  });
+
+  it("keepOnThisDevice installs a recorded repo and hash that the catalogue lacks", async () => {
+    h.entries = [synced("p9")];
+
+    await keepOnThisDevice(["p9"]);
+
+    expect(h.installWithConsent).toHaveBeenCalledWith(
+      target({ id: "p9", repo: "o/p9", hash: "h-p9" }),
+      ["net"],
+      SYNC,
+    );
+  });
+
+  it("resolveSyncedCandidate is null for an unknown id and for an entry with no source", async () => {
+    h.entries = [synced("p3", { hash: null })];
+
+    expect(await resolveSyncedCandidate("nope")).toBeNull();
+    expect(await resolveSyncedCandidate("p3")).toBeNull();
   });
 });

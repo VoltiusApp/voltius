@@ -972,6 +972,16 @@
     },
     "plugins": {
       "categoryLabel": "Plugin",
+      "sync": {
+        "installedOne": "Plugin {{plugin}} nainstalován ze zařízení {{device}}",
+        "installedOneUnknown": "Plugin {{plugin}} nainstalován z jiného zařízení",
+        "installedMany": "Nainstalováno pluginů z vašich ostatních zařízení: {{count}}",
+        "removedOne": "Plugin {{plugin}} odebrán (odebrán na zařízení {{device}})",
+        "removedOneUnknown": "Plugin {{plugin}} odebrán (odebrán na jiném zařízení)",
+        "removedMany": "Odebráno pluginů, které byly odebrány na vašich ostatních zařízeních: {{count}}",
+        "notHere": "Ne na tomto zařízení",
+        "keepHere": "Ponechat na tomto zařízení"
+      },
       "tabs": {
         "installed": "Nainstalované ({{count}})",
         "browse": "Procházet",

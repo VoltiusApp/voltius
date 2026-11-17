@@ -5,9 +5,14 @@ import { errorOf } from "@/plugins/domains/result";
 import { mergeBrowseCatalog, recordedPlugin } from "@/plugins/floor";
 import { isRetiredPlugin } from "@/plugins/retired";
 import { getLoadedPlugins } from "@/plugins/runtime";
+import i18n from "@/i18n";
+import { appToast } from "@/services/appToast";
 import { isAlive } from "@/services/crdt";
 import { installWithConsent, PERMISSIONS_GREW } from "@/services/cliPlugins";
 import { whenLoginSyncSettled } from "@/services/loginSyncGate";
+import { remoteSourceName } from "@/services/remoteSources";
+import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
+import { useLanSyncStore } from "@/stores/lanSyncStore";
 import { FIRST_PARTY_SOURCE, useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
 import { installAllowed, policyInstallList } from "@/stores/pluginRegistryStore";
 import { lockedBool } from "@/stores/policyStore";
@@ -75,8 +80,6 @@ export const useSyncedPluginConsentStore = create<SyncedPluginConsentStore>((set
 
 export const enqueueConsent = (id: string): void => useSyncedPluginConsentStore.getState().enqueue(id);
 
-export const notifySyncedChanges: (installed: string[], removed: string[]) => void = () => {};
-
 type SeededEntries = Map<string, SeededEntry>;
 
 const isExcluded = (id: string) => useSyncPrefsStore.getState().isExcluded(id);
@@ -111,6 +114,72 @@ function installCandidate(entry: SyncedPlugin, rows: MarketplacePlugin[]): Marke
   });
 }
 
+function browseRows(seeded: SeededEntries): MarketplacePlugin[] {
+  const { catalog, appVersion } = useMarketplaceStore.getState();
+  return mergeBrowseCatalog(catalog, seeded, useSeededTombstoneStore.getState().removed, appVersion);
+}
+
+export async function resolveSyncedCandidate(id: string): Promise<MarketplacePlugin | null> {
+  const entry = useSyncedPluginStore.getState().entries.find((e) => e.id === id);
+  if (!entry) return null;
+  const market = useMarketplaceStore.getState();
+  if (market.catalog.length === 0) await market.fetchCatalog();
+  await market.loadAppVersion();
+  return installCandidate(entry, browseRows(await loadSeededEntries()));
+}
+
+function excludeHere(ids: string[]): void {
+  for (const id of ids) if (!isExcluded(id)) useSyncPrefsStore.getState().toggleExcluded(id);
+}
+
+export async function keepOffThisDevice(ids: string[]): Promise<void> {
+  excludeHere(ids);
+  for (const id of ids) {
+    const error = errorOf(await uninstallPlugin(id));
+    if (error !== null) console.warn(`[plugin-sync] Not removing "${id}":`, error);
+  }
+}
+
+export async function keepOnThisDevice(ids: string[]): Promise<void> {
+  excludeHere(ids);
+  for (const id of ids) {
+    const entry = useSyncedPluginStore.getState().entries.find((e) => e.id === id);
+    const candidate = entry && (await resolveSyncedCandidate(id));
+    if (!entry || !candidate) {
+      console.warn(`[plugin-sync] Not installing "${id}": no install source`);
+      continue;
+    }
+    const error = errorOf(await installWithConsent(candidate, entry.permissions, { syncDriven: true }));
+    if (error !== null) console.warn(`[plugin-sync] Not installing "${id}":`, error);
+  }
+}
+
+function toastChange(kind: "installed" | "removed", ids: string[], action: { label: string; onClick: () => void }) {
+  if (ids.length === 0) return;
+  const entries = ids.map((id) => useSyncedPluginStore.getState().entries.find((e) => e.id === id));
+  const key = (suffix: string) => `settings.plugins.sync.${kind}${suffix}`;
+  let message = i18n.t(key("Many"), { count: ids.length });
+  if (ids.length === 1) {
+    const plugin = entries[0]?.name || ids[0];
+    const { manifests } = useCrossDeviceSessionsStore.getState();
+    const { known } = useLanSyncStore.getState();
+    const device = entries[0] ? remoteSourceName(entries[0].device_id, manifests, known) : null;
+    message = device ? i18n.t(key("One"), { plugin, device }) : i18n.t(key("OneUnknown"), { plugin });
+  }
+  appToast("info", message, { action });
+}
+
+export function notifySyncedChanges(installed: string[], removed: string[]): void {
+  toastChange("installed", installed, {
+    label: i18n.t("settings.plugins.sync.notHere"),
+    onClick: () => void keepOffThisDevice(installed),
+  });
+  toastChange("removed", removed, {
+    label: i18n.t("settings.plugins.sync.keepHere"),
+    onClick: () => void keepOnThisDevice(removed),
+  });
+}
+
 async function attempt(verb: string, id: string, run: () => Promise<string | null>): Promise<boolean> {
   try {
     const error = await run();
@@ -140,8 +209,7 @@ async function reconcile(): Promise<void> {
 
   if (unseeded.length > 0) await useSyncedPluginStore.getState().seed(unseeded.map((m) => seedItem(m, seeded)));
 
-  const { catalog, appVersion } = useMarketplaceStore.getState();
-  const rows = mergeBrowseCatalog(catalog, seeded, useSeededTombstoneStore.getState().removed, appVersion);
+  const rows = browseRows(seeded);
   const reviewLocked = lockedBool(toggleKey("plugin-install-review")) === true;
   const installed: string[] = [];
   for (const entry of missing) {

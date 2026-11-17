@@ -957,6 +957,16 @@
     },
     "plugins": {
       "categoryLabel": "Плагин",
+      "sync": {
+        "installedOne": "Плагин {{plugin}} установлен с устройства {{device}}",
+        "installedOneUnknown": "Плагин {{plugin}} установлен с другого устройства",
+        "installedMany": "Установлено плагинов с ваших других устройств: {{count}}",
+        "removedOne": "Плагин {{plugin}} удалён (удалён на устройстве {{device}})",
+        "removedOneUnknown": "Плагин {{plugin}} удалён (удалён на другом устройстве)",
+        "removedMany": "Удалено плагинов, удалённых на ваших других устройствах: {{count}}",
+        "notHere": "Не на этом устройстве",
+        "keepHere": "Оставить на этом устройстве"
+      },
       "tabs": {
         "installed": "Установлено ({{count}})",
         "browse": "Обзор",

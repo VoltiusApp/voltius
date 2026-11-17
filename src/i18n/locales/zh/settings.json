@@ -787,6 +787,16 @@
     },
     "plugins": {
       "categoryLabel": "插件",
+      "sync": {
+        "installedOne": "已从 {{device}} 安装 {{plugin}}",
+        "installedOneUnknown": "已从其他设备安装 {{plugin}}",
+        "installedMany": "已从你的其他设备安装 {{count}} 个插件",
+        "removedOne": "已移除 {{plugin}}（已在 {{device}} 上移除）",
+        "removedOneUnknown": "已移除 {{plugin}}（已在其他设备上移除）",
+        "removedMany": "已移除 {{count}} 个在你的其他设备上被移除的插件",
+        "notHere": "不在此设备上",
+        "keepHere": "保留在此设备上"
+      },
       "tabs": {
         "installed": "已安装 ({{count}})",
         "browse": "浏览",

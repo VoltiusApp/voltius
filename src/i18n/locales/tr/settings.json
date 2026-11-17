@@ -1376,6 +1376,16 @@
     },
     "plugins": {
       "categoryLabel": "Eklenti",
+      "sync": {
+        "installedOne": "{{plugin}}, {{device}} cihazından yüklendi",
+        "installedOneUnknown": "{{plugin}}, başka bir cihazdan yüklendi",
+        "installedMany": "Diğer cihazlarınızdan {{count}} eklenti yüklendi",
+        "removedOne": "{{plugin}} kaldırıldı ({{device}} cihazında kaldırılmıştı)",
+        "removedOneUnknown": "{{plugin}} kaldırıldı (başka bir cihazda kaldırılmıştı)",
+        "removedMany": "Diğer cihazlarınızda kaldırılan {{count}} eklenti kaldırıldı",
+        "notHere": "Bu cihazda olmasın",
+        "keepHere": "Bu cihazda tut"
+      },
       "tabs": {
         "installed": "Kurulu ({{count}})",
         "browse": "Göz at",
