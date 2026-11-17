@@ -701,6 +701,10 @@
         "port-forwarding-rule": {
           "label": "Port Yönlendirme",
           "sub": "Kaydedilmiş tünel kuralları"
+        },
+        "plugin": {
+          "label": "Eklentiler",
+          "sub": "Yüklü eklentiler"
         }
       },
       "settingsTitle": "Ayarlar",

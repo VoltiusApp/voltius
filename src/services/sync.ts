@@ -24,6 +24,7 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useFavoriteCommandStore } from "@/stores/favoriteCommandStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
+import { useSyncedPluginStore } from "@/stores/syncedPluginStore";
 import { entitiesDiffer, mergeEntities, mergeSecrets, secretsDiffer, type TimestampedEntity } from "@/services/crdt";
 import { filterRemoteExcluded, filterSecrets, collectExcludedIds, type SecretMaps } from "./syncExclusion";
 import { deviceScopedSecretIds } from "@/services/deviceScopedSecrets";
@@ -396,6 +397,7 @@ export function getExcludedObjectIds(): string[] {
         ids: [...useSnippetStore.getState().snippets, ...useFavoriteCommandStore.getState().favorites].map((s) => s.id),
       },
       { type: "port-forwarding-rule", ids: usePortForwardingStore.getState().rules.map((r) => r.id) },
+      { type: "plugin", ids: useSyncedPluginStore.getState().entries.map((e) => e.id) },
     ],
     prefs.isObjectSynced,
     prefs.excludedIds,
@@ -551,6 +553,7 @@ export async function reloadAllStores(): Promise<void> {
     useSnippetFolderStore.getState().loadFolders(),
     usePortForwardingStore.getState().loadRules(),
     useFavoriteCommandStore.getState().load(),
+    useSyncedPluginStore.getState().load(),
   ]);
 }
 

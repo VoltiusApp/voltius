@@ -13,6 +13,7 @@ export const SYNC_OBJECT_TYPES: SyncObjectTypeDef[] = [
   { id: "folder" },
   { id: "snippet" },
   { id: "port-forwarding-rule" },
+  { id: "plugin" },
 ];
 
 export interface SyncSettingDomainDef {

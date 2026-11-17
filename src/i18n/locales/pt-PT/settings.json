@@ -801,6 +801,10 @@
         "port-forwarding-rule": {
           "label": "Encaminhamento de portas",
           "sub": "Regras de túnel guardadas"
+        },
+        "plugin": {
+          "label": "Plugins",
+          "sub": "Plugins instalados"
         }
       },
       "settingsTitle": "Configurações",

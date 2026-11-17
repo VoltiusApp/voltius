@@ -801,6 +801,10 @@
         "port-forwarding-rule": {
           "label": "Transfert de ports",
           "sub": "Règles de tunnel enregistrées"
+        },
+        "plugin": {
+          "label": "Plugins",
+          "sub": "Plugins installés"
         }
       },
       "settingsTitle": "Paramètres",

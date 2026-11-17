@@ -795,6 +795,10 @@
         "port-forwarding-rule": {
           "label": "Port Forwarding",
           "sub": "Saved tunnel rules"
+        },
+        "plugin": {
+          "label": "Plugins",
+          "sub": "Installed plugins"
         }
       },
       "settingsTitle": "Settings",

@@ -9,6 +9,7 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { useFavoriteCommandStore, type FavoriteCommand } from "@/stores/favoriteCommandStore";
+import { useSyncedPluginStore, type SyncedPlugin } from "@/stores/syncedPluginStore";
 import type { Snippet, Folder } from "@/types";
 
 const snippet = (id: string): Snippet => ({
@@ -93,5 +94,18 @@ describe("getExcludedObjectIds: global proxy password", () => {
     useSyncPrefsStore.getState().setSettingSync("appSettings.proxy", true);
     useSyncPrefsStore.getState().setSyncSettingDomain("appSettings", false);
     expect(getExcludedObjectIds()).toEqual(["__global__"]);
+  });
+});
+
+describe("getExcludedObjectIds: plugins", () => {
+  beforeEach(() => {
+    useSyncPrefsStore.setState({ syncTypes: {}, excludedIds: [], syncSettingDomains: {}, settingSyncOverrides: { "appSettings.proxy": true } });
+    useSyncedPluginStore.setState({ entries: [{ id: "a" } as SyncedPlugin] });
+  });
+
+  test("plugin ids are excluded when the plugin type is off", () => {
+    expect(getExcludedObjectIds()).not.toContain("a");
+    useSyncPrefsStore.getState().setSyncType("plugin", false);
+    expect(getExcludedObjectIds()).toContain("a");
   });
 });
