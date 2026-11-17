@@ -24,6 +24,16 @@ type Discovered = BTreeMap<String, Vec<(String, String)>>;
 fn main() {
     tauri_build::build();
     embed_seeded_plugins();
+    grow_windows_main_thread_stack();
+}
+
+/// Tauri builds every command's future inside one IPC handler on the main thread, and
+/// Windows gives that thread 1 MiB where Linux and macOS give 8: match them.
+fn grow_windows_main_thread_stack() {
+    let target = |key| std::env::var(key).unwrap_or_default();
+    if target("CARGO_CFG_TARGET_OS") == "windows" && target("CARGO_CFG_TARGET_ENV") == "msvc" {
+        println!("cargo:rustc-link-arg-bin=voltius=/STACK:8388608");
+    }
 }
 
 fn embed_seeded_plugins() {

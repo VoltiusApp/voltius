@@ -291,12 +291,20 @@ async fn run<H: russh::client::Handler>(
             token.cancel();
         })
     });
+    // Boxed: Tauri builds a command's future on the main thread, whose stack is 1 MiB on Windows.
     let ran = match target {
         Target::Remote(handle, wrapped) => {
-            run_remote(&handle, &wrapped, stdin, &mut output, &token).await
+            Box::pin(run_remote(&handle, &wrapped, stdin, &mut output, &token)).await
         }
         Target::Local(shell, command) => {
-            run_local(shell.as_deref(), &command, stdin, &mut output, &token).await
+            Box::pin(run_local(
+                shell.as_deref(),
+                &command,
+                stdin,
+                &mut output,
+                &token,
+            ))
+            .await
         }
     };
     if let Some(timer) = timer {
@@ -462,6 +470,27 @@ mod tests {
         let token = CancellationToken::new();
         let output = Output::collect(cap, token.clone());
         run(target, None, output, token, limit).await.unwrap()
+    }
+
+    // Tauri builds a command's future on the main thread, whose stack is 1 MiB on Windows.
+    #[tokio::test]
+    async fn an_exec_future_is_small_enough_to_build_on_the_main_thread() {
+        let (handle, _) = proc_server(ProcOptions::default()).await;
+        let token = CancellationToken::new();
+        let output = || Output::collect(1, token.clone());
+        let remote = run(
+            Target::Remote(handle, "true".into()),
+            None,
+            output(),
+            token.clone(),
+            None,
+        );
+        let local = run(local("true"), None, output(), token.clone(), None);
+        let sizes = (size_of_val(&remote), size_of_val(&local));
+        assert!(
+            sizes.0 < 4096 && sizes.1 < 4096,
+            "run futures take {sizes:?} bytes"
+        );
     }
 
     #[tokio::test]
