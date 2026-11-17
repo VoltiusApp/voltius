@@ -14,6 +14,7 @@ import { PluginInstallInProgressError, PluginInstallManagedError } from "@/plugi
 import { satisfiesMinAppVersion, MinAppVersionError, beatsSeededVersion, isParsableVersion } from "@/plugins/version";
 import { useSeededTombstoneStore, loadSeededEntries } from "@/stores/seededTombstoneStore";
 import { recordUserInstall, recordUserUninstall } from "@/services/pluginSync";
+import { recordedPlugin } from "@/plugins/floor";
 
 export { PluginInstallManagedError };
 
@@ -652,11 +653,11 @@ export async function restoreMissingPlugins(): Promise<void> {
       continue;
     }
     try {
-      await useMarketplaceStore.getState().installPlugin({
-        id: meta.id, name: meta.id, author: "", description: "", repo,
-        version: meta.version, tags: [], theme: false, sourceId: meta.sourceId,
-        ...listed, hash, cssHash,
-      }, undefined, { syncDriven: true });
+      await useMarketplaceStore.getState().installPlugin(
+        recordedPlugin({ id: meta.id, repo, version: meta.version, sourceId: meta.sourceId, hash, cssHash }, listed),
+        undefined,
+        { syncDriven: true },
+      );
     } catch (e) {
       console.warn(`[marketplace] Failed to restore "${meta.id}":`, e);
     }

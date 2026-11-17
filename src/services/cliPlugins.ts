@@ -1,5 +1,5 @@
 import { installPlugin, installVettedPlugin, pluginState, setPluginEnabled, uninstallPlugin, type PluginView } from "@/plugins/domains/plugins";
-import type { DomainResult } from "@/plugins/domains/result";
+import { errorOf, type DomainResult } from "@/plugins/domains/result";
 import { applyPluginEnabled } from "@/plugins/applyPluginEnabled";
 import { isGatedPermission } from "@/plugins/gatedPermissions";
 import { getLoadedPlugins } from "@/plugins/runtime";
@@ -10,6 +10,7 @@ import { adminDefault, lockedList } from "@/stores/policyStore";
 import { loadSeededEntries } from "@/stores/seededTombstoneStore";
 import { withAdminDefaultWrite } from "@/stores/appSettingsTimestampStore";
 import { getToggle } from "@/stores/toggleSettingsStore";
+import { singleFlight } from "@/utils/singleFlight";
 
 export type CliPluginAction = "install" | "enable" | "disable" | "remove";
 export interface CliPluginChange {
@@ -21,17 +22,18 @@ export interface CliPluginChange {
 export const PERMISSIONS_GREW = "permissions changed since you confirmed; run the command again";
 
 const isLoaded = (id: string) => getLoadedPlugins().some((m) => m.id === id);
-const errorOf = (r: DomainResult<unknown>): string | null => (r.ok ? null : r.error);
+
+export function permissionsGrew(perms: string[] | undefined, consented: string[]): boolean {
+  const reviewAll = getToggle("plugin-install-review");
+  return (perms ?? []).some((p) => (reviewAll || isGatedPermission(p)) && !consented.includes(p));
+}
 
 export function installWithConsent(
   id: string,
   consented: string[],
   opts?: { syncDriven?: boolean },
 ): Promise<DomainResult<PluginView>> {
-  const granted = new Set(consented);
-  const reviewAll = getToggle("plugin-install-review");
-  const grew = (perms: string[] = []) => perms.some((p) => (reviewAll || isGatedPermission(p)) && !granted.has(p));
-  return installVettedPlugin(id, (m) => (grew(m.permissions) ? PERMISSIONS_GREW : null), opts);
+  return installVettedPlugin(id, (m) => (permissionsGrew(m.permissions, consented) ? PERMISSIONS_GREW : null), opts);
 }
 
 export async function applyPluginChange(c: CliPluginChange): Promise<string | null> {
@@ -72,18 +74,13 @@ async function runInstallPolicy(): Promise<void> {
   }
 }
 
-let running: Promise<void> | null = null;
+const installPolicy = singleFlight(() =>
+  runInstallPolicy().catch((e) => console.warn("[policy] applying plugin policy failed:", e)),
+);
 
-export function applyPluginInstallPolicy(): Promise<void> {
-  running ??= runInstallPolicy()
-    .catch((e) => console.warn("[policy] applying plugin policy failed:", e))
-    .finally(() => {
-      running = null;
-    });
-  return running;
-}
+export const applyPluginInstallPolicy = installPolicy.run;
 
-export const pluginInstallPolicyIdle = (): Promise<void> => running ?? Promise.resolve();
+export const pluginInstallPolicyIdle = installPolicy.idle;
 
 export async function mirrorPlugins() {
   const { installedMeta } = useMarketplaceStore.getState();

@@ -21,7 +21,7 @@ vi.mock("@/plugins/domains/plugins", () => ({
   setPluginEnabled: mocks.setPluginEnabled,
 }));
 
-import { applyPluginChange, applyPluginInstallPolicy, installWithConsent, pluginInstallPolicyIdle } from "./cliPlugins";
+import { applyPluginChange, applyPluginInstallPolicy, installWithConsent, permissionsGrew, pluginInstallPolicyIdle } from "./cliPlugins";
 import { usePolicyStore } from "@/stores/policyStore";
 import { useAdminDefaultsStore } from "@/stores/adminDefaultsStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
@@ -168,6 +168,15 @@ describe("cliPlugins", () => {
     expect(applied["plugins.enabled/a"]).toBeUndefined();
     await applyPluginInstallPolicy();
     expect(mocks.applyPluginEnabled).toHaveBeenCalledTimes(2);
+  });
+
+  it("permissions_grew_follows_the_review_toggle", () => {
+    expect(permissionsGrew(["storage"], [])).toBe(true);
+    expect(permissionsGrew(["storage"], ["storage"])).toBe(false);
+    useToggleSettingsStore.setState({ values: { "plugin-install-review": false } });
+    expect(permissionsGrew(["storage"], [])).toBe(false);
+    expect(permissionsGrew(["terminal:write"], [])).toBe(true);
+    expect(permissionsGrew(undefined, [])).toBe(false);
   });
 
   it("installWithConsent forwards opts to installVettedPlugin", async () => {

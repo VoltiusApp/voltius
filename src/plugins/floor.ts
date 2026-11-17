@@ -27,6 +27,14 @@ export function floorPluginFrom(entry: SeededEntry, icon?: string): MarketplaceP
   };
 }
 
+export function recordedPlugin(
+  rec: { id: string; repo: string; version: string; sourceId: string; hash: string; cssHash?: string },
+  listed?: MarketplacePlugin,
+): MarketplacePlugin {
+  const { hash, cssHash } = rec;
+  return { name: rec.id, author: "", description: "", tags: [], theme: false, ...rec, ...listed, hash, cssHash };
+}
+
 /**
  * Ids of seeded (app-bundled) built-ins that are currently active — i.e. NOT
  * tombstoned. These are already installed, so Browse must never offer them for

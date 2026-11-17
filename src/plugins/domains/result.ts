@@ -8,4 +8,6 @@ export type DomainResult<T> = { ok: true; result: T } | { ok: false; error: stri
 export const failed = (err: unknown): { ok: false; error: string } =>
   ({ ok: false, error: err instanceof Error ? err.message : String(err) });
 
+export const errorOf = (r: DomainResult<unknown>): string | null => (r.ok ? null : r.error);
+
 export const managedMessage = (what: string): string => `${what} is managed by your organization and cannot be changed`;
