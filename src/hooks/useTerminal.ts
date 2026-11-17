@@ -1,4 +1,4 @@
-import { activateTerminal, disposeClosedTerminals, reattachTerminal, setTerminalVisible, useTerminalMount, type CachedTerminal } from "@/components/terminal/terminalContainer";
+import { activateTerminal, disposeClosedTerminals, fitOrDefer, holdTerminalFit, reattachTerminal, setTerminalVisible, useTerminalMount, type CachedTerminal } from "@/components/terminal/terminalContainer";
 import { useEffect, useCallback } from "react";
 import { Terminal, type IBufferCell, type IBufferLine, type IDisposable } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -482,9 +482,18 @@ export function getTerminalDims(sessionId: string): { cols: number; rows: number
  *  Fast-path complement to the per-container ResizeObserver: fires immediately on the
  *  caller's frame rather than after the observer's debounce, for snappier keyboard reflow. */
 export function refitSession(sessionId: string): void {
+  fitSession(sessionId, fitOrDefer);
+}
+
+/** Freeze a session's grid size across a viewport resize (e.g. the keyboard closing under a long-press). */
+export function holdSessionFit(sessionId: string, held: boolean): void {
+  fitSession(sessionId, (entry) => holdTerminalFit(entry, held));
+}
+
+function fitSession(sessionId: string, fit: (entry: CacheEntry) => void): void {
   const entry = terminalCache.get(sessionId);
   if (!entry) return;
-  try { entry.fitAddon.fit(); } catch { /* container not laid out yet */ }
+  try { fit(entry); } catch { /* container not laid out yet */ }
 }
 
 /** Programmatically send input to a session's PTY (used by the mobile extra-keys row).

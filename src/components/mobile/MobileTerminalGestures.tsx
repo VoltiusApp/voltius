@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { focusSession, getTerminalApi } from "@/hooks/useTerminal";
+import { focusSession, getTerminalApi, holdSessionFit } from "@/hooks/useTerminal";
 import { sendSpecialKey } from "@/services/terminalInput";
 import { showAndroidKeyboard, hideAndroidKeyboard, setAndroidKeyboardTarget, setSelectionTouchFeed } from "@/services/androidKeyboard";
 import { useIsAndroid } from "@/utils/platform";
@@ -61,7 +61,12 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
     if (!root || !container) return;
     const sel = createNativeSelection(root, () => getTerminalApi(sessionId), (on) => {
       if (isAndroid) setSelectionTouchFeed(on);
+      if (!on) holdSessionFit(sessionId, false);
     });
+    const disarmUnlessSelecting = () => {
+      sel.disarm();
+      if (!sel.isSelecting()) holdSessionFit(sessionId, false);
+    };
     const w = window as unknown as { __voltiusSelTouch?: (y: number | null) => void };
     const onFinger = (y: number | null) => sel.finger(y);
     w.__voltiusSelTouch = onFinger;
@@ -143,7 +148,11 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
         if (onText.current) {
           phase.current = "native";
           sel.arm();
-          if (isAndroid) hideAndroidKeyboard(true);
+          if (isAndroid) {
+            // The keyboard closing grows the terminal; refitting would slide other text under the finger.
+            holdSessionFit(sessionId, true);
+            hideAndroidKeyboard(true);
+          }
         } else {
           showPaste(start.current.x, start.current.y);
         }
@@ -213,7 +222,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
       const wasPhase = phase.current;
 
       if (wasPhase === "native" || sel.isSelecting()) {
-        sel.disarm();
+        disarmUnlessSelecting();
         reset();
         return;
       }
@@ -271,7 +280,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
 
     const onTouchCancel = () => {
       if (phase.current === "swiping") endSwipe(0, 0);
-      sel.disarm();
+      disarmUnlessSelecting();
       reset();
     };
 
@@ -297,6 +306,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
       clearLongPress();
       lastTap.current = null;
       sel.dispose();
+      holdSessionFit(sessionId, false);
       if (w.__voltiusSelTouch === onFinger) delete w.__voltiusSelTouch;
       setPaste(null);
     };

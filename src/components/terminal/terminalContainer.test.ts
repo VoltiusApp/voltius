@@ -9,7 +9,7 @@ vi.mock("@/components/terminal/terminalClipboard", () => ({
 }));
 vi.mock("@/utils/webglAddon", () => ({ claimWebglRenderer: () => {} }));
 
-import { setTerminalVisible, useTerminalMount, type CachedTerminal } from "./terminalContainer";
+import { holdTerminalFit, setTerminalVisible, useTerminalMount, type CachedTerminal } from "./terminalContainer";
 
 let observerCallbacks: (() => void)[] = [];
 
@@ -66,6 +66,30 @@ describe("terminal container fits", () => {
 
     setTerminalVisible(entry, true);
     expect(entry.fitAddon.fit).toHaveBeenCalledTimes(1);
+    setTerminalVisible(entry, true);
+    expect(entry.fitAddon.fit).toHaveBeenCalledTimes(1);
+  });
+
+  it("holds the grid across resizes and catches up once on release", () => {
+    const entry = mounted();
+    holdTerminalFit(entry, true);
+    resizeWindowAndContainer();
+    expect(entry.fitAddon.fit).not.toHaveBeenCalled();
+
+    holdTerminalFit(entry, false);
+    expect(entry.fitAddon.fit).toHaveBeenCalledTimes(1);
+    holdTerminalFit(entry, false);
+    expect(entry.fitAddon.fit).toHaveBeenCalledTimes(1);
+  });
+
+  it("a released hold on a hidden terminal waits until it is shown", () => {
+    const entry = mounted();
+    holdTerminalFit(entry, true);
+    setTerminalVisible(entry, false);
+    resizeWindowAndContainer();
+    holdTerminalFit(entry, false);
+    expect(entry.fitAddon.fit).not.toHaveBeenCalled();
+
     setTerminalVisible(entry, true);
     expect(entry.fitAddon.fit).toHaveBeenCalledTimes(1);
   });
