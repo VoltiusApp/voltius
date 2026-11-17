@@ -464,6 +464,27 @@ mod tests {
         run(target, None, output, token, limit).await.unwrap()
     }
 
+    // Tauri builds a command's future on the main thread, whose stack is 1 MiB on Windows.
+    #[tokio::test]
+    async fn an_exec_future_is_small_enough_to_build_on_the_main_thread() {
+        let (handle, _) = proc_server(ProcOptions::default()).await;
+        let token = CancellationToken::new();
+        let output = || Output::collect(1, token.clone());
+        let remote = run(
+            Target::Remote(handle, "true".into()),
+            None,
+            output(),
+            token.clone(),
+            None,
+        );
+        let local = run(local("true"), None, output(), token.clone(), None);
+        let sizes = (size_of_val(&remote), size_of_val(&local));
+        assert!(
+            sizes.0 < 4096 && sizes.1 < 4096,
+            "run futures take {sizes:?} bytes"
+        );
+    }
+
     #[tokio::test]
     async fn local_exec_reports_stdout_stderr_and_status() {
         let r = exec(local("echo out; echo err >&2; exit 3"), 1024, None).await;
