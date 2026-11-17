@@ -197,13 +197,11 @@ export default function AppearanceSection() {
                 key={theme.id}
                 data-theme-card={theme.id}
                 onClick={() => setTheme(theme.id)}
-                className="group relative flex flex-col gap-2.5 p-3 rounded-xl text-left transition-all"
+                className={`group relative flex flex-col gap-2.5 p-3 rounded-xl text-left transition-all${isActive ? "" : " hover-edge"}`}
                 style={{
                   background: isActive ? "var(--t-bg-elevated)" : "var(--t-bg-card)",
                   border: `1.5px solid ${isActive ? "var(--t-accent)" : "var(--t-border)"}`,
                 }}
-                onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-border-hover)"; }}
-                onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-border)"; }}
               >
                 {isActive && (
                   <span className="absolute top-2 right-2 w-4 h-4 rounded-full flex items-center justify-center bg-(--t-accent)">

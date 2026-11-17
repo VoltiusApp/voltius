@@ -737,7 +737,7 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
                 key={importer.key}
                 type="button"
                 onClick={() => setSelectedSource(importer.key)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors${active ? "" : " hover-edge"}`}
                 style={{
                   background: active ? "color-mix(in srgb, var(--t-accent) 12%, transparent)" : "var(--t-bg-elevated)",
                   border: `1px solid ${active ? "var(--t-accent)" : "var(--t-border-hover)"}`,

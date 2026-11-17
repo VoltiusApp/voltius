@@ -475,6 +475,12 @@
     box-shadow: var(--t-ring), var(--t-elev-2);
   }
 
+  /* !important: these edges sit on elements whose border colour is an inline style. */
+  .edge-strong,
+  .hover-edge:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--t-text-dim) 40%, transparent) !important;
+  }
+
   /*
     Chrome surfaces — recessed frame, raised content slab, floating toolbar and
     main canvas. color-mix is inlined here (not stored in a custom prop) so it
