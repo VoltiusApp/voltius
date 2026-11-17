@@ -2,12 +2,18 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 import type { PluginAPI, PluginManifest } from "@/plugins/api";
 
-const h = vi.hoisted(() => ({ invoke: vi.fn(), stateImports: [] as Array<{ files: Record<string, string> }> }));
+const h = vi.hoisted(() => ({
+  invoke: vi.fn(),
+  reconcile: vi.fn(async () => {}),
+  stateImports: [] as Array<{ files: Record<string, string> }>,
+}));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
+vi.mock("@/services/pluginSync", () => ({ reconcileSyncedPlugins: h.reconcile }));
 
 import { loadPlugin, unloadPlugin } from "@/plugins/runtime";
 import { ENTITY_FILES, onRemotePayloadMerged } from "@/services/sync";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
+import { useSyncedPluginStore } from "@/stores/syncedPluginStore";
 
 const PLUGIN_ID = "gist-sync-import-test";
 const KEY = "ab".repeat(32);
@@ -49,6 +55,7 @@ beforeEach(() => {
   h.stateImports.length = 0;
   for (const k of Object.keys(payloads)) delete payloads[k];
   useSyncPrefsStore.setState({ syncTypes: {}, excludedIds: [] });
+  h.reconcile.mockClear();
   h.invoke.mockReset();
   h.invoke.mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
     switch (cmd) {
@@ -128,4 +135,18 @@ test("plugin_import_fires_the_merge_hook_per_device", async () => {
   await expect(api.sync.importStates(KEY, [headed("b", "dev-b")])).rejects.toThrow("disk full");
   expect(seen).toEqual([]);
   off();
+});
+
+test("a plugin destination's import reloads synced plugins and reconciles them", async () => {
+  const synced = { id: "p9", updated_at: "2030-01-01T00:00:00.000Z", clocks: {} };
+  const base = h.invoke.getMockImplementation()!;
+  h.invoke.mockImplementation(async (cmd: string, args?: Record<string, unknown>) =>
+    cmd === "raw_entity_list" && args?.file === "synced_plugins" ? [synced] : base(cmd, args),
+  );
+  payloads.good = [];
+
+  await api.sync.importStates(KEY, [blob("good")]);
+
+  expect(useSyncedPluginStore.getState().entries).toEqual([synced]);
+  await vi.waitFor(() => expect(h.reconcile).toHaveBeenCalledTimes(1));
 });
