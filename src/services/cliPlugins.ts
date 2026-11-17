@@ -1,4 +1,4 @@
-import { installPlugin, installVettedPlugin, pluginState, setPluginEnabled, uninstallPlugin } from "@/plugins/domains/plugins";
+import { installPlugin, installVettedPlugin, pluginState, setPluginEnabled, uninstallPlugin, type PluginView } from "@/plugins/domains/plugins";
 import type { DomainResult } from "@/plugins/domains/result";
 import { applyPluginEnabled } from "@/plugins/applyPluginEnabled";
 import { isGatedPermission } from "@/plugins/gatedPermissions";
@@ -18,20 +18,26 @@ export interface CliPluginChange {
   consentedPermissions: string[];
 }
 
-const PERMISSIONS_GREW = "permissions changed since you confirmed; run the command again";
+export const PERMISSIONS_GREW = "permissions changed since you confirmed; run the command again";
 
 const isLoaded = (id: string) => getLoadedPlugins().some((m) => m.id === id);
 const errorOf = (r: DomainResult<unknown>): string | null => (r.ok ? null : r.error);
 
+export function installWithConsent(
+  id: string,
+  consented: string[],
+  opts?: { syncDriven?: boolean },
+): Promise<DomainResult<PluginView>> {
+  const granted = new Set(consented);
+  const reviewAll = getToggle("plugin-install-review");
+  const grew = (perms: string[] = []) => perms.some((p) => (reviewAll || isGatedPermission(p)) && !granted.has(p));
+  return installVettedPlugin(id, (m) => (grew(m.permissions) ? PERMISSIONS_GREW : null), opts);
+}
+
 export async function applyPluginChange(c: CliPluginChange): Promise<string | null> {
   switch (c.action) {
-    case "install": {
-      if (isLoaded(c.id)) return null;
-      const consented = new Set(c.consentedPermissions);
-      const reviewAll = getToggle("plugin-install-review");
-      const grew = (perms: string[] = []) => perms.some((p) => (reviewAll || isGatedPermission(p)) && !consented.has(p));
-      return errorOf(await installVettedPlugin(c.id, (m) => (grew(m.permissions) ? PERMISSIONS_GREW : null)));
-    }
+    case "install":
+      return isLoaded(c.id) ? null : errorOf(await installWithConsent(c.id, c.consentedPermissions));
     case "enable":
     case "disable":
       return errorOf(await setPluginEnabled(c.id, c.action === "enable"));

@@ -116,6 +116,7 @@ export const installPlugin = (id: string): Promise<DomainResult<PluginView>> => 
 export async function installVettedPlugin(
   id: string,
   vet: (manifest: PluginManifest) => string | null,
+  opts?: { syncDriven?: boolean },
 ): Promise<DomainResult<PluginView>> {
   const entry = await catalogEntry(id);
   if (!entry) return failed(`no catalog plugin "${id}"; call marketplace_search for available ids`);
@@ -123,7 +124,7 @@ export async function installVettedPlugin(
     const { manifest, manifestText } = await market().fetchManifest(entry);
     const refusal = vet(manifest);
     if (refusal) throw new Error(refusal);
-    await market().installPlugin(entry, manifestText);
+    await market().installPlugin(entry, manifestText, opts);
   });
   if (!attempt.ok) return attempt;
   const view = await findView(id);

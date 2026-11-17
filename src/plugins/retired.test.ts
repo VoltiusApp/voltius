@@ -4,6 +4,7 @@ import { RETIRED_PLUGIN_IDS, isRetiredPlugin } from "./retired";
 import { loadPlugin, getLoadedPlugins } from "./runtime";
 import { useMarketplaceStore } from "@/stores/marketplaceStore";
 
+vi.mock("@/services/pluginSync", () => ({ recordUserInstall: vi.fn(), recordUserUninstall: vi.fn() }));
 vi.mock("@/lib/invoke", () => ({ invoke: vi.fn(async () => null) }));
 
 describe("retired plugins", () => {

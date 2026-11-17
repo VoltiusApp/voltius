@@ -12,6 +12,7 @@ const h = vi.hoisted(() => ({
   importPluginModule: vi.fn(),
   getVersion: vi.fn(async () => "2.5.0"),
 }));
+vi.mock("@/services/pluginSync", () => ({ recordUserInstall: vi.fn(), recordUserUninstall: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@tauri-apps/api/app", () => ({ getVersion: h.getVersion }));
 vi.mock("@/plugins/importPluginModule", async (importOriginal) => {

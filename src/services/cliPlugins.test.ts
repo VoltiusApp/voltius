@@ -57,7 +57,7 @@ describe("cliPlugins", () => {
     useToggleSettingsStore.setState({ values: { "plugin-install-review": false } });
     mocks.manifestPermissions = ["docker:manage", "storage"];
     expect(await install(["docker:manage"])).toBeNull();
-    expect(mocks.installVettedPlugin).toHaveBeenCalledWith("plugin-docker", expect.any(Function));
+    expect(mocks.installVettedPlugin).toHaveBeenCalledWith("plugin-docker", expect.any(Function), undefined);
   });
 
   it("review_on_needs_every_permission_consented", async () => {

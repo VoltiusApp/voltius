@@ -1,5 +1,6 @@
 import { test, expect, vi } from "vitest";
 
+vi.mock("@/services/pluginSync", () => ({ recordUserInstall: vi.fn(), recordUserUninstall: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("@/plugins/runtime", () => ({ loadPlugin: vi.fn(), unloadPlugin: vi.fn(), getLoadedPlugins: () => [] }));
 vi.mock("@/plugins/importPluginModule", () => ({ importPluginModule: vi.fn(), pluginRegisterOf: vi.fn() }));
