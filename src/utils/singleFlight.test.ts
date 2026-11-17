@@ -37,39 +37,51 @@ describe("singleFlight", () => {
 
   it("calls during a run coalesce into exactly one rerun when asked", async () => {
     const finishers: Array<() => void> = [];
-    const fn = vi.fn(() => new Promise<void>((r) => finishers.push(r)));
+    let started = () => {};
+    const nextStart = () => new Promise<void>((r) => (started = r));
+    const fn = vi.fn(
+      () =>
+        new Promise<void>((finish) => {
+          finishers.push(finish);
+          started();
+        }),
+    );
     const { run } = singleFlight(fn, { rerunIfCalledDuring: true });
 
     const first = run();
-    const second = run();
+    expect(run()).toBe(first);
     void run();
-    expect(second).toBe(first);
+    void run();
     expect(fn).toHaveBeenCalledTimes(1);
 
+    const rerunStarted = nextStart();
     finishers[0]();
-    await vi.waitFor(() => expect(fn).toHaveBeenCalledTimes(2));
+    await rerunStarted;
+    expect(fn).toHaveBeenCalledTimes(2);
+
     finishers[1]();
     await first;
     expect(fn).toHaveBeenCalledTimes(2);
 
-    await run();
+    const third = run();
+    expect(third).not.toBe(first);
     expect(fn).toHaveBeenCalledTimes(3);
+    finishers[2]();
+    await third;
   });
 
   it("a call landing after the last rerun check starts a new run", async () => {
-    let late: Promise<void> | undefined;
-    let calls = 0;
-    const fn = vi.fn(() => {
-      calls += 1;
-      if (calls === 1) queueMicrotask(() => queueMicrotask(() => void (late = run())));
-      return Promise.resolve();
-    });
+    const done = Promise.resolve();
+    const fn = vi.fn(() => done);
     const { run } = singleFlight(fn, { rerunIfCalledDuring: true });
 
     const first = run();
-    await first;
-    await vi.waitFor(() => expect(late).toBeDefined());
+    let late: Promise<void> | undefined;
+    await done.then(() => {
+      late = run();
+    });
     await late;
+    await first;
 
     expect(late).not.toBe(first);
     expect(fn).toHaveBeenCalledTimes(2);
