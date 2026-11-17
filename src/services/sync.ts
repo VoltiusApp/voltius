@@ -1,7 +1,7 @@
 import { invoke } from "@/lib/invoke";
 import i18n from "@/i18n";
 import { logFailure } from "@/lib/logger";
-import { createSerialQueue } from "@/lib/serialQueue";
+import { serialMerge } from "@/services/serialMerge";
 import { forgetMergedRemoteBlobs, settledBlobs } from "@/services/settledBlobs";
 import { remoteSources, type RemoteSourceFailure } from "@/services/remoteSources";
 import { useSubscriptionStore, type LoadSource } from "@/stores/subscriptionStore";
@@ -555,6 +555,10 @@ export async function reloadAllStores(): Promise<void> {
     useFavoriteCommandStore.getState().load(),
     useSyncedPluginStore.getState().load(),
   ]);
+  reconcilePluginsAfterMerge();
+}
+
+export function reconcilePluginsAfterMerge(): void {
   void import("@/services/pluginSync")
     .then((m) => m.reconcileSyncedPlugins())
     .catch(logFailure("reconcile synced plugins"));
@@ -612,8 +616,7 @@ async function completeTeamLoginSetup(): Promise<void> {
 
 type MergedPayload = Required<BlobPayload>;
 
-// `state_import` rewrites whole files: every read-merge-write of local state runs here, one at a time.
-export const serialMerge = createSerialQueue();
+export { serialMerge };
 
 export function parseEntities(json: string | undefined): TimestampedEntity[] {
   try {

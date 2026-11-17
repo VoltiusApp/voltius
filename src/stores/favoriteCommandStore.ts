@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { invoke } from "@/lib/invoke";
 import { isAlive, stamped, tombstoned, type TimestampedEntity } from "@/services/crdt";
 import { sha256Hex } from "@/plugins/integrity";
-import { syncAfterEdit } from "@/stores/syncAfterEdit";
+import { putRawEntity } from "@/stores/rawEntityPut";
 
 export interface FavoriteCommand extends TimestampedEntity {
   command: string;
@@ -29,13 +29,7 @@ const byNewest = (a: FavoriteCommand, b: FavoriteCommand) => b.created_at.locale
 export const useFavoriteCommandStore = create<FavoriteCommandStore>((set, get) => {
   const put = async (entry: FavoriteCommand, favorites: FavoriteCommand[]) => {
     set({ favorites });
-    try {
-      await invoke("raw_entity_put", { file: "favorite_commands", entry });
-      syncAfterEdit("snippet", entry.id);
-    } catch (e) {
-      await get().load();
-      throw e;
-    }
+    await putRawEntity("favorite_commands", "snippet", entry, get().load);
   };
 
   return {

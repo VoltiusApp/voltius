@@ -26,6 +26,7 @@ vi.mock("@/stores/syncPrefsStore", () => ({
 
 import { useSyncedPluginStore, type SyncedPlugin, type SyncedPluginFields } from "./syncedPluginStore";
 import { syncAfterEdit } from "@/stores/syncAfterEdit";
+import { serialMerge } from "@/services/serialMerge";
 
 const store = () => useSyncedPluginStore.getState();
 const fields: SyncedPluginFields = {
@@ -70,6 +71,43 @@ describe("syncedPluginStore", () => {
     await store().recordInstall("p1", { ...fields, hash: "h2" });
     expect(store().live("p1")!.hash).toBe("h1");
     expect(syncAfterEdit).not.toHaveBeenCalled();
+  });
+
+  test("a forced recordInstall rewrites a stale live entry so it beats an older remote removal", async () => {
+    await store().recordInstall("p1", fields);
+    const stale = structuredClone(store().live("p1")!);
+    const removedAt = new Date(Date.now() + 500).toISOString();
+    const remote: SyncedPlugin = {
+      ...stale,
+      device_id: "dev-b",
+      updated_at: removedAt,
+      deleted_at: removedAt,
+      clocks: { ...stale.clocks, __deleted__: removedAt },
+    };
+    vi.mocked(syncAfterEdit).mockClear();
+    advance();
+
+    await store().recordInstall("p1", { ...fields, hash: "h2" }, { force: true });
+
+    const fresh = store().live("p1")!;
+    expect(fresh.hash).toBe("h2");
+    expect(syncAfterEdit).toHaveBeenCalledWith("plugin", "p1");
+    expect(isAlive(mergeEntities([stale], [remote])[0])).toBe(false);
+    expect(isAlive(mergeEntities([fresh], [remote])[0])).toBe(true);
+  });
+
+  test("a put waits for an in-flight merge before writing", async () => {
+    let release = () => {};
+    const merging = serialMerge(() => new Promise<void>((r) => (release = r)));
+
+    const recording = store().recordInstall("p1", fields);
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    expect(disk.items).toHaveLength(0);
+
+    release();
+    await merging;
+    await recording;
+    expect(disk.items).toHaveLength(1);
   });
 
   test("recordUninstall tombstones a live entry and is a no-op for excluded ids", async () => {
