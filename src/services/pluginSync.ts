@@ -147,8 +147,11 @@ async function reconcile(): Promise<void> {
   for (const entry of missing) {
     const candidate = installCandidate(entry, rows);
     if (!candidate) continue;
-    const consented = reviewLocked ? [] : entry.permissions;
-    const install = async () => errorOf(await installWithConsent(candidate, consented, { syncDriven: true }));
+    if (reviewLocked) {
+      enqueueConsent(entry.id);
+      continue;
+    }
+    const install = async () => errorOf(await installWithConsent(candidate, entry.permissions, { syncDriven: true }));
     if (await attempt("installing", entry.id, install)) installed.push(entry.id);
   }
 

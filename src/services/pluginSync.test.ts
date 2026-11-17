@@ -373,16 +373,29 @@ describe("reconcileSyncedPlugins", () => {
 
   it("review locked on always queues consent", async () => {
     h.locks = { [REVIEW_KEY]: true };
-    h.entries = [synced("p2"), synced("p3", { source_id: "custom" })];
-    h.market.catalog = [entry({ id: "p2" })];
-    h.installWithConsent.mockImplementation(async (_target, consented) =>
-      consented.includes("net") ? { ok: true, result: {} } : { ok: false, error: h.GREW });
+    h.entries = [
+      synced("p2"),
+      synced("p3", { source_id: "custom" }),
+      synced("p5", { permissions: [] }),
+      synced("nohash", { hash: null }),
+    ];
+    h.market.catalog = [entry({ id: "p2" }), entry({ id: "p5" })];
 
     await reconcileAfterBoot();
 
-    expect(h.installWithConsent).toHaveBeenCalledWith(target({ id: "p2" }), [], SYNC);
-    expect(h.installWithConsent).toHaveBeenCalledWith(target({ id: "p3" }), [], SYNC);
-    expect(queue()).toEqual(["p2", "p3"]);
+    expect(h.installWithConsent).not.toHaveBeenCalled();
+    expect(queue()).toEqual(["p2", "p3", "p5"]);
+  });
+
+  it("review locked on queues consent for a plugin with no permissions", async () => {
+    h.locks = { [REVIEW_KEY]: true };
+    h.entries = [synced("p5", { permissions: [] })];
+    h.market.catalog = [entry({ id: "p5", permissions: [] })];
+
+    await reconcileAfterBoot();
+
+    expect(h.installWithConsent).not.toHaveBeenCalled();
+    expect(queue()).toEqual(["p5"]);
   });
 
   it("a review toggle locked off keeps the recorded consent", async () => {
