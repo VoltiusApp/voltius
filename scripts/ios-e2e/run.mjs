@@ -518,8 +518,6 @@ async function nativeFind(predicate, timeoutMs = 15000) {
 if (!STORE && !VIDEO) {
   await step("sftp-upload", async () => {
     // The Upload action opens WKWebView's file input: iOS offers Photo Library / Choose Files.
-    // A fresh simulator's library is empty, so give it the last screenshot to pick.
-    execFileSync("xcrun", ["simctl", "addmedia", UDID, path.join(OUT, "10-open-sftp.png")], { stdio: "ignore", timeout: 60000 });
     const out = [await tapSel("[data-sftp-create]")];
     await sleep(1000);
     out.push(await tapSel('[data-sftp-action="upload"]'));
