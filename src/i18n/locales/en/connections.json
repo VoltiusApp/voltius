@@ -167,7 +167,15 @@
       "keyPlaceholder": "KEY",
       "valuePlaceholder": "value",
       "removeAriaLabel": "Remove variable",
-      "addButton": "Add Variable"
+      "addButton": "Add Variable",
+      "modeLabel": "Editing mode",
+      "modeList": "List",
+      "pasteTip": "Paste a .env file into a key field to add many variables at once",
+      "rawHint": "One KEY=value per line. Comments, quotes and export prefixes are fine.",
+      "skippedLines": "Lines ignored: {{count}}",
+      "copyButton": "Copy as .env",
+      "downloadButton": "Download .env",
+      "copied": "Copied"
     },
     "serialConfigOverlay": {
       "title": "Serial Connection",

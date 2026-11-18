@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Icon } from "@iconify/react";
 
-export function SlideOverHeader({ icon, title, onBack }: { icon: string; title: string; onBack: () => void }) {
+export function SlideOverHeader({ icon, title, onBack, actions }: { icon: string; title: string; onBack: () => void; actions?: ReactNode }) {
   return (
     <div className="flex items-center gap-2 px-3 py-3 shrink-0 border-b border-b-(--t-bg-terminal)">
       <button
@@ -14,6 +14,7 @@ export function SlideOverHeader({ icon, title, onBack }: { icon: string; title: 
       </button>
       <Icon icon={icon} width={14} className="text-(--t-text-dim)" />
       <h2 className="text-sm font-semibold flex-1 text-(--t-text-primary)">{title}</h2>
+      {actions}
     </div>
   );
 }

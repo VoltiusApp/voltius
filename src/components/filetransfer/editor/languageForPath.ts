@@ -20,6 +20,7 @@ import { ruby } from "@codemirror/legacy-modes/mode/ruby";
 import { swift } from "@codemirror/legacy-modes/mode/swift";
 import { c, cpp, java, csharp, kotlin } from "@codemirror/legacy-modes/mode/clike";
 import { SCRIPT_LANGUAGES } from "@/components/snippets/scriptLanguage";
+import { dotenvLanguage } from "@/components/connections/dotenvLanguage";
 
 const legacy = (m: Parameters<typeof StreamLanguage.define>[0]) => () =>
   StreamLanguage.define(m);
@@ -107,7 +108,7 @@ export function languageForPath(path: string): Extension | null {
   if (byName) return byName();
   if (base === "dockerfile" || base.startsWith("dockerfile."))
     return StreamLanguage.define(dockerFile);
-  if (base === ".env" || base.startsWith(".env.")) return ini();
+  if (base === ".env" || base.startsWith(".env.")) return dotenvLanguage;
 
   const dot = base.lastIndexOf(".");
   if (dot <= 0) return null;
