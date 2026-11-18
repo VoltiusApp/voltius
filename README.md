@@ -165,8 +165,7 @@ first, taking its local data.
 
 [<img src=".github/media/badge_app_store.svg" alt="Download on the App Store" height="54">](https://apps.apple.com/app/voltius-ssh/id6826655375)
 
-iPhone, iOS 16+. Not available in France yet: the French encryption declaration is still
-under review.
+iPhone, iOS 16+.
 
 ### Other downloads
 
