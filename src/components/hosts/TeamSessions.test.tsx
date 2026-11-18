@@ -11,8 +11,8 @@ vi.mock("@/components/shared/AvatarStack", () => ({
   AvatarStack: ({ participants, count }: { participants?: { name: string }[]; count?: number }) => (
     <div data-testid="avatars">{(participants?.length ?? 0)}/{count ?? 0}</div>
   ),
+  MiniAvatar: () => null,
 }));
-vi.mock("@/components/shared/AvatarTile", () => ({ AvatarTile: () => null }));
 vi.mock("@/components/shared/BaseCard", () => ({
   BaseCard: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
     <div data-testid="card" onClick={onClick}>{children}</div>
@@ -223,6 +223,23 @@ test("clicking a card I'm already in resumes (setActive) and does not join", asy
   expect(teamState.joinSession).not.toHaveBeenCalled();
 });
 
+test("opening join-by-code with no sessions keeps the empty state (no LIVE badge)", () => {
+  teamState.activeSessions = [];
+  render(<TeamSessions />);
+  fireEvent.click(screen.getByText("hosts.teamSessions.joinByCode"));
+  expect(screen.queryByText("hosts.teamSessions.live")).toBeNull();
+  expect(screen.getByText("hosts.teamSessions.emptyHint")).toBeTruthy();
+});
+
+test("typing in the invite input keeps the same input element", () => {
+  teamState.activeSessions = [];
+  render(<TeamSessions />);
+  fireEvent.click(screen.getByText("hosts.teamSessions.joinByCode"));
+  const input = screen.getByPlaceholderText("hosts.teamSessions.inviteCodePlaceholder");
+  fireEvent.change(input, { target: { value: "abc" } });
+  expect(screen.getByPlaceholderText("hosts.teamSessions.inviteCodePlaceholder")).toBe(input);
+});
+
 test("renders exactly one join affordance and an empty-state hint when no sessions are live", () => {
   teamState.activeSessions = [];
   render(<TeamSessions />);
@@ -261,6 +278,23 @@ test("falls back to server participants when not in the session", () => {
   teamState.connections = {};
   render(<TeamSessions />);
   expect(screen.getByTestId("avatars").textContent).toBe("2/0");
+});
+
+test("the sharer is not listed among the participants", () => {
+  uiState.homeView = true;
+  teamState.activeSessions = [
+    active({
+      id: "s1",
+      host_user_id: "host-1",
+      participants: [
+        { user_id: "host-1", handle: "alice" },
+        { user_id: "u2", handle: "bob" },
+      ],
+    }),
+  ];
+  teamState.connections = {};
+  render(<TeamSessions />);
+  expect(screen.getByTestId("avatars").textContent).toBe("1/0");
 });
 
 // ── Polling effect ──────────────────────────────────────────────────────────

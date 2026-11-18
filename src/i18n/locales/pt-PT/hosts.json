@@ -11,7 +11,8 @@
       "importFrom": "Importar de",
       "newHost": "Novo Host",
       "newSerialHost": "Novo Host Serial",
-      "newFolder": "Nova Pasta"
+      "newFolder": "Nova Pasta",
+      "systemShell": "Predefinição do sistema"
     },
     "card": {
       "pin": "Fixar",
@@ -51,21 +52,17 @@
       "folders": "Pastas",
       "new": "Novo",
       "pinned": "Fixados",
-      "folderEmpty": "Esta pasta está vazia",
-      "addHost": "Adicionar Host",
       "noSearchResults": "Nenhum host corresponde a \"{{search}}\"",
       "ejectMoveTo": "Mover para {{name}}",
       "ejectRemoveFromFolder": "Remover da pasta",
       "emptyState": {
         "title": "Nenhum host ainda",
-        "subtitle": "Adicione seu primeiro host SSH para começar"
+        "subtitle": "Adicione um servidor para se ligar com um clique.",
+        "import": "Importar hosts",
+        "quickConnect": "Ligar sem guardar"
       },
       "draft": {
         "unsaved": "Não guardado"
-      },
-      "vaultCascade": {
-        "moveDescription": "Mover \"{{folderName}}\" também moverá os seguintes itens para {{targetVaultName}}:",
-        "copyDescription": "Copiar \"{{folderName}}\" também copiará os seguintes itens para {{targetVaultName}}:"
       },
       "bulk": {
         "executeSnippetOn_one": "Executar Snippet em {{count}} host",
@@ -121,6 +118,7 @@
       "joinByCode": "Participar por código",
       "emptyHint": "Terminais que seus colegas compartilham aparecem aqui. Tem um código de convite? Cole-o na pesquisa para participar.",
       "live": "AO VIVO",
+      "sharedBy": "Partilhado por {{name}}",
       "pasteInviteCode": "Cole um link ou código de convite para participar de uma sessão privada:",
       "inviteCodePlaceholder": "voltius://join?… ou sessionId:token",
       "join": "Participar",

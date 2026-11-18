@@ -1,3 +1,4 @@
+import { whenWritable } from "@/services/previewGuard";
 import { useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
@@ -16,6 +17,7 @@ import { pingStatusMotion, pingStatusTone } from "@/utils/statusTone";
 import { scopeItems } from "@/components/mobile/folders/mobileFolderCore";
 import { folderItemCounter } from "@/utils/folderTree";
 import { useMobileFolderScope } from "@/components/mobile/folders/useMobileFolderScope";
+import { placementIn } from "@/components/shared/vaultObjectForm";
 import MobileFolderBreadcrumb from "@/components/mobile/folders/MobileFolderBreadcrumb";
 import MobileFolderRow from "@/components/mobile/folders/MobileFolderRow";
 import FolderBackTrap from "@/components/mobile/folders/FolderBackTrap";
@@ -25,9 +27,12 @@ import AddChoiceSheet from "@/components/mobile/sheets/AddChoiceSheet";
 import type { Connection, Folder } from "@/types";
 import { APPBAR_TONAL, MobileLargeTitle, MobileLargeTopBar } from "../MobileHeader";
 import MobileFilterBar from "../MobileFilterBar";
-import RowActionsButton from "../RowActionsButton";
-import { useLongPress } from "../useLongPress";
+import MobileListRow from "../MobileListRow";
+import MobileFab from "../MobileFab";
 import { useCollapsingHeader } from "../useCollapsingHeader";
+import { usePreviewActive } from "@/hooks/previewScope";
+import { GhostOr } from "@/components/preview/GhostCard";
+import { PreviewSubtitle } from "@/components/preview/PreviewHint";
 import MobileRemoteDeviceSessions from "../MobileRemoteDeviceSessions";
 import { TeamCredentialsNote } from "@/components/shared/VaultUnavailableNote";
 import { useTeamCredentialsUnavailable } from "@/hooks/useBlockedTeamVault";
@@ -51,8 +56,6 @@ function MobileHostRow({
   const { t } = useTranslation();
   const pingStatus = useHostPingStore((s) => s.statuses[c.id]);
   const pingLatency = useHostPingStore((s) => s.latencies[c.id]);
-  // Tap connects; long-press opens the host actions sheet (M3: no ⋮ on every row).
-  const press = useLongPress(() => onActions(c.id), () => onConnect(c.id));
 
   const isSerial = c.connection_type === "serial";
   const showPingDot = !isSerial && pingEnabled && !c.ping_disabled;
@@ -64,8 +67,15 @@ function MobileHostRow({
   const latency = showPingDot && pingStatus === "up" && pingLatency !== undefined ? `${pingLatency} ms` : null;
 
   return (
-    <div className="relative flex items-center" data-mobile-host={c.id}>
-      <button className="flex-1 flex items-center gap-4 min-h-[72px] px-4 py-2 text-left min-w-0" aria-haspopup="menu" {...press}>
+    <MobileListRow
+      attr="mobile-host"
+      id={c.id}
+      name={name}
+      onTap={() => onConnect(c.id)}
+      onLong={() => onActions(c.id)}
+      actionsLabel={t("common.action.moreOptions")}
+      onActions={() => onActions(c.id)}
+      leading={
         <span className="relative shrink-0">
           <ConnectionAvatar connection={c} size={40} />
           {showPingDot && (
@@ -77,24 +87,24 @@ function MobileHostRow({
             />
           )}
         </span>
-        <span className="flex-1 flex flex-col min-w-0">
-          <span className="flex items-center gap-1.5 min-w-0">
-            <span className="text-base font-medium text-(--t-text-primary) truncate">{name}</span>
-            {pinned && <Icon icon="lucide:pin" width={14} className="shrink-0 text-(--t-accent)" />}
-            <ManagedBadge id={c.id} compact />
-          </span>
-          {subtitle && <span className="text-sm text-(--t-text-dim) truncate">{subtitle}</span>}
-        </span>
-        {latency && <span data-mobile-host-latency className="shrink-0 tabular-nums text-xs font-medium text-(--t-text-dim)">{latency}</span>}
-      </button>
-      <RowActionsButton attr="data-mobile-host-actions" value={c.id} label={t("common.action.moreOptions")} name={name} onTap={() => onActions(c.id)} />
-    </div>
+      }
+      title={
+        <>
+          <span className="truncate">{name}</span>
+          {pinned && <Icon icon="lucide:pin" width={14} className="shrink-0 text-(--t-accent)" />}
+          <ManagedBadge id={c.id} compact />
+        </>
+      }
+      subtitle={<PreviewSubtitle type="connection" id={c.id}>{subtitle}</PreviewSubtitle>}
+      trailing={latency && <span data-mobile-host-latency className="shrink-0 tabular-nums text-xs font-medium text-(--t-text-dim)">{latency}</span>}
+    />
   );
 }
 
 type AddMode = null | "menu" | "new-folder";
 
 export default function MobileHostsScreen() {
+  const previewing = usePreviewActive() !== null;
   const { t } = useTranslation();
   const connections = useAllConnections();
   const allFolders = useAllFolders();
@@ -161,7 +171,7 @@ export default function MobileHostsScreen() {
         <div ref={axisRef} data-mobile-folder-level>
           <MobileFolderBreadcrumb path={nav.folderPath} onNavigate={(i) => (i < 0 ? nav.navigateToRoot() : nav.navigateTo(i))} />
           {teamCredentialsUnavailable && <TeamCredentialsNote reason={teamCredentialsUnavailable} className="mx-4 mt-3" />}
-          {!nav.activeFolderId && <MobileRemoteDeviceSessions />}
+          {!nav.activeFolderId && !previewing && <MobileRemoteDeviceSessions />}
           {!search && subFolders.map((f) => (
             <MobileFolderRow
               key={f.id}
@@ -178,43 +188,27 @@ export default function MobileHostsScreen() {
             </div>
           )}
           {visible.map((c) => (
-            <MobileHostRow
-              key={c.id}
-              c={c}
-              pinned={isPinnedFn(c, "connection")}
-              pingEnabled={pingEnabled}
-              onConnect={openHost}
-              onActions={(id) => openSheet({ kind: "host-actions", hostId: id })}
-            />
+            <GhostOr key={c.id} type="connection" id={c.id} icon="lucide:server" name={connectionDisplayName(c)} layout="row">
+              <MobileHostRow
+                c={c}
+                pinned={isPinnedFn(c, "connection")}
+                pingEnabled={pingEnabled}
+                onConnect={openHost}
+                onActions={(id) => openSheet({ kind: "host-actions", hostId: id })}
+              />
+            </GhostOr>
           ))}
           {/* Clearance so the last row can scroll out from under the FAB. */}
           {canAdd && <div aria-hidden className="h-24" />}
         </div>
       </div>
       {canAdd && (
-        <button
-          data-mobile-add
-          data-mobile-fab={fabExtended ? "extended" : "collapsed"}
-          data-snackbar-avoid
-          aria-label={fabLabel}
-          onClick={() => setAddMode("menu")}
-          className="absolute right-4 bottom-4 z-10 h-14 flex items-center pl-4 rounded-2xl text-sm font-medium shadow-[0_6px_16px_-6px_rgba(0,0,0,0.5)] transition-[padding] duration-(--vt-dur-medium2) ease-(--vt-ease-emphasized)"
-          style={{ background: "var(--t-accent)", color: "var(--t-on-accent, #fff)", paddingRight: fabExtended ? 20 : 16 }}
-        >
-          <Icon icon="lucide:plus" width={24} className="shrink-0" />
-          <span
-            aria-hidden
-            className="overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin-left] duration-(--vt-dur-medium2) ease-(--vt-ease-emphasized)"
-            style={{ maxWidth: fabExtended ? 200 : 0, opacity: fabExtended ? 1 : 0, marginLeft: fabExtended ? 12 : 0 }}
-          >
-            {fabLabel}
-          </span>
-        </button>
+        <MobileFab attr="mobile-add" icon="lucide:plus" label={fabLabel} extended={fabExtended} onTap={whenWritable(() => setAddMode("menu"))} />
       )}
 
       {addMode === "menu" && (
         <AddChoiceSheet
-          items={canCreateHost ? [{ slug: "item", icon: "lucide:server", label: t("mobile.host.newTitle"), onTap: () => { setAddMode(null); push({ kind: "host-edit" }); } }] : []}
+          items={canCreateHost ? [{ slug: "item", icon: "lucide:server", label: t("mobile.host.newTitle"), onTap: () => { setAddMode(null); push({ kind: "host-edit", placement: placementIn(openPath[openPath.length - 1]) }); } }] : []}
           onNewFolder={canCreateFolder ? () => setAddMode("new-folder") : undefined}
           onClose={() => setAddMode(null)}
         />

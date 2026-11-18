@@ -12,6 +12,7 @@ import { sessionStatusLine } from "@/utils/sessionStatusLine";
 import { useConnectedSince } from "@/services/sessionUptime";
 import { activateSessionTab, activateSplitTabPane } from "@/services/tabActivation";
 import { closeSessionTabs } from "@/services/closeSession";
+import { TabCloseControl } from "@/components/shared/TabCloseControl";
 import { openInSplit } from "@/services/hostStack";
 import { findSessionPane, useLayoutStore } from "@/stores/layoutStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -214,14 +215,12 @@ function HostSessionRowItem({
             <Icon icon="lucide:columns-2" width={14} />
           </button>
         )}
-        <button
-          type="button"
-          title={t("layout.titleBar.closeTab")}
-          onClick={(e) => { e.stopPropagation(); closeSessionTabs([session.id]); }}
-          className="p-1 rounded-sm text-(--t-text-muted) hover:text-(--t-status-error)"
-        >
-          <Icon icon="lucide:x" width={14} />
-        </button>
+        <TabCloseControl
+          variant="row"
+          sessionIds={[session.id]}
+          closeTitle={t("layout.titleBar.closeTab")}
+          onClose={() => closeSessionTabs([session.id])}
+        />
       </span>
       {dropCue === "after" && <div className="absolute left-2 right-2 bottom-0 h-0.5 rounded-full bg-(--t-accent)" />}
     </div>

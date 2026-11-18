@@ -44,12 +44,26 @@ export function instanceLabel(url: string | null | undefined): string | null {
  */
 const LAST_SERVER_KEY = "voltius.last-server-url";
 
-export function rememberServer(url: string): void {
-  if (!parse(url)) return;
+export function rememberServer(url: string): boolean {
+  if (!parse(url)) return false;
   globalThis.localStorage?.setItem(LAST_SERVER_KEY, url);
+  return true;
 }
 
-export function lastServerUrl(): string {
+export function storedServerUrl(): string {
   const stored = globalThis.localStorage?.getItem(LAST_SERVER_KEY);
-  return parse(stored) ? stored! : DEFAULT_SERVER_URL;
+  return parse(stored) ? stored! : "";
 }
+
+export function canonicalServerUrl(url: string | null | undefined): string | null {
+  const parsed = parse(url);
+  if (!parsed || (parsed.protocol !== "https:" && parsed.protocol !== "http:")) return null;
+  return parsed.origin + parsed.pathname.replace(/\/+$/, "");
+}
+
+export function sameServer(a: string | null | undefined, b: string | null | undefined): boolean {
+  const key = canonicalServerUrl(a);
+  return key !== null && key === canonicalServerUrl(b);
+}
+
+export const normalizeServerUrl = (url: string): string => url.replace(/\/+$/, "");

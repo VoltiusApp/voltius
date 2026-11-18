@@ -7,7 +7,8 @@ const h = vi.hoisted(() => ({
   revoke: vi.fn(),
   stop: vi.fn(),
   leave: vi.fn(),
-  removeSession: vi.fn(),
+  closeTabs: vi.fn(),
+  blocked: undefined as string | undefined,
 }));
 
 vi.mock("react-i18next", () => ({
@@ -37,10 +38,8 @@ vi.mock("@/stores/teamSessionStore", () => ({
       leaveSession: h.leave,
     }),
 }));
-vi.mock("@/stores/sessionStore", () => ({
-  useSessionStore: (sel: (s: { removeSession: typeof h.removeSession }) => unknown) =>
-    sel({ removeSession: h.removeSession }),
-}));
+vi.mock("@/services/closeSession", () => ({ closeSessionTabs: h.closeTabs }));
+vi.mock("@/hooks/useSessionLocked", () => ({ useDismissBlockedReason: () => h.blocked }));
 
 import { MultiplayerBar } from "./MultiplayerBar";
 import { useTeamStore } from "@/stores/teamStore";
@@ -75,7 +74,7 @@ beforeEach(() => {
   h.revoke.mockReset();
   h.stop.mockReset().mockResolvedValue(undefined);
   h.leave.mockReset();
-  h.removeSession.mockReset();
+  h.closeTabs.mockReset();
 });
 afterEach(() => {
   cleanup();
@@ -160,17 +159,26 @@ test("stop/leave routing: host click calls stopSharing(id) only", async () => {
   await Promise.resolve();
   expect(h.stop).toHaveBeenCalledWith(LOCAL_ID);
   expect(h.leave).not.toHaveBeenCalled();
-  expect(h.removeSession).not.toHaveBeenCalled();
+  expect(h.closeTabs).not.toHaveBeenCalled();
 });
 
-test("stop/leave routing: participant click calls leaveSession(id) and removeSession(id)", async () => {
+test("stop/leave routing: participant click closes the tab through the guarded close", async () => {
   state.connections[LOCAL_ID] = mk({ role: "guest", myUserId: "me" });
   render(<MultiplayerBar localSessionId={LOCAL_ID} />);
   fireEvent.click(screen.getByText("terminal.multiplayerBar.leave"));
   await Promise.resolve();
-  expect(h.leave).toHaveBeenCalledWith(LOCAL_ID);
-  expect(h.removeSession).toHaveBeenCalledWith(LOCAL_ID);
+  expect(h.closeTabs).toHaveBeenCalledWith([LOCAL_ID]);
   expect(h.stop).not.toHaveBeenCalled();
+});
+
+test("a guest on a locked tab sees Leave greyed out with the reason", () => {
+  h.blocked = "Unlock the tab to close it";
+  state.connections[LOCAL_ID] = mk({ role: "guest", myUserId: "me" });
+  render(<MultiplayerBar localSessionId={LOCAL_ID} />);
+  const leave = screen.getByText("terminal.multiplayerBar.leave").closest("button")!;
+  expect(leave.disabled).toBe(true);
+  expect(leave.title).toBe("Unlock the tab to close it");
+  h.blocked = undefined;
 });
 
 test("ended hides control actions: host+pending+ended -> grant/deny/revoke absent; stop/leave still present", () => {

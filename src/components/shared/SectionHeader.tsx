@@ -31,11 +31,13 @@ export function SectionHeader({ label, count, aside, compact, collapsed, onToggl
     : <div className={layout}>{body}</div>;
 }
 
-export function SectionAddButton({ label, onClick }: { label: string; onClick: () => void }) {
+export function SectionAddButton({ label, onClick, disabledReason }: { label: string; onClick: () => void; disabledReason?: string }) {
   return (
     <button
-      className="flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg text-(--t-text-dim) hover:text-(--t-text-primary) hover:bg-(--t-bg-elevated)"
+      className="flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg text-(--t-text-dim) enabled:hover:text-(--t-text-primary) enabled:hover:bg-(--t-bg-elevated) disabled:opacity-40 disabled:cursor-not-allowed"
       onClick={onClick}
+      disabled={!!disabledReason}
+      title={disabledReason}
     >
       <Icon icon="lucide:plus" width={12} />
       {label}

@@ -24,7 +24,8 @@ import {
   dropAccountProfile,
 } from "./vault";
 import { VaultLockedError, VaultUnreadableError, vaultErrorCode } from "./vaultErrors";
-import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
+import { lockedValue } from "@/stores/policyStore";
+import { withTeamPolicy } from "@/test/policy";
 
 const KEY = [1, 2, 3];
 // What secrets.rs sends over IPC (its `a_wrong_key_sends_…`/`a_locked_store_sends_…` tests).
@@ -222,7 +223,7 @@ test("dropping a profile names the account to the backend", async () => {
 });
 
 test("resetVault drops the team lock policy held in memory", async () => {
-  useOrgLockPolicyStore.setState({ policy: { maxMinutes: 15, forceVault: true } });
+  withTeamPolicy({ "security.lockAction": "vault" });
   await resetVault();
-  expect(useOrgLockPolicyStore.getState().policy).toBeNull();
+  expect(lockedValue("security.lockAction").locked).toBe(false);
 });

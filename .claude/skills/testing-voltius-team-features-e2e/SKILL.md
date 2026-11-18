@@ -34,6 +34,8 @@ docker run -d --name voltius-e2e-server --network $NET \
   voltius-server:latest      # no LEMONSQUEEZY_API_KEY = self-host
 ```
 
+Hour/day limits are stored in the DB, so restarting the server does NOT clear them; codes, grants, enrolment redeems and resend-verification have no env override. On a 429 that survives a restart: `docker exec voltius-e2e-db psql -U voltius -d voltius -c 'DELETE FROM rate_limit_hits;'`.
+
 If `voltius-server:latest` is missing: `docker build -t voltius-server:latest ../server`. If `tauri-mcp` is missing, `compose.headless.yml up` builds it (first cold build takes minutes).
 
 The app reaches the server by name inside the network: sign-in server URL = `http://voltius-e2e-server:8080`.

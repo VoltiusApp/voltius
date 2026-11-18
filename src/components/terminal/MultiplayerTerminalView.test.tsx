@@ -8,7 +8,7 @@ vi.mock("@xterm/xterm", async () => ({ Terminal: (await import("@/hooks/__fixtur
 vi.mock("@xterm/addon-fit", async () => ({ FitAddon: (await import("@/hooks/__fixtures__/fakeXterm")).FakeFitAddon }));
 vi.mock("@xterm/addon-webgl", async () => ({ WebglAddon: (await import("@/hooks/__fixtures__/fakeXterm")).FakeWebglAddon }));
 vi.mock("@/components/terminal/terminalClipboard", () => ({
-  attachTerminalClipboard: () => ({ handleKeyEvent: () => null, dispose() {} }),
+  attachTerminalClipboard: () => ({ handleKeyEvent: () => null, selectionText: () => "", dispose() {} }),
 }));
 const queries = vi.hoisted(() => ({ suppress: vi.fn(() => ({ dispose: vi.fn() })) }));
 vi.mock("@/components/terminal/terminalQueries", () => ({ suppressTerminalQueries: queries.suppress }));

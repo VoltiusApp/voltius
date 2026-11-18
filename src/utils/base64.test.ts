@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { base64ToBytes, bytesToBase64 } from "./base64";
+import { base64ToBytes, base64UrlToBytes, bytesToBase64, bytesToBase64Url } from "./base64";
 
 describe("base64", () => {
   it("matches btoa on a small input", () => {
@@ -23,5 +23,12 @@ describe("base64", () => {
     const decoded = base64ToBytes(b64);
     expect(decoded.length).toBe(bytes.length);
     expect(decoded.every((b, i) => b === bytes[i])).toBe(true);
+  });
+
+  it("base64url is unpadded, URL-safe and round-trips", () => {
+    const bytes = new Uint8Array([251, 255, 191, 0]);
+    expect(bytesToBase64Url(bytes)).toBe("-_-_AA");
+    expect(base64UrlToBytes("-_-_AA")).toEqual(bytes);
+    expect(base64UrlToBytes("a+b=")).toBeNull();
   });
 });

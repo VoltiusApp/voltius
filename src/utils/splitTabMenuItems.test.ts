@@ -38,7 +38,7 @@ const build = (over: Partial<SplitTab> = {}) => {
 beforeEach(() => {
   vi.clearAllMocks();
   sessions.splice(0, sessions.length, session("s1", "bash"), session("s2", "zsh"));
-  useLayoutStore.setState({ root: null, activePaneId: null, maximizedPaneId: null, broadcastActive: false, splitTabActive: false, splitTabs: [], activeSplitTabId: null, titlebarOrder: [] });
+  useLayoutStore.setState({ root: null, activePaneId: null, maximizedPaneId: null, broadcastActive: false, splitTabActive: false, splitTabs: [], activeSplitTabId: null, titlebarOrder: [], pinnedKeys: [] });
 });
 
 test("entries are tab-scoped, and the close entry counts the sessions it takes down", () => {
@@ -48,10 +48,12 @@ test("entries are tab-scoped, and the close entry counts the sessions it takes d
     "layout.titleBar.splitMenu.broadcastOn",
     "layout.titleBar.splitMenu.panes",
     "layout.titleBar.splitMenu.splitApart",
+    "layout.titleBar.lock.pinTab",
+    "layout.titleBar.lock.lockTab",
     "layout.titleBar.splitMenu.closeTab:2",
   ]);
-  expect(items[4].danger).toBe(true);
-  items[4].onClick!();
+  expect(items[items.length - 1].danger).toBe(true);
+  items[items.length - 1].onClick!();
   expect(onClose).toHaveBeenCalled();
 });
 
@@ -102,4 +104,23 @@ test("the panes submenu prefers the name a session was given over its connection
     "layout.titleBar.splitMenu.pane:1:deploy",
     "layout.titleBar.splitMenu.pane:2:zsh",
   ]);
+});
+
+test("with one pane locked the tab offers Unlock and close stays available", () => {
+  sessions[1] = { ...sessions[1], locked: true };
+  const { items } = build();
+  expect(items[items.length - 2].label).toBe("layout.titleBar.lock.unlockTab");
+  expect(items[items.length - 1].disabledReason).toBeUndefined();
+});
+
+test("with every pane locked close is greyed out with the reason", () => {
+  sessions.splice(0, 2, { ...sessions[0], locked: true }, { ...sessions[1], locked: true });
+  const { items } = build();
+  expect(items[items.length - 1].disabledReason).toBe("layout.titleBar.lock.closeBlocked");
+});
+
+test("pin targets the split tab", () => {
+  const { items } = build();
+  items.find((i) => i.label === "layout.titleBar.lock.pinTab")!.onClick!();
+  expect(useLayoutStore.getState().pinnedKeys).toEqual(["split:tab-1"]);
 });

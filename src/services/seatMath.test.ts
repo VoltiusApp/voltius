@@ -1,5 +1,6 @@
 import { test, expect } from "vitest";
-import { seatAvailability, seatCost, seatReadout, seatState } from "./seatMath.ts";
+import type { TFunction } from "i18next";
+import { seatAvailability, seatCost, seatReadout, seatState, seatsUsedText, teamSeatReadout } from "./seatMath.ts";
 
 test("seatAvailability: normal case", () => {
   expect(seatAvailability(2, 5)).toEqual({ used: 2, total: 5, available: 3, atLimit: false });
@@ -58,4 +59,41 @@ test("seatReadout: without billing, an operator-set cap is still shown and enfor
 test("seatReadout: a failed load stays unknown in both modes", () => {
   expect(seatReadout(null, null, null, false)).toEqual({ kind: "unknown" });
   expect(seatReadout(null, null, 3, true)).toEqual({ kind: "unknown" });
+});
+
+test("seatReadout: a billed Teams/Business owner with no cap at all is unlimited, not unknown", () => {
+  expect(seatReadout(4, null, null, true, true)).toEqual({ kind: "unlimited", used: 4 });
+});
+
+test("seatReadout: a billed owner with no enforced cap is unlimited whatever seats reports", () => {
+  // Servers before the fix send a purchased fallback of 3 for an uncapped owner.
+  expect(seatReadout(4, null, 3, true, true)).toEqual({ kind: "unlimited", used: 4 });
+});
+
+test("seatReadout: billed without a seat plan of one's own, no cap stays unknown", () => {
+  expect(seatReadout(4, null, null, true, false)).toEqual({ kind: "unknown" });
+  expect(seatReadout(null, null, null, true, true)).toEqual({ kind: "unknown" });
+});
+
+test("seatReadout: a billed seat-plan owner with a cap still reads it", () => {
+  expect(seatReadout(2, 5, 5, true, true)).toMatchObject({ kind: "known", total: 5 });
+  expect(seatReadout(2, 10, 25, true, true)).toMatchObject({ kind: "known", total: 10 });
+});
+
+test("teamSeatReadout: maps the team owner's seats, a null total is unlimited", () => {
+  expect(teamSeatReadout({ used: 3, total: null })).toEqual({ kind: "unlimited", used: 3 });
+  expect(teamSeatReadout({ used: 2, total: 5 })).toEqual({ kind: "known", used: 2, total: 5, available: 3, atLimit: false });
+  expect(teamSeatReadout({ used: 5, total: 5 })).toMatchObject({ kind: "known", atLimit: true });
+});
+
+test("teamSeatReadout: a team without owner seats (older server) is null so callers fall back", () => {
+  expect(teamSeatReadout(null)).toBeNull();
+  expect(teamSeatReadout(undefined)).toBeNull();
+});
+
+test("seatsUsedText: unlimited shows the infinity sign as the total in the account key", () => {
+  const t = ((k: string, o: Record<string, unknown>) => `${k}:${o.used}/${o.total}`) as unknown as TFunction;
+  expect(seatsUsedText(t, { kind: "unlimited", used: 3 }, "acct.used")).toBe("acct.used:3/∞");
+  expect(seatsUsedText(t, { kind: "known", used: 2, total: 5, available: 3, atLimit: false }, "acct.used")).toBe("acct.used:2/5");
+  expect(seatsUsedText(t, { kind: "unknown" }, "acct.used")).toBeNull();
 });

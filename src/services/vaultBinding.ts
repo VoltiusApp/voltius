@@ -4,10 +4,11 @@ import { useSecurityStore } from "@/stores/securityStore";
 import { canLockVault } from "@/utils/accountMode";
 import { forgetOtherPlainPasswords } from "@/services/savedAccounts";
 import {
-  bindSecret, clearSecret, importSecret, readPlainSecret, readSecret, sealAvailable, secretState, unbindSecret,
+  bindSecret, clearSecret, importSecret, keepsPlainPassword, readPlainSecret, readSecret, sealAvailable, secretState,
+  unbindSecret,
 } from "@/services/vaultSecret";
 
-export type UnlockOutcome = "ok" | "declined" | "cancelled" | "failed" | "invalidated" | "unavailable";
+export type UnlockOutcome = "ok" | "declined" | "cancelled" | "failed" | "invalidated" | "unavailable" | "server-blocked";
 
 export async function isBindable(mode: string | null): Promise<boolean> {
   return canLockVault(mode) && (await sealAvailable());
@@ -19,12 +20,13 @@ async function wantsBinding(): Promise<boolean> {
 
 async function open(password: string): Promise<UnlockOutcome | "wrong-key"> {
   const outcome = await openWithStoredSecret(password);
-  if (outcome === "ok" || outcome === "wrong-key") return outcome;
+  if (outcome === "ok" || outcome === "wrong-key" || outcome === "server-blocked") return outcome;
   return "declined";
 }
 
 async function unlocked(password: string): Promise<UnlockOutcome> {
-  return (await open(password)) === "ok" ? "ok" : "declined";
+  const opened = await open(password);
+  return opened === "ok" || opened === "server-blocked" ? opened : "declined";
 }
 
 /** Once this device holds a sealed secret, plaintext copies in the switcher defeat it. */
@@ -80,6 +82,7 @@ export async function unlockWithSystemAuth(reason: string): Promise<UnlockOutcom
     await clearSecret().catch(() => {});
     return "invalidated";
   }
+  if (opened === "server-blocked") return opened;
   if (opened !== "ok") return "failed";
   if (!(await wantsBinding())) await importSecret({ kind: "plain", value: password }).catch(() => {});
   return "ok";
@@ -113,6 +116,11 @@ export async function enableBinding(password: string, reason: string): Promise<"
 
 export async function disableBinding(reason: string): Promise<UnlockOutcome> {
   if ((await secretState().catch(() => "sealed")) !== "sealed") return "ok";
+  // Unsealing would only yield a plain copy this device refuses to keep, so skip the prompt.
+  if (!(await keepsPlainPassword())) {
+    await clearSecret();
+    return "ok";
+  }
   return (await unbindSecret(reason)) as UnlockOutcome;
 }
 

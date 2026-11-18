@@ -7,12 +7,13 @@ import { useVaultScope } from "@/hooks/useVaultScope";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useEditedItem } from "@/hooks/useEditedItem";
 import { saveHostFromForm } from "@/services/hostForm";
+import type { NewObjectPlacement } from "@/types";
 
 /**
  * New / edit host. Autosaves (create included: the first valid pass creates the host),
  * so there is no Save button; ⋮ opens the host's actions once it exists.
  */
-export default function MobileHostEditScreen({ hostId }: { hostId?: string }) {
+export default function MobileHostEditScreen({ hostId, placement }: { hostId?: string; placement?: NewObjectPlacement }) {
   const { t } = useTranslation();
   const pop = useMobileNavStore((s) => s.pop);
   const openSheet = useMobileNavStore((s) => s.openSheet);
@@ -36,6 +37,7 @@ export default function MobileHostEditScreen({ hostId }: { hostId?: string }) {
         hideChrome
         {...exit.formProps}
         initial={editing ?? undefined}
+        placement={placement}
         onSubmit={(data, secrets) => (gone ? undefined : saveHostFromForm(editing, data, secrets, createVaultId, onCreated))}
         onClose={pop}
         vaults={[]}

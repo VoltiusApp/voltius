@@ -72,10 +72,3 @@ pub fn unwrap_user_secrets_x25519(kek: &[u8], wrapped: &[u8]) -> Result<Vec<u8>,
         voltius_crypto::unwrap_user_secrets(k, wrapped).map_err(|e| JsError::new(&e))?;
     Ok(x25519_private.to_vec())
 }
-
-/// Generate a random DEK + X25519 keypair. Returns base64-encoded public key.
-#[wasm_bindgen]
-pub fn generate_user_secrets_public_key() -> String {
-    let kp = voltius_crypto::generate_keypair();
-    kp.public_key
-}

@@ -16,6 +16,7 @@ import { connectionFromForm } from "@/stores/connectionStore";
 import { prng } from "@/test/prng";
 import { fingerprint, identityOf } from "./hostFields";
 import type { SshConfigHost } from "./parse";
+import { usePolicyStore } from "@/stores/policyStore";
 import { reconcile } from "./reconcile";
 import { mergeSshConfigState, type ManagedEntry, type SshConfigState } from "./state";
 import { createSshConfigSync, sshConfigSync, sshConfigSyncNow, startSshConfigSyncEngine, type SyncDeps } from "./sync";
@@ -709,6 +710,44 @@ describe("ssh-config sync engine and MCP entry", () => {
     disk = JSON.stringify({ joined: JOINED, sync: { on: true, vault: "personal", at: 1 } });
     expect(await sshConfigSyncNow()).toMatchObject({ ok: true, result: { managed: 1 } });
     expect(request).toHaveBeenCalledWith("mcp");
+  });
+
+  it("refuses when the organization turned the import off, even with sync on", async () => {
+    const request = vi.spyOn(sshConfigSync, "request");
+    disk = JSON.stringify({ joined: JOINED, sync: { on: true, vault: "personal", at: 1 } });
+    usePolicyStore.setState({ machine: { policy: { "sshConfig.import": false }, defaults: {} } });
+    try {
+      expect(await sshConfigSyncNow()).toEqual({ ok: false, error: "~/.ssh/config sync is turned off by your organization" });
+      expect(request).not.toHaveBeenCalled();
+    } finally {
+      usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+    }
+  });
+
+  describe("engine policy lock", () => {
+    const loads = () => vi.mocked(invoke).mock.calls.filter(([c]) => c === "ssh_config_state_load").length;
+    const lock = (value?: boolean) => usePolicyStore.setState({ machine: { policy: value === undefined ? {} : { "sshConfig.import": value }, defaults: {} } });
+    beforeEach(() => {
+      disk = JSON.stringify({ joined: JOINED, sync: { on: true, vault: "personal", at: 1 } });
+      vi.mocked(invoke).mockClear();
+    });
+    afterEach(() => lock());
+
+    it("skips a run before reading the state when the organization turned the import off", async () => {
+      lock(false);
+      expect(await sshConfigSync.request("manual")).toBeNull();
+      expect(loads()).toBe(0);
+    });
+
+    it("reads the state when nothing is locked", async () => {
+      await sshConfigSync.request("manual");
+      expect(loads()).toBeGreaterThan(0);
+    });
+
+    it("stops a run in flight when the policy flips to off", async () => {
+      const engine = make({ device: async () => { lock(false); return "d1"; } });
+      expect(await engine.request("manual")).toBeNull();
+    });
   });
 });
 

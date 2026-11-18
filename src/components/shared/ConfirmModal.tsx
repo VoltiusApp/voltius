@@ -2,12 +2,22 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { Modal, ModalCard } from "./Modal";
 
+type Tone = "danger" | "warning" | "primary";
+
+const TONES: Record<Tone, { accent: string; icon: string; button: string }> = {
+  danger: { accent: "var(--t-status-error)", icon: "lucide:triangle-alert", button: "btn btn-danger" },
+  warning: { accent: "var(--t-status-warning)", icon: "lucide:lock", button: "btn btn-warning" },
+  primary: { accent: "var(--t-accent)", icon: "lucide:info", button: "btn btn-primary" },
+};
+
 interface Props {
   title: string;
+  subtitle?: string;
   message: string;
   confirmLabel?: string;
-  /** `danger` (default) for destruction; `warning` for reversible-but-serious. */
-  tone?: "danger" | "warning";
+  /** `danger` (default) for destruction; `warning` for reversible-but-serious; `primary` for a plain commit. */
+  tone?: Tone;
+  icon?: string;
   onConfirm: () => void;
   onCancel: () => void;
   /** Disables the confirm button while a multi-step action is in flight. */
@@ -17,22 +27,23 @@ interface Props {
   children?: React.ReactNode;
 }
 
-export function ConfirmModal({ title, message, confirmLabel, tone = "danger", onConfirm, onCancel, busy = false, busyLabel, children }: Props) {
+export function ConfirmModal({ title, subtitle, message, confirmLabel, tone = "danger", icon, onConfirm, onCancel, busy = false, busyLabel, children }: Props) {
   const { t } = useTranslation();
-  const accent = tone === "warning" ? "var(--t-status-warning)" : "var(--t-status-error)";
-  const icon = tone === "warning" ? "lucide:lock" : "lucide:triangle-alert";
-  const confirmClass = tone === "warning" ? "btn btn-warning" : "btn btn-danger";
+  const style = TONES[tone];
   return (
-    <Modal onClose={onCancel} onEnter={onConfirm}>
+    <Modal onClose={onCancel} onEnter={busy ? undefined : onConfirm}>
       <ModalCard className="p-6 flex flex-col gap-4 min-w-[21.333rem] max-w-[26.667rem]">
         <div className="flex items-center gap-3">
           <div
             className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: `color-mix(in srgb, ${accent} 15%, transparent)` }}
+            style={{ background: `color-mix(in srgb, ${style.accent} 15%, transparent)` }}
           >
-            <Icon icon={icon} width={16} style={{ color: accent }} />
+            <Icon icon={icon ?? style.icon} width={16} style={{ color: style.accent }} />
           </div>
-          <h2 className="text-sm font-semibold text-(--t-text-bright)">{title}</h2>
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-(--t-text-bright)">{title}</h2>
+            {subtitle && <p className="text-xs text-(--t-text-dim)">{subtitle}</p>}
+          </div>
         </div>
         <p className="text-sm text-(--t-text-secondary)">{message}</p>
         {children}
@@ -46,7 +57,7 @@ export function ConfirmModal({ title, message, confirmLabel, tone = "danger", on
           <button
             onClick={onConfirm}
             disabled={busy}
-            className={`${confirmClass} px-4 py-2 rounded-lg text-sm font-medium`}
+            className={`${style.button} px-4 py-2 rounded-lg text-sm font-medium`}
           >
             {busy && busyLabel ? busyLabel : (confirmLabel ?? t("common.action.confirm"))}
           </button>

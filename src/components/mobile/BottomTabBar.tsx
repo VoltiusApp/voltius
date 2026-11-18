@@ -7,13 +7,14 @@ import type { MobileTab } from "@/stores/mobileNavCore";
 import { useSlideAway } from "@/hooks/pageTransition";
 import { transition } from "@/lib/motion";
 import { haptic } from "@/lib/haptics";
+import { SFTP_TAB_ICON } from "@/lib/conceptIcons";
 
 function getTabs(t: TFunction): { id: MobileTab; label: string; icon: string }[] {
   return [
     { id: "hosts",    label: t("common.entity.hosts"),  icon: "lucide:server" },
     { id: "terminal", label: t("mobile.tabBar.terminal"), icon: "lucide:square-terminal" },
     { id: "snippets", label: t("common.entity.snippets"), icon: "lucide:braces" },
-    { id: "sftp",     label: t("mobile.tabBar.sftp"),    icon: "lucide:folder-closed" },
+    { id: "sftp",     label: t("mobile.tabBar.sftp"),    icon: SFTP_TAB_ICON },
     { id: "more",     label: t("mobile.tabBar.more"),    icon: "lucide:layout-grid" },
   ];
 }

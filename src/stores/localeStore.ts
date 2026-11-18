@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { touchAppSetting } from "./appSettingsTimestampStore";
+import { writeAndTouchUnlessLocked } from "./appSettingsTimestampStore";
+import { storeSetting } from "@/services/policy/effectiveCore";
 
 export type Locale = "en" | "fr" | "ru" | "zh" | "tr" | "cs" | "pt" | "pt-BR" | "pt-PT";
 
@@ -29,20 +30,32 @@ export function systemLocale(languages: readonly string[] = globalThis.navigator
   return "en";
 }
 
+export const TIME_FORMATS = ["auto", "12h", "24h"] as const;
+export type TimeFormat = (typeof TIME_FORMATS)[number];
+
+const LOCALE_KEY = "appSettings.locale";
+const TIME_FORMAT_KEY = "appSettings.timeFormat";
+
 interface LocaleStore {
   locale: Locale;
+  timeFormat: TimeFormat;
   setLocale: (locale: Locale) => void;
+  setTimeFormat: (timeFormat: TimeFormat) => void;
 }
 
 export const useLocaleStore = create<LocaleStore>()(
   persist(
     (set) => ({
       locale: systemLocale(),
-      setLocale: (locale) => {
-        set({ locale });
-        touchAppSetting("appSettings.locale");
-      },
+      timeFormat: "auto",
+      setLocale: (locale) =>
+        writeAndTouchUnlessLocked(LOCALE_KEY, () => set({ locale })),
+      setTimeFormat: (timeFormat) =>
+        writeAndTouchUnlessLocked(TIME_FORMAT_KEY, () => set({ timeFormat })),
     }),
     { name: "voltius-locale" },
   ),
 );
+
+export const localeSetting = storeSetting(useLocaleStore, "locale", LOCALE_KEY);
+export const timeFormatSetting = storeSetting(useLocaleStore, "timeFormat", TIME_FORMAT_KEY);

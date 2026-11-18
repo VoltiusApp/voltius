@@ -10,7 +10,9 @@ import { compareStrings } from "@/utils/localeFormat";
 import MoveToFolderSheet from "./MoveToFolderSheet";
 import type { PortForwardingRule, PortForwardingRuleFormData } from "@/types";
 import { SheetActionRow, type SheetAction } from "./SheetActionRow";
-import { copyingRulesOf } from "@/services/ruleSetIntent";
+import VaultTransferSheet from "./VaultTransferSheet";
+import { ruleTarget } from "@/services/previewGuard";
+import { previewGuarded } from "./previewGuardedActions";
 
 type Mode = "menu" | "confirm-delete" | "move" | "copy" | "move-folder";
 
@@ -40,9 +42,6 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
   const { t } = useTranslation();
   const deleteRule = usePortForwardingStore((s) => s.deleteRule);
   const updateRule = usePortForwardingStore((s) => s.updateRule);
-  const createRule = usePortForwardingStore((s) => s.createRule);
-  const allRules = usePortForwardingStore((s) => s.rules);
-  const teamRules = usePortForwardingStore((s) => s.teamRules);
   const otherVaults = useOtherVaultOptions(rule.vault_id, { includeUnlinkedTeams: false });
   const can = usePermissions();
   const [mode, setMode] = useState<Mode>("menu");
@@ -74,37 +73,14 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
     );
   }
 
-  if (mode === "move") {
+  if (mode === "move" || mode === "copy") {
     return (
-      <BottomSheet title={t("mobile.sheets.shared.moveToVault")} onClose={onClose}>
-        {otherVaults.map((v) => (
-          <Row key={v.id} it={{ icon: "lucide:vault", label: v.name, slug: "move-target", onTap: () => {
-            void updateRule(rule.id, fields(rule, v.id));
-            onClose();
-          } }} />
-        ))}
-        <Row it={{ icon: "lucide:arrow-left", label: t("mobile.sheets.shared.back"), slug: "back", onTap: () => setMode("menu") }} />
-      </BottomSheet>
+      <VaultTransferSheet tab="port-forwarding" ids={[rule.id]} mode={mode === "copy" ? "copy" : "cut"} targets={otherVaults}
+        attr="rule-action" onBack={() => setMode("menu")} onClose={onClose} />
     );
   }
 
-  if (mode === "copy") {
-    const allKnown = [...allRules, ...Object.values(teamRules).flat()];
-    return (
-      <BottomSheet title={t("mobile.sheets.shared.copyToVault")} onClose={onClose}>
-        {otherVaults.map((v) => (
-          <Row key={v.id} it={{ icon: "lucide:copy", label: v.name, slug: "copy-target", onTap: () => {
-            const dup = allKnown.some((r) => r.vault_id === v.id && r.name === rule.name);
-            void createRule(copyingRulesOf({ ...fields(rule, v.id), name: dup ? `${rule.name} (copy)` : rule.name }, rule.id));
-            onClose();
-          } }} />
-        ))}
-        <Row it={{ icon: "lucide:arrow-left", label: t("mobile.sheets.shared.back"), slug: "back", onTap: () => setMode("menu") }} />
-      </BottomSheet>
-    );
-  }
-
-  const items: SheetAction[] = [
+  const items: SheetAction[] = previewGuarded([
     ...(canEdit ? [
       { icon: "lucide:pencil", label: t("common.action.edit"), slug: "edit", onTap: () => { onEdit(rule); onClose(); } },
       { icon: "lucide:folder-tree", label: t("mobile.sheets.shared.moveToFolder"), slug: "move-folder", onTap: () => setMode("move-folder") },
@@ -112,7 +88,7 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
     ...(canEdit && otherVaults.length > 0 ? [{ icon: "lucide:folder-input", label: t("mobile.sheets.shared.moveToVault"), slug: "move", onTap: () => setMode("move") }] : []),
     ...(otherVaults.length > 0 ? [{ icon: "lucide:copy", label: t("mobile.sheets.shared.copyToVault"), slug: "copy", onTap: () => setMode("copy") }] : []),
     ...(canEdit ? [{ icon: "lucide:trash-2", label: t("common.action.delete"), slug: "delete", danger: true, onTap: () => setMode("confirm-delete") }] : []),
-  ];
+  ], ruleTarget(rule.id), onClose);
 
   return (
     <BottomSheet title={rule.name} onClose={onClose}>

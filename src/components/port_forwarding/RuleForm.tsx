@@ -8,6 +8,7 @@ import {
 } from "@/components/shared/Panel";
 import { Pills } from "@/components/shared/Pills";
 import { VaultPicker } from "@/components/shared/VaultPicker";
+import { vaultPickHandler } from "@/components/shared/vaultObjectForm";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import { useConnectionStore } from "@/stores/connectionStore";
 import type { PortForwardingRule, PortForwardingRuleFormData, TunnelType } from "@/types";
@@ -16,6 +17,7 @@ import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/componen
 import { describeRoute } from "@/utils/tunnelRoute";
 import { EndpointFields, HopArrow, HopCard, ListenerFields, RouteSummary } from "./RuleRoute";
 import { RuleHosts } from "./RuleHosts";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 
 interface Props extends MobileEditFormProps {
   rule?: PortForwardingRule | null;
@@ -25,6 +27,7 @@ interface Props extends MobileEditFormProps {
   isDirtyRef?: React.MutableRefObject<boolean>;
   /** Mobile edit screen: it owns the header (no PanelHeader / VaultPicker). */
   hideChrome?: boolean;
+  onMoveToVault?: (vaultId: string) => void;
 }
 
 function buildTunnelTypes(t: (key: string) => string): { value: TunnelType; label: string; summary: string }[] {
@@ -37,7 +40,7 @@ function buildTunnelTypes(t: (key: string) => string): { value: TunnelType; labe
 
 export const RuleForm = withEditAccess("port_forwarding_rule", (p: Props) => p.rule ?? undefined, RuleFormEditor);
 
-function RuleFormEditor({ rule, initialTunnelType, onSave, onClose, isDirtyRef, hideChrome, revealErrors, onBlockedChange, readOnly }: Props & EditAccessProps) {
+function RuleFormEditor({ rule, initialTunnelType, onSave, onClose, isDirtyRef, hideChrome, revealErrors, onBlockedChange, onMoveToVault, readOnly }: Props & EditAccessProps) {
   const { t } = useTranslation();
   const TUNNEL_TYPES = useMemo(() => buildTunnelTypes(t), [t]);
   const userEditedRef = useRef(false);
@@ -114,7 +117,7 @@ function RuleFormEditor({ rule, initialTunnelType, onSave, onClose, isDirtyRef, 
     return !!name.trim() && !isNaN(lp) && (tunnelType === "dynamic" || !isNaN(rp));
   }, [localPort, name, remotePort, tunnelType]);
 
-  const { schedule, markDirty: markAutosaveDirty, flushAndClose, saveState, blocked } = useAutosave({
+  const { schedule, markDirty: markAutosaveDirty, flushAndClose, flush, saveState, blocked } = useAutosave({
     onSave: () => onSave(buildSaveData()) ?? undefined,
     canSave,
     readOnly,
@@ -164,8 +167,8 @@ function RuleFormEditor({ rule, initialTunnelType, onSave, onClose, isDirtyRef, 
     <PanelShell>
       {!hideChrome && <PanelHeader
         title={rule ? t("portForwarding.ruleForm.editRule") : t("portForwarding.ruleForm.newRule")}
-        icon="lucide:network"
-        subtitle={<VaultPicker vaultId={vaultId} onChange={(v) => { vaultPickerTouched.current = true; markDirty(); setVaultId(v); }} disabled={readOnly} />}
+        icon={PORT_FORWARDING_ICON}
+        subtitle={<VaultPicker vaultId={vaultId} onChange={vaultPickHandler({ existing: !!rule, onMoveToVault, flush, pick: (v) => { vaultPickerTouched.current = true; markDirty(); setVaultId(v); } })} disabled={readOnly} />}
         onClose={handleClose}
         saveState={saveState}
       />}

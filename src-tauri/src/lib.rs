@@ -7,6 +7,9 @@
 #[cfg(target_os = "android")]
 mod android_ctx;
 mod app_lock;
+pub mod auth;
+pub mod cli;
+pub mod cli_state;
 mod clock;
 mod commands;
 mod crypto;
@@ -19,6 +22,8 @@ mod ios_native;
 mod keychain_android;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod keychain_bundle;
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+mod keychain_chunked;
 mod knock;
 mod known_hosts;
 mod lan_sync;
@@ -29,6 +34,7 @@ pub mod mcp;
 mod metrics;
 mod network_watch;
 mod passkey_loopback;
+pub mod policy;
 mod port_forward;
 mod processes;
 mod proxmox;
@@ -49,6 +55,8 @@ mod updater;
 mod vault_auth;
 mod web_proxy;
 mod webdav;
+#[cfg(windows)]
+mod win_security;
 
 use commands::http::HttpSseStreamManager;
 use docker::stream::DockerLogStreamManager;
@@ -71,6 +79,17 @@ fn force_quit(app: tauri::AppHandle) {
 /// Register the OS-native credential store as keyring-core's default. Exactly one
 /// branch is active per target; other platforms get a no-op (keychain unavailable).
 fn init_keychain_store() -> keyring_core::Result<()> {
+    desktop_keychain_store(true)?;
+    #[cfg(target_os = "android")]
+    keyring_core::set_default_store(crate::keychain_android::Store::new());
+    #[cfg(target_os = "ios")]
+    keyring_core::set_default_store(apple_native_keyring_store::protected::Store::new()?);
+    Ok(())
+}
+
+/// `allow_volatile` lets keyring-less Linux fall back to keyutils, which the desktop app would not read after a reboot.
+#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
+pub(crate) fn desktop_keychain_store(allow_volatile: bool) -> keyring_core::Result<()> {
     #[cfg(target_os = "linux")]
     {
         // Prefer the persistent Secret Service (gnome-keyring/KWallet). The kernel
@@ -80,7 +99,7 @@ fn init_keychain_store() -> keyring_core::Result<()> {
         // volatile keyutils store there so the app still runs (no persistence).
         match dbus_secret_service_keyring_store::Store::new() {
             Ok(store) => keyring_core::set_default_store(store),
-            Err(e) => {
+            Err(e) if allow_volatile => {
                 log::warn!(
                     "Secret Service unavailable ({e}); falling back to volatile keyutils keyring"
                 );
@@ -90,6 +109,7 @@ fn init_keychain_store() -> keyring_core::Result<()> {
                     )?,
                 );
             }
+            Err(e) => return Err(e),
         }
     }
     #[cfg(target_os = "macos")]
@@ -100,13 +120,16 @@ fn init_keychain_store() -> keyring_core::Result<()> {
         |service| service == commands::keychain::service(),
     ));
     #[cfg(target_os = "windows")]
-    keyring_core::set_default_store(windows_native_keyring_store::Store::new_with_configuration(
-        &std::collections::HashMap::<&str, &str>::new(),
-    )?);
-    #[cfg(target_os = "android")]
-    keyring_core::set_default_store(crate::keychain_android::Store::new());
-    #[cfg(target_os = "ios")]
-    keyring_core::set_default_store(apple_native_keyring_store::protected::Store::new()?);
+    {
+        let native = windows_native_keyring_store::Store::new_with_configuration(
+            &std::collections::HashMap::<&str, &str>::new(),
+        )?;
+        keyring_core::set_default_store(keychain_chunked::Store::new(
+            native,
+            |service| service == commands::keychain::service(),
+            keychain_chunked::WINDOWS_MAX_UNITS,
+        ));
+    }
     Ok(())
 }
 
@@ -257,7 +280,10 @@ pub fn run() {
             log::set_max_level(log::LevelFilter::Info);
 
             #[cfg(target_os = "ios")]
-            crate::ios_native::hide_keyboard_accessory_bar();
+            {
+                crate::ios_native::hide_keyboard_accessory_bar();
+                crate::policy::managed_ios::watch(app.handle().clone());
+            }
 
             // On Android `dirs::config_dir()` resolves to an unwritable cwd, so
             // pin generic file storage (connections, plugins, identities, …) to
@@ -301,6 +327,7 @@ pub fn run() {
         .manage(HttpSseStreamManager::new())
         .manage(MetricsStreamManager::new())
         .manage(ProcessStreamManager::new())
+        .manage(commands::host_exec::HostExecs::default())
         .manage(SessionManager::new())
         .manage(LocalSessionManager::new())
         .manage(terminal_output::TerminalOutputs::default())
@@ -310,6 +337,11 @@ pub fn run() {
         .manage(commands::lan_sync::LanSyncState::default())
         .manage(device_files::link::DeviceLinks::default())
         .invoke_handler(tauri::generate_handler![
+            auth::auth_challenge,
+            auth::auth_device,
+            auth::auth_login,
+            auth::auth_second_factor,
+            auth::auth_passkey_start,
             force_quit,
             updater::updater_restart,
             updater::updater_check,
@@ -371,6 +403,7 @@ pub fn run() {
             commands::vault::account_profile_swap,
             commands::vault::account_profile_drop,
             commands::vault::get_machine_fingerprint,
+            commands::vault::os_user_name,
             commands::crypto::derive_keys,
             commands::crypto::derive_gist_key,
             commands::crypto::generate_keypair,
@@ -394,6 +427,9 @@ pub fn run() {
             commands::vault_secret::vault_secret_clear,
             commands::vault_secret::vault_secret_export,
             commands::vault_secret::vault_secret_import,
+            commands::vault_secret::vault_secret_store_device_key,
+            commands::vault_secret::vault_secret_remembers,
+            commands::vault_secret::vault_secret_set_remembers,
             storage::secrets::secrets_unlock,
             storage::secrets::secrets_verify,
             storage::secrets::secrets_exists,
@@ -424,6 +460,12 @@ pub fn run() {
             commands::sync::ssh_config_state_load,
             commands::sync::ssh_config_state_save,
             commands::sync::device_hostname,
+            commands::policy::policy_load,
+            commands::policy::policy_check_team_doc,
+            commands::cli_state::cli_pending_load,
+            commands::cli_state::cli_pending_settle,
+            commands::cli_state::cli_mirror_save,
+            commands::cli_state::cli_logout_marker_take,
             commands::lan_sync::lan_sync_start,
             commands::lan_sync::lan_sync_stop,
             commands::lan_sync::lan_sync_forget,
@@ -576,6 +618,8 @@ pub fn run() {
             commands::plugins::plugins_list_seeded,
             commands::plugins::plugin_seeded_read,
             commands::plugins::plugin_fetch_url,
+            commands::raw_entities::raw_entity_list,
+            commands::raw_entities::raw_entity_put,
             commands::snippets::snippet_list,
             commands::snippets::snippet_create,
             commands::snippets::snippet_update,
@@ -605,6 +649,8 @@ pub fn run() {
             commands::processes::processes_start,
             commands::processes::processes_stop,
             commands::processes::process_kill,
+            commands::host_exec::host_exec,
+            commands::host_exec::host_exec_cancel,
             commands::sysinfo::get_system_info,
             commands::sysinfo::get_connected_system_info,
             commands::fonts::list_system_fonts,

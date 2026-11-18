@@ -504,7 +504,7 @@ export function buildSummaryMessage(result: SequenceRunResult): { message: strin
 /** Toast attributed to Snippets, named in the current app language. */
 export function notifySnippets(message: string, severity: ToastSeverity, duration = 8000): void {
   useNotificationStore.getState().addToast({
-    source: { kind: "plugin", id: "snippets", name: i18n.t("layout.nav.snippets") },
+    source: { kind: "plugin", id: "snippets", name: i18n.t("layout.nav.snippets"), icon: "lucide:braces" },
     type: "toast",
     message,
     severity,

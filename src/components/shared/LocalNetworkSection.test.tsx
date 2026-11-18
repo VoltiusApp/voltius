@@ -44,6 +44,10 @@ vi.mock("@/utils/platform", async () => ({
 vi.mock("@/lib/haptics", () => ({ haptic: vi.fn() }));
 vi.mock("@/utils/localeFormat", () => ({ formatRelative: () => "2h ago" }));
 vi.mock("@/services/distribution", () => ({ get CAN_OPEN_CHECKOUT() { return h.checkout; } }));
+vi.mock("@/services/serverCapabilities", async () => ({
+  ...(await vi.importActual<typeof import("@/services/serverCapabilities")>("@/services/serverCapabilities")),
+  useServerBillingEnabled: () => true,
+}));
 
 import { LocalNetworkSection } from "./LocalNetworkSection";
 import { useLanSyncStore } from "@/stores/lanSyncStore";

@@ -26,7 +26,7 @@
       "getStartedSub_ios": "Zabezpečeno systémovou klíčenkou — bez hesla",
       "or": "nebo",
       "cloudAccount": "Cloudový účet",
-      "cloudAccountSub": "Zařízení se spárují automaticky · Pro přidá cloud a zálohu",
+      "cloudAccountSub": "Zdarma · zařízení se spárují automaticky. Pro přidá cloud a zálohu.",
       "cloudAccountSub_ios": "Synchronizace mezi zařízeními — přihlaste se nebo si účet vytvořte",
       "back": "Zpět",
       "signupPrompt": "Vytvořte si účet a zařízení se spárují automaticky",
@@ -47,10 +47,27 @@
       "e2eeNotice": "Vaše data jsou end-to-end šifrovaná — server je nemůže přečíst.",
       "openSource": "Open source.",
       "agreeToTerms": "Vytvořením účtu souhlasíte s našimi <terms>podmínkami používání</terms> a <privacy>zásadami ochrany soukromí</privacy>.",
-      "accountCreatedToast": "Účet vytvořen! Ověřte ho pomocí e-mailu.",
+      "accountCreatedToast": "Účet vytvořen. Ověřte ho pomocí e-mailu.",
       "vaultUnreadableBodyNoPassword": "Soubor s tajemstvími na tomto zařízení nelze otevřít klíčem uloženým v tomto počítači. Nic nebylo smazáno. Odložte ho stranou a začněte s prázdným trezorem, nebo obnovte některou ze záloh níže.",
       "vaultSetAsideLocal": "Odložit a začít znovu",
-      "vaultSetAsideLocalSub": "Ponechá záložní kopii na tomto zařízení"
+      "vaultSetAsideLocalSub": "Ponechá záložní kopii na tomto zařízení",
+      "addAccountLater": "Účet si můžete vytvořit později a hosty vám zůstanou.",
+      "errorEmailRequired": "Zadejte svůj e-mail",
+      "masterPasswordNote": "Toto heslo šifruje vaše data. Nelze ho resetovat ani obnovit, proto si ho bezpečně uložte.",
+      "invitation": {
+        "toggle": "Máte odkaz s pozvánkou?",
+        "placeholder": "Odkaz s pozvánkou",
+        "use": "Použít",
+        "checking": "Ověřuji…",
+        "invalid": "Toto není odkaz s pozvánkou. Vložte celý odkaz z e-mailu.",
+        "notFound": "Na {{server}} neexistuje žádná čekající pozvánka pro tento odkaz. Zkontrolujte adresu serveru nebo požádejte o novou pozvánku.",
+        "closedHint": "Tento server zakládá účty jen na pozvánku. Vložte odkaz z e-mailu s pozvánkou.",
+        "joining": "Připojit se k {{team}}",
+        "invitedBy": "{{inviter}} vás pozval(a) jako {{role}}",
+        "invitedAs": "Pozvánka s rolí {{role}}",
+        "remove": "Odebrat pozvánku",
+        "createAndJoin": "Vytvořit účet a připojit se"
+      }
     },
     "cloudAuthModal": {
       "registerTitle": "Vytvořit cloudový účet",
@@ -64,7 +81,6 @@
       "createMasterPasswordPlaceholder": "Vytvořte hlavní heslo",
       "confirmMasterPasswordPlaceholder": "Potvrďte hlavní heslo",
       "errorPasswordRequired": "Heslo je povinné",
-      "errorMinLength4": "Alespoň 4 znaky",
       "pleaseWait": "Čekejte prosím…",
       "reauthTitle": "Přihlaste se znovu",
       "reauthDesc": "Relace na tomto zařízení skončila. Zadejte hlavní heslo a připojte se znovu."
@@ -118,12 +134,6 @@
       "sectionLocal": "Lokální",
       "noHostsMatch": "Výrazu „{{query}}“ neodpovídá žádný host",
       "noHostsYet": "Zatím žádné hosty",
-      "connectTo": "Připojit k {{user}}@{{host}}",
-      "portSsh": "Port {{port}} · SSH",
-      "openWeb": "Otevřít {{host}}:{{port}}",
-      "portWeb": "{{protocol}} · webová stránka",
-      "serialConnection": "Sériové připojení",
-      "configurePortBaud": "Nastavit port a rychlost",
       "localShellFallback": "Lokální shell"
     },
     "sidebarAccount": {
@@ -284,8 +294,16 @@
         "notConfigured": "Synchronizace není nastavena",
         "paused": "Synchronizace pozastavena",
         "default": "Synchronizace",
-        "unknown": "neznámé"
-      }
+        "unknown": "neznámé",
+        "partial": "Částečně synchronizováno",
+        "partialAt": "Částečně synchronizováno · {{time}}",
+        "partialTooltip": "Částečně synchronizováno: {{error}}",
+        "partialDetail_one": "{{count}} zařízení se nepodařilo synchronizovat",
+        "partialDetail_few": "{{count}} zařízení se nepodařilo synchronizovat",
+        "partialDetail_many": "{{count}} zařízení se nepodařilo synchronizovat",
+        "partialDetail_other": "{{count}} zařízení se nepodařilo synchronizovat"
+      },
+      "showDevices": "Zobrazit zařízení →"
     },
     "titleBar": {
       "sftp": "SFTP",
@@ -325,8 +343,8 @@
         "closeAll": "Zavřít všechny ({{count}})",
         "openInSplit": "Otevřít v rozdělení",
         "inSplit": "v rozdělení",
-        "pin": "Připnout seznam relací",
-        "unpin": "Odepnout seznam relací",
+        "pin": "Zobrazit v bočním panelu",
+        "unpin": "Skrýt boční panel",
         "status": {
           "connected": "Připojeno · {{time}}",
           "connecting": "Připojování…",
@@ -349,10 +367,28 @@
         "closeTab_other": "Zavřít kartu ({{count}} relací)"
       },
       "plan": {
-        "upgradeTrial": "Vyšší tarif · 14 dní na vyzkoušení zdarma",
-        "upgrade": "Vyšší tarif"
+        "upgradeTrial": "Aktivovat 14 dní Pro",
+        "upgrade": "Vyšší tarif",
+        "endingSoon_one": "{{plan}} · zbývá {{count}} den",
+        "endingSoon_few": "{{plan}} · zbývají {{count}} dny",
+        "endingSoon_many": "{{plan}} · zbývá {{count}} dne",
+        "endingSoon_other": "{{plan}} · zbývá {{count}} dní"
       },
-      "splitLabelMore": "{{label}} + {{count}}"
+      "splitLabelMore": "{{label}} + {{count}}",
+      "lock": {
+        "keptToast_one": "{{count}} zamčená karta ponechána",
+        "keptToast_few": "{{count}} zamčené karty ponechány",
+        "keptToast_many": "{{count}} zamčených karet ponecháno",
+        "keptToast_other": "{{count}} zamčených karet ponecháno",
+        "closeBlocked": "Kartu zavřete až po odemčení",
+        "unlockHint": "Zamčeno · kliknutím odemknete",
+        "lockTab": "Zamknout kartu",
+        "unlockTab": "Odemknout kartu",
+        "lockPane": "Zamknout panel",
+        "unlockPane": "Odemknout panel",
+        "pinTab": "Připnout kartu",
+        "unpinTab": "Odepnout kartu"
+      }
     },
     "vaultHeader": {
       "members": "Členové",
@@ -423,6 +459,73 @@
       "once": "Povolit jednou",
       "always": "Vždy povolit",
       "sessionToast": "{{name}} otevřel vaše soubory"
+    },
+    "enroll": {
+      "title": "Přihlásit se do {{team}}",
+      "subtitle": "Vytvořte si účet Voltius nebo se přihlaste a připojte se k {{team}}.",
+      "orgServer": "Server vaší organizace",
+      "domainNote": "Použijte svůj e-mail {{domains}}",
+      "approvalNote": "Každou žádost schvaluje správce",
+      "domainError": "{{team}} přijímá pouze e-maily {{domains}}.",
+      "createAndJoin": "Vytvořit účet a připojit se",
+      "signInAndJoin": "Přihlásit se a připojit",
+      "skip": "Teď přeskočit",
+      "continue": "Pokračovat",
+      "currentPasswordPlaceholder": "Současné hlavní heslo",
+      "resolving": "Kontrola tokenu pro zápis…",
+      "confirm": {
+        "title": "{{team}} na {{host}}",
+        "body": "Pokračujte, jen pokud vám tento odkaz poslala vaše firma. Voltius odešle vaše přihlášení na {{host}}."
+      },
+      "error": {
+        "title": "Tento token pro zápis nelze použít",
+        "gone": "Tento token pro zápis byl zrušen nebo vypršel. Požádejte správce o nový.",
+        "lapsed": "Předplatné {{team}} vypršelo, proto jeho token pro zápis teď nefunguje.",
+        "lapsedNoTeam": "Předplatné tohoto týmu vypršelo, proto jeho token pro zápis teď nefunguje.",
+        "serverTooOld": "Tento server zatím tokeny pro zápis nepodporuje.",
+        "rateLimited": "Z této sítě bylo příliš mnoho pokusů. Zkuste to za minutu.",
+        "unreachable": "Nelze se spojit s {{host}}."
+      },
+      "outcome": {
+        "member": {
+          "title": "Jste v {{team}}",
+          "body": "Týmové trezory se zobrazí, jakmile bude Voltius některého správce online."
+        },
+        "approval": {
+          "title": "Žádost odeslána",
+          "body": "Schválí ji správce {{team}}. Dostanete oznámení."
+        },
+        "email": {
+          "title": "Ověřte e-mail a připojte se k {{team}}",
+          "body": "Poslali jsme odkaz na {{email}}. Po ověření se připojíte automaticky.",
+          "resend": "Znovu odeslat e-mail"
+        },
+        "seat": {
+          "title": "{{team}} nemá volné místo",
+          "body": "Správce byl upozorněn. Připojíte se, jakmile se místo uvolní."
+        }
+      },
+      "tokenEntry": {
+        "toggle": "Máte token pro zápis?",
+        "placeholder": "vte1.…",
+        "invalid": "Toto není token pro zápis."
+      },
+      "localNote": "Hosty z tohoto zařízení se přesunou do soukromého trezoru nového účtu. {{team}} je nemůže číst.",
+      "already": {
+        "title": "Už jste v týmu {{team}}",
+        "body": "{{email}} už je členem."
+      },
+      "join": {
+        "title": "Připojit se k {{team}} jako {{email}}",
+        "body": "Použije účet, kterým jste přihlášeni na {{host}}.",
+        "action": "Připojit se",
+        "other": "Použít jiný účet"
+      },
+      "replace": {
+        "title": "Nahradit data tohoto zařízení?",
+        "body": "Přihlášení jako {{email}} nahradí hosty, klíče a úryvky na tomto zařízení těmi, které jsou uložené v tomto účtu.",
+        "confirm": "Přihlásit se a nahradit"
+      }
     }
   }
 }

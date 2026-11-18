@@ -24,7 +24,9 @@
       "pin": "Připnout",
       "unpin": "Odepnout",
       "moreOptions": "Další možnosti",
-      "closePanel": "Zavřít panel"
+      "closePanel": "Zavřít panel",
+      "showPassword": "Zobrazit heslo",
+      "hidePassword": "Skrýt heslo"
     },
     "entity": {
       "host": "Host",
@@ -60,6 +62,8 @@
       "search": "Hledat…"
     },
     "toast": {
+      "invitationWithdrawnAtSignup": "Vaše pozvánka do {{team}} už neplatí, takže jste nebyli přidáni. Požádejte tým o novou.",
+      "hostAccessRevoked": "Váš přístup k {{hosts}} byl odebrán, proto byly jeho otevřené relace zavřeny.",
       "proSubscriptionEnded": "Vaše předplatné Pro skončilo — synchronizace s cloudem je pozastavena. Vaše zařízení se dál synchronizují ve stejné síti.",
       "proSubscriptionEnded_ios": "Vaše předplatné Pro skončilo — synchronizace byla pozastavena.",
       "seatEnded": "Vaše místo v týmu {{team}} skončilo — synchronizace s cloudem je pozastavena. Vaše zařízení se dál synchronizují ve stejné síti.",
@@ -80,6 +84,7 @@
       "disableCount": "Ponechat jen na tomto zařízení ({{count}})"
     },
     "error": {
+      "invitationWithdrawn": "Tato pozvánka už neplatí. Požádejte tým o novou.",
       "identityPickUnavailable": "Vaše identita pro {{host}} není k dispozici",
       "failedToListIdentityPicks": "Nepodařilo se načíst vaše volby identit ({{status}})",
       "failedToSaveIdentityPick": "Nepodařilo se uložit vaši volbu identity ({{status}})",
@@ -101,6 +106,7 @@
       "failedToExportAuditLogs": "Auditní logy se nepodařilo exportovat: {{status}}",
       "serverUnreachableTimeout": "Server je nedostupný (vypršel časový limit) — zkontrolujte připojení k internetu a URL serveru",
       "networkError": "Chyba sítě — {{message}}",
+      "accountAlreadyActive": "K tomuto účtu už jste na tomto zařízení přihlášeni",
       "emailAlreadyRegistered": "E-mail je již zaregistrován",
       "registrationFailed": "Registrace se nezdařila: {{status}}",
       "registrationDisabled": "Registrace nových účtů je na tomto serveru vypnutá. Požádejte jeho správce o účet.",
@@ -231,7 +237,14 @@
       "twoFactorNotEnabled": "Dvoufázové ověření není zapnuté.",
       "twoFactorExpired": "Přihlášení trvalo příliš dlouho. Začněte znovu.",
       "passkeyIncomplete": "Krok s přístupovým klíčem nebyl dokončen. Zkuste to znovu.",
-      "passkeyLimit": "Tento účet už má nejvyšší možný počet přístupových klíčů."
+      "passkeyLimit": "Tento účet už má nejvyšší možný počet přístupových klíčů.",
+      "teamPolicyConflict": "Týmovou zásadu mezitím změnil někdo jiný. Zkontrolujte ji a importujte znovu.",
+      "teamPolicyRefused": "Server tuto zásadu odmítl: {{reason}}",
+      "failedToLoadTeamPolicy": "Týmovou zásadu se nepodařilo načíst: {{status}}",
+      "failedToSaveTeamPolicy": "Týmovou zásadu se nepodařilo uložit: {{status}}",
+      "invitationLookupFailed": "Pozvánku se nepodařilo ověřit (HTTP {{status}}).",
+      "invitationNotFound": "Platnost pozvánky vypršela nebo už byla použita. Požádejte o novou.",
+      "invitationEmailMismatch": "Tato pozvánka byla odeslána na jinou e-mailovou adresu."
     },
     "clipboard": {
       "cut_one": "Vyjmuta {{count}} položka",
@@ -316,6 +329,28 @@
       "minutesAgo": "před {{count}} min",
       "hoursAgo": "před {{count}} h",
       "daysAgo": "před {{count}} d"
+    },
+    "cliPending": {
+      "failed_one": "{{count}} změnu z voltius-cli se nepodařilo použít.",
+      "failed_few": "{{count}} změny z voltius-cli se nepodařilo použít.",
+      "failed_many": "{{count}} změny z voltius-cli se nepodařilo použít.",
+      "failed_other": "{{count}} změn z voltius-cli se nepodařilo použít."
+    },
+    "policy": {
+      "managed": "Spravuje vaše organizace",
+      "managedByTeam": "Spravuje {{team}}",
+      "rangeMax": "Vaše organizace povoluje nejvýše {{value}}",
+      "rangeMin": "Vaše organizace povoluje {{value}} nebo více",
+      "rangeBetween": "Vaše organizace povoluje {{min}}–{{max}}",
+      "rangeAllowed": "Vaše organizace povoluje: {{values}}",
+      "serverBlocked": "Tento server vaše organizace nepovoluje",
+      "accountNotSaved": "Aktuální účet se nepodařilo nejprve uložit, a proto nebylo nic změněno",
+      "fileError": "Zásady Voltius vaší organizace nelze přečíst, proto se z nich nic neuplatňuje.",
+      "unprotected": "Soubor zásad Voltius vaší organizace byl ignorován, protože ho mohou měnit běžní uživatelé. Požádejte IT oddělení, aby ho nastavilo pomocí voltius-cli.",
+      "issues_one": "Zásady Voltius vaší organizace obsahují {{count}} problém; zbytek zásad se nadále uplatňuje.",
+      "issues_few": "Zásady Voltius vaší organizace obsahují {{count}} problémy; zbytek zásad se nadále uplatňuje.",
+      "issues_many": "Zásady Voltius vaší organizace obsahují {{count}} problému; zbytek zásad se nadále uplatňuje.",
+      "issues_other": "Zásady Voltius vaší organizace obsahují {{count}} problémů; zbytek zásad se nadále uplatňuje."
     },
     "history": {
       "movedItems_one": "Přesunuta {{count}} položka",

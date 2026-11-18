@@ -67,10 +67,6 @@
         "folderCascade_few": "Smazány budou také {{count}} položky zařazené ve vybraných složkách.",
         "folderCascade_many": "Smazáno bude také {{count}} položky zařazené ve vybraných složkách.",
         "folderCascade_other": "Smazáno bude také {{count}} položek zařazených ve vybraných složkách."
-      },
-      "vaultCascade": {
-        "moveDescription": "Přesunutím složky „{{folderName}}“ se do trezoru „{{targetVaultName}}“ přesunou také tyto položky:",
-        "copyDescription": "Zkopírováním složky „{{folderName}}“ se do trezoru „{{targetVaultName}}“ zkopírují také tyto položky:"
       }
     },
     "cards": {
@@ -126,7 +122,10 @@
       "keyLabel": "Označení klíče",
       "keyLabelPlaceholder": "Můj SSH klíč (volitelné)",
       "editHostTitle": "Upravit host",
-      "unlinkTitle": "Zrušit propojení — zkopírovat přihlašovací údaje přímo do nastavení hostu"
+      "unlinkTitle": "Zrušit propojení — zkopírovat přihlašovací údaje přímo do nastavení hostu",
+      "editIdentityTitle": "Upravit identitu",
+      "unlinkNoPermission": "Nemáte oprávnění zrušit propojení tohoto hostu",
+      "unlinkFailed": "Propojení s „{{name}}“ se nepodařilo zrušit: {{error}}"
     },
     "exportPanel": {
       "exportSectionLabel": "Export",

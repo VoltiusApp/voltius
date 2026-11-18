@@ -1,13 +1,12 @@
-import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Icon } from "@iconify/react";
 import { FilterInput, SORT_MODE_ICONS, type SortMode, type LayoutMode } from "@/components/shared/ToolbarViewControls";
 import { ToolbarDropdown } from "@/components/shared/ToolbarDropdown";
 import { Pills } from "@/components/shared/Pills";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { useToolbarResize } from "@/hooks/useToolbarResize";
 import { useRipple } from "@/hooks/useRipple";
-import { chevronRotateStyle } from "@/utils/icons";
+import { SplitMenuChevron } from "@/components/shared/SplitMenuChevron";
+import { ToolbarButton } from "@/components/shared/ToolbarButton";
 
 interface Props {
   tab: "mine" | "community";
@@ -20,6 +19,7 @@ interface Props {
   onLayoutModeChange: (v: LayoutMode) => void;
   onNewSnippet: () => void;
   onNewFolder: () => void;
+  newFolderBlocked?: string;
 }
 
 export function SnippetsToolbar({
@@ -33,31 +33,11 @@ export function SnippetsToolbar({
   onLayoutModeChange,
   onNewSnippet,
   onNewFolder,
+  newFolderBlocked,
 }: Props) {
   const { t } = useTranslation();
   const { compact, rowRef, leftRef, rightRef } = useToolbarResize();
   const { createRipple, rippleEls } = useRipple();
-  const { createRipple: rippleChevron, rippleEls: ripplesChevron } = useRipple();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [menuOpen]);
-
-  const openMenu = () => {
-    if (!menuOpen && wrapperRef.current) {
-      const r = wrapperRef.current.getBoundingClientRect();
-      setMenuPos({ top: r.bottom + 4, left: r.left });
-    }
-    setMenuOpen((o) => !o);
-  };
 
   return (
     <>
@@ -107,54 +87,32 @@ export function SnippetsToolbar({
 
         <div ref={rightRef} className="ml-auto shrink-0">
         {tab === "mine" && (
-        <div className="relative flex items-center gap-px" ref={wrapperRef}>
-          <button
+        <div className="flex items-center gap-px">
+          <ToolbarButton
+            variant="accent"
+            round="left"
+            icon="lucide:braces"
+            iconSize={18}
+            label={t("snippets.toolbar.newSnippet")}
+            compact={compact}
+            className="overflow-hidden"
             onClick={onNewSnippet}
             onPointerDown={createRipple}
-            title={compact ? t("snippets.toolbar.newSnippet") : undefined}
-            type="button"
-            className="flex items-center gap-2 px-3 h-8 text-sm font-bold tracking-wider transition-colors shrink-0 whitespace-nowrap relative overflow-hidden rounded-tl-[0.533rem] rounded-bl-[0.533rem]"
-            style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-accent-hover)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-accent)")}
           >
             {rippleEls}
-            <Icon icon="lucide:braces" width={18} />
-            {!compact && t("snippets.toolbar.newSnippet")}
-          </button>
+          </ToolbarButton>
 
-          <button
-            onClick={openMenu}
-            onPointerDown={rippleChevron}
-            type="button"
-            aria-label={t("snippets.toolbar.newSnippetOptions")}
-            className="flex items-center justify-center w-8 h-8 transition-colors relative overflow-hidden rounded-tr-[0.533rem] rounded-br-[0.533rem]"
-            style={{ background: "var(--t-accent)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-accent-hover)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-accent)")}
-          >
-            {ripplesChevron}
-            <span className="[&_path]:stroke-3">
-              <Icon icon="lucide:chevron-down" width={20} style={{ color: "var(--t-bg-terminal)", ...chevronRotateStyle(menuOpen) }} />
-            </span>
-          </button>
-
-          {menuOpen && (
-            <div
-              className="surface-float p-1.5 fixed z-9999"
-              style={{
-                top: menuPos.top,
-                left: menuPos.left,
-                width: "max-content",
-              }}
-            >
+          <SplitMenuChevron label={t("snippets.toolbar.newSnippetOptions")}>
+            {(close) => (
               <DropdownMenuItem
                 icon="lucide:folder-plus"
                 label={t("snippets.toolbar.newFolder")}
-                onClick={() => { setMenuOpen(false); onNewFolder(); }}
+                disabled={!!newFolderBlocked}
+                title={newFolderBlocked}
+                onClick={() => { close(); onNewFolder(); }}
               />
-            </div>
-          )}
+            )}
+          </SplitMenuChevron>
         </div>
         )}
         </div>

@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { getTerminalMinimapController, type TerminalMinimapController, type TerminalMinimapSnapshot } from "@/hooks/useTerminal";
-import { computeKateMinimapLayout, pointerRatioForLayout, samplePlacement } from "@/components/terminal/minimapMath";
+import {
+  computeKateMinimapLayout,
+  planMinimapRefresh,
+  pointerRatioForLayout,
+  samplePlacement,
+  type KateMinimapLayout,
+  type TerminalMinimapSample,
+} from "@/components/terminal/minimapMath";
 
 const EMPTY: TerminalMinimapSnapshot = {
   bufferLength: 0,
@@ -9,16 +16,101 @@ const EMPTY: TerminalMinimapSnapshot = {
   rows: 0,
   cols: 0,
   version: 0,
+  contentVersion: 0,
 };
+
+const ROW_HEIGHT = 2;
+/** A 2px-per-row overview gains nothing from resampling a streaming terminal faster than this. */
+const RESAMPLE_THROTTLE_MS = 200;
+
+interface CanvasSize {
+  width: number;
+  height: number;
+  dpr: number;
+}
 
 interface Props {
   sessionId: string;
+  /** False while the terminal sits in a background tab: the minimap stops drawing until shown. */
+  visible?: boolean;
 }
 
-export function TerminalMinimap({ sessionId }: Props) {
+function drawMinimap(
+  canvas: HTMLCanvasElement,
+  { width, height, dpr }: CanvasSize,
+  layout: KateMinimapLayout,
+  samples: TerminalMinimapSample[],
+  cols: number,
+) {
+  // Assigning canvas.width reallocates and clears the backing store; only do it on a real size change.
+  const pixelWidth = Math.floor(width * dpr);
+  const pixelHeight = Math.floor(height * dpr);
+  if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+    canvas.width = pixelWidth;
+    canvas.height = pixelHeight;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+  }
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+
+  const css = getComputedStyle(document.documentElement);
+  const background = css.getPropertyValue("--t-bg-terminal").trim() || "#0b1220";
+  const accent = css.getPropertyValue("--t-accent").trim() || "#7c3aed";
+  ctx.fillStyle = background;
+  ctx.globalAlpha = 0.28;
+  ctx.fillRect(0, 0, width, height);
+
+  const cellWidth = width / Math.max(1, cols);
+
+  for (let y = 0; y < samples.length; y += 1) {
+    const { density, cells } = samples[y];
+    if (density <= 0.02) continue;
+    const placement = samplePlacement({ sampleIndex: y, sampleCount: samples.length, layout, rowHeight: ROW_HEIGHT });
+    const top = placement.top;
+    if (top >= layout.contentHeight) break;
+    for (const cell of cells ?? []) {
+      const left = cell.x * cellWidth;
+      const charWidth = Math.max(0.8, cell.width * cellWidth * 0.72);
+      if (cell.bg) {
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = cell.bg;
+        ctx.fillRect(left, top, Math.max(1, cell.width * cellWidth), placement.height);
+      }
+      ctx.globalAlpha = Math.min(0.95, 0.38 + density * 0.5);
+      ctx.fillStyle = cell.fg;
+      ctx.fillRect(left, top, charWidth, 1);
+    }
+  }
+
+  if (layout.contentHeight + 2 < height) {
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = accent;
+    ctx.fillRect(1, layout.contentHeight + 2, width - 2, 1);
+  }
+
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = accent;
+  ctx.fillRect(0, layout.viewportTop, width, layout.viewportHeight);
+  ctx.globalAlpha = 0.75;
+  ctx.fillStyle = accent;
+  ctx.fillRect(0, layout.viewportTop, width, 1);
+  ctx.fillRect(0, Math.min(height - 1, layout.viewportTop + layout.viewportHeight), width, 1);
+  ctx.globalAlpha = 1;
+}
+
+export function TerminalMinimap({ sessionId, visible = true }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const draggingRef = useRef(false);
   const [canvasVersion, setCanvasVersion] = useState(0);
+  const [retryTick, setRetryTick] = useState(0);
+  const sizeRef = useRef<(CanvasSize & { canvasVersion: number }) | null>(null);
+  const samplesRef = useRef<{ key: string; samples: TerminalMinimapSample[]; at: number } | null>(null);
+  const drawnViewRef = useRef<string | null>(null);
   const [controller, setController] = useState<TerminalMinimapController | null>(
     () => getTerminalMinimapController(sessionId),
   );
@@ -57,7 +149,9 @@ export function TerminalMinimap({ sessionId }: Props) {
     if (!canvas) return;
     const bump = () => setCanvasVersion((v) => v + 1);
     const resizeObserver = new ResizeObserver(bump);
-    resizeObserver.observe(canvas);
+    // Observe the wrapper: the canvas carries a fixed px size from the last draw, so it
+    // doesn't resize with the pane, and the draw only re-measures after a bump.
+    resizeObserver.observe(canvas.parentElement ?? canvas);
     // Maximize/minimize toggles ancestor panes' display via a `hidden` class.
     // ResizeObserver isn't reliable across that display:none <-> visible
     // transition (WebKitGTK in particular can skip the notification), leaving
@@ -74,81 +168,60 @@ export function TerminalMinimap({ sessionId }: Props) {
   }, []);
 
   useEffect(() => {
-    if (!controller) return;
+    if (!controller || !visible) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Measure the wrapper, not the canvas: this effect writes canvas.style.width/height
-    // itself, so measuring the canvas can read back and lock in a bad prior size.
-    const rect = (canvas.parentElement ?? canvas).getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    const width = Math.max(1, Math.floor(rect.width));
-    const height = Math.max(1, Math.floor(rect.height));
-    canvas.width = Math.floor(width * dpr);
-    canvas.height = Math.floor(height * dpr);
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
+    // Measure only after a resize or re-appearance: reading layout on every output frame forces a reflow.
+    // Measure the wrapper, not the canvas: the draw writes canvas.style.width/height itself,
+    // so measuring the canvas can read back and lock in a bad prior size.
+    let size = sizeRef.current;
+    if (!size || size.canvasVersion !== canvasVersion) {
+      const rect = (canvas.parentElement ?? canvas).getBoundingClientRect();
+      size = {
+        canvasVersion,
+        width: Math.max(1, Math.floor(rect.width)),
+        height: Math.max(1, Math.floor(rect.height)),
+        dpr: window.devicePixelRatio || 1,
+      };
+      sizeRef.current = size;
+    }
+    const { width, height } = size;
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, width, height);
-
-    const css = getComputedStyle(document.documentElement);
-    const background = css.getPropertyValue("--t-bg-terminal").trim() || "#0b1220";
-    const accent = css.getPropertyValue("--t-accent").trim() || "#7c3aed";
-    ctx.fillStyle = background;
-    ctx.globalAlpha = 0.28;
-    ctx.fillRect(0, 0, width, height);
-
-    const rowHeight = 2;
     const layout = computeKateMinimapLayout({
       bufferLength: snapshot.bufferLength,
       rows: snapshot.rows,
       viewportY: snapshot.viewportY,
       canvasHeight: height,
-      rowHeight,
+      rowHeight: ROW_HEIGHT,
     });
-    const sourceRows = layout.scaleY < 1 ? Math.ceil(height / rowHeight) : snapshot.bufferLength;
-    const samples = controller.sample(sourceRows);
-    const cellWidth = width / Math.max(1, snapshot.cols);
+    const sourceRows = layout.scaleY < 1 ? Math.ceil(height / ROW_HEIGHT) : snapshot.bufferLength;
+    const key = `${snapshot.contentVersion}:${sourceRows}:${snapshot.cols}`;
+    const viewKey = `${snapshot.viewportY}:${snapshot.bufferLength}:${snapshot.rows}:${width}x${height}`;
+    const cached = samplesRef.current;
+    const now = performance.now();
+    const plan = planMinimapRefresh({
+      cachedKey: cached?.key ?? null,
+      key,
+      sinceSampleMs: cached ? now - cached.at : 0,
+      viewChanged: drawnViewRef.current !== viewKey,
+      throttleMs: RESAMPLE_THROTTLE_MS,
+    });
 
-    for (let y = 0; y < samples.length; y += 1) {
-      const { density, cells } = samples[y];
-      if (density <= 0.02) continue;
-      const placement = samplePlacement({ sampleIndex: y, sampleCount: samples.length, layout, rowHeight });
-      const top = placement.top;
-      if (top >= layout.contentHeight) break;
-      for (const cell of cells ?? []) {
-        const left = cell.x * cellWidth;
-        const charWidth = Math.max(0.8, cell.width * cellWidth * 0.72);
-        if (cell.bg) {
-          ctx.globalAlpha = 0.5;
-          ctx.fillStyle = cell.bg;
-          ctx.fillRect(left, top, Math.max(1, cell.width * cellWidth), placement.height);
-        }
-        ctx.globalAlpha = Math.min(0.95, 0.38 + density * 0.5);
-        ctx.fillStyle = cell.fg;
-        ctx.fillRect(left, top, charWidth, 1);
+    const retry = plan.retryInMs === null ? null : setTimeout(() => setRetryTick((v) => v + 1), plan.retryInMs + 1);
+    if (plan.draw) {
+      let samples = cached?.samples ?? [];
+      if (plan.resample) {
+        samples = controller.sample(sourceRows);
+        samplesRef.current = { key, samples, at: now };
       }
+      drawMinimap(canvas, size, layout, samples, snapshot.cols);
+      drawnViewRef.current = viewKey;
     }
-
-    if (layout.contentHeight + 2 < height) {
-      ctx.globalAlpha = 0.18;
-      ctx.fillStyle = accent;
-      ctx.fillRect(1, layout.contentHeight + 2, width - 2, 1);
-    }
-
-    ctx.globalAlpha = 0.22;
-    ctx.fillStyle = accent;
-    ctx.fillRect(0, layout.viewportTop, width, layout.viewportHeight);
-    ctx.globalAlpha = 0.75;
-    ctx.fillStyle = accent;
-    ctx.fillRect(0, layout.viewportTop, width, 1);
-    ctx.fillRect(0, Math.min(height - 1, layout.viewportTop + layout.viewportHeight), width, 1);
-    ctx.globalAlpha = 1;
-  }, [controller, snapshot, canvasVersion]);
+    return () => {
+      if (retry) clearTimeout(retry);
+    };
+  }, [controller, snapshot, canvasVersion, visible, retryTick]);
 
   if (!controller || snapshot.bufferLength <= 0) return null;
 

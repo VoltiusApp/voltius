@@ -15,7 +15,10 @@ const entry: CatalogEntry = {
 };
 
 vi.mock("../MobileHeader", () => ({ default: () => null }));
-vi.mock("../MobileSnippetList", () => ({ default: () => <div data-testid="mine-list" /> }));
+vi.mock("../MobileSnippetList", async (io) => ({
+  ...(await io<Record<string, unknown>>()),
+  default: () => <div data-testid="mine-list" />,
+}));
 vi.mock("@/services/snippetCatalogFetch", () => ({ fetchCatalog: async () => ({ entries: [entry], fromCache: false }) }));
 afterEach(cleanup);
 

@@ -1,14 +1,19 @@
 import { useTranslation } from "react-i18next";
-import { Icon } from "@iconify/react";
 import { ToolbarViewControls, type LayoutMode, type SortMode } from "@/components/shared/ToolbarViewControls";
 import { ToolbarDropdown } from "@/components/shared/ToolbarDropdown";
 import { useToolbarResize } from "@/hooks/useToolbarResize";
 import { useRipple } from "@/hooks/useRipple";
-import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { ToolbarButton } from "@/components/shared/ToolbarButton";
+import { preferredShellSetting, useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { allowedShells, pickShell } from "@/services/local";
+import { usePolicyLock, usePolicyRange } from "@/stores/policyStore";
+import { RangeNote } from "@/components/shared/ManagedNote";
 import { useUIContributions } from "@/hooks/useUIContributions";
-import { useLocalShells } from "@/hooks/useLocalShells";
+import { useLocalShellsState } from "@/hooks/useLocalShells";
 import { IMPORTERS } from "@/services/import-export/importers";
 import { useIsMobile } from "@/utils/platform";
+
+const SYSTEM_SHELL = "";
 
 interface HomeToolbarProps {
   search: string;
@@ -17,7 +22,7 @@ interface HomeToolbarProps {
   onCreateFolder: () => void;
   onCreateSerial?: () => void;
   canCreate?: boolean;
-  canCreateFolder?: boolean;
+  newFolderBlocked?: string;
   onOpenLocalTerminal: () => void;
   onOpenSerial: () => void;
   onOpenImportExport: (mode: "import" | "export", opts?: { source?: string; autoTrigger?: boolean }) => void;
@@ -43,7 +48,7 @@ export function HomeToolbar({
   onOpenSerial,
   onOpenImportExport,
   canCreate = true,
-  canCreateFolder = true,
+  newFolderBlocked,
   layoutMode,
   onLayoutModeChange,
   sortMode,
@@ -62,12 +67,21 @@ export function HomeToolbar({
 
   const newHostItems = [
     ...(canCreate && onCreateSerial ? [{ label: t("hosts.toolbar.newSerialHost"), icon: "lucide:ethernet-port", onClick: onCreateSerial }] : []),
-    ...(canCreateFolder ? [{ label: t("hosts.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: onCreateFolder }] : []),
+    { label: t("hosts.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: onCreateFolder, disabledReason: newFolderBlocked },
     ...pluginHostMenuItems,
   ];
 
-  const shells = useLocalShells();
-  const { preferredShell, setPreferredShell } = useTerminalSettingsStore();
+  const { shells, detecting } = useLocalShellsState();
+  const preferredShell = preferredShellSetting.use();
+  const setPreferredShell = useTerminalSettingsStore((s) => s.setPreferredShell);
+  const shellLocked = usePolicyLock(preferredShellSetting.key).locked;
+  const shellRange = usePolicyRange(preferredShellSetting.key);
+  const shellNamed = (entry: string) => allowedShells(shells, [entry])[0];
+  const shellOptions = shells.length
+    ? shells.map((s) => ({ value: s.path, label: s.name }))
+    : (shellLocked || shellRange) && !detecting
+      ? [{ value: SYSTEM_SHELL, label: t("hosts.toolbar.systemShell") }]
+      : [];
   // Android sandbox can't spawn a local PTY — hide the local-terminal launcher.
   const isMobile = useIsMobile();
 
@@ -97,31 +111,31 @@ export function HomeToolbar({
         <div ref={rightRef} className="ml-auto flex items-center gap-2 shrink-0">
           {/* Android sandbox has no /dev/tty* access — hide serial console. */}
           {!isMobile && (
-            <button
-              className="flex items-center gap-2 px-3 py-2 h-8 rounded-lg text-sm font-bold tracking-wider transition-colors shrink-0 whitespace-nowrap bg-(--t-bg-input) text-(--t-text-primary) border border-(--t-border-hover) relative overflow-hidden"
-              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-input-hover)")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-input)")}
+            <ToolbarButton
+              icon="lucide:ethernet-port"
+              label={t("hosts.toolbar.serial")}
+              compact={compact}
+              className="overflow-hidden"
               onPointerDown={rippleSerial}
               onClick={onOpenSerial}
               title={t("hosts.toolbar.openSerialConsole")}
-              type="button"
             >
               {ripplesSerial}
-              <Icon icon="lucide:ethernet-port" width={20} />
-              {!compact && t("hosts.toolbar.serial")}
-            </button>
+            </ToolbarButton>
           )}
 
           {!isMobile && (
             <ToolbarDropdown
               icon="lucide:terminal"
               label={compact ? undefined : t("hosts.toolbar.terminal")}
-              value={preferredShell ?? shells[0]?.path ?? ""}
-              options={shells.map((s) => ({ value: s.path, label: s.name }))}
+              value={pickShell(shells, preferredShell)?.path ?? SYSTEM_SHELL}
+              options={shellOptions}
+              menuNote={shellRange && <RangeNote range={shellRange} format={(e) => shellNamed(String(e))?.name ?? String(e)} />}
+              menuLocked={shellLocked ? t("common.policy.managed") : undefined}
               menuWidth={200}
               align="right"
               onAction={onOpenLocalTerminal}
-              onChange={setPreferredShell}
+              onChange={(v) => v !== SYSTEM_SHELL && setPreferredShell(v)}
             />
           )}
 

@@ -20,7 +20,7 @@ import { lockApp, lockOnLaunchIfIdle, systemAuthVerify } from "./appLock";
 import { isLeaveLockSuppressed, withLeaveLockSuppressed } from "./leaveLockSuppression";
 import { useSecurityStore } from "@/stores/securityStore";
 import { useAppLockStore } from "@/stores/appLockStore";
-import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
+import { resetPolicy, withPolicy } from "@/test/policy";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -29,7 +29,7 @@ beforeEach(() => {
   useSecurityStore.setState({ lockAction: "vault", systemAuthUnlock: false, sessionTimeoutMinutes: null });
   sessionStorage.clear();
   useAppLockStore.setState({ kind: null });
-  useOrgLockPolicyStore.setState({ policy: null });
+  resetPolicy();
   Object.defineProperty(window, "location", { value: { reload: h.reload }, writable: true, configurable: true });
 });
 
@@ -135,7 +135,7 @@ test("suppression ends on its own when the wrapped work never settles", async ()
 
 test("a forced Lock vault policy locks the vault even when the member chose Lock screen", async () => {
   useSecurityStore.setState({ lockAction: "screen" });
-  useOrgLockPolicyStore.setState({ policy: { maxMinutes: 15, forceVault: true } });
+  withPolicy({ "security.lockTimeoutMinutes": { $range: { max: 15 } }, "security.lockAction": "vault" });
   await lockApp();
   expect(h.lockVaultSession).toHaveBeenCalled();
   expect(useAppLockStore.getState().kind).toBeNull();
@@ -187,7 +187,7 @@ test("a launch with Never does not lock", async () => {
 
 test("an org maximum timeout applies at launch too", async () => {
   useSecurityStore.setState({ sessionTimeoutMinutes: null });
-  useOrgLockPolicyStore.setState({ policy: { maxMinutes: 15, forceVault: false } });
+  withPolicy({ "security.lockTimeoutMinutes": { $range: { max: 15 } } });
   lastActiveAgo(16 * MINUTE);
   expect(await lockOnLaunchIfIdle()).toBe("vault");
 });

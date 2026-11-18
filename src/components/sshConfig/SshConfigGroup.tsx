@@ -5,8 +5,10 @@ import { SettingRow, SettingsGroup } from "@/components/settings/sections/shared
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
+import { usePolicyLock } from "@/stores/policyStore";
 import { managedCount, useSshConfigStore } from "@/stores/sshConfigStore";
 import { changeSync, turnOff } from "@/services/sshConfig/link";
+import { SSH_CONFIG_IMPORT, sshConfigImportLock } from "@/services/sshConfig/state";
 import { sshConfigSync } from "@/services/sshConfig/sync";
 import { isMobilePlatform, usePlatform } from "@/utils/platform";
 import { statusLine } from "./statusLine";
@@ -21,14 +23,16 @@ export function SshConfigGroup() {
   const openDialog = useSshConfigStore((s) => s.openDialog);
   const vaultOptions = usePersonalVaultOptions(sync?.vault);
   const [confirmOff, setConfirmOff] = useState(false);
+  usePolicyLock(SSH_CONFIG_IMPORT);
+  const lock = sshConfigImportLock();
   if (!platform || isMobilePlatform(platform)) return null;
 
-  const on = !!sync?.on;
+  const on = lock !== false && !!sync?.on;
   const reviewed = status.error !== "join";
 
   return (
     <SettingsGroup title="~/.ssh/config" divided>
-      <SettingRow title={t("settings.hosts.sshConfig.switch.title")} desc={t("settings.hosts.sshConfig.switch.desc")}>
+      <SettingRow title={t("settings.hosts.sshConfig.switch.title")} desc={t("settings.hosts.sshConfig.switch.desc")} policyKey={lock === false || (lock === true && on) ? SSH_CONFIG_IMPORT : undefined}>
         <Toggle
           checked={on}
           aria-label={t("settings.hosts.sshConfig.switch.title")}

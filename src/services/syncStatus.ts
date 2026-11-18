@@ -19,7 +19,10 @@ export const NOT_CONFIGURED_SYNC_STATE: SyncProviderSnapshot = Object.freeze({
   configured: false,
 });
 
-const SYNC_STATUSES: readonly SyncStatus[] = ["idle", "syncing", "success", "error", "offline"];
+const SYNC_STATUSES: readonly SyncStatus[] = ["idle", "syncing", "success", "partial", "error", "offline"];
+
+/** Statuses whose `error` text explains them to the user. */
+export const statusHasReason = (status: SyncStatus): boolean => status === "error" || status === "offline" || status === "partial";
 
 /** Coerces an epoch-ms number or ISO-8601 string into a `Date`, returning `null`
  *  for anything that doesn't produce a valid one (including `NaN` dates). */
@@ -122,7 +125,7 @@ export const SYNC_NEARBY_COLOR = "var(--t-status-connected)";
 export function syncStatusIcon(status: SyncStatus): string {
   if (status === "syncing") return "lucide:refresh-cw";
   if (status === "success") return "lucide:cloud-check";
-  if (status === "error") return "lucide:cloud-alert";
+  if (status === "error" || status === "partial") return "lucide:cloud-alert";
   if (status === "offline") return "lucide:cloud-off";
   return "lucide:cloud";
 }
@@ -131,6 +134,7 @@ export function syncStatusIcon(status: SyncStatus): string {
 export function syncStatusColor(status: SyncStatus): string {
   if (status === "success") return "var(--t-status-connected)";
   if (status === "error") return "var(--t-status-error)";
+  if (status === "partial") return "var(--t-status-warning)";
   if (status === "syncing") return "var(--t-text-primary)";
   if (status === "offline") return "var(--t-text-dim)";
   return "var(--t-text-muted)";

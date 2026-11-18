@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useSyncMotion } from "@/components/shared/SyncStatusIcon";
 import { runManualSync } from "@/services/syncIntent";
 import { runSyncProviderAction } from "@/services/syncProviderAction";
-import type { SyncProviderAction, SyncProviderView } from "@/services/syncProviders";
+import { VOLTIUS_PROVIDER_ID, type SyncProviderAction, type SyncProviderView } from "@/services/syncProviders";
 import { syncStatusColor, type SyncHeaderStatus } from "@/services/syncStatus";
 import { INACTIVE_SYNC_ROWS, syncFailureReason, syncStatusLabel } from "@/services/syncStatusText";
 
@@ -43,5 +43,7 @@ export function useSyncProviderPanel(provider: SyncProviderView) {
   const header: SyncHeaderStatus | null = status
     ? { label: status.label, color: status.color, spin: motion.status === "syncing" }
     : inactive ? { label: t(inactive.labelKey), color: inactive.tone } : null;
-  return { syncNow, inactive, status, header };
+  const devices: SyncProviderAction | null =
+    active && provider.id === VOLTIUS_PROVIDER_ID && state.status === "partial" ? { kind: "showDevices" } : null;
+  return { syncNow, inactive, status, header, devices };
 }

@@ -5,6 +5,9 @@ import { BUILT_IN_THEMES, DEFAULT_THEME_ID, DEFAULT_LIGHT_THEME_ID } from "@/the
 import type { AppTheme } from "@/themes/types";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIStore } from "@/stores/uiStore";
+import { writeUnlessLocked } from "./policyStore";
+import { storeSetting } from "@/services/policy/effectiveCore";
+import { useAdminDefaultsStore } from "./adminDefaultsStore";
 import { pushSettingsChange, remoteApplyTimestamp, settingsStamp } from "./remoteApplyGuard";
 import type { ThemeMode, GeoLocation, AutomationConfig, ThemePhase } from "@/services/themeAutomation";
 import { DYNAMIC_THEME_ID, dynamicThemeFor } from "@/themes/dynamic";
@@ -35,6 +38,8 @@ async function saveToDisk(state: ThemeDiskState): Promise<void> {
     if (isLocalEdit) pushSettingsChange();
   } catch {}
 }
+
+const LOCATION_KEY = "themes.location";
 
 interface ThemeStore {
   activeThemeId: string;
@@ -144,10 +149,12 @@ export const useThemeStore = create<ThemeStore>()(
         set({ scheduleLightStart: lightStart, scheduleDarkStart: darkStart });
         get().persist();
       },
-      setLocation: (loc) => {
-        set({ location: loc });
-        get().persist();
-      },
+      setLocation: (loc) =>
+        writeUnlessLocked(LOCATION_KEY, () => {
+          set({ location: loc });
+          useAdminDefaultsStore.getState().clear(LOCATION_KEY);
+          get().persist();
+        }),
       setResolvedPhase: (phase) => set({ resolvedPhase: phase }), // device-local, no persist/sync
       toggleLightDark: () => {
         const { lightThemeId, darkThemeId } = get();
@@ -162,7 +169,7 @@ export const useThemeStore = create<ThemeStore>()(
           mode: s.mode,
           scheduleLightStart: s.scheduleLightStart,
           scheduleDarkStart: s.scheduleDarkStart,
-          location: s.location,
+          location: locationSetting.get(),
         };
       },
       getEffectiveThemeId: () => {
@@ -215,3 +222,5 @@ export const useThemeStore = create<ThemeStore>()(
     { name: "voltius-theme" },
   ),
 );
+
+export const locationSetting: { get: () => GeoLocation | null; use: () => GeoLocation | null } = storeSetting(useThemeStore, "location", LOCATION_KEY);

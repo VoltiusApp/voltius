@@ -62,6 +62,16 @@ export function Sparkline({ data, color, height = 38 }: SparklineProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [height, color]);
 
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      if (el.clientWidth > 0) uRef.current?.setSize({ width: el.clientWidth, height });
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [height]);
+
   // Update data without recreating
   useEffect(() => {
     if (!uRef.current || !data.length) return;

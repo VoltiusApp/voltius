@@ -30,8 +30,8 @@ describe("Google Play build", () => {
     vi.stubEnv("VITE_DISTRIBUTION", "play");
     const { planDisplay } = await import("@/services/planDisplay");
     const { deriveTierFlags } = await import("@/stores/subscriptionTier");
-    const plan = planDisplay(deriveTierFlags({ tier: "free", trial_used: false }, new Date()));
-    expect(plan).toMatchObject({ showUpgrade: false, upgradeTo: null, trialOffer: false });
+    const plan = planDisplay({ ...deriveTierFlags({ tier: "free" }, new Date()), proTrialAvailable: true, teamsTrialAvailable: true });
+    expect(plan).toMatchObject({ showUpgrade: false, upgradeTo: null, trialOffer: false, teamsTrialOffer: false });
   });
 
   it("leaves a free account's Voltius sync without an upgrade action", async () => {

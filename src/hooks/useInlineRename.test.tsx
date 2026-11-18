@@ -6,6 +6,7 @@ import { useShortcutStore } from "@/stores/shortcutStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useKeyboard } from "./useKeyboard";
 import { usePageBulkActions } from "./usePageBulkActions";
+import { startPreview, stopPreview } from "@/test/preview";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
@@ -101,4 +102,16 @@ test("a remapped shortcut replaces F2", () => {
   expect(container.querySelector("input")).toBeNull();
   act(() => { document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "R", ctrlKey: true, shiftKey: true, bubbles: true })); });
   expect(container.querySelector("input")).not.toBeNull();
+});
+
+test("while previewing, neither the menu item nor a request opens the editor", () => {
+  startPreview();
+  try {
+    const { result } = renderHook(() => useInlineRename("a", true, "web", vi.fn()));
+    act(() => { void result.current.menuItems[0].onClick?.(); });
+    act(() => requestRename("a"));
+    expect(result.current.editor).toBeNull();
+  } finally {
+    stopPreview();
+  }
 });

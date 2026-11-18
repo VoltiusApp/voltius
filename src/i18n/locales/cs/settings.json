@@ -1,6 +1,10 @@
 {
   "settings": {
     "terminal": {
+      "commandHistory": {
+        "title": "Historie příkazů",
+        "desc": "Pamatuje si příkazy spuštěné v terminálech. Řádek se uloží, jen když ho terminál zobrazí zpět, takže hesla zadaná do skrytých výzev se nikdy neuloží. Řádky začínající mezerou se nikdy neukládají. Vypnutím se ukládání zastaví; uložené zůstane, dokud ho nevymažete v panelu Historie."
+      },
       "heading": "Chování terminálu",
       "preferredShell": {
         "title": "Preferovaný shell"
@@ -57,10 +61,32 @@
       }
     },
     "appearance": {
+      "marketplace": {
+        "installedLabel": "Marketplace",
+        "available": "Z marketplace",
+        "get": "Získat",
+        "remove": "Odebrat",
+        "fromSource": "z {{source}}",
+        "desktopOnly": "Jen pro počítač",
+        "partOfPlugin": "Součást pluginu {{plugin}}. Spravujte ho v Pluginech.",
+        "browseAll": "Procházet vše v marketplace",
+        "loading": "Načítání motivů…",
+        "unreachable_one": "{{count}} marketplace nedostupný",
+        "unreachable_few": "{{count}} marketplace nedostupné",
+        "unreachable_many": "{{count}} marketplace nedostupných",
+        "unreachable_other": "{{count}} marketplace nedostupných"
+      },
       "themeActions": "Akce motivu",
       "interface": "Rozhraní",
       "language": {
         "title": "Jazyk"
+      },
+      "timeFormat": {
+        "title": "Formát času",
+        "desc": "Jak se v celé aplikaci zobrazuje čas.",
+        "auto": "Automaticky (podle jazyka)",
+        "12h": "12hodinový",
+        "24h": "24hodinový"
       },
       "groupTabsByHost": {
         "title": "Seskupit karty podle hostu",
@@ -273,7 +299,7 @@
       "title": "Nastavení",
       "close": "Zavřít nastavení",
       "back": "Zpět",
-      "openHint": "Otevřete pomocí Ctrl+,",
+      "openHint": "Otevřete pomocí {{shortcut}}",
       "expandPluginGroup": "Rozbalit nastavení pluginů",
       "collapsePluginGroup": "Sbalit nastavení pluginů"
     },
@@ -300,6 +326,15 @@
         "unknown": "Neznámý"
       },
       "sessionSecurity": {
+        "rememberPassword": {
+          "toggle": "Pamatovat si hlavní heslo",
+          "desc": "Otevře trezor při spuštění bez ptaní. Dokud je volba zapnutá, heslo je uložené v systémové klíčence tohoto zařízení, kde ho v Linuxu a Windows mohou přečíst jiné programy spuštěné pod vaším účtem. Vypněte ji, chcete-li heslo zadávat při každém spuštění.",
+          "enableTitle": "Zapamatovat hlavní heslo",
+          "enableBody": "Zadejte hlavní heslo, aby se uložilo do systémové klíčenky tohoto zařízení.",
+          "systemAuthNeedsIt": "Vyžaduje volbu „Pamatovat si hlavní heslo“ na tomto zařízení. Bez ní se Voltius ptá na hlavní heslo při spuštění a po zamčení trezoru; systémovým ověřením se odemyká jen zamykací obrazovka.",
+          "removeFailed": "Uložené hlavní heslo se nepodařilo odebrat ze systémové klíčenky.",
+          "storeFailed": "Hlavní heslo se nepodařilo uložit do systémové klíčenky."
+        },
         "title": "Zabezpečení relace",
         "autoLockLabel": "Automaticky zamknout po nečinnosti",
         "autoLockDesc": "Zamkne Voltius po zvolené době nečinnosti nebo ihned při opuštění aplikace.",
@@ -310,6 +345,10 @@
           "30min": "30 minut",
           "1h": "1 hodina",
           "4h": "4 hodiny",
+          "minutes_one": "{{count}} minuta",
+          "minutes_few": "{{count}} minuty",
+          "minutes_many": "{{count}} minuty",
+          "minutes_other": "{{count}} minut",
           "immediately": "Okamžitě"
         },
         "needsSystemAuth": "Pro zamykání účtu bez hlavního hesla zapněte systémové ověření.",
@@ -317,8 +356,7 @@
         "policy": {
           "timeout": "Určuje {{teams}}: nejvýše {{duration}}.",
           "timeoutImmediately": "Určuje {{teams}}: zamknout ihned po opuštění Voltius.",
-          "vault": "Určuje {{teams}}: je vyžadováno „Zamknout trezor“.",
-          "yourTeam": "váš tým"
+          "vault": "Určuje {{teams}}: je vyžadováno „Zamknout trezor“."
         },
         "lockAction": {
           "label": "Při zamknutí",
@@ -411,6 +449,45 @@
         "done": "Hotovo",
         "changing": "Změna…",
         "changeBtn": "Změnit heslo"
+      },
+      "sessions": {
+        "title": "Přihlášená zařízení",
+        "loading": "Načítání zařízení…",
+        "empty": "Zatím žádná zařízení k zobrazení.",
+        "unknownDevice": "Neznámé zařízení",
+        "thisDevice": "Toto zařízení",
+        "cli": "CLI",
+        "signedIn": "Přihlášeno {{date}}",
+        "lastActive": "Aktivní {{ago}}",
+        "signOut": "Odhlásit",
+        "signOutNamed": "Odhlásit {{name}}",
+        "signOutOthers": "Odhlásit ostatní zařízení",
+        "signOutEverywhere": "Odhlásit všude",
+        "working": "Odhlašování…",
+        "retry": "Zkusit znovu",
+        "note": "Odhlášení zařízení ukončí jeho přístup k vašemu účtu; data, která už na něm jsou, se nesmažou. Zařízení přihlášená před touto aktualizací se zde objeví po příštím obnovení přihlášení.",
+        "offline": "Jste offline.",
+        "unsupported": "Váš server to zatím nepodporuje.",
+        "unavailable": "Seznam zařízení se nenačetl.",
+        "ended": "Toto zařízení je odhlášené. Přihlaste se znovu, abyste mohli spravovat svá zařízení.",
+        "confirm": {
+          "one": {
+            "title": "Odhlásit {{name}}?",
+            "message": "{{name}} ztratí přístup k vašemu účtu a bude se muset znovu přihlásit. Data, která už na něm jsou, se nesmažou."
+          },
+          "this": {
+            "title": "Odhlásit toto zařízení?",
+            "message": "Toto zařízení přestane synchronizovat, dokud se znovu nepřihlásíte. Jeho data tu zůstanou."
+          },
+          "others": {
+            "title": "Odhlásit ostatní zařízení?",
+            "message": "Všechna ostatní zařízení se budou muset znovu přihlásit, včetně těch, která zatím nejsou v seznamu. Toto zařízení zůstane přihlášené. Data, která už na nich jsou, se nesmažou."
+          },
+          "all": {
+            "title": "Odhlásit všude?",
+            "message": "Všechna zařízení včetně tohoto se budou muset znovu přihlásit. Data, která už na nich jsou, se nesmažou."
+          }
+        }
       },
       "twoFactor": {
         "label": "Dvoufázové ověření",
@@ -519,23 +596,40 @@
         "seatsUsed": "Využito {{used}} / {{total}}",
         "upgradeToPro": "Přejděte na vyšší tarif a zpřístupněte si synchronizaci s cloudem a další funkce",
         "upgrade": "Přejít na vyšší tarif",
-        "upgradeToTeams": "Vyzkoušejte Teams zdarma na {{days}} dní: sdílené trezory a role pro váš tým. Vyžaduje kartu.",
-        "teamsButton": "Vyzkoušet zdarma →",
+        "upgradeToTeams": "Vyzkoušejte Teams zdarma na {{days}} dní — bez platební karty",
+        "teamsButton": "Spustit zkušební verzi",
+        "activateTrial": "Aktivovat 14 dní Pro",
+        "activate": "Aktivovat",
+        "upgradeToTeamsPlain": "Přejděte na Teams: sdílené trezory a role pro váš tým.",
         "viewAllPlans": "Zobrazit všechny tarify →",
+        "everythingIn": "Vše z tarifu {{plan}} a navíc:",
+        "nextAdds": "{{plan}} přidává:",
+        "freeForEveryone": "Zdarma pro všechny:",
         "feature": {
-          "localVault": "Lokální trezor",
-          "auditLogs": "Auditní logy",
-          "gistSync": "Synchronizace přes GitHub Gist",
+          "privateVault": "1 soukromý trezor",
           "localSync": "Synchronizace v místní síti",
           "deviceFiles": "Přenos souborů mezi vašimi zařízeními",
-          "realtimeSync": "Synchronizace s cloudem v reálném čase",
+          "syncPlugins": "Pluginy pro synchronizaci přes Gist, Cloudflare a S3",
+          "cli": "Příkazový řádek (voltius-cli)",
+          "machinePolicy": "Zásady počítače pro hromadné nasazení",
+          "mdm": "Spravovaná konfigurace (MDM)",
+          "auditLogs": "Místní auditní logy",
+          "cloudSync": "Synchronizace s cloudem, i když vaše zařízení nikdy nejsou online současně",
+          "cloudBackup": "Šifrovaná záloha ve Voltius Cloud",
+          "crossDeviceSessions": "Relace napříč zařízeními",
           "unlimitedVaults": "Neomezeně soukromých trezorů",
-          "terminalSharing": "Sdílení terminálu (1 relace · 1 host)",
-          "teamVaults": "Sdílené týmové trezory",
-          "teamSharing": "Týmové sdílení (5 relací · 10 hostů)",
-          "seats": "Místa (dle nákupu)",
-          "lockPolicy": "Týmové zásady zamykání (limit automatického zamčení, zámek trezoru)",
-          "granularPermissions": "Vlastní role, oprávnění pro jednotlivé členy a objekty"
+          "terminalSharing_one": "Sdílení terminálu: 1 relace, 1 host",
+          "terminalSharing_few": "Sdílení terminálu: {{count}} relace, {{guests}} hostů na každou",
+          "terminalSharing_many": "Sdílení terminálu: {{count}} relací, {{guests}} hostů na každou",
+          "terminalSharing_other": "Sdílení terminálu: {{count}} relací, {{guests}} hostů na každou",
+          "teamVaults": "Sdílené týmové trezory a pozvánky",
+          "builtInRoles": "Vestavěné role",
+          "teamAuditLogs": "Týmové auditní logy",
+          "granularPermissions": "Vlastní role, oprávnění pro jednotlivé členy a objekty, s náhledem Zobrazit jako",
+          "teamPolicy": "Týmové zásady: uzamkněte libovolné nastavení všem členům",
+          "enrolment": "Registrační tokeny zařízení pro hromadné nasazení",
+          "commercialLicense": "Komerční licence pro vlastní hosting",
+          "prioritySupport": "Prioritní podpora"
         }
       },
       "buySeats": {
@@ -723,6 +817,10 @@
         "port-forwarding-rule": {
           "label": "Přesměrování portů",
           "sub": "Uložená pravidla tunelů"
+        },
+        "plugin": {
+          "label": "Pluginy",
+          "sub": "Nainstalované pluginy"
         }
       },
       "settingsTitle": "Nastavení",
@@ -765,6 +863,34 @@
         "deviceDefault": "výchozí pro zařízení",
         "yourChoice": "vaše volba",
         "resume": "Obnovit synchronizaci"
+      },
+      "devices": {
+        "title": "Vaše zařízení",
+        "footer": "Každé zařízení nahrává vlastní šifrovanou kopii. Tento seznam ukazuje, zda toto zařízení dokázalo přečíst poslední kopii každého z nich.",
+        "empty": "Žádné jiné zařízení se zatím nesynchronizovalo.",
+        "unnamed": "Zařízení {{id}}",
+        "state": {
+          "synced": "Synchronizováno",
+          "pending": "Čeká na další synchronizaci",
+          "unavailable": "Nelze stáhnout",
+          "unavailableStatus": "Nelze stáhnout (HTTP {{status}})",
+          "undecryptable": "Nelze dešifrovat: zašifrováno klíčem, který toto zařízení nemá",
+          "unreadable": "Kopie je poškozená a nelze ji přečíst"
+        },
+        "hint": {
+          "unavailable": "Obvykle dočasné. Voltius to zkusí znovu při další synchronizaci.",
+          "undecryptable": "To zařízení možná stále používá starší klíč trezoru. Otevřete na něm Voltius, aby nahrálo novou kopii, nebo ho zde odeberte, pokud ho už nepoužíváte.",
+          "unreadable": "Otevřete na tom zařízení Voltius, aby nahrálo novou kopii, nebo ho zde odeberte, pokud ho už nepoužíváte."
+        },
+        "changed": "Změněno {{time}}",
+        "lastSynced": "Přečteno {{time}}",
+        "neverSynced": "Dosud nepřečteno",
+        "retry": "Zkusit znovu",
+        "retryNone": "Není co zkoušet znovu",
+        "remove": "Odebrat",
+        "removeTitle": "Odebrat {{name}} z cloudové synchronizace?",
+        "removeBody": "Jeho šifrovaná kopie bude smazána ze serveru. Co z něj toto zařízení už synchronizovalo, zůstane. Pokud to zařízení stále používáte, při další synchronizaci nahraje novou kopii.",
+        "removeFailed": "Zařízení nelze odebrat: {{error}}"
       }
     },
     "vaults": {
@@ -856,6 +982,22 @@
     },
     "plugins": {
       "categoryLabel": "Plugin",
+      "sync": {
+        "installedOne": "Plugin {{plugin}} nainstalován ze zařízení {{device}}",
+        "installedOneUnknown": "Plugin {{plugin}} nainstalován z jiného zařízení",
+        "installedMany": "Nainstalováno pluginů z vašich ostatních zařízení: {{count}}",
+        "removedOne": "Plugin {{plugin}} odebrán (odebrán na zařízení {{device}})",
+        "removedOneUnknown": "Plugin {{plugin}} odebrán (odebrán na jiném zařízení)",
+        "removedMany": "Odebráno pluginů: {{count}} (odebrány na vašich ostatních zařízeních)",
+        "notHere": "Ne na tomto zařízení",
+        "keepHere": "Ponechat na tomto zařízení",
+        "blocked": {
+          "localSource": "Nainstalováno ze souboru nebo URL, takže ostatní zařízení si ho nemohou stáhnout",
+          "managed": "Spravuje vaše organizace",
+          "typeOff": "Synchronizace pluginů je vypnutá v nastavení synchronizace",
+          "noChannel": "Zapněte synchronizaci nebo se připojte k místní skupině synchronizace, aby se pluginy synchronizovaly"
+        }
+      },
       "tabs": {
         "installed": "Nainstalované ({{count}})",
         "browse": "Procházet",
@@ -878,6 +1020,7 @@
         "sourceLocal": "Lokální",
         "sourceUrl": "URL",
         "sourceInstalled": "Nainstalovaný",
+        "sourceOrganization": "Organizace",
         "unverified": "Neověřený",
         "update": "Aktualizovat",
         "updating": "Aktualizace…",
@@ -897,6 +1040,7 @@
         "addSourcePlaceholder": "https://example.com/plugins.json",
         "add": "Přidat",
         "installedBadge": "Nainstalováno",
+        "installsOff": "Vaše organizace vypnula instalaci pluginů.",
         "byAuthor": "autor: {{author}} · v{{version}}",
         "noCatalog": "V katalogu nejsou žádné pluginy.",
         "noResults": "Žádné výsledky.",
@@ -995,6 +1139,7 @@
             "label": "Zapisovat a přesouvat soubory",
             "description": "Vytvářet, přejmenovávat, přepisovat a mazat soubory na uložených SSH/FTP hostech a na tomto počítači a kopírovat soubory mezi nimi. Může to trvale zničit data."
           },
+          "hostExec": { "label": "Spouštět libovolné příkazy na vašich hostitelích", "description": "Spouštět vaším jménem libovolné příkazy na kterémkoli otevřeném hostiteli i na tomto počítači a číst jejich výstup. Jde o plný přístup k shellu: může číst tajné údaje, měnit konfiguraci a trvale zničit data." },
           "audit": {
             "label": "Zaznamenávat auditní události",
             "description": "Přidávat do auditního logu záznamy o tom, co udělal. U hostu v týmovém trezoru se tyto záznamy posílají také na server daného týmu."
@@ -1444,6 +1589,9 @@
       }
     },
     "toggleDefs": {
+      "commandHistory": {
+        "label": "Historie příkazů"
+      },
       "cursorBlink": {
         "label": "Blikání kurzoru"
       },
@@ -1632,6 +1780,33 @@
           "desc": "Otevřít poznámky k hostu v pravém panelu"
         }
       }
+    },
+    "search": {
+      "placeholder": "Hledat v nastavení",
+      "clear": "Vymazat hledání",
+      "changed": "Změněné",
+      "changedTitle": "Změněno oproti výchozímu",
+      "results_one": "{{count}} výsledek",
+      "results_few": "{{count}} výsledky",
+      "results_many": "{{count}} výsledku",
+      "results_other": "{{count}} výsledků",
+      "changedOnly": "Jen změněné",
+      "open": "Otevřít",
+      "openSection": "Otevřít sekci {{section}}",
+      "undo": "Vrátit",
+      "resetAll": "Obnovit vše",
+      "resetAllConfirm_one": "Obnovit výchozí hodnotu {{count}} nastavení? Nastavení spravovaná týmem, bezpečnostní nastavení a nastavení synchronizace zůstanou.",
+      "resetAllConfirm_few": "Obnovit výchozí hodnotu {{count}} nastavení? Nastavení spravovaná týmem, bezpečnostní nastavení a nastavení synchronizace zůstanou.",
+      "resetAllConfirm_many": "Obnovit výchozí hodnotu {{count}} nastavení? Nastavení spravovaná týmem, bezpečnostní nastavení a nastavení synchronizace zůstanou.",
+      "resetAllConfirm_other": "Obnovit výchozí hodnotu {{count}} nastavení? Nastavení spravovaná týmem, bezpečnostní nastavení a nastavení synchronizace zůstanou.",
+      "cancel": "Zrušit",
+      "emptyChanged": "Všechna nastavení mají výchozí hodnotu.",
+      "emptyQuery": "Žádné nastavení neodpovídá „{{query}}“.",
+      "emptyQueryChanged": "Žádné změněné nastavení neodpovídá „{{query}}“.",
+      "changedSub_one": "{{count}} nastavení se liší od výchozí hodnoty",
+      "changedSub_few": "{{count}} nastavení se liší od výchozí hodnoty",
+      "changedSub_many": "{{count}} nastavení se liší od výchozí hodnoty",
+      "changedSub_other": "{{count}} nastavení se liší od výchozí hodnoty"
     }
   }
 }

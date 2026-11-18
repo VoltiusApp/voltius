@@ -94,10 +94,14 @@ pub fn plugin_delete(id: String) -> Result<(), String> {
 /// Fetch a URL from the Rust backend (bypasses webview CORS restrictions)
 #[tauri::command]
 pub async fn plugin_fetch_url(url: String) -> Result<String, String> {
+    fetch_text(&url).await
+}
+
+pub async fn fetch_text(url: &str) -> Result<String, String> {
     let client = crate::commands::http::client_builder()
         .build()
         .map_err(|e| e.to_string())?;
-    let resp = client.get(&url).send().await.map_err(|e| e.to_string())?;
+    let resp = client.get(url).send().await.map_err(|e| e.to_string())?;
     if !resp.status().is_success() {
         return Err(format!("HTTP {}", resp.status()));
     }
@@ -126,6 +130,15 @@ pub fn plugins_list_seeded() -> Result<Vec<String>, String> {
         .collect();
     ids.sort();
     Ok(ids)
+}
+
+pub(crate) fn seeded_manifests() -> impl Iterator<Item = &'static str> {
+    SEEDED_PLUGINS.iter().filter_map(|(_, files)| {
+        files
+            .iter()
+            .find(|(name, _)| *name == "manifest.json")
+            .map(|(_, text)| *text)
+    })
 }
 
 /// Read an embedded seeded artifact. No path is constructed, so the id guards are

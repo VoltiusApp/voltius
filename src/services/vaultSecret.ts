@@ -12,6 +12,10 @@ const prompting = <T>(cmd: string, args: Record<string, unknown>, fallback: T) =
 export const secretState = () => invoke<SecretState>("vault_secret_state");
 export const sealAvailable = () => invoke<boolean>("vault_secret_seal_available").catch(() => false);
 
+/** The device's "Remember master password" choice; the backend refuses plain master-password writes while it is off. */
+export const keepsPlainPassword = () => invoke<boolean>("vault_secret_remembers").catch(() => false);
+export const setKeepsPlainPassword = (on: boolean) => invoke<void>("vault_secret_set_remembers", { on });
+
 export const readSecret = (reason: string) =>
   prompting<SecretRead>("vault_secret_get", { reason }, { outcome: "failed", value: null });
 
@@ -37,6 +41,7 @@ export const unbindSecret = (reason: string) =>
 
 /** For a new account or sign-in: whatever was stored belongs to another password. */
 export const storePassword = (value: string) => invoke<void>("vault_secret_import", { kind: "plain", value });
+export const storeDeviceKey = (hexKey: string) => invoke<void>("vault_secret_store_device_key", { value: hexKey });
 
 export const clearSecret = () => invoke<void>("vault_secret_clear");
 export const exportSecret = () => invoke<ExportedSecret | null>("vault_secret_export");

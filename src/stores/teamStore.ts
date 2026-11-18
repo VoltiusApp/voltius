@@ -1,22 +1,34 @@
 import { create } from "zustand";
+import { assertNotPreviewing } from "@/services/previewGuard";
 import { invoke } from "@/lib/invoke";
+import { sameValue } from "@/utils/sameValue";
 import * as api from "@/services/teamService";
 import { logFailure } from "@/lib/logger";
 import { effectivePermissions } from "@/services/permissions";
-import { combineLockPolicies } from "@/services/lockPolicy";
-import { useOrgLockPolicyStore } from "@/stores/orgLockPolicyStore";
+import { accountEpoch, refreshTeamPolicy } from "@/services/policy/teamPolicy";
+import { enrolledTeamId, onPolicyLoaded } from "@/stores/policyStore";
 import { isBusinessLocked } from "@/stores/subscriptionTier";
+import { runTeamsLoadedHook } from "@/stores/teamsLoadedHook";
 import type { CreatedTeam, Team, TeamLockPolicy, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation } from "@/services/teamService";
+import type { JoinRequest } from "@/services/enrollment/enrollmentApi";
 export type { Team, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation };
+
+let loadSeq = 0;
+let appliedSeq = 0;
+let teamsEpoch = -1;
+
+const refreshPolicy = (teams: Team[]) => void refreshTeamPolicy(teams).catch(logFailure("refreshTeamPolicy"));
 
 interface TeamStore {
   teams: Team[];
   membersByTeam: Record<string, TeamMember[]>;
   rolesByTeam: Record<string, TeamRole[]>;
   pendingInvitationsByTeam: Record<string, PendingInvitation[]>;
+  joinRequestsByTeam: Record<string, JoinRequest[]>;
   myPendingInvitations: MyPendingInvitation[];
   activeTeamId: string | null;
   loading: boolean;
+  teamsLoaded: boolean;
   /** Our own presence, owned by the realtime layer rather than the server's
    *  members payload — see `setSelfOnline`. Null until the stream first opens. */
   self: { userId: string; online: boolean } | null;
@@ -26,7 +38,7 @@ interface TeamStore {
   createTeam: (name: string) => Promise<CreatedTeam>;
   loadMembers: (teamId: string) => Promise<void>;
   addMember: (teamId: string, email: string, role?: string) => Promise<void>;
-  addMemberById: (teamId: string, userId: string, role?: string, name?: string) => Promise<{ status: "pending" | "already_member" }>;
+  addMemberById: (teamId: string, userId: string, role?: string, name?: string, roleIds?: string[]) => Promise<{ status: "pending" | "already_member" }>;
   setMemberName: (teamId: string, userId: string, name: string | null) => Promise<void>;
   removeMember: (teamId: string, userId: string) => Promise<void>;
   setActiveTeam: (teamId: string | null) => void;
@@ -34,6 +46,7 @@ interface TeamStore {
   setMemberOnline: (userId: string, online: boolean) => void;
   setSelfOnline: (userId: string, online: boolean) => void;
   loadPendingInvitations: (teamId: string) => Promise<void>;
+  loadJoinRequests: (teamId: string) => Promise<void>;
   loadMyPendingInvitations: () => Promise<void>;
   removeTeam: (teamId: string) => void;
   // Roles
@@ -97,15 +110,26 @@ export const useTeamStore = create<TeamStore>()(
   membersByTeam: {},
   rolesByTeam: {},
   pendingInvitationsByTeam: {},
+  joinRequestsByTeam: {},
   myPendingInvitations: [],
   activeTeamId: null,
   loading: false,
+  teamsLoaded: false,
   self: null,
 
   loadTeams: async () => {
     set({ loading: true });
     try {
+      const seq = ++loadSeq;
+      const epoch = accountEpoch();
       const fresh = await api.listTeams();
+      // An older request landing last would resurrect a team the newer one already dropped.
+      if (seq < appliedSeq || epoch !== accountEpoch()) {
+        set({ loading: false });
+        return;
+      }
+      appliedSeq = seq;
+      teamsEpoch = epoch;
       const prev = get().teams;
       const same =
         prev.length === fresh.length &&
@@ -113,11 +137,17 @@ export const useTeamStore = create<TeamStore>()(
           t.owner_tier === prev[i].owner_tier &&
           t.permission_allow === prev[i].permission_allow &&
           t.permission_deny === prev[i].permission_deny &&
-          JSON.stringify(t.lock_policy ?? null) === JSON.stringify(prev[i].lock_policy ?? null) &&
-          JSON.stringify(t.role_ids) === JSON.stringify(prev[i].role_ids));
+          sameValue(t.lock_policy, prev[i].lock_policy) &&
+          t.policy_revision === prev[i].policy_revision &&
+          t.data_version === prev[i].data_version &&
+          t.joined_at === prev[i].joined_at &&
+          sameValue(t.policy, prev[i].policy) &&
+          sameValue(t.ownerSeats, prev[i].ownerSeats) &&
+          sameValue(t.role_ids, prev[i].role_ids));
       const teams = same ? prev : fresh;
-      set({ teams, loading: false });
-      useOrgLockPolicyStore.getState().setPolicy(combineLockPolicies(teams));
+      set({ teams, loading: false, teamsLoaded: true });
+      refreshPolicy(teams);
+      runTeamsLoadedHook(prev);
       if (teams.length > 0 && !get().activeTeamId) {
         set({ activeTeamId: teams[0].id });
       }
@@ -133,6 +163,7 @@ export const useTeamStore = create<TeamStore>()(
   },
 
   setLockPolicy: async (teamId, policy) => {
+    assertNotPreviewing();
     await api.setTeamLockPolicy(teamId, policy);
     await get().loadTeams();
   },
@@ -159,18 +190,21 @@ export const useTeamStore = create<TeamStore>()(
   },
 
   addMember: async (teamId, email, role) => {
+    assertNotPreviewing();
     await api.addMember(teamId, email, role);
     await get().loadMembers(teamId);
   },
 
-  addMemberById: async (teamId, userId, role, name) => {
-    const result = await api.addMemberById(teamId, userId, role, name);
+  addMemberById: async (teamId, userId, role, name, roleIds) => {
+    assertNotPreviewing();
+    const result = await api.addMemberById(teamId, userId, role, name, roleIds);
     // Pending invites don't appear in the members list yet; reload to pick up any state changes
     await get().loadMembers(teamId);
     return result;
   },
 
   removeMember: async (teamId, userId) => {
+    assertNotPreviewing();
     await api.removeMember(teamId, userId);
     set((s) => ({
       membersByTeam: {
@@ -187,6 +221,14 @@ export const useTeamStore = create<TeamStore>()(
     set((s) => ({ pendingInvitationsByTeam: { ...s.pendingInvitationsByTeam, [teamId]: invites } }));
   },
 
+  loadJoinRequests: async (teamId) => {
+    const epoch = accountEpoch();
+    const { enrollmentApi } = await import("@/services/enrollment/enrollmentApi");
+    const requests = await enrollmentApi.listJoinRequests(teamId).catch(() => null);
+    if (!requests || epoch !== accountEpoch()) return;
+    set((s) => ({ joinRequestsByTeam: { ...s.joinRequestsByTeam, [teamId]: requests } }));
+  },
+
   loadMyPendingInvitations: async () => {
     const invites = await api.fetchMyPendingInvitations().catch(() => [] as MyPendingInvitation[]);
     set({ myPendingInvitations: invites });
@@ -197,11 +239,13 @@ export const useTeamStore = create<TeamStore>()(
       const { [teamId]: _m, ...membersByTeam } = s.membersByTeam;
       const { [teamId]: _r, ...rolesByTeam } = s.rolesByTeam;
       const { [teamId]: _p, ...pendingInvitationsByTeam } = s.pendingInvitationsByTeam;
+      const { [teamId]: _j, ...joinRequestsByTeam } = s.joinRequestsByTeam;
       return {
         teams: s.teams.filter((t) => t.id !== teamId),
         membersByTeam,
         rolesByTeam,
         pendingInvitationsByTeam,
+        joinRequestsByTeam,
         activeTeamId: s.activeTeamId === teamId ? null : s.activeTeamId,
       };
     });
@@ -228,6 +272,7 @@ export const useTeamStore = create<TeamStore>()(
   },
 
   createRole: async (teamId, name, permissions, color) => {
+    assertNotPreviewing();
     const role = await api.createRole(teamId, name, permissions, color);
     set((s) => ({
       rolesByTeam: {
@@ -239,6 +284,7 @@ export const useTeamStore = create<TeamStore>()(
   },
 
   updateRole: async (teamId, roleId, updates) => {
+    assertNotPreviewing();
     await api.updateRole(teamId, roleId, updates);
     set((s) => ({
       rolesByTeam: {
@@ -251,6 +297,7 @@ export const useTeamStore = create<TeamStore>()(
   },
 
   deleteRole: async (teamId, roleId) => {
+    assertNotPreviewing();
     await api.deleteRole(teamId, roleId);
     set((s) => ({
       rolesByTeam: {
@@ -261,6 +308,7 @@ export const useTeamStore = create<TeamStore>()(
   },
 
   assignMemberRole: async (teamId, userId, roleId) => {
+    assertNotPreviewing();
     await api.assignMemberRole(teamId, userId, roleId);
     set((s) => ({
       membersByTeam: {
@@ -275,6 +323,7 @@ export const useTeamStore = create<TeamStore>()(
   },
 
   removeMemberRole: async (teamId, userId, roleId) => {
+    assertNotPreviewing();
     await api.removeMemberRole(teamId, userId, roleId);
     set((s) => ({
       membersByTeam: {
@@ -289,17 +338,20 @@ export const useTeamStore = create<TeamStore>()(
   },
 
   transferBillingOwner: async (teamId, userId) => {
+    assertNotPreviewing();
     await api.transferBillingOwner(teamId, userId);
     set((s) => ({ teams: s.teams.map((t) => (t.id === teamId ? { ...t, owner_id: userId } : t)) }));
     await get().loadTeams();
   },
 
   setMemberName: async (teamId, userId, name) => {
+    assertNotPreviewing();
     await api.setMemberName(teamId, userId, name);
     await get().loadMembers(teamId);
   },
 
   setMemberPermissions: async (teamId, userId, allow, deny) => {
+    assertNotPreviewing();
     await api.setMemberPermissions(teamId, userId, allow, deny);
     set((s) => ({
       membersByTeam: {
@@ -318,3 +370,12 @@ export const useTeamStore = create<TeamStore>()(
   },
   }),
 );
+
+let lastEnrolledTeamId = enrolledTeamId();
+onPolicyLoaded(() => {
+  const id = enrolledTeamId();
+  if (id === lastEnrolledTeamId) return;
+  lastEnrolledTeamId = id;
+  const { teams, teamsLoaded } = useTeamStore.getState();
+  if (teamsLoaded && teamsEpoch === accountEpoch()) refreshPolicy(teams);
+});

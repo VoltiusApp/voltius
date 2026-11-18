@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ActionButton, ErrorMsg, INPUT_CLASS, Input, Layout, SubmitBtn, SystemAuthButton } from "./authParts";
+import { ActionButton, SwitchModeLink, ErrorMsg, INPUT_CLASS, Input, Layout, MasterPasswordNote, SubmitBtn, SystemAuthButton, emailError, newPasswordProblem } from "./authParts";
 import {
+  authenticateServerAccount,
   createLocalAccountNoPassword,
   createServerAccount,
+  isServerMode,
   login,
 } from "@/services/account";
 import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
@@ -12,13 +14,25 @@ import { VaultUnreadableError } from "@/services/vaultErrors";
 import { VaultBackups } from "@/components/shared/VaultBackups";
 import { ServerUrlField } from "@/components/shared/ServerUrlField";
 import { TwoFactorStep, useTwoFactorChallenge } from "@/components/shared/TwoFactorStep";
-import { lastServerUrl } from "@/utils/serverInstance";
+import { addAccount } from "@/services/savedAccounts";
+import { resolveServerUrl, startingServerUrl } from "@/services/policy/serverPolicy";
+import { ServerBlockedError, accountErrorText } from "@/services/accountErrors";
+import { lockedString, onPolicyLoaded, usePolicyLock } from "@/stores/policyStore";
+import { keepsPlainPassword } from "@/services/vaultSecret";
 import { localSyncContext, usePlatform } from "@/utils/platform";
 import { useSystemAuthPrompt } from "@/hooks/useSystemAuthPrompt";
 import { rebindAfterPassword, unlockWithSystemAuth } from "@/services/vaultBinding";
+import { EnrollForm } from "@/components/enrollment/EnrollForm";
+import { EnrollOutcome } from "@/components/enrollment/EnrollOutcome";
+import { EnrollTokenEntry } from "@/components/enrollment/EnrollTokenEntry";
+import { InvitationEntry, useInvitationSignup } from "./InvitationEntry";
+import type { EnrollmentOutcome } from "@/services/enrollment/enrollmentPublic";
+import type { EnrollTarget } from "@/stores/uiStore";
+import { machineEnrollmentToken, takeEnrollLink } from "@/services/enrollment/machineToken";
+import { useDeepLinkStore } from "@/stores/deepLinkStore";
 
 
-type View = "home" | "cloud";
+type View = "home" | "cloud" | "enroll";
 type CloudMode = "signup" | "signin";
 
 interface Props {
@@ -28,17 +42,25 @@ interface Props {
   vaultUnreadable?: boolean;
   /** Offer the OS prompt: the vault key was kept in the keychain when it was locked. */
   systemAuth?: boolean;
+  /** Start on cloud sign-in with no way back to the local-account home. */
+  cloudOnly?: boolean;
+  enrollTarget?: EnrollTarget;
   onReady: () => void;
 }
 
 /** Which way the vault turned out to be unreadable — they offer different exits. */
 type Unreadable = "no-password" | "wrong-key";
 
-export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onReady }: Props) {
+export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, cloudOnly, enrollTarget, onReady }: Props) {
   const { t } = useTranslation();
   const lanContext = localSyncContext(usePlatform());
-  const [view, setView] = useState<View>("home");
-  const [cloudMode, setCloudMode] = useState<CloudMode>("signup");
+  const [view, setView] = useState<View>(cloudOnly ? "cloud" : enrollTarget ? "enroll" : "home");
+  const [enroll, setEnroll] = useState(enrollTarget);
+  const [enrolled, setEnrolled] = useState<{ outcome: EnrollmentOutcome; email: string; teamName: string } | null>(null);
+  const [blocked, setBlocked] = useState(false);
+  const pendingSecret = useRef<string | undefined>(undefined);
+  const addOnly = cloudOnly || blocked;
+  const [cloudMode, setCloudMode] = useState<CloudMode>(cloudOnly ? "signin" : "signup");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [unreadable, setUnreadable] = useState<Unreadable | null>(
@@ -48,7 +70,9 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [email, setEmail] = useState("");
-  const [serverUrl, setServerUrl] = useState(lastServerUrl);
+  const [serverUrl, setServerUrl] = useState(startingServerUrl);
+  const invite = useInvitationSignup(serverUrl);
+  const serverLocked = usePolicyLock("server.url").locked;
   const addToast = useNotificationStore((s) => s.addToast);
 
   const reset = (v: View, mode?: CloudMode) => {
@@ -60,36 +84,78 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
   };
 
   const twoFactor = useTwoFactorChallenge();
+  const [enrollBusy, setEnrollBusy] = useState(false);
+
+  // The splash took what was queued when it chose this screen; a link landing later is taken here, or left for the modal.
+  const seenMachineToken = useRef(lockedString("enrollment.token"));
+  const takesLinks = !isLocked && !addOnly && !enrolled && !loading && !enrollBusy && !twoFactor.challenge;
+  useEffect(() => {
+    if (!takesLinks) return;
+    const take = () => {
+      let target = takeEnrollLink();
+      const raw = lockedString("enrollment.token");
+      if (!target && raw && raw !== seenMachineToken.current) {
+        const token = machineEnrollmentToken();
+        if (token) {
+          seenMachineToken.current = raw;
+          target = { token, source: "machine" };
+        }
+      }
+      if (!target) return;
+      setEnroll(target);
+      reset("enroll");
+    };
+    take();
+    const unsubscribeLinks = useDeepLinkStore.subscribe((s, prev) => { if (s.queue !== prev.queue) take(); });
+    const unsubscribePolicy = onPolicyLoaded(take);
+    return () => {
+      unsubscribeLinks();
+      unsubscribePolicy();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only sets state
+  }, [takesLinks]);
+
+  const blockServer = (pending?: string) => {
+    twoFactor.cancel();
+    pendingSecret.current = pending;
+    setBlocked(true);
+    setCloudMode("signin");
+    setView("cloud");
+    setError("");
+    setPassword("");
+  };
 
   // Not a bad password, so not the password form.
   const unlessUnreadable = async (work: () => Promise<void>) => {
     try {
       await work();
     } catch (e) {
+      if (e instanceof ServerBlockedError) return blockServer(e.pendingSecret);
       if (!(e instanceof VaultUnreadableError)) throw e;
       twoFactor.cancel();
       setUnreadable("wrong-key");
     }
   };
 
-  const wrap = async (fn: () => Promise<void>, after?: () => Promise<void>) => {
+  const wrap = async <T,>(fn: () => Promise<T>, after?: (result: T) => Promise<void>, ready = true) => {
     setLoading(true);
     setError("");
     try {
-      await unlessUnreadable(() => twoFactor.run(fn, async () => {
-        await after?.();
-        onReady();
+      await unlessUnreadable(() => twoFactor.run(fn, async (result) => {
+        await after?.(result);
+        if (ready) onReady();
       }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(accountErrorText(e, t));
     } finally {
       setLoading(false);
     }
   };
 
   const [bindingLost, setBindingLost] = useState(false);
-  const auth = useSystemAuthPrompt(isLocked && !!systemAuth, async (reason) => {
+  const auth = useSystemAuthPrompt(isLocked && !addOnly && !!systemAuth, async (reason) => {
     const r = await unlockWithSystemAuth(reason);
+    if (r === "server-blocked") blockServer();
     if (r === "invalidated") setBindingLost(true);
     return r;
   }, onReady);
@@ -120,7 +186,7 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
         <p className="text-sm mb-2 text-center text-(--t-text-bright)">
           {t("layout.auth.vaultUnreadableTitle")}
         </p>
-        <p className="text-xs mb-4 text-center leading-relaxed text-(--t-text-muted)">
+        <p className="text-xs mb-4 text-center leading-relaxed text-(--t-text-secondary)">
           {t(noPassword ? "layout.auth.vaultUnreadableBodyNoPassword" : "layout.auth.vaultUnreadableBody")}
         </p>
         <ErrorMsg msg={error} />
@@ -163,16 +229,19 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
 
   // ── Locked (vault exists, need password) ─────────────────────────────────
 
-  if (isLocked) {
+  if (isLocked && !addOnly) {
     const submit = async (e: React.FormEvent) => {
       e.preventDefault();
       await wrap(() => login(password), async () => {
-        if (bindingLost) await rebindAfterPassword(password, t("layout.appLock.sealReason"));
+        // Without a remembered copy there is nothing to seal later, so seal the typed one now.
+        if (bindingLost || !(await keepsPlainPassword())) {
+          await rebindAfterPassword(password, t("layout.appLock.sealReason"));
+        }
       });
     };
     return (
       <Layout>
-        <p className="text-xs mb-4 text-center text-(--t-text-muted)">
+        <p className="text-xs mb-4 text-center text-(--t-text-secondary)">
           {t("layout.auth.unlockPrompt")}
         </p>
         <SystemAuthButton auth={auth} loading={loading} />
@@ -197,12 +266,27 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
     );
   }
 
+  // ── Enrolment token (first launch) ───────────────────────────────────────
+
+  if (view === "enroll" && enroll) {
+    // Once the form has signed in, there is an account to open instead of the generic home.
+    const skip = async () => ((await isServerMode().catch(() => false)) ? onReady() : reset("home"));
+    return (
+      <Layout>
+        {enrolled
+          ? <EnrollOutcome {...enrolled} onContinue={onReady} />
+          : <EnrollForm key={enroll.token.id} token={enroll.token} source={enroll.source} host="page" activeAccount="none"
+              onDone={(outcome, result) => setEnrolled({ outcome, ...result })} onSkip={() => void skip()} onBusyChange={setEnrollBusy} />}
+      </Layout>
+    );
+  }
+
   // ── Home (first launch) ──────────────────────────────────────────────────
 
   if (view === "home") {
     return (
       <Layout>
-        <p className="text-xs mb-6 text-center text-(--t-text-muted)">
+        <p className="text-xs mb-6 text-center text-(--t-text-secondary)">
           {t("layout.auth.chooseHowToUse")}
         </p>
 
@@ -227,6 +311,12 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
           sub={t("layout.auth.cloudAccountSub", { context: lanContext })}
           onClick={() => reset("cloud", "signup")}
         />
+
+        <p className="mt-4 text-xs text-center text-(--t-text-secondary)">
+          {t("layout.auth.addAccountLater")}
+        </p>
+        <SwitchModeLink prompt={t("layout.auth.alreadyHaveAccount")} label={t("layout.auth.signIn")} onClick={() => reset("cloud", "signin")} />
+        <EnrollTokenEntry onToken={(token) => { setEnroll({ token, source: "paste" }); setView("enroll"); }} />
       </Layout>
     );
   }
@@ -235,16 +325,18 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
 
   if (view === "cloud") {
     const isSignup = cloudMode === "signup";
+    const { value: accountEmail, locked: emailLocked } = invite.email(email, isSignup);
 
     const submit = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!email.includes("@")) { setError(t("layout.auth.errorInvalidEmail")); return; }
-      const normalizedUrl = serverUrl.replace(/\/+$/, "");
+      const invalidEmail = emailError(accountEmail, t);
+      if (invalidEmail) { setError(invalidEmail); return; }
+      const normalizedUrl = resolveServerUrl(serverUrl);
       if (isSignup) {
-        if (password.length < 8) { setError(t("layout.auth.errorMinLength8")); return; }
-        if (password !== confirm) { setError(t("layout.auth.errorPasswordMismatch")); return; }
-        await wrap(async () => {
-          await createServerAccount(email, password, normalizedUrl);
+        const invalidPassword = newPasswordProblem(password, confirm, t);
+        if (invalidPassword) { setError(invalidPassword); return; }
+        if (!addOnly) await wrap(invite.askOnClosed(async () => {
+          await createServerAccount(accountEmail, password, normalizedUrl, invite.credential);
           addToast({
             source: APP_SOURCE,
             type: "toast",
@@ -252,57 +344,49 @@ export default function AuthPage({ isLocked, vaultUnreadable, systemAuth, onRead
             severity: "info",
             duration: 5000,
           });
-        });
-      } else {
+        }));
+      } else if (!addOnly) {
         await wrap(() => login(password, email, normalizedUrl));
+      }
+      if (addOnly) {
+        await wrap(
+          invite.askOnClosed(() =>
+            authenticateServerAccount(isSignup ? "register" : "signin", accountEmail, password, normalizedUrl, invite.credential)),
+          ({ account }) => addAccount(account, pendingSecret.current),
+          false,
+        );
       }
     };
 
     return (
-      <Layout onBack={() => reset("home")}>
-        <p className="text-xs mb-4 text-center text-(--t-text-muted)">
+      <Layout onBack={addOnly ? undefined : () => reset("home")}>
+        <p className="text-xs mb-4 text-center text-(--t-text-secondary)">
           {isSignup ? t("layout.auth.signupPrompt", { context: lanContext }) : t("layout.auth.signinPrompt")}
         </p>
         <form onSubmit={submit} className="w-full space-y-2">
-          <Input type="email" placeholder={t("layout.auth.emailPlaceholder")} value={email} onChange={setEmail} autoFocus />
+          <Input type="email" placeholder={t("layout.auth.emailPlaceholder")} value={accountEmail}
+            onChange={setEmail} autoFocus disabled={emailLocked} />
           <Input type="password" placeholder={isSignup ? t("layout.auth.masterPasswordMinPlaceholder") : t("layout.auth.masterPasswordPlaceholder")}
             value={password} onChange={setPassword} />
           {isSignup && (
-            <Input type="password" placeholder={t("layout.auth.confirmPasswordPlaceholder")} value={confirm} onChange={setConfirm} />
+            <>
+              <Input type="password" placeholder={t("layout.auth.confirmPasswordPlaceholder")} value={confirm} onChange={setConfirm} />
+              <MasterPasswordNote />
+            </>
           )}
-          <ServerUrlField value={serverUrl} onChange={setServerUrl} inputClassName={INPUT_CLASS} />
+          <ServerUrlField value={serverUrl} onChange={setServerUrl} inputClassName={INPUT_CLASS} locked={serverLocked} />
+          {isSignup && <InvitationEntry state={invite.entry} />}
           <ErrorMsg msg={error} />
-          <SubmitBtn loading={loading} label={isSignup ? t("layout.auth.createAccount") : t("layout.auth.signIn")} />
+          <SubmitBtn loading={loading}
+            label={isSignup ? invite.createLabel : t("layout.auth.signIn")} />
         </form>
 
-        <div className="mt-3 text-center">
-          {isSignup ? (
-            <>
-              <span className="text-xs text-(--t-text-dim)">{t("layout.auth.alreadyHaveAccount")}</span>
-              <button
-                type="button"
-                onClick={() => { setCloudMode("signin"); setError(""); setConfirm(""); }}
-                className="text-xs text-(--t-accent) hover:underline"
-              >
-                {t("layout.auth.signIn")}
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="text-xs text-(--t-text-dim)">{t("layout.auth.newHere")}</span>
-              <button
-                type="button"
-                onClick={() => { setCloudMode("signup"); setError(""); }}
-                className="text-xs text-(--t-accent) hover:underline"
-              >
-                {t("layout.auth.createAccount")}
-              </button>
-            </>
-          )}
-        </div>
+        {isSignup
+          ? <SwitchModeLink prompt={t("layout.auth.alreadyHaveAccount")} label={t("layout.auth.signIn")} onClick={() => { setCloudMode("signin"); setError(""); setConfirm(""); }} />
+          : <SwitchModeLink prompt={t("layout.auth.newHere")} label={t("layout.auth.createAccount")} onClick={() => { setCloudMode("signup"); setError(""); }} />}
 
         {isSignup && (
-          <p className="mt-2 text-xs text-center text-(--t-text-dim) leading-relaxed">
+          <p className="mt-2 text-xs text-center text-(--t-text-secondary) leading-relaxed">
             {t("layout.auth.e2eeNotice")}{" "}
             <button type="button" onClick={() => void openUrl("https://github.com/VoltiusApp/voltius")}
               className="text-(--t-accent) hover:underline">

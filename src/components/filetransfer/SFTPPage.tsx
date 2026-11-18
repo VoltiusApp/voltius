@@ -27,6 +27,7 @@ import { hostPresentation } from "./hostPresentation";
 import { idToRelease, relinkOf } from "./sideRelink";
 import { cancelKnownHostPrompt } from "@/services/knownHosts";
 import { closedPhase, connectErrorPhase, useConnectRetry } from "@/hooks/useConnectRetry";
+import { revokedPhase, useConnectionRevoked } from "@/hooks/useConnectionRevoked";
 import {
   type HostChoice, type SidePhase, type FileEntry,
   genId,
@@ -183,6 +184,14 @@ export default function SFTPPage() {
   useConnectRetry(rightPhase, reconnectSide("right", rightPhase), rightHost);
 
   // ── Detect remote connection loss via Rust sftp-closed event ──────────────
+
+  const revokedHostId = (host: HostChoice | null) => (host?.kind === "remote" ? host.connection.id : undefined);
+  const closeRevokedSide = (side: Side) => () => {
+    releaseSide(side);
+    setPhaseOf(side)(revokedPhase());
+  };
+  useConnectionRevoked(revokedHostId(leftHost), closeRevokedSide("left"));
+  useConnectionRevoked(revokedHostId(rightHost), closeRevokedSide("right"));
 
   useConnectionLoss(leftPhase, setLeftPhase, leftHost);
   useConnectionLoss(rightPhase, setRightPhase, rightHost);

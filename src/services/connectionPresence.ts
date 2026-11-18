@@ -5,18 +5,17 @@ export interface ConnectionUsageEntry {
   user_ids: string[];
 }
 
-/** Tell the server we just started or stopped using a team-vault connection in a terminal. */
+/** Tell the server we started or stopped using a team-vault connection. Rejects when a retry could succeed. */
 export async function notifyConnectionUsage(connectionId: string, inUse: boolean): Promise<void> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) return;
-  try {
-    await fetchWithAuth(`${serverUrl}/v1/presence/connection-usage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ connection_id: connectionId, in_use: inUse }),
-    });
-  } catch {
-    // Fire-and-forget. Server-side disconnect cleanup is the safety net.
+  const res = await fetchWithAuth(`${serverUrl}/v1/presence/connection-usage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ connection_id: connectionId, in_use: inUse }),
+  });
+  if (!res.ok && (res.status >= 500 || res.status === 408 || res.status === 429)) {
+    throw new Error(`HTTP ${res.status}`);
   }
 }
 

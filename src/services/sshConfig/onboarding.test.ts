@@ -13,7 +13,7 @@ import * as openssh from "@/services/import-export/parsers/openssh";
 import { log } from "@/lib/logger";
 
 vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", getPlatform: vi.fn() }));
-vi.mock("./state", () => ({ loadSshConfigState: vi.fn(), updateSshConfigState: vi.fn(async (p) => p) }));
+vi.mock("./state", () => ({ loadSshConfigState: vi.fn(), updateSshConfigState: vi.fn(async (p) => p), sshConfigImportLock: vi.fn(() => null) }));
 vi.mock("./migrate", () => ({ migrateFromPlugin: vi.fn(async () => {}) }));
 vi.mock("./notice", () => ({ showMigrationNotice: vi.fn() }));
 vi.mock("./sync", () => ({ startSshConfigSyncEngine: vi.fn() }));
@@ -25,6 +25,7 @@ const config = { config: "Host a a.example.com\n  HostName x\nHost b\n  HostName
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(state.sshConfigImportLock).mockReturnValue(null);
   useNotificationStore.setState({ banners: [], inbox: [], toasts: [] } as never);
   vi.mocked(platform.getPlatform).mockResolvedValue("linux");
   vi.mocked(state.loadSshConfigState).mockResolvedValue({});
@@ -60,6 +61,14 @@ describe("startSshConfigOnboarding", () => {
     const [banner] = useNotificationStore.getState().banners;
     expect(banner.message).toBe(i18n.t("notifications.sshConfigOffer.message", { count: 2 }));
     expect(banner.actions).toHaveLength(2);
+  });
+
+  it("neither offers the import nor starts the engine when the organization turned it off", async () => {
+    vi.mocked(state.sshConfigImportLock).mockReturnValue(false);
+    startSshConfigOnboarding();
+    await flush();
+    expect(useNotificationStore.getState().banners).toHaveLength(0);
+    expect(openssh.readOpensshFiles).not.toHaveBeenCalled();
   });
 
   it("records the answer and opens the importer on Import", async () => {

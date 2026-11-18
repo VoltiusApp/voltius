@@ -13,68 +13,59 @@ import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { VaultCascadeModal } from "@/components/shared/VaultCascadeModal";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
-import { useVaultCascade } from "@/hooks/useVaultCascade";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { usePermissions } from "@/hooks/usePermission";
 import { useCloseWhenGone } from "@/hooks/useCloseWhenGone";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useAccessibleVaultIds, useScopedVaultId } from "@/hooks/useAccessibleVaultIds";
-import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
 import { usePageBulkActions } from "@/hooks/usePageBulkActions";
 import { useDragToFolder } from "@/hooks/useDragToFolder";
 import { folderDragHandlers } from "@/utils/folderDragHandlers";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
+import { useNewFolder } from "@/hooks/useNewFolder";
 import { useFolderStore } from "@/stores/folderStore";
 import { useAllIdentities } from "@/hooks/useAllIdentities";
 import { useAllKeys } from "@/hooks/useAllKeys";
 import { useAllFolders } from "@/hooks/useAllFolders";
 import { FolderCard } from "@/components/folders/FolderCard";
 import { FolderEditPanel } from "@/components/folders/FolderEditPanel";
+import { FolderEmptyState } from "@/components/folders/FolderEmptyState";
 import { KeychainToolbar } from "./KeychainToolbar";
 import { KeySection, IdentitySection } from "./KeyCards";
 import { KeyForm } from "./KeyForm";
 import { IdentityForm } from "./IdentityForm";
 import { KeyExportPanel, sortByMode } from "./KeyExportPanel";
-import { getSecret, storeSecret } from "@/services/vault";
 import { saveIdentityFromForm, saveKeyFromForm } from "@/services/keychainForm";
 import type { Folder, Identity, IdentityFormData, SshKey, SshKeyFormData } from "@/types";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
-import { reportUploadFailure } from "@/services/secretRouting";
-import { moveKeyToVault, moveIdentityToVault } from "@/services/vaultObjectSecrets";
-import { usePageClipboard } from "@/hooks/usePageClipboard";
-import { vaultClipboardBase } from "@/utils/vaultClipboardBase";
-import { keychainClipboardHalf } from "@/services/clipboard/keychain";
+import { useVaultObjectsClipboard } from "@/hooks/useVaultObjectsClipboard";
 import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
-import { descendantFolders, foldersOutsideSubtree, itemsInFolderSubtree, newFolderData, folderItemCounter } from "@/utils/folderTree";
+import { foldersOutsideSubtree, itemsInFolderSubtree, folderItemCounter } from "@/utils/folderTree";
 import { folderAwareKeys, selectFollowing } from "@/utils/cardInteraction";
 import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
 import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
-import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
-import { moveFolderTreeToVault } from "@/utils/folderMove";
-import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { useSearchMatcher } from "@/utils/search";
-import { passMoveCancelled, unlessMoveCancelled } from "@/services/teamObjectPersistence";
+import { passMoveCancelled } from "@/services/teamObjectPersistence";
 import { describeError } from "@/services/backendErrors";
+import { folderTarget, identityTarget, keyTarget, refuseWhilePreviewing, whenWritable } from "@/services/previewGuard";
 
 export default function KeychainPage() {
   const { t } = useTranslation();
-  const { loadIdentities, saveIdentity, updateIdentity, deleteIdentity } =
-    useIdentityStore();
+  const { loadIdentities, deleteIdentity } = useIdentityStore();
   const identities = useAllIdentities();
-  const { loadKeys, saveKey, updateKey, deleteKey } = useKeyStore();
+  const { loadKeys, deleteKey } = useKeyStore();
   const keys = useAllKeys();
-  const { pending: cascadePending, request: requestCascade, confirm: confirmCascade, cancel: cancelCascade } = useVaultCascade();
   const crossVaultPaste = useCrossVaultPasteConfirm();
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
   const bgContributions = useUIContributions("keychain.bgContextMenu");
@@ -99,7 +90,6 @@ export default function KeychainPage() {
   const identityFormVersion = useSyncedFormKey(editingIdentity?.updated_at, showIdentityForm, () => identityFormIsDirtyRef.current);
   const [exportingKey, setExportingKey] = useState<SshKey | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const reportError = unlessMoveCancelled(setError);
   const reportSaveError = passMoveCancelled(setError);
   const layoutMode = useUIStore((s) => s.keychainLayoutMode);
   const setLayoutMode = useUIStore((s) => s.setKeychainLayoutMode);
@@ -115,7 +105,6 @@ export default function KeychainPage() {
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const accessibleVaultIds = useAccessibleVaultIds();
   const scopedVaultId = useScopedVaultId();
-  const defaultVaultId = useDefaultVaultId();
   const can = usePermissions();
   const canEditKeys = selectedVaultIds.some((vid) => can("EDIT_KEYS", vid));
   const canEditIdentities = selectedVaultIds.some((vid) => can("EDIT_IDENTITIES", vid));
@@ -124,6 +113,8 @@ export default function KeychainPage() {
   const q = search.trim();
   const match = useSearchMatcher(q);
   const scopedFolders = useScopedFolders(folders, accessibleVaultIds, "keychain");
+  // Every vault's, not only those on screen: the clipboard outlives a vault switch.
+  const keychainFolders = useMemo(() => folders.filter((f) => f.object_type === "keychain"), [folders]);
   const scopedFolderIds = useMemo(() => new Set(scopedFolders.map((f) => f.id)), [scopedFolders]);
   const editingFolder = editingFolderId ? scopedFolders.find((f) => f.id === editingFolderId) ?? null : null;
   useCloseWhenGone(editingKeyId, editingKey !== null, () => closePanel());
@@ -141,6 +132,7 @@ export default function KeychainPage() {
     navigateToRoot,
     onFolderDeleted,
   } = useFolderNavigation(scopedFolders, "keychain");
+  const { folderBlocked, addFolder } = useNewFolder("keychain", folderPath, saveFolder);
 
   const availableTags = useMemo(
     () => [...new Set([...keys.flatMap((k) => k.tags), ...identities.flatMap((i) => i.tags)])].sort(),
@@ -305,17 +297,11 @@ export default function KeychainPage() {
       .map((v) => ({
         label: v.name,
         icon: operation === "move" ? "lucide:vault" : "lucide:copy-plus",
-        onClick: () => {
-          if (operation === "move") {
-            for (const folder of selectedFolders) handleMoveFolderToVault(folder, v.id);
-            for (const key of selectedKeys) void handleMoveKeyToVault(key, v.id);
-            for (const identity of selectedIdentities) handleMoveIdentityToVault(identity, v.id);
-          } else {
-            for (const folder of selectedFolders) handleCopyFolderToVault(folder, v.id);
-            for (const key of selectedKeys) void handleCopyKeyToVault(key, v.id);
-            for (const identity of selectedIdentities) handleCopyIdentityToVault(identity, v.id);
-          }
-        },
+        onClick: () => transferToVault(
+          [...selectedFolders, ...selectedKeys, ...selectedIdentities].map((o) => o.id),
+          v.id,
+          operation === "move" ? "cut" : "copy",
+        ),
       }));
     const moveChildren = bulkVaultChildren("move");
     const copyChildren = bulkVaultChildren("copy");
@@ -335,15 +321,10 @@ export default function KeychainPage() {
           ? t("common.objectSync.disableCount", { count: allIds.length })
           : t("common.objectSync.enableCount", { count: allIds.length }),
         icon: allSynced ? "lucide:cloud-off" : "lucide:cloud",
-        onClick: () => {
-          const store = useSyncPrefsStore.getState();
-          for (const id of allIds) {
-            const typeId = selectedKeyIds.includes(id) ? "key" : "identity";
-            const isSynced = store.isObjectSynced(id, typeId);
-            if (allSynced && isSynced) store.toggleExcluded(id);
-            else if (!allSynced && !isSynced) store.toggleExcluded(id);
-          }
-        },
+        onClick: () => useSyncPrefsStore.getState().setObjectsSynced(
+          allIds.map((id) => ({ id, typeId: selectedKeyIds.includes(id) ? "key" : "identity" })),
+          !allSynced,
+        ),
       },
     ];
     if (selectedKeyIds.length > 0) {
@@ -357,7 +338,7 @@ export default function KeychainPage() {
     items.push({
       label: t("keychain.page.bulk.deleteItems", { count: allIds.length }),
       icon: "lucide:trash-2",
-      onClick: () => setConfirmDeleteIds(allIds),
+      onClick: whenWritable(() => setConfirmDeleteIds(allIds)),
       danger: true,
       divider: true,
     });
@@ -392,13 +373,7 @@ export default function KeychainPage() {
     [clipboard],
   );
 
-  const { vaultForFolder, adapter: clipboardBase } = vaultClipboardBase({
-    navItem: "keychain",
-    entities: [
-      { kind: "key", items: keys },
-      { kind: "identity", items: identities },
-    ],
-    folders: scopedFolders,
+  const { transferToVault, moveToVault: handleMoveToVault, copyToVault: handleCopyToVault } = useVaultObjectsClipboard("keychain", {
     selectedIdSet,
     focusedId,
     activeFolderId,
@@ -408,34 +383,6 @@ export default function KeychainPage() {
     can,
     confirmCrossVault: crossVaultPaste.confirmCrossVault,
     setSelection,
-    // Wrapped, not passed: both are declared further down the component.
-    migrateFolderTreeToVault: (folder, parentFolderId, vaultId) =>
-      migrateFolderTreeToVault(folder, parentFolderId, vaultId),
-    moveFolder,
-    copyFolderInto: (id, parentFolderId, vaultId, opts) =>
-      copyFolderInto(id, parentFolderId, vaultId, opts),
-    deleteFolder,
-  });
-
-  // Every mutation below goes through a store method so vault permission checks apply.
-  usePageClipboard({
-    ...clipboardBase,
-    ...keychainClipboardHalf({
-      keys,
-      identities,
-      keysInFolderTree,
-      identitiesInFolderTree,
-      vaultForFolder,
-      updateKey,
-      updateIdentity,
-      moveObjectsToFolder,
-      loadKeys,
-      loadIdentities,
-      duplicateKeyInto,
-      duplicateIdentityInto,
-      deleteKey,
-      deleteIdentity,
-    }),
   });
 
   useEffect(() => {
@@ -485,6 +432,7 @@ export default function KeychainPage() {
   };
 
   const handleDeleteKey = async (id: string) => {
+    if (refuseWhilePreviewing(keyTarget(id))) return;
     try {
       await deleteKey(id);
       if (editingKey?.id === id) { setEditingKeyId(null); setShowKeyForm(false); }
@@ -492,6 +440,7 @@ export default function KeychainPage() {
   };
 
   const handleDeleteIdentity = async (id: string) => {
+    if (refuseWhilePreviewing(identityTarget(id))) return;
     try {
       await deleteIdentity(id);
       if (editingIdentity?.id === id) { setEditingIdentityId(null); setShowIdentityForm(false); }
@@ -499,6 +448,7 @@ export default function KeychainPage() {
   };
 
   const openKeyForm = (key: SshKey | null, mode: "import" | "generate" = "import") => {
+    if (refuseWhilePreviewing(keyTarget(key?.id))) return;
     keyFormIsDirtyRef.current = false;
     keyFormSessionKeyRef.current = key?.id ?? `new-key-${Date.now()}`;
     setKeyFormMode(key ? "import" : mode);
@@ -513,6 +463,7 @@ export default function KeychainPage() {
   const openKeyGenForm = () => openKeyForm(null, "generate");
 
   const openIdentityForm = (identity: Identity | null) => {
+    if (refuseWhilePreviewing(identityTarget(identity?.id))) return;
     identityFormIsDirtyRef.current = false;
     identityFormSessionKeyRef.current = identity?.id ?? `new-identity-${Date.now()}`;
     setEditingIdentityId(identity?.id ?? null);
@@ -528,6 +479,7 @@ export default function KeychainPage() {
   );
 
   const openExportPanel = (key: SshKey) => {
+    if (refuseWhilePreviewing(keyTarget(key.id))) return;
     setExportingKey(key);
     setShowKeyForm(false);
     setShowIdentityForm(false);
@@ -544,97 +496,16 @@ export default function KeychainPage() {
     setEditingIdentityId(null);
   };
 
-  const handleMoveKeyToVault = async (key: SshKey, vaultId: string) => {
-    try {
-      await moveKeyToVault(key, vaultId, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId }, updateKey);
-    }
-    catch (err) { reportError(err); }
-  };
-
-  const handleCopyKeyToVault = async (key: SshKey, vaultId: string) => {
-    try {
-      const newKey = await saveKey(copyingRulesOf({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId }, key.id));
-      const [priv, pub, pass] = await Promise.all([
-        getSecret(`key:${key.id}:private`),
-        getSecret(`key:${key.id}:public`),
-        getSecret(`key:${key.id}:passphrase`),
-      ]);
-      if (priv) await storeSecret(`key:${newKey.id}:private`, priv).catch(reportUploadFailure("KeychainPage: copy key to vault"));
-      if (pub) await storeSecret(`key:${newKey.id}:public`, pub).catch(reportUploadFailure("KeychainPage: copy key to vault"));
-      if (pass) await storeSecret(`key:${newKey.id}:passphrase`, pass).catch(reportUploadFailure("KeychainPage: copy key to vault"));
-    } catch (err) { setError(describeError(err, t)); }
-  };
-
-  const handleMoveIdentityToVault = (identity: Identity, vaultId: string) => {
-    const key = identity.key_id ? keys.find((k) => k.id === identity.key_id) : undefined;
-    const keyNeedsMove = key && (key.vault_id ?? "personal") !== vaultId;
-    const targetVaultName = vaultOptions.find((v) => v.id === vaultId)?.name ?? vaultId;
-
-    requestCascade({
-      operation: "move",
-      targetVaultName,
-      // "Unnamed key" default name kept in English until all creation sites are localized together (see i18n issue #14)
-      items: keyNeedsMove ? [{ type: "key" as const, label: key.name ?? "Unnamed key" }] : [],
-      execute: async () => {
-        try {
-          if (keyNeedsMove) {
-            await moveKeyToVault(key, vaultId, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId }, updateKey);
-          }
-          await moveIdentityToVault(identity, vaultId, {
-            name: identity.name, username: identity.username,
-            key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId,
-          }, updateIdentity);
-        } catch (err) { reportError(err); }
-      },
-    });
-  };
-
-  const handleCopyIdentityToVault = (identity: Identity, vaultId: string) => {
-    const key = identity.key_id ? keys.find((k) => k.id === identity.key_id) : undefined;
-    const keyNeedsCopy = key && (key.vault_id ?? "personal") !== vaultId;
-    const targetVaultName = vaultOptions.find((v) => v.id === vaultId)?.name ?? vaultId;
-
-    requestCascade({
-      operation: "copy",
-      targetVaultName,
-      // "Unnamed key" default name kept in English until all creation sites are localized together (see i18n issue #14)
-      items: keyNeedsCopy ? [{ type: "key" as const, label: key.name ?? "Unnamed key" }] : [],
-      execute: async () => {
-        try {
-          let newKeyId = identity.key_id;
-
-          if (keyNeedsCopy) {
-            const newKey = await saveKey(copyingRulesOf({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId }, key.id));
-            const [priv, pub] = await Promise.all([
-              getSecret(`key:${key.id}:private`),
-              getSecret(`key:${key.id}:public`),
-            ]);
-            if (priv) await storeSecret(`key:${newKey.id}:private`, priv).catch(reportUploadFailure("KeychainPage: copy identity's key to vault"));
-            if (pub) await storeSecret(`key:${newKey.id}:public`, pub).catch(reportUploadFailure("KeychainPage: copy identity's key to vault"));
-            newKeyId = newKey.id;
-          }
-
-          const newIdentity = await saveIdentity(copyingRulesOf({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId }, identity.id));
-          const pwd = await getSecret(`identity:${identity.id}:password`);
-          if (pwd) await storeSecret(`identity:${newIdentity.id}:password`, pwd).catch(reportUploadFailure("KeychainPage: copy identity to vault"));
-        } catch (err) { setError(describeError(err, t)); }
-      },
-    });
-  };
-
   // ── Folder vault move / copy ──────────────────────────────────────────────
-
-  /** All folders in the subtree rooted at folderId (BFS-ordered, parents before children). */
-  const getAllSubFolders = (folderId: string): Folder[] => descendantFolders(scopedFolders, folderId);
 
   /** Keys nested anywhere under folderId. */
   function keysInFolderTree(folderId: string): SshKey[] {
-    return itemsInFolderSubtree(keys, scopedFolders, folderId);
+    return itemsInFolderSubtree(keys, keychainFolders, folderId);
   }
 
   /** Identities nested anywhere under folderId. */
   function identitiesInFolderTree(folderId: string): Identity[] {
-    return itemsInFolderSubtree(identities, scopedFolders, folderId);
+    return itemsInFolderSubtree(identities, keychainFolders, folderId);
   }
 
   /** Keys and identities nested anywhere under folderId. */
@@ -649,179 +520,6 @@ export default function KeychainPage() {
     folders: scopedFolders,
     itemIdsInFolderTree: getItemsInFolderTree,
   });
-
-  const handleMoveFolderToVault = (folder: Folder, vaultId: string) => {
-    const treeKeys = keysInFolderTree(folder.id);
-    const treeIdentities = identitiesInFolderTree(folder.id);
-    const targetVaultName = vaultOptions.find((v) => v.id === vaultId)?.name ?? vaultId;
-
-    requestCascade({
-      operation: "move",
-      targetVaultName,
-      description: t("keychain.page.vaultCascade.moveDescription", { folderName: folder.name, targetVaultName }),
-      // "Unnamed key" default name kept in English until all creation sites are localized together (see i18n issue #14)
-      items: [
-        ...treeKeys.map((k) => ({ type: "key" as const, label: k.name ?? "Unnamed key" })),
-        ...treeIdentities.map((i) => ({ type: "identity" as const, label: i.name || i.username })),
-      ],
-      execute: async () => {
-        try {
-          await migrateFolderTreeToVault(folder, folder.parent_folder_id ?? null, vaultId);
-        } catch (err) { reportError(err); }
-      },
-    });
-  };
-
-  const handleCopyFolderToVault = (folder: Folder, vaultId: string) => {
-    const subFolders = getAllSubFolders(folder.id);
-    const treeKeys = keysInFolderTree(folder.id);
-    const treeIdentities = identitiesInFolderTree(folder.id);
-    const targetVaultName = vaultOptions.find((v) => v.id === vaultId)?.name ?? vaultId;
-
-    requestCascade({
-      operation: "copy",
-      targetVaultName,
-      description: t("keychain.page.vaultCascade.copyDescription", { folderName: folder.name, targetVaultName }),
-      // "Unnamed key" default name kept in English until all creation sites are localized together (see i18n issue #14)
-      items: [
-        ...treeKeys.map((k) => ({ type: "key" as const, label: k.name ?? "Unnamed key" })),
-        ...treeIdentities.map((i) => ({ type: "identity" as const, label: i.name || i.username })),
-      ],
-      execute: async () => {
-        try {
-          // The copied keys and identities are not re-filed — they land at the
-          // destination root — but the folders themselves are still recreated.
-          await copyFolderSubtree({
-            root: folder, subFolders, vaultId, existingFolders: folders, saveFolder,
-          });
-          const keyIdMap = new Map<string, string>();
-          for (const key of treeKeys) {
-            const newKey = await useKeyStore.getState().saveKey(copyingRulesOf({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId }, key.id));
-            const [priv, pub] = await Promise.all([
-              getSecret(`key:${key.id}:private`),
-              getSecret(`key:${key.id}:public`),
-            ]);
-            if (priv) await storeSecret(`key:${newKey.id}:private`, priv).catch(reportUploadFailure("KeychainPage: copy folder key"));
-            if (pub) await storeSecret(`key:${newKey.id}:public`, pub).catch(reportUploadFailure("KeychainPage: copy folder key"));
-            keyIdMap.set(key.id, newKey.id);
-          }
-          for (const identity of treeIdentities) {
-            const newKeyId = identity.key_id ? (keyIdMap.get(identity.key_id) ?? identity.key_id) : undefined;
-            const newIdentity = await useIdentityStore.getState().saveIdentity(copyingRulesOf({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId }, identity.id));
-            const pwd = await getSecret(`identity:${identity.id}:password`);
-            if (pwd) await storeSecret(`identity:${newIdentity.id}:password`, pwd).catch(reportUploadFailure("KeychainPage: copy folder identity"));
-          }
-        } catch (err) { setError(describeError(err, t)); }
-      },
-    });
-  };
-
-  // ── Clipboard paste helpers ───────────────────────────────────────────────
-
-  /**
-   * Duplicates `key` into `folderId`, optionally into another vault. `keepName` is
-   * for members of a subtree being cloned wholesale — only the root of such a clone
-   * carries the "(copy)" suffix. Throws; callers surface the error.
-   */
-  async function duplicateKeyInto(
-    key: SshKey,
-    folderId: string | null,
-    opts: { vaultId?: string; keepName?: boolean } = {},
-  ) {
-    const vaultId = opts.vaultId ?? key.vault_id ?? "personal";
-    const newKey = await saveKey(copyingRulesOf({
-      // default name kept in English until all creation sites are localized together (see i18n issue #14)
-      name: key.name ? (opts.keepName ? key.name : `${key.name} (copy)`) : undefined,
-      key_type: key.key_type,
-      tags: [...key.tags],
-      folder_id: folderId ?? undefined,
-      vault_id: vaultId,
-    }, key.id));
-    // Same copy as plugins/domains/objects.ts duplicators.key; kept apart: component vs plugin ports.
-    for (const part of ["private", "public", "passphrase"]) {
-      const value = await getSecret(`key:${key.id}:${part}`);
-      if (!value) continue;
-      const localKey = `key:${newKey.id}:${part}`;
-      await storeSecret(localKey, value).catch(reportUploadFailure("duplicateKeyInto"));
-    }
-    return newKey;
-  }
-
-  /** `keyId` overrides the link when the referenced key was cloned alongside it. */
-  async function duplicateIdentityInto(
-    identity: Identity,
-    folderId: string | null,
-    opts: { vaultId?: string; keepName?: boolean; keyId?: string } = {},
-  ) {
-    const vaultId = opts.vaultId ?? identity.vault_id ?? "personal";
-    const newIdentity = await saveIdentity(copyingRulesOf({
-      // default name kept in English until all creation sites are localized together (see i18n issue #14)
-      name: identity.name ? (opts.keepName ? identity.name : `${identity.name} (copy)`) : undefined,
-      username: identity.username,
-      key_id: opts.keyId ?? identity.key_id,
-      tags: [...identity.tags],
-      folder_id: folderId ?? undefined,
-      vault_id: vaultId,
-    }, identity.id));
-    const pwd = await getSecret(`identity:${identity.id}:password`);
-    if (pwd) {
-      const localKey = `identity:${newIdentity.id}:password`;
-      await storeSecret(localKey, pwd).catch(reportUploadFailure("duplicateIdentityInto"));
-    }
-    return newIdentity;
-  }
-
-  /** Deep-clones a folder subtree under `parentFolderId`, into `vaultId` when given. */
-  const copyFolderInto = async (
-    folderId: string,
-    parentFolderId: string | null,
-    vaultId?: string,
-    opts: { keepName?: boolean } = {},
-  ) => {
-    const folder = scopedFolders.find((f) => f.id === folderId);
-    if (!folder) throw new Error(`Unknown folder ${folderId}`);
-    const targetVaultId = vaultId ?? folder.vault_id;
-    const { root, folderIdMap } = await cloneFolderTree({
-      root: folder,
-      subFolders: getAllSubFolders(folder.id),
-      parentFolderId,
-      vaultId: targetVaultId,
-      keepName: opts.keepName ?? false,
-      saveFolder,
-    });
-    // Keys first: an identity cloned from the same subtree must point at the clone
-    // of its key, not at the original.
-    const keyIdMap = new Map<string, string>();
-    for (const key of keysInFolderTree(folder.id)) {
-      const created = await duplicateKeyInto(key, folderIdMap.get(key.folder_id ?? "") ?? root.id, {
-        vaultId: targetVaultId,
-        keepName: true,
-      });
-      keyIdMap.set(key.id, created.id);
-    }
-    for (const identity of identitiesInFolderTree(folder.id)) {
-      await duplicateIdentityInto(identity, folderIdMap.get(identity.folder_id ?? "") ?? root.id, {
-        vaultId: targetVaultId,
-        keepName: true,
-        keyId: identity.key_id ? (keyIdMap.get(identity.key_id) ?? identity.key_id) : undefined,
-      });
-    }
-    return root;
-  };
-
-  const migrateFolderTreeToVault = async (
-    folder: Folder,
-    parentFolderId: string | null,
-    vaultId: string,
-  ) => {
-    await moveFolderTreeToVault({ root: folder, subFolders: getAllSubFolders(folder.id), parentFolderId, vaultId, updateFolder });
-    for (const key of keysInFolderTree(folder.id)) {
-      await moveKeyToVault(key, vaultId, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId }, updateKey);
-    }
-    for (const identity of identitiesInFolderTree(folder.id)) {
-      await moveIdentityToVault(identity, vaultId, { name: identity.name, username: identity.username, key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId }, updateIdentity);
-    }
-  };
 
   const openKeyFormRef = useRef(openKeyForm);
   openKeyFormRef.current = openKeyForm;
@@ -843,12 +541,20 @@ export default function KeychainPage() {
       if (identity) openIdentityFormRef.current(identity);
     })(id, e), [handleItemSelect]);
 
-  const editFolder = (folder: Folder) => { closePanel(); setEditingFolderId(folder.id); };
+  const editFolder = (folder: Folder) => {
+    if (refuseWhilePreviewing(folderTarget(folder.id))) return;
+    closePanel();
+    setEditingFolderId(folder.id);
+  };
   const editFolderRef = useRef(editFolder);
   editFolderRef.current = editFolder;
 
-  const createFolder = () =>
-    void saveFolder(newFolderData("keychain", activeFolderId, defaultVaultId, t("keychain.toolbar.newFolder")));
+  const createFolder = () => void addFolder(t("keychain.toolbar.newFolder"));
+
+  // Inside a folder only the types it holds are listed; the per-type "none yet" states are for the root.
+  const inFolderView = !!activeFolderId && !q;
+  const showKeys = !inFolderView || filteredKeys.length > 0 || (showKeyForm && !editingKey);
+  const showIdentities = !inFolderView || filteredIdentities.length > 0 || (showIdentityForm && !editingIdentity);
 
   return (
     <>
@@ -868,8 +574,8 @@ export default function KeychainPage() {
               onSelectSelf={() => selectSingle(editingFolder.id)}
               parentOptions={foldersOutsideSubtree(scopedFolders, editingFolder.id)}
               vaults={vaultOptions.filter((v) => v.id !== (editingFolder.vault_id ?? "personal"))}
-              onMoveToVault={(vaultId) => handleMoveFolderToVault(editingFolder, vaultId)}
-              onCopyToVault={(vaultId) => handleCopyFolderToVault(editingFolder, vaultId)}
+              onMoveToVault={(vaultId) => handleMoveToVault(editingFolder, vaultId)}
+              onCopyToVault={(vaultId) => handleCopyToVault(editingFolder, vaultId)}
             />
           )}
           {exportingKey && (
@@ -890,8 +596,8 @@ export default function KeychainPage() {
               flushRef={keyFormFlushRef}
               isDirtyRef={keyFormIsDirtyRef}
               vaults={editingKey ? vaultOptions.filter((v) => v.id !== (editingKey.vault_id ?? "personal")) : []}
-              onMoveToVault={editingKey ? (vaultId) => { void handleMoveKeyToVault(editingKey, vaultId); } : undefined}
-              onCopyToVault={editingKey ? (vaultId) => { void handleCopyKeyToVault(editingKey, vaultId); } : undefined}
+              onMoveToVault={editingKey ? (vaultId) => handleMoveToVault(editingKey, vaultId) : undefined}
+              onCopyToVault={editingKey ? (vaultId) => handleCopyToVault(editingKey, vaultId) : undefined}
             />
           )}
           {showIdentityForm && (
@@ -904,8 +610,8 @@ export default function KeychainPage() {
               flushRef={identityFormFlushRef}
               isDirtyRef={identityFormIsDirtyRef}
               vaults={editingIdentity ? vaultOptions.filter((v) => v.id !== (editingIdentity.vault_id ?? "personal")) : []}
-              onMoveToVault={editingIdentity ? (vaultId) => { void handleMoveIdentityToVault(editingIdentity, vaultId); } : undefined}
-              onCopyToVault={editingIdentity ? (vaultId) => { void handleCopyIdentityToVault(editingIdentity, vaultId); } : undefined}
+              onMoveToVault={editingIdentity ? (vaultId) => handleMoveToVault(editingIdentity, vaultId) : undefined}
+              onCopyToVault={editingIdentity ? (vaultId) => handleCopyToVault(editingIdentity, vaultId) : undefined}
             />
           )}
         </>
@@ -922,6 +628,7 @@ export default function KeychainPage() {
           onGenerateKey={canEditKeys ? openKeyGenForm : undefined}
           onNewIdentity={canEditIdentities ? () => openIdentityForm(null) : undefined}
           onNewFolder={createFolder}
+          newFolderBlocked={folderBlocked}
           availableTags={availableTags}
           tagFilter={tagFilter}
           onTagFilterChange={setTagFilter}
@@ -963,7 +670,7 @@ export default function KeychainPage() {
                 <SectionHeader
                   label={t("keychain.page.folders")}
                   count={visibleFolders.length}
-                  aside={<SectionAddButton label={t("keychain.page.new")} onClick={createFolder} />}
+                  aside={<SectionAddButton label={t("keychain.page.new")} onClick={createFolder} disabledReason={folderBlocked} />}
                 />
                 <div
                   {...cardGridProps(layoutMode, "card")}
@@ -988,8 +695,8 @@ export default function KeychainPage() {
                       {...folderDropProps(folder.id)}
                       vaults={vaultOptions.filter((v) => v.id !== (folder.vault_id ?? "personal"))}
                       canEdit={can("EDIT_FOLDERS", folder.vault_id ?? "personal", folder.id)}
-                      onMoveToVault={(vaultId) => handleMoveFolderToVault(folder, vaultId)}
-                      onCopyToVault={(vaultId) => handleCopyFolderToVault(folder, vaultId)}
+                      onMoveToVault={(vaultId) => handleMoveToVault(folder, vaultId)}
+                      onCopyToVault={(vaultId) => handleCopyToVault(folder, vaultId)}
                       bulkContextMenuItems={selectedIdSet.size > 1 ? bulkContextMenuItems : undefined}
                     />
                   ))}
@@ -1029,8 +736,8 @@ export default function KeychainPage() {
                     bulkContextMenuItems={bulkContextMenuItems}
                     onPointerDown={handleDragStart}
                     vaultOptions={vaultOptions}
-                    onMoveToVault={handleMoveKeyToVault}
-                    onCopyToVault={handleCopyKeyToVault}
+                    onMoveToVault={handleMoveToVault}
+                    onCopyToVault={handleCopyToVault}
                   />
                 )}
                 {pinnedIdentities.length > 0 && (
@@ -1050,14 +757,21 @@ export default function KeychainPage() {
                     bulkContextMenuItems={bulkContextMenuItems}
                     onPointerDown={handleDragStart}
                     vaultOptions={vaultOptions}
-                    onMoveToVault={handleMoveIdentityToVault}
-                    onCopyToVault={handleCopyIdentityToVault}
+                    onMoveToVault={handleMoveToVault}
+                    onCopyToVault={handleCopyToVault}
                   />
                 )}
               </div>
             )}
 
-            <KeySection
+            {!showKeys && !showIdentities && (
+              <FolderEmptyState actions={[
+                ...(canEditKeys ? [{ label: t("keychain.cards.keySection.addButton"), onClick: () => openKeyForm(null) }] : []),
+                ...(canEditIdentities ? [{ label: t("keychain.cards.identitySection.addButton"), onClick: () => openIdentityForm(null) }] : []),
+              ]} />
+            )}
+
+            {showKeys && <KeySection
               keys={filteredKeys}
               showDraft={showKeyForm && !editingKey}
               editingId={editingKey?.id ?? null}
@@ -1073,11 +787,11 @@ export default function KeychainPage() {
               bulkContextMenuItems={bulkContextMenuItems}
               onPointerDown={handleDragStart}
               vaultOptions={vaultOptions}
-              onMoveToVault={handleMoveKeyToVault}
-              onCopyToVault={handleCopyKeyToVault}
-            />
+              onMoveToVault={handleMoveToVault}
+              onCopyToVault={handleCopyToVault}
+            />}
 
-            <IdentitySection
+            {showIdentities && <IdentitySection
               identities={filteredIdentities}
               keys={keys}
               layoutMode={layoutMode}
@@ -1093,9 +807,9 @@ export default function KeychainPage() {
               bulkContextMenuItems={bulkContextMenuItems}
               onPointerDown={handleDragStart}
               vaultOptions={vaultOptions}
-              onMoveToVault={handleMoveIdentityToVault}
-              onCopyToVault={handleCopyIdentityToVault}
-            />
+              onMoveToVault={handleMoveToVault}
+              onCopyToVault={handleCopyToVault}
+            />}
           </div>
         </DragSelectSurface>
 
@@ -1111,7 +825,7 @@ export default function KeychainPage() {
             ...(canEditIdentities ? [
               { label: t("keychain.toolbar.newIdentity"), icon: "lucide:user-plus", onClick: () => openIdentityForm(null) },
             ] : []),
-            { label: t("keychain.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: createFolder },
+            { label: t("keychain.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: createFolder, disabledReason: folderBlocked },
             ...(useVaultClipboardStore.getState().clipboard?.tab === "keychain"
               ? [{ label: t("common.action.paste"), icon: "lucide:clipboard", shortcut: getShortcutHint("paste"), onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-paste")) } as const]
               : []),
@@ -1140,7 +854,7 @@ export default function KeychainPage() {
           title={t("keychain.page.confirmDelete.title", { count: confirmDeleteIds.length })}
           message={bulkDeleteMessage(confirmDeleteIds)}
           confirmLabel={t("common.action.delete")}
-          onConfirm={async () => {
+          onConfirm={whenWritable(async () => {
             for (const id of confirmDeleteIds) {
               if (selectedKeyIds.includes(id)) await handleDeleteKey(id);
               else if (selectedIdentityIds.includes(id)) await handleDeleteIdentity(id);
@@ -1148,7 +862,7 @@ export default function KeychainPage() {
             }
             setSelection([]);
             setConfirmDeleteIds(null);
-          }}
+          })}
           onCancel={() => setConfirmDeleteIds(null)}
         />
       )}
@@ -1163,13 +877,6 @@ export default function KeychainPage() {
         />
       )}
 
-      {cascadePending && (
-        <VaultCascadeModal
-          cascade={cascadePending}
-          onConfirm={() => { void confirmCascade(); }}
-          onCancel={cancelCascade}
-        />
-      )}
 
       <ClipboardPill navItem="keychain" />
     </>

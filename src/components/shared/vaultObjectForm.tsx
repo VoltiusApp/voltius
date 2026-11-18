@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import type { Folder, FolderFormData } from "@/types";
+import type { Folder, FolderFormData, NewObjectPlacement } from "@/types";
 import { useFolderStore } from "@/stores/folderStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useVaultScopedItems } from "@/hooks/useVaultScopedItems";
@@ -47,31 +47,57 @@ export interface VaultObjectFormShell {
  * a team object pins through the personal override, a personal one through the
  * raw flag.
  */
+/** An existing object changes vault through the move flow, which carries what it references along. */
+export function vaultPickHandler({ existing, onMoveToVault, flush, pick }: {
+  existing: boolean;
+  onMoveToVault?: (vaultId: string) => void;
+  flush?: () => void;
+  pick: (vaultId: string) => void;
+}): (vaultId: string) => boolean {
+  return (vaultId) => {
+    if (!existing || !onMoveToVault) {
+      pick(vaultId);
+      return true;
+    }
+    flush?.();
+    onMoveToVault(vaultId);
+    return false;
+  };
+}
+
+export function placementIn(folder: Pick<Folder, "id" | "vault_id"> | undefined): NewObjectPlacement | undefined {
+  return folder ? { folderId: folder.id, vaultId: folder.vault_id } : undefined;
+}
+
 export function useVaultObjectFormShell({
   initial,
+  placement,
   folderType,
   objectType,
   pin,
 }: {
   initial?: EditedObject;
+  /** Where a new object starts; ignored when editing. */
+  placement?: NewObjectPlacement;
   folderType: Parameters<typeof folderOptionsFor>[1];
   objectType: PinObjectType;
   pin: (id: string, pinned: boolean | null) => Promise<void>;
 }): VaultObjectFormShell {
   const defaultVaultId = useDefaultVaultId();
-  const [vaultId, setVaultId] = useState<string>(() => initial?.vault_id ?? defaultVaultId);
+  const start = initial ? undefined : placement;
+  const [vaultId, setVaultId] = useState<string>(() => initial?.vault_id ?? start?.vaultId ?? defaultVaultId);
   const vaultPickerTouched = useRef(false);
-  const isNew = !initial;
+  const followDefaultVault = !initial && !start;
   useEffect(() => {
-    if (isNew && !vaultPickerTouched.current) {
+    if (followDefaultVault && !vaultPickerTouched.current) {
       setVaultId(defaultVaultId);
     }
-  }, [isNew, defaultVaultId]);
+  }, [followDefaultVault, defaultVaultId]);
 
   const { folders, teamFolders, loadFolders, saveFolder } = useFolderStore();
   const vaultFolders = useVaultScopedItems(vaultId, folders, teamFolders);
   const folderOptions = useMemo(() => folderOptionsFor(vaultFolders, folderType), [vaultFolders, folderType]);
-  const { folderId, setFolderId, keepSavedOnCancel } = useFolderField(initial?.folder_id);
+  const { folderId, setFolderId, keepSavedOnCancel } = useFolderField(initial ? initial.folder_id : start?.folderId);
   useEffect(() => {
     void loadFolders();
   }, [loadFolders]);
@@ -182,16 +208,23 @@ export function SecretInput({
         placeholder={placeholder}
         autoComplete={autoComplete}
       />
-      <button
-        type="button"
-        onClick={onToggleShow}
-        className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-(--t-text-dim)"
-        onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
-        tabIndex={-1}
-      >
-        <Icon icon={show ? "lucide:eye-off" : "lucide:eye"} width={14} />
-      </button>
+      <RevealToggle show={show} onToggle={onToggleShow} />
     </div>
+  );
+}
+
+export function RevealToggle({ show, onToggle }: { show: boolean; onToggle: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={t(show ? "common.action.hidePassword" : "common.action.showPassword")}
+      aria-pressed={show}
+      className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
+      tabIndex={-1}
+    >
+      <Icon icon={show ? "lucide:eye-off" : "lucide:eye"} width={14} />
+    </button>
   );
 }

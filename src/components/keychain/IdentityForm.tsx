@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Icon } from "@iconify/react";
 import { useAutosave } from "@/hooks/useAutosave";
 import { FieldError, useReportBlocked, useRequiredField, type MobileEditFormProps } from "@/components/shared/fieldValidation";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportAuditClientEvent } from "@/services/auditReporter";
 import { useKeyStore } from "@/stores/keyStore";
 import { useConnectionStore } from "@/stores/connectionStore";
-import { useUIStore } from "@/stores/uiStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
+import { usePermissions } from "@/hooks/usePermission";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
+import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
@@ -15,6 +17,7 @@ import {
   SecretInput,
   TagsAndFolderFields,
   useVaultObjectFormShell,
+  vaultPickHandler,
 } from "@/components/shared/vaultObjectForm";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { unlinkIdentityFromHost } from "@/services/keychainForm";
@@ -33,13 +36,11 @@ import { useIdentityStore } from "@/stores/identityStore";
 import { KeyFileDropZone } from "./KeyForm";
 import { PublicKeyField, isPublicKeyInvalid } from "./PublicKeyField";
 import { useDerivedPublicKey } from "./useDerivedPublicKey";
-import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
-import { AvatarTile } from "@/components/shared/AvatarTile";
 import type { Connection, Identity, IdentityFormData } from "@/types";
 import { buildKeychainMenuItems } from "@/utils/keychainMenuItems";
 import { useVaultScopedItems } from "@/hooks/useVaultScopedItems";
-import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { PermissionsSection } from "@/components/permissions/PermissionsSection";
+import { LinkedToSection } from "./LinkedToSection";
 
 // ─────────────────────────────────────────────────────────────────
 
@@ -134,8 +135,7 @@ export const IdentityForm = withEditAccess("identity", (p: IdentityFormProps) =>
 function IdentityFormEditor({ initial, onSubmit, onClose, onDelete, flushRef, isDirtyRef, vaults, onMoveToVault, onCopyToVault, hideChrome, revealErrors, onBlockedChange, readOnly }: IdentityFormProps & EditAccessProps) {
   const { t } = useTranslation();
   const { loadKeys } = useKeyStore();
-  const { connections, loadConnections, updateConnection } = useConnectionStore();
-  const { setActiveNav, setHomePendingAction } = useUIStore();
+  const { loadConnections, updateConnection } = useConnectionStore();
   const pinIdentity = useIdentityStore((s) => s.pinIdentity);
   const shell = useVaultObjectFormShell({ initial, folderType: "keychain", objectType: "identity", pin: pinIdentity });
   const { vaultId, pickVault, folderId, keepSavedOnCancel, isPinned, togglePin } = shell;
@@ -153,13 +153,28 @@ function IdentityFormEditor({ initial, onSubmit, onClose, onDelete, flushRef, is
   const [inlinePublicKey, setInlinePublicKey] = useState("");
   const passwordDirty = useRef(false);
 
+  const allConnections = useAllConnections();
   const linkedHosts = useMemo(
-    () => (initial ? connections.filter((c) => c.identity_id === initial.id) : []),
-    [connections, initial?.id],
+    () => (initial ? allConnections.filter((c) => c.identity_id === initial.id) : []),
+    [allConnections, initial?.id],
   );
-
-  const handleUnlink = async (conn: Connection) => {
-    if (initial) await unlinkIdentityFromHost(initial, conn, updateConnection);
+  const can = usePermissions();
+  const canUnlink = (c: Connection) =>
+    !!initial
+    && can("EDIT_CONNECTIONS", c.vault_id ?? "personal", c.id)
+    && can("VIEW_SECRETS", initial.vault_id, initial.id)
+    && (!initial.key_id || can("VIEW_SECRETS", initial.vault_id, initial.key_id));
+  const unlink = (c: Connection) => {
+    if (!initial) return;
+    unlinkIdentityFromHost(initial, c, updateConnection).catch((e: unknown) => {
+      useNotificationStore.getState().addToast({
+        source: APP_SOURCE,
+        type: "toast",
+        message: t("keychain.identityForm.unlinkFailed", { name: connectionDisplayName(c), error: String(e) }),
+        severity: "error",
+        duration: 6000,
+      });
+    });
   };
 
   const isInline = keyId === "__inline__";
@@ -236,7 +251,7 @@ function IdentityFormEditor({ initial, onSubmit, onClose, onDelete, flushRef, is
       <PanelHeader
         icon={initial ? "lucide:pencil" : "lucide:plus"}
         title={initial ? t("keychain.identityForm.titleEdit") : t("keychain.toolbar.newIdentity")}
-        subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => pickVault(id, markDirty)} disabled={readOnly} />}
+        subtitle={<VaultPicker vaultId={vaultId} onChange={vaultPickHandler({ existing: !!initial, onMoveToVault, flush, pick: (id) => pickVault(id, markDirty) })} disabled={readOnly} />}
         onClose={handleClose}
         saveState={saveState}
         actions={initial ? (() => {
@@ -364,56 +379,12 @@ function IdentityFormEditor({ initial, onSubmit, onClose, onDelete, flushRef, is
         )}
         </ReadOnlyFields>
 
-        {initial && linkedHosts.length > 0 && (
-          <FormSection label={t("keychain.identityForm.sectionLinkedTo")}>
-            <div className="space-y-1 p-1">
-              {linkedHosts.map((c) => {
-                const displayIcon = c.icon || c.distro;
-                const distroIcon = displayIcon ? getConnectionIcon(displayIcon) : null;
-                const distroBg = displayIcon ? getConnectionIconColor(displayIcon) : null;
-                return (
-                  <div
-                    key={c.id}
-                    className="flex items-center gap-2.5 px-2 py-2 rounded-lg bg-(--t-bg-base)"
-                  >
-                    <AvatarTile
-                      base={distroBg ?? "var(--t-bg-card-avatar)"}
-                      icon={distroIcon ?? "lucide:server"}
-                      iconSize={14}
-                      className="rounded-md text-white"
-                      style={{ width: "1.867rem", height: "1.867rem" }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate font-medium text-(--t-text-bright)">
-                        {connectionDisplayName(c)}
-                      </p>
-                      <p className="text-xs truncate text-(--t-text-secondary)">
-                        {c.username}@{c.host}:{c.port}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => { setActiveNav("hosts"); setHomePendingAction({ action: "edit", id: c.id }); onClose(); }}
-                      title={t("keychain.identityForm.editHostTitle")}
-                      className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
-                      onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-bright)"; e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; e.currentTarget.style.background = "transparent"; }}
-                    >
-                      <Icon icon="lucide:pencil" width={14} />
-                    </button>
-                    <button
-                      onClick={() => { void handleUnlink(c); }}
-                      title={t("keychain.identityForm.unlinkTitle")}
-                      className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
-                      onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-status-error, #ef4444)"; e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; e.currentTarget.style.background = "transparent"; }}
-                    >
-                      <Icon icon="lucide:unlink" width={14} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </FormSection>
+        {initial && (
+          <LinkedToSection
+            hosts={linkedHosts}
+            unlink={{ allowed: canUnlink, run: unlink }}
+            onLeave={handleClose}
+          />
         )}
         {initial && <PermissionsSection objectId={initial.id} vaultId={initial.vault_id} type="identity" />}
       </div>

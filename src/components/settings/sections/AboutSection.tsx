@@ -21,9 +21,12 @@ import {
   openDownloadPage,
 } from "@/services/updater";
 import { Toggle } from "@/components/shared/Toggle";
+import { Managed } from "@/components/shared/ManagedNote";
+import { SETTINGS_SURFACE } from "./shared";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import LogoBadge from "@/components/layout/LogoBadge";
+import { SettingMark } from "@/components/settings/Setting";
 
 export default function AboutSection() {
   const { t } = useTranslation();
@@ -60,7 +63,7 @@ export default function AboutSection() {
         </h3>
         <div
           data-settings-card
-          className="rounded-lg px-4 py-3 flex items-center gap-3 bg-(--t-bg-elevated) border border-(--t-border)"
+          className={`${SETTINGS_SURFACE} px-4 py-3 flex items-center gap-3`}
         >
           <LogoBadge size={10} />
           <div>
@@ -78,7 +81,7 @@ export default function AboutSection() {
             {t("settings.about.updatesTitle")}
           </h3>
           <div
-            className="rounded-lg px-4 py-3 space-y-3 bg-(--t-bg-elevated) border border-(--t-border)"
+            className={`${SETTINGS_SURFACE} px-4 py-3 space-y-3`}
           >
             {/* Status line */}
             <div className="flex items-center justify-between gap-3">
@@ -170,7 +173,7 @@ export default function AboutSection() {
             {/* Automatic updates toggle */}
             <div className="flex items-center justify-between gap-3 pt-3 border-t border-(--t-border)">
               <div className="min-w-0">
-                <p className="text-sm text-(--t-text-primary)">{t("settings.about.autoDownload.title")}</p>
+                <p className="text-sm text-(--t-text-primary)"><SettingMark id="updater.autoUpdate">{t("settings.about.autoDownload.title")}</SettingMark></p>
                 <p className="text-xs mt-0.5 text-(--t-text-dim)">
                   {t("settings.about.autoDownload.desc")}
                 </p>
@@ -181,12 +184,12 @@ export default function AboutSection() {
             {/* What's new popup toggle */}
             <div className="flex items-center justify-between gap-3 pt-3 border-t border-(--t-border)">
               <div className="min-w-0">
-                <p className="text-sm text-(--t-text-primary)">{t("settings.about.whatsNew.title")}</p>
+                <p className="text-sm text-(--t-text-primary)"><SettingMark id="toggles.changelog-popup">{t("settings.about.whatsNew.title")}</SettingMark></p>
                 <p className="text-xs mt-0.5 text-(--t-text-dim)">
                   {t("settings.about.whatsNew.desc")}
                 </p>
               </div>
-              <Toggle checked={changelogPopup} onChange={setChangelogPopup} />
+              <Managed policyKey="appSettings.toggles.changelog-popup"><Toggle checked={changelogPopup} onChange={setChangelogPopup} /></Managed>
             </div>
           </div>
         </div>
@@ -204,7 +207,7 @@ export default function AboutSection() {
               onClick={() => void openUrl(href)}
               data-settings-card
               data-about-link={key}
-              className="w-full text-left rounded-lg px-4 py-3 flex items-center gap-3 bg-(--t-bg-elevated) border border-(--t-border) transition-colors hover:border-(--t-border-hover)"
+              className={`w-full text-left ${SETTINGS_SURFACE} px-4 py-3 flex items-center gap-3 transition-colors hover-edge`}
             >
               <Icon icon={icon} width={20} className="text-(--t-text-primary) shrink-0" />
               <div>
@@ -218,7 +221,7 @@ export default function AboutSection() {
             type="button"
             onClick={() => useUIStore.getState().openSettings("diagnostics")}
             data-settings-card
-            className="w-full text-left rounded-lg px-4 py-3 flex items-center gap-3 bg-(--t-bg-elevated) border border-(--t-border) transition-colors hover:border-(--t-border-hover)"
+            className={`w-full text-left ${SETTINGS_SURFACE} px-4 py-3 flex items-center gap-3 transition-colors hover-edge`}
           >
             <Icon icon="lucide:bug" width={20} className="text-(--t-text-primary) shrink-0" />
             <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.about.reportBug")}</p>

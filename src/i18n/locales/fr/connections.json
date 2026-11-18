@@ -103,7 +103,8 @@
       "connectAsYours": "{{username}} · la vôtre, vous seul",
       "connectAsTeam": "{{username}} · identité d'équipe",
       "connectAsAsk": "Il vous sera demandé à la connexion",
-      "connectAsUnavailable": "Votre identité choisie n'est pas disponible"
+      "connectAsUnavailable": "Votre identité choisie n'est pas disponible",
+      "connectNeedsHost": "Saisissez un hôte pour vous connecter"
     },
     "distroIconPicker": {
       "title": "Icône",
@@ -168,7 +169,15 @@
       "keyPlaceholder": "CLÉ",
       "valuePlaceholder": "valeur",
       "removeAriaLabel": "Supprimer la variable",
-      "addButton": "Ajouter une variable"
+      "addButton": "Ajouter une variable",
+      "modeLabel": "Mode d'édition",
+      "modeList": "Liste",
+      "pasteTip": "Collez un fichier .env dans un champ clé pour ajouter plusieurs variables d'un coup",
+      "rawHint": "Une ligne CLÉ=valeur par variable. Commentaires, guillemets et préfixes export acceptés.",
+      "skippedLines": "Lignes ignorées : {{count}}",
+      "copyButton": "Copier en .env",
+      "downloadButton": "Télécharger le .env",
+      "copied": "Copié"
     },
     "serialConfigOverlay": {
       "title": "Connexion série",

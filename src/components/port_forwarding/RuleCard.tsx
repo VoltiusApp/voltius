@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { AvatarTile } from "@/components/shared/AvatarTile";
+import { withGhost } from "@/components/preview/GhostCard";
+import { PreviewHint } from "@/components/preview/PreviewHint";
 import type { PortForwardingRule, VaultOption } from "@/types";
 import { formatRuleLabel } from "@/utils/tunnelFormat";
 import { BaseCard } from "@/components/shared/BaseCard";
@@ -15,6 +17,8 @@ import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { ruleToForm } from "@/utils/portForwardingForm";
 import { useInlineRename } from "@/hooks/useInlineRename";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
+import { objectSyncItem } from "@/utils/objectSyncItem";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 
 interface Props {
   rule: PortForwardingRule;
@@ -44,7 +48,7 @@ interface Props {
   onPointerDown?: (e: React.PointerEvent<HTMLDivElement>) => void;
 }
 
-export function RuleCard({
+function RuleCardBody({
   rule, isSelected, isEditing, isFocused, canEdit = true, dimmed, isActive,
   vaults = [], layout = "list",
   status = isActive ? "active" : "inactive", statusLabel, isBusy = false, webUrl,
@@ -77,8 +81,7 @@ export function RuleCard({
       t,
     ),
     {
-      label: isSynced ? t("common.objectSync.disable") : t("common.objectSync.enable"),
-      icon: isSynced ? "lucide:cloud-off" : "lucide:cloud",
+      ...objectSyncItem(isSynced, t),
       onClick: () => useSyncPrefsStore.getState().toggleExcluded(rule.id),
       divider: true,
     },
@@ -140,7 +143,7 @@ export function RuleCard({
       {isList ? (
         <>
           <div className="relative shrink-0">
-            <AvatarTile icon="lucide:network" iconSize={15} className="w-7 h-7 rounded-lg text-(--t-text-secondary)" />
+            <AvatarTile icon={PORT_FORWARDING_ICON} iconSize={15} className="w-7 h-7 rounded-lg text-(--t-text-secondary)" />
             {statusDot}
           </div>
           <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">
@@ -166,6 +169,7 @@ export function RuleCard({
           )}
           <span title={effectiveStatusLabel} className={`text-xs shrink-0 hidden md:inline max-w-72 truncate ${statusLabelClass}`}>{effectiveStatusLabel}</span>
           <div className="flex items-center gap-1 shrink-0">
+            <PreviewHint type="port_forwarding_rule" id={rule.id} layout="list" />
             {webButton(true)}
             {canEdit && <CardActionButton icon="lucide:trash-2" title={t("common.action.delete")} onClick={() => onDelete(rule.id)} danger />}
             {toggleButton}
@@ -176,13 +180,16 @@ export function RuleCard({
         <div className="flex-1 min-w-0 self-start flex flex-col gap-3">
           <div className="flex items-start gap-2 min-w-0">
             <div className="relative shrink-0">
-              <AvatarTile icon="lucide:network" iconSize={16} className="w-[30px] h-[30px] rounded-lg text-(--t-text-secondary)" />
+              <AvatarTile icon={PORT_FORWARDING_ICON} iconSize={16} className="w-[30px] h-[30px] rounded-lg text-(--t-text-secondary)" />
               {statusDot}
             </div>
             <div className="flex flex-col gap-0.5 flex-1 min-w-0">
               <div className="flex items-center gap-2 min-w-0">
                 <p className="text-sm font-bold truncate text-(--t-text-bright)">{rename.editor ?? rule.name}</p>
-                <span className="ml-auto shrink-0">{typeBadge}</span>
+                <span className="ml-auto shrink-0 flex items-center gap-1.5">
+                  <PreviewHint type="port_forwarding_rule" id={rule.id} layout="grid" />
+                  {typeBadge}
+                </span>
               </div>
               <p className="text-xs font-mono text-(--t-text-secondary) truncate">{portLabel}</p>
             </div>
@@ -210,3 +217,7 @@ export function RuleCard({
     </BaseCard>
   );
 }
+
+export const RuleCard = withGhost(RuleCardBody, (p) => ({
+  type: "port_forwarding_rule", id: p.rule.id, icon: PORT_FORWARDING_ICON, name: p.rule.name, layout: p.layout ?? "list",
+}));

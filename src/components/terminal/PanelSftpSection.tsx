@@ -21,6 +21,7 @@ import { hitTestDropTarget, setExternalDragHover, clearExternalDragHover } from 
 import { useFileClipboardStore, type FileEndpoint } from "@/stores/fileClipboardStore";
 import { buildPasteDeps, executePaste } from "@/components/filetransfer/pasteService";
 import type { FileEntry, VisibleCols } from "@/components/filetransfer/SFTPTypes";
+import { SFTP_ICON } from "@/lib/conceptIcons";
 
 const PANEL_VISIBLE_COLS: VisibleCols = { size: false, modified: false, permissions: false };
 
@@ -284,7 +285,7 @@ export default function PanelSftpSection() {
             ) : panelState?.tag === "connecting" ? (
               <Icon icon="lucide:loader-circle" width={16} className="animate-spin text-(--t-text-dim)" />
             ) : (
-              <Icon icon="lucide:folder-tree" width={20} className="text-(--t-text-dim)" />
+              <Icon icon={SFTP_ICON} width={20} className="text-(--t-text-dim)" />
             )}
             <p className={`text-xs ${panelState?.tag === "error" ? "text-(--t-status-error)" : "text-(--t-text-dim)"}`}>{headerStatus}</p>
           </div>

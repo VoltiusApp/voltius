@@ -7,23 +7,27 @@ import { useTeamSessionStore as useMpStore } from "@/stores/teamSessionStore";
 import { getMyUserId } from "@/services/teamService";
 import { useUIStore } from "@/stores/uiStore";
 import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
-import { AvatarStack } from "@/components/shared/AvatarStack";
-import { AvatarTile } from "@/components/shared/AvatarTile";
+import { AvatarStack, MiniAvatar } from "@/components/shared/AvatarStack";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { isJoinInput, resolveJoinInput } from "@/services/resolveJoinInput";
 import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
 import { sessionDisplayName } from "@/services/teamSharing";
 import { avatarLabel, usePeerResolver } from "@/services/peerName";
+import { formatRelative } from "@/utils/localeFormat";
+import { usePermissions } from "@/hooks/usePermission";
+import { usePreviewActive } from "@/hooks/previewScope";
+import { useGreyedUnless } from "@/hooks/useGreyedUnless";
+import { refuseWhilePreviewing } from "@/services/previewGuard";
+import { previewAreaLock } from "@/components/preview/previewAreaLocks";
 
-function JoinByCodeButton({ onClick }: { onClick: () => void }) {
+function JoinByCodeButton({ onClick, disabledReason }: { onClick: () => void; disabledReason?: string }) {
   const { t } = useTranslation();
   return (
     <button
-      className="flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium transition-colors"
-      style={{ color: "var(--t-text-dim)", border: "1px solid var(--t-border)" }}
-      onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)")}
-      onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)")}
+      disabled={!!disabledReason}
+      title={disabledReason}
+      className="disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-medium transition-colors border border-(--t-border) text-(--t-text-dim) hover:text-(--t-text-primary)"
       onClick={onClick}
     >
       <Icon icon="lucide:link" width={11} />
@@ -39,6 +43,11 @@ export function TeamSessions() {
   const setActive = useSessionStore((s) => s.setActive);
   const homeView = useUIStore((s) => s.homeView);
   const accessibleVaultIds = useAccessibleVaultIds();
+  const can = usePermissions();
+  const preview = usePreviewActive();
+  const sessionsLock = previewAreaLock({ area: "sessions", previewing: !!preview, can, vaultId: preview?.vaultId ?? null });
+  const joinLocked = !!preview && !can("JOIN_TERMINAL_SESSION", preview.vaultId);
+  const joinGrey = useGreyedUnless()(!joinLocked);
   const [myUserId, setMyUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -95,6 +104,7 @@ export function TeamSessions() {
   };
 
   const handleJoinCard = async (session: (typeof activeSessions)[0]) => {
+    if (joinLocked || refuseWhilePreviewing()) return;
     if (myMpSessionIds.has(session.id)) {
       const localId = Object.entries(useMpStore.getState().connections).find(
         ([, v]) => v.multiplayerSessionId === session.id,
@@ -111,7 +121,7 @@ export function TeamSessions() {
 
   const handleJoinByCode = async () => {
     const code = inviteCode.trim();
-    if (!code) return;
+    if (!code || refuseWhilePreviewing()) return;
 
     if (!isJoinInput(code)) {
       setJoinError(t("hosts.teamSessions.invalidCodeFormat"));
@@ -133,25 +143,39 @@ export function TeamSessions() {
     }
   };
 
-  if (activeSessions.length === 0 && !showJoinModal) {
-    // Show minimal "Join by code" entry point even when no public sessions visible
+  if (sessionsLock) {
     return (
       <div className="mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
-            {t("hosts.teamSessions.title")}
-          </p>
-          <JoinByCodeButton onClick={() => setShowJoinModal(true)} />
-        </div>
-        <p className="text-xs mb-3 text-(--t-text-dim)">
-          {t("hosts.teamSessions.emptyHint")}
+        <h2 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
+          {t("hosts.teamSessions.title")}
+        </h2>
+        <p className="flex items-center gap-1.5 text-xs opacity-60 text-(--t-text-dim)">
+          <Icon icon="lucide:lock" width={12} />
+          {t(sessionsLock)}
         </p>
-        {showJoinModal && <JoinByCodeModal />}
       </div>
     );
   }
 
-  function JoinByCodeModal() {
+  if (activeSessions.length === 0) {
+    // Show minimal "Join by code" entry point even when no public sessions visible
+    return (
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
+            {t("hosts.teamSessions.title")}
+          </h2>
+          <JoinByCodeButton onClick={() => setShowJoinModal(true)} disabledReason={joinGrey.title} />
+        </div>
+        <p className="text-xs mb-3 text-(--t-text-dim)">
+          {t("hosts.teamSessions.emptyHint")}
+        </p>
+        {showJoinModal && renderJoinPanel()}
+      </div>
+    );
+  }
+
+  function renderJoinPanel() {
     return (
       <div
         className="mb-3 p-3 rounded-xl"
@@ -167,6 +191,7 @@ export function TeamSessions() {
             onChange={(e) => { setInviteCode(e.target.value); setJoinError(null); }}
             onKeyDown={(e) => { if (e.key === "Enter") void handleJoinByCode(); if (e.key === "Escape") setShowJoinModal(false); }}
             placeholder={t("hosts.teamSessions.inviteCodePlaceholder")}
+            aria-label={t("hosts.teamSessions.pasteInviteCode")}
             className="flex-1 text-xs px-2.5 py-1.5 rounded-lg outline-hidden"
             style={{
               background: "var(--t-bg-elevated)",
@@ -189,13 +214,14 @@ export function TeamSessions() {
           <button
             onClick={() => setShowJoinModal(false)}
             className="px-2 py-1.5 rounded-lg text-xs transition-opacity"
+            aria-label={t("common.action.close")}
             style={{ color: "var(--t-text-dim)" }}
           >
             <Icon icon="lucide:x" width={13} />
           </button>
         </div>
         {joinError && (
-          <p className="mt-1.5 text-[11px]" style={{ color: "#f87171" }}>{joinError}</p>
+          <p role="alert" className="mt-1.5 text-xs text-(--t-status-error)">{joinError}</p>
         )}
       </div>
     );
@@ -204,11 +230,11 @@ export function TeamSessions() {
   return (
     <div className="mb-6">
       <div className="flex items-center gap-2 mb-3">
-        <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
           {t("hosts.teamSessions.title")}
-        </p>
+        </h2>
         <span
-          className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-semibold"
+          className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-xs font-semibold"
           style={{
             background: "color-mix(in srgb, var(--t-accent) 15%, transparent)",
             color: "var(--t-accent)",
@@ -218,11 +244,11 @@ export function TeamSessions() {
           {t("hosts.teamSessions.live")}
         </span>
         <div className="ml-auto">
-          <JoinByCodeButton onClick={() => setShowJoinModal((v) => !v)} />
+          <JoinByCodeButton onClick={() => setShowJoinModal((v) => !v)} disabledReason={joinGrey.title} />
         </div>
       </div>
 
-      {showJoinModal && <JoinByCodeModal />}
+      {showJoinModal && renderJoinPanel()}
 
       <div className="flex gap-3 overflow-x-auto p-8 -m-8" style={{ scrollbarWidth: "none" }}>
         {activeSessions.map((session) => {
@@ -236,9 +262,17 @@ export function TeamSessions() {
           const liveParticipants = liveLocalId
             ? useMpStore.getState().connections[liveLocalId]?.participants
             : undefined;
-          const participants = (liveParticipants ?? session.participants)?.map((p) => ({
-            name: avatarLabel(peer(p.user_id, { fallbackHandle: p.handle })),
-          }));
+          // The sharer already has the big avatar on the left, so list only the people who joined.
+          const participants = (liveParticipants ?? session.participants)
+            ?.filter((p) => p.user_id !== session.host_user_id)
+            .map((p) => ({
+              name: avatarLabel(peer(p.user_id, { fallbackHandle: p.handle })),
+            }));
+
+          const host = peer(session.host_user_id);
+          const hostLabel = avatarLabel(host);
+          const hostName = host.primary;
+          const since = Number.isNaN(Date.parse(session.created_at)) ? null : formatRelative(session.created_at);
 
           return (
             <BaseCard
@@ -247,51 +281,47 @@ export function TeamSessions() {
               isSelected={alreadyIn}
               onClick={() => void handleJoinCard(session)}
               className="shrink-0"
-              style={{ minWidth: 220, maxWidth: 280 }}
+              style={{ minWidth: 260, maxWidth: 340 }}
             >
-              <div className="flex-1 min-w-0 self-start flex flex-col gap-1">
-                {/* Top: icon + name + badge */}
-                <div className="flex items-start gap-2 min-w-0">
-                  <AvatarTile
-                    base="var(--t-accent)"
-                    icon="lucide:radio"
-                    size={30}
-                    radius={6}
-                    className="text-white"
-                  />
-
-                  <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                    <p className="text-sm font-bold truncate text-(--t-text-bright)">
-                      {sessionDisplayName(session)}
-                    </p>
-
-                    {/* Avatar stack — where tags sit on host cards */}
-                    <div className="min-h-[22px] flex items-center">
-                      <AvatarStack
-                        participants={participants}
-                        count={session.participant_count}
-                        size={20}
-                        maxVisible={5}
-                        ringColor="var(--t-bg-card)"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Join / Resume button */}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); void handleJoinCard(session); }}
-                    className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors self-center text-(--t-text-dim) hover:text-(--t-text-bright)"
-                    style={{
-                      background: "var(--t-bg-terminal)",
-                      border: "1px solid var(--t-border)",
-                      color: alreadyIn ? "var(--t-accent)" : undefined,
-                    }}
-                  >
-                    <Icon icon={alreadyIn ? "lucide:monitor-play" : "lucide:log-in"} width={12} />
-                    {alreadyIn ? t("hosts.teamSessions.resume") : t("hosts.teamSessions.join")}
-                  </button>
+              <div className="flex-1 min-w-0 flex items-center gap-3">
+                {/* Who is sharing, with the live dot on their avatar */}
+                <div className="relative shrink-0">
+                  <MiniAvatar name={hostLabel} size={34} />
+                  <StatusDot tone="accent" size="md" corner motion="ping" halo="var(--t-bg-card)" />
                 </div>
 
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold truncate text-(--t-text-bright)">
+                    {sessionDisplayName(session)}
+                  </p>
+                  <p className="text-xs truncate text-(--t-text-dim)">
+                    {t("hosts.teamSessions.sharedBy", { name: hostName })}
+                    {since && ` · ${since}`}
+                  </p>
+                </div>
+
+                {/* Renders nothing when nobody has joined yet */}
+                <AvatarStack
+                  participants={participants}
+                  count={session.participant_count}
+                  size={20}
+                  maxVisible={3}
+                  ringColor="var(--t-bg-card)"
+                />
+
+                {/* Join / Resume */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); void handleJoinCard(session); }}
+                  {...joinGrey}
+                  className={`disabled:opacity-40 disabled:cursor-not-allowed shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                    alreadyIn
+                      ? "border border-(--t-border) bg-(--t-bg-terminal) text-(--t-accent)"
+                      : "bg-(--t-accent) text-(--t-on-accent) hover:brightness-110"
+                  }`}
+                >
+                  <Icon icon={alreadyIn ? "lucide:monitor-play" : "lucide:log-in"} width={12} />
+                  {alreadyIn ? t("hosts.teamSessions.resume") : t("hosts.teamSessions.join")}
+                </button>
               </div>
             </BaseCard>
           );

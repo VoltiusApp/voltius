@@ -1,10 +1,11 @@
-import { useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
-import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
-import { getLoadedPlugins, setPluginActive, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
+import { useMarketplaceStore, type InstalledPluginMeta, type MarketplacePlugin } from "@/stores/marketplaceStore";
+import { installLocked, pluginLock, usePluginRegistryStore } from "@/stores/pluginRegistryStore";
+import { applyPluginEnabled } from "@/plugins/applyPluginEnabled";
+import { getLoadedPlugins, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
 import { loadSeededEntries } from "@/stores/seededTombstoneStore";
 import { availableUpdate, availableSeededUpdate } from "@/plugins/updates";
 import { pluginDefaultEnabled } from "@/plugins/pluginDefaultEnabled";
-import { failed, type DomainResult } from "./result";
+import { failed, managedMessage, type DomainResult } from "./result";
 import type { PluginConfigField, PluginManifest } from "@/plugins/api";
 // Declared in the tool layer, not here: the MCP verbs pre-check these same
 // doomed calls (unknown id, non-deletable source) before the approval gate,
@@ -19,6 +20,7 @@ export interface PluginView {
   name: string;
   version: string;
   enabled: boolean;
+  locked: boolean;
   origin: "seeded" | "catalog" | "url" | "local";
   hash: string | null;
   permissions: string[];
@@ -42,19 +44,28 @@ async function catalogEntry(id: string): Promise<MarketplacePlugin | undefined> 
   return market().catalog.find((p) => p.id === id);
 }
 
+export function pluginState(
+  m: PluginManifest,
+  installedMeta: readonly InstalledPluginMeta[],
+  seeded: { has(id: string): boolean },
+) {
+  const meta = installedMeta.find((i) => i.id === m.id);
+  const isSeeded = !meta && seeded.has(m.id);
+  const origin: PluginView["origin"] = meta
+    ? (meta.sourceId === "local" ? "local" : meta.sourceId === "url" ? "url" : "catalog")
+    : isSeeded ? "seeded" : "local";
+  const enabled = usePluginRegistryStore.getState().isEnabled(m.id, pluginDefaultEnabled(m, installedMeta));
+  return { meta, isSeeded, origin, enabled, lock: pluginLock(m.id) };
+}
+
 export async function listPlugins(): Promise<PluginView[]> {
   const s = market();
   await Promise.all([s.loadAppVersion(), s.loadInstalledMeta(), s.loadSources(), s.fetchCatalog()]);
   const state = market();
   const seeded = await loadSeededEntries();
-  const registry = usePluginRegistryStore.getState();
 
   return getLoadedPlugins().map((m) => {
-    const meta = state.installedMeta.find((i) => i.id === m.id);
-    const isSeeded = !meta && seeded.has(m.id);
-    const origin: PluginView["origin"] = meta
-      ? (meta.sourceId === "local" ? "local" : meta.sourceId === "url" ? "url" : "catalog")
-      : isSeeded ? "seeded" : "local";
+    const { meta, isSeeded, origin, enabled, lock } = pluginState(m, state.installedMeta, seeded);
     // Reuses the same update-detection rules (semver + hash + minAppVersion, source-scoped)
     // the Browse tab and the seeded-update banner already apply — see updates.ts.
     const update = meta
@@ -66,7 +77,8 @@ export async function listPlugins(): Promise<PluginView[]> {
       id: m.id,
       name: m.name,
       version: m.version,
-      enabled: registry.isEnabled(m.id, pluginDefaultEnabled(m, state.installedMeta)),
+      enabled,
+      locked: lock !== null,
       origin,
       hash: meta?.hash ?? null,
       permissions: m.permissions ?? [],
@@ -98,19 +110,37 @@ async function tryStoreCall(fn: () => Promise<void>): Promise<DomainResult<void>
   }
 }
 
-export async function installPlugin(id: string): Promise<DomainResult<PluginView>> {
+export const installPlugin = (id: string): Promise<DomainResult<PluginView>> => installVettedPlugin(id, () => null);
+
+/** `vet` sees the manifest that will be installed and returns a refusal, or null to proceed. */
+export async function installVettedPlugin(
+  id: string,
+  vet: (manifest: PluginManifest) => string | null,
+  opts?: { syncDriven?: boolean },
+): Promise<DomainResult<PluginView>> {
   const entry = await catalogEntry(id);
   if (!entry) return failed(`no catalog plugin "${id}"; call marketplace_search for available ids`);
+  return installVettedEntry(entry, vet, opts);
+}
+
+export async function installVettedEntry(
+  entry: MarketplacePlugin,
+  vet: (manifest: PluginManifest) => string | null,
+  opts?: { syncDriven?: boolean },
+): Promise<DomainResult<PluginView>> {
   const attempt = await tryStoreCall(async () => {
-    const { manifestText } = await market().fetchManifest(entry);
-    await market().installPlugin(entry, manifestText);
+    const { manifest, manifestText } = await market().fetchManifest(entry);
+    const refusal = vet(manifest);
+    if (refusal) throw new Error(refusal);
+    await market().installPlugin(entry, manifestText, opts);
   });
   if (!attempt.ok) return attempt;
-  const view = await findView(id);
-  return view ? { ok: true, result: view } : failed(`install of "${id}" produced no loaded plugin`);
+  const view = await findView(entry.id);
+  return view ? { ok: true, result: view } : failed(`install of "${entry.id}" produced no loaded plugin`);
 }
 
 export async function uninstallPlugin(id: string): Promise<DomainResult<{ id: string }>> {
+  if (installLocked(id)) return failed(managedMessage(`plugin "${id}"`));
   const view = await findView(id);
   if (!view) return noSuchPlugin(id);
   const attempt = await tryStoreCall(() =>
@@ -122,9 +152,7 @@ export async function uninstallPlugin(id: string): Promise<DomainResult<{ id: st
 
 export async function setPluginEnabled(id: string, enabled: boolean): Promise<DomainResult<PluginView>> {
   if (!loadedManifest(id)) return noSuchPlugin(id);
-  // Same pair, same order, as the Settings toggle (PluginsSection handleToggle).
-  setPluginActive(id, enabled);
-  await usePluginRegistryStore.getState().setEnabled(id, enabled);
+  if (!(await applyPluginEnabled(id, enabled))) return failed(managedMessage(`plugin "${id}"`));
   const view = await findView(id);
   return view ? { ok: true, result: view } : failed(`"${id}" toggled but produced no loaded plugin`);
 }

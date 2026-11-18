@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 // @ts-expect-error plain .mjs script without type declarations
-import { changelogSection, storeNotes } from "../scripts/store/release-notes.mjs";
+import { changelogSection, changelogSince, storeNotes } from "../scripts/store/release-notes.mjs";
 
 const CHANGELOG = `# Changelog
 
@@ -100,5 +100,22 @@ describe("CLI", () => {
     const v = real.match(/^## \[(\d+\.\d+\.\d+)\]/m)![1];
     expect(run(v).trimEnd()).toBe(changelogSection(real, v));
     expect(run(v, "500").trimEnd()).toBe(storeNotes(changelogSection(real, v), 500));
+  });
+});
+
+describe("changelogSince", () => {
+  const log = `${CHANGELOG}\n## [1.0.0] - 2026-10-21\n\n- First\n`;
+
+  it("joins every section newer than the live version", () => {
+    const text = changelogSince(log, "1.2.0", "1.0.0");
+    expect(text).toContain("delete your account");
+    expect(text).toContain("Older entry");
+    expect(text).not.toContain("First");
+  });
+
+  it("falls back to the one section when the live version is unknown or missing", () => {
+    expect(changelogSince(log, "1.2.0", "0.9.0")).toBe(changelogSection(log, "1.2.0"));
+    expect(changelogSince(log, "1.2.0", undefined)).toBe(changelogSection(log, "1.2.0"));
+    expect(changelogSince(log, "9.9.9", "1.0.0")).toBeNull();
   });
 });

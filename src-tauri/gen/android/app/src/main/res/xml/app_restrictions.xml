@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<restrictions xmlns:android="http://schemas.android.com/apk/res/android">
+    <restriction
+        android:key="enrollment_token"
+        android:title="@string/restriction_enrollment_token_title"
+        android:description="@string/restriction_enrollment_token_description"
+        android:restrictionType="string"
+        android:defaultValue="" />
+    <restriction
+        android:key="server_url"
+        android:title="@string/restriction_server_url_title"
+        android:description="@string/restriction_server_url_description"
+        android:restrictionType="string"
+        android:defaultValue="" />
+    <restriction
+        android:key="server_allow_other"
+        android:title="@string/restriction_server_allow_other_title"
+        android:description="@string/restriction_server_allow_other_description"
+        android:restrictionType="choice"
+        android:entries="@array/restriction_server_allow_other_entries"
+        android:entryValues="@array/restriction_server_allow_other_values"
+        android:defaultValue="" />
+    <restriction
+        android:key="policy"
+        android:title="@string/restriction_policy_title"
+        android:description="@string/restriction_policy_description"
+        android:restrictionType="string"
+        android:defaultValue="" />
+</restrictions>

@@ -40,6 +40,12 @@ vi.mock("@/services/teamKeyRotation", () => ({ checkAndRotateTeamKey: vi.fn() })
 vi.mock("@/hooks/useBusinessLock", () => ({ useBusinessLock: () => ({ locked: false, isOwner: true }) }));
 vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn() }));
 
+vi.mock("@/hooks/usePermission", async (orig) => ({
+  ...(await orig<typeof import("@/hooks/usePermission")>()),
+  useOwnPermissions: () => () => true,
+  useHeldPermissionBits: () => 0,
+}));
+
 import { MemberDetailPanel } from "./MemberDetailPanel";
 
 const member: TeamMember = {

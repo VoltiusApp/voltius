@@ -18,6 +18,7 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("@/components/members/cards/JoinRequests", () => ({ JoinRequestsSection: () => <div data-testid="join-requests" /> }));
 vi.mock("@/components/shared/StatusDot", () => ({ StatusDot: () => null }));
 vi.mock("@/components/shared/Panel", () => ({
   PanelShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -47,11 +48,8 @@ vi.mock("@/components/members/panels/SecurityPolicyPanel", () => ({
   SecurityPolicyPanel: () => <div data-testid="security-policy-panel" />,
 }));
 vi.mock("@/hooks/useListKeyNav", () => ({ useListKeyNav: () => ({ focusedId: null, setFocusedId: () => {} }) }));
-vi.mock("@/hooks/usePermission", () => ({
-  PERM_BITS: { MANAGE_MEMBERS: 1, MANAGE_ROLES: 2, INVITE_MEMBERS: 4 },
-  effectivePermissions: () => h.perms,
-  hasBuiltinRole: () => false,
-}));
+vi.mock("@/hooks/usePermission", async () =>
+  (await import("@/test/memberPermissions")).memberPermissions(() => h.perms, { hasBuiltinRole: () => false }));
 vi.mock("@/services/teamService", () => ({
   searchUsers: vi.fn(),
   getMyUserId: h.getMyUserId,
@@ -189,4 +187,22 @@ test("the security panel stays hidden on a team the viewer does not manage", asy
   await settle();
 
   expect(screen.queryByTestId("security-policy-panel")).toBeNull();
+});
+
+test("join requests show for a member holding the invite permission", async () => {
+  h.pending = "";
+  h.perms = 4;
+  render(<MembersPage />);
+  await settle();
+
+  expect(screen.getByTestId("join-requests")).toBeTruthy();
+});
+
+test("join requests are hidden without the invite permission", async () => {
+  h.pending = "";
+  h.perms = 3;
+  render(<MembersPage />);
+  await settle();
+
+  expect(screen.queryByTestId("join-requests")).toBeNull();
 });

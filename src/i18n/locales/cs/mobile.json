@@ -26,11 +26,7 @@
       "panelsAriaLabel": "Panely"
     },
     "panelItems": {
-      "sftp": "SFTP",
-      "docker": "Docker",
-      "metrics": "Metriky",
-      "processes": "Procesy",
-      "proxmox": "Proxmox"
+      "sftp": "SFTP"
     },
     "morePages": {
       "keychain": "Klíčenka",
@@ -53,7 +49,9 @@
       "seatsUsed": "Využito {{used}} / {{total}}",
       "upgradeToPro": "Přejít na Pro",
       "upgradeToTeams": "Vyzkoušejte Teams zdarma na {{days}} dní",
-      "teamsTrialNote": "Vyžaduje kartu · během zkušební doby se nic neúčtuje",
+      "teamsTrialNote": "Bez platební karty · až 10 členů týmu",
+      "activateProTrial": "Aktivovat 14 dní Pro",
+      "upgradeTeamsPlain": "Přejít na Teams",
       "manageBilling": "Spravovat fakturaci",
       "viewAllPlans": "Zobrazit všechny tarify",
       "signInToSync": "Přihlásit se do Voltius",
@@ -137,10 +135,8 @@
       "permissionDenied": "Přístup odepřen",
       "goUp": "O úroveň výš",
       "emptyFolder": "Prázdná složka",
-      "selectedCount": "Vybráno: {{count}}",
       "downloadSelectedAriaLabel": "Stáhnout vybrané",
       "deleteSelectedAriaLabel": "Smazat vybrané",
-      "clearSelectionAriaLabel": "Zrušit výběr",
       "copyToOtherPane": "Kopírovat do druhého panelu",
       "download": "Stáhnout",
       "details": "Podrobnosti",
@@ -163,10 +159,8 @@
       "newFileOption": "Nový soubor",
       "folderNamePlaceholder": "Název složky",
       "fileNamePlaceholder": "Název souboru",
-      "selectAll": "Vybrat vše",
       "onePane": "Jeden panel",
       "twoPanes": "Dva panely",
-      "moreActions": "Další akce",
       "itemActions": "Akce pro {{name}}"
     },
     "folders": {
@@ -295,6 +289,41 @@
         "delete": "Smaže trezor i celý jeho obsah",
         "deleteTeam": "Smaže ho pro všechny členy",
         "leave": "Odebrat si přístup k tomuto trezoru"
+      }
+    },
+    "viewAs": {
+      "editAccess": "Upravit přístup",
+      "accessSubtitle": "Změny se zobrazují za tímto panelem. Zatím nic není uloženo.",
+      "areas": {
+        "hosts": "Hosty",
+        "keychain": "Klíčenka",
+        "snippets": "Úryvky",
+        "portForwarding": "Přesměrování portů",
+        "sessions": "Relace",
+        "members": "Členové",
+        "logs": "Auditní log"
+      }
+    },
+    "selection": {
+      "selectedCount": "Vybráno: {{count}}",
+      "clearSelectionAriaLabel": "Zrušit výběr",
+      "selectAll": "Vybrat vše",
+      "moreActions": "Další akce"
+    },
+    "members": {
+      "selectSelf": "Sebe vybrat nelze",
+      "selectOwner": "Role vlastníka nelze měnit a vlastníka nelze odebrat",
+      "assignRole": "Přiřadit roli",
+      "removeRole": "Odebrat roli",
+      "pickRole": "Vyberte roli",
+      "keyHeld": "Má klíč k trezoru",
+      "keyAwaiting": "Čeká na klíč k trezoru",
+      "alreadyAssigned": "Již přiřazeno",
+      "notAssigned": "Nepřiřazeno",
+      "keyNoAccess": "Bez přístupu ke klíči trezoru: chybí oprávnění Připojovat se",
+      "invite": {
+        "resend": "Poslat pozvánku znovu",
+        "revoke": "Zrušit pozvánku"
       }
     }
   }

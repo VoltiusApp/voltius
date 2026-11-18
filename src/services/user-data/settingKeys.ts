@@ -29,6 +29,7 @@ const HAND_WRITTEN: SettingKeyDef[] = [
     // Each saved account carries its own copy, so a synced locale flips the UI on every switch.
     deviceScoped: true,
   },
+  { id: "appSettings.timeFormat", labelKey: "settings.appearance.timeFormat.title" },
   {
     id: "appSettings.proxy",
     labelKey: "settings.hosts.proxy.title",

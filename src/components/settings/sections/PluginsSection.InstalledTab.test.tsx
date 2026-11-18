@@ -36,6 +36,7 @@ vi.mock("@/stores/marketplaceStore", () => ({
     selector ? selector(marketplaceState) : marketplaceState,
   FIRST_PARTY_SOURCE,
 }));
+vi.mock("@/hooks/usePluginSyncSwitch", () => ({ usePluginSyncGlobalReason: () => null, usePluginSyncSwitch: () => ({ synced: true, reason: null, toggle: () => {} }) }));
 vi.mock("@/stores/notificationStore", () => ({ APP_SOURCE: { kind: "app" },
   useNotificationStore: Object.assign(() => ({ push: vi.fn() }), { getState: () => ({ push: vi.fn() }) }),
 }));
@@ -214,4 +215,22 @@ test("a loaded id with NO real seeded artifact never shows the seeded Update but
   // asserting the button's absence — there's no positive change to poll for here.
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
   expect(screen.queryByTitle("settings.plugins.installed.updateTitle")).toBeNull();
+});
+
+test("an organization-installed plugin shows the organization badge and a locked uninstall without a separate note", async () => {
+  const { usePolicyStore } = await import("@/stores/policyStore");
+  usePolicyStore.setState({ machine: { policy: { "plugins.install": ["plugin-ext"] }, defaults: {} } });
+  loaded.list = [manifest("plugin-ext"), manifest("plugin-other")];
+  marketplaceState.installedMeta = [installed("plugin-ext"), installed("plugin-other")];
+  usePluginStore.setState({ settingsPages: new Map() });
+  try {
+    render(<InstalledTab />);
+    expect(screen.getByText("settings.plugins.installed.sourceOrganization")).toBeTruthy();
+    const uninstalls = screen.getAllByTitle("settings.plugins.installed.uninstallTitle") as HTMLButtonElement[];
+    expect(uninstalls).toHaveLength(2);
+    expect(uninstalls.filter((b) => b.closest("fieldset[disabled]"))).toHaveLength(1);
+    expect(screen.queryByText("common.policy.managed")).toBeNull();
+  } finally {
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+  }
 });

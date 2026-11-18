@@ -38,6 +38,7 @@ export interface SnapshotSession {
    * when snapshotted. Omitted when 0 (at bottom). Re-applied best-effort after
    * history replay; the rebuilt buffer wraps differently so it's approximate. */
   scrollLinesFromBottom?: number;
+  locked?: boolean;
 }
 
 /** Opaque layout payload. splitTabs holds layoutStore SplitTab objects;
@@ -47,6 +48,7 @@ export interface SnapshotLayout {
   activeSplitTabId: string | null;
   splitTabActive: boolean;
   titlebarOrder: string[];
+  pinnedKeys?: string[];
 }
 
 export interface WorkspaceSnapshot {
@@ -70,6 +72,7 @@ export interface SessionInput {
   serialConfig?: SnapshotSerialConfig;
   webUrl?: string;
   containerExec?: unknown;
+  locked?: boolean;
 }
 
 /** A session can be restored when it's a plain ssh/local/serial/web tab.
@@ -107,6 +110,7 @@ export function buildSnapshot(input: {
       ...(s.type === "web" ? { webUrl: s.webUrl } : {}),
       encoding: s.encoding,
       ...(offset > 0 ? { scrollLinesFromBottom: offset } : {}),
+      ...(s.locked ? { locked: true } : {}),
     };
   });
   const ids = new Set(sessions.map((s) => s.id));
@@ -119,6 +123,7 @@ export function buildSnapshot(input: {
       ...input.layout,
       splitTabs: [...input.layout.splitTabs],
       titlebarOrder: [...input.layout.titlebarOrder],
+      pinnedKeys: [...(input.layout.pinnedKeys ?? [])],
     },
     sessions,
   };
@@ -152,6 +157,11 @@ export function parseSnapshot(raw: unknown): WorkspaceSnapshot | null {
   ) {
     return null;
   }
+  const sessions = s.sessions.filter(isValidSession);
+  const knownKeys = new Set([
+    ...sessions.map((x) => `session:${x.id}`),
+    ...layout.splitTabs.flatMap((tab) => (tab && typeof (tab as { id?: unknown }).id === "string" ? [`split:${(tab as { id: string }).id}`] : [])),
+  ]);
   return {
     version: SNAPSHOT_VERSION,
     savedAt: typeof s.savedAt === "string" ? s.savedAt : "",
@@ -161,9 +171,11 @@ export function parseSnapshot(raw: unknown): WorkspaceSnapshot | null {
       activeSplitTabId: typeof layout.activeSplitTabId === "string" ? layout.activeSplitTabId : null,
       splitTabActive: layout.splitTabActive === true,
       titlebarOrder: layout.titlebarOrder.filter((k): k is string => typeof k === "string"),
+      pinnedKeys: (Array.isArray(layout.pinnedKeys) ? layout.pinnedKeys : []).filter((k): k is string => typeof k === "string" && knownKeys.has(k)),
     },
-    sessions: s.sessions.filter(isValidSession).map((x) => ({
+    sessions: sessions.map((x) => ({
       ...x,
+      locked: x.locked === true,
       title: typeof x.title === "string" ? x.title : undefined,
       persist: x.persist === true,
       scrollLinesFromBottom:

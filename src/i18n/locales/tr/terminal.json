@@ -7,14 +7,28 @@
       "noActiveSession": "Etkin oturum yok"
     },
     "historyPanel": {
+      "historyOff": "Komut geçmişi kapalı.\nAyarlar › Terminal bölümünden açabilirsiniz.",
       "removeFromHistory": "Geçmişten kaldır",
       "searchPlaceholder": "Geçmişte ara…",
-      "showCurrentOnly": "Yalnızca geçerli bağlantı gösteriliyor",
       "showAllConnections": "Tüm bağlantıları göster",
       "clearAllTitle": "Tüm geçmişi temizle",
       "noCommandsMatch": "Eşleşen komut yok",
       "noHistoryForConnection": "Bu bağlantı için henüz geçmiş yok",
-      "noHistoryYet": "Henüz komut geçmişi yok.\nYazdığınız komutlar burada görünür."
+      "noHistoryYet": "Henüz komut geçmişi yok.\nYazdığınız komutlar burada görünür.",
+      "favorites": "Favoriler",
+      "recent": "Son kullanılanlar",
+      "addFavorite": "Favorilere ekle",
+      "addFavoriteTeam": "Favorilere ekle. Favoriler hesabınıza kaydedilir ve eşitlenir; ekipten ayrılsanız bile kalır.",
+      "removeFavorite": "Favorilerden çıkar",
+      "saveAsSnippet": "Kod parçacığı olarak kaydet…",
+      "showOnlyHost": "Yalnızca {{host}} göster",
+      "clearHostFilter": "Sunucu filtresini kaldır",
+      "showCurrentHost": "Yalnızca geçerli sunucuyu göster",
+      "clearConfirm_one": "{{count}} komut temizlensin mi?",
+      "clearConfirm_other": "{{count}} komut temizlensin mi?",
+      "favoritesStay_one": "Favoriniz kalır.",
+      "favoritesStay_other": "{{count}} favoriniz kalır.",
+      "clear": "Temizle"
     },
     "multiplayerBar": {
       "ended": "Sona erdi",
@@ -99,6 +113,7 @@
       "themeCustom": "özel",
       "createNewTheme": "Yeni tema oluştur",
       "closePanelTitle": "Paneli kapat",
+      "resizeHandle": "Boyutlandırmak için sürükleyin, sıfırlamak için çift tıklayın",
       "sections": {
         "history": "Geçmiş",
         "sftp": "SFTP",
@@ -249,6 +264,7 @@
       "connectionError": {
         "title": "Bağlantı başarısız",
         "retry": "Tekrar dene",
+        "enableLegacyAndRetry": "Eski algoritmaları aç ve tekrar dene",
         "dismiss": "Kapat"
       },
       "hostKeyConflict": {

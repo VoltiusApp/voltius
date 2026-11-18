@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useMountFade } from "@/hooks/useDelayedUnmount";
 
 const CHECKERBOARD = `url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="8" height="8" fill="%23e6e6e6"/><rect x="8" width="8" height="8" fill="%23ffffff"/><rect y="8" width="8" height="8" fill="%23ffffff"/><rect x="8" y="8" width="8" height="8" fill="%23e6e6e6"/></svg>')`;
 
@@ -198,6 +199,7 @@ function Popover({
   }, [readSv, readHue, readAlpha]);
 
   const boxRef = useRef<HTMLDivElement>(null);
+  const fade = useMountFade(boxRef);
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       if (boxRef.current && !boxRef.current.contains(e.target as Node)) onClose();
@@ -214,8 +216,9 @@ function Popover({
     <div
       ref={boxRef}
       data-menu-portal=""
-      className="surface-float"
+      className={`surface-float ${fade.className}`}
       style={{
+        ...fade.style,
         position: "fixed",
         left: safeLeft,
         top,

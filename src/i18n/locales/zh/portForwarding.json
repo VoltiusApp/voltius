@@ -13,7 +13,6 @@
       "folders": "文件夹",
       "new": "新建",
       "noRulesMatchSearch": "没有匹配搜索的规则。",
-      "folderEmpty": "此文件夹为空。",
       "noRulesYet": "暂无规则。创建一个开始使用。",
       "addRule": "添加规则",
       "ejectMoveTo": "移动到 {{name}}",
@@ -35,10 +34,6 @@
         "message_one": "这将删除该文件夹、其子文件夹以及其中的 {{count}} 条规则。此操作无法撤销。",
         "message_other": "这将删除该文件夹、其子文件夹以及其中的 {{count}} 条规则。此操作无法撤销。",
         "messageEmpty": "这将删除该文件夹及其中的所有内容。此操作无法撤销。"
-      },
-      "vaultCascade": {
-        "moveDescription": "移动 \"{{folderName}}\" 也会将以下规则移动到 {{targetVaultName}}：",
-        "copyDescription": "复制 \"{{folderName}}\" 也会将以下规则复制到 {{targetVaultName}}："
       },
       "bulk": {
         "duplicateRules": "复制 {{count}} 条规则",

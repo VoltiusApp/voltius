@@ -11,7 +11,9 @@ const h = vi.hoisted(() => ({
   storeSecret: vi.fn(),
   purge: vi.fn(),
   getLocalSecret: vi.fn(async (_key: string) => null as string | null),
+  noteSeen: vi.fn(),
 }));
+vi.mock("@/services/teamVaultCatchUp", async (orig) => ({ ...(await orig<object>()), noteTeamDataSeen: h.noteSeen }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
 vi.mock("@/services/teamService", () => ({ getUserPublicKey: h.getUserPublicKey, listRoles: h.listRoles }));
@@ -66,6 +68,7 @@ beforeEach(() => {
   h.getSecret.mockReset();
   h.storeSecret.mockReset();
   h.purge.mockReset();
+  h.noteSeen.mockReset();
   h.getSecret.mockResolvedValue(null);
   h.storeSecret.mockResolvedValue(undefined);
   h.purge.mockImplementation(async (keys: string[]) => keys);
@@ -326,4 +329,35 @@ test.each([
   await fetchTeamData(teamId, { background: true });
 
   expectEmptied(teamId);
+});
+
+test("a fetch that loads the vault records the team version listed when it was asked for", async () => {
+  const teamId = "t-version-seen";
+  useTeamStore.setState({ teams: [{ id: teamId, data_version: 7 }] as never });
+  keychain({ server_url: "https://s", jwt: futureJwt() });
+  h.appFetch.mockImplementation(async (url: string) => {
+    if (url.endsWith("/vault-key")) return res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1" });
+    if (url.endsWith("/sync-blob")) return res(404);
+    throw new Error(`unexpected fetch ${url}`);
+  });
+  h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
+  h.unwrap.mockResolvedValue(new Uint8Array([9, 9, 9]));
+
+  await fetchTeamData(teamId);
+
+  expect(useTeamVaultStateStore.getState().statusByTeamId[teamId]).toBe("loaded");
+  expect(h.noteSeen).toHaveBeenCalledWith(teamId, 7);
+});
+
+test("a background fetch that cannot reach the server records no version", async () => {
+  const teamId = "t-version-unreachable";
+  useTeamStore.setState({ teams: [{ id: teamId, data_version: 7 }] as never });
+  useTeamVaultStateStore.getState().setStatus(teamId, "loaded");
+  keychain({ server_url: "https://s", jwt: futureJwt() });
+  h.appFetch.mockRejectedValue("error sending request");
+
+  await fetchTeamData(teamId, { background: true });
+
+  expect(useTeamVaultStateStore.getState().statusByTeamId[teamId]).toBe("loaded");
+  expect(h.noteSeen).not.toHaveBeenCalled();
 });

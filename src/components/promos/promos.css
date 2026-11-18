@@ -1,0 +1,70 @@
+/* Product-preview loops in the promo modals. Every element rests in its final,
+   readable state; the motion is only added when the user allows it. */
+
+.promo-typed {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.promo-dot {
+  position: absolute;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--t-accent);
+  opacity: 0;
+}
+
+@keyframes promo-type-1 { 0%, 6% { width: 0 } 22%, 100% { width: 23ch } }
+@keyframes promo-type-2 { 0%, 40% { width: 0 } 58%, 100% { width: 21ch } }
+@keyframes promo-out-1 { 0%, 24% { opacity: 0 } 28%, 100% { opacity: 1 } }
+@keyframes promo-out-2 { 0%, 60% { opacity: 0 } 64%, 100% { opacity: 1 } }
+@keyframes promo-blink { 0%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }
+@keyframes promo-fixed { 0%, 62% { opacity: 0; transform: translateY(4px) } 68%, 94% { opacity: 1; transform: none } 100% { opacity: 0 } }
+@keyframes promo-join { 0%, 30% { opacity: 0; transform: scale(.6) } 36%, 100% { opacity: 1; transform: none } }
+
+@keyframes promo-add { 0%, 10% { opacity: 0; transform: translateY(-6px) } 18%, 100% { opacity: 1; transform: none } }
+@keyframes promo-arrive { 0%, 34% { opacity: 0; transform: translateY(-6px) } 40%, 100% { opacity: 1; transform: none } }
+@keyframes promo-flash {
+  0%, 36% { background-color: var(--t-bg-card) }
+  40% { background-color: color-mix(in srgb, var(--t-accent) 22%, var(--t-bg-card)) }
+  60%, 100% { background-color: var(--t-bg-card) }
+}
+@keyframes promo-sync-flow {
+  0%, 16% { left: 0; opacity: 0 }
+  20% { opacity: 1 }
+  34% { left: calc(100% - 8px); opacity: 1 }
+  38%, 100% { left: calc(100% - 8px); opacity: 0 }
+}
+
+@keyframes promo-stop-flow {
+  0% { left: 0; opacity: 1 }
+  45% { left: calc(50% - 4px); opacity: 1 }
+  55%, 100% { left: calc(50% - 4px); opacity: 0 }
+}
+@keyframes promo-pause { 0%, 48% { opacity: 0; transform: scale(.7) } 58%, 100% { opacity: 1; transform: none } }
+@keyframes promo-rise { 0% { opacity: 0; transform: translateY(6px) } 100% { opacity: 1; transform: none } }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Teams: two machines in one live terminal (8s loop). */
+  .promo-type-1 { animation: promo-type-1 8s steps(23) infinite; }
+  .promo-type-2 { animation: promo-type-2 8s steps(21) infinite; }
+  .promo-out-1 { animation: promo-out-1 8s linear infinite; }
+  .promo-out-2 { animation: promo-out-2 8s linear infinite; }
+  .promo-blink { animation: promo-blink 1s steps(1) infinite; }
+  .promo-fixed { animation: promo-fixed 8s ease-out infinite; }
+  .promo-join { animation: promo-join 8s ease-out infinite; }
+
+  /* Pro: a host added on the laptop lands on the phone (5s loop). */
+  .promo-add { animation: promo-add 5s ease-out infinite both; }
+  .promo-arrive { animation: promo-arrive 5s ease-out infinite both, promo-flash 5s ease-out infinite; }
+  .promo-dot-sync { animation: promo-sync-flow 5s ease-in-out infinite; }
+
+  /* Plan ended: sync stops halfway (3.2s loop), recap figures rise once. */
+  .promo-dot-stop { animation: promo-stop-flow 3.2s ease-in-out infinite; }
+  .promo-pause { animation: promo-pause 3.2s ease-out infinite; }
+  .promo-rise { animation: promo-rise .6s ease-out both; }
+}

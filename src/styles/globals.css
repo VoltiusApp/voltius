@@ -46,30 +46,42 @@
 
   --animate-fadeIn: fadeIn 0.3s ease-out forwards;
   --animate-fadeOut: fadeOut 0.25s ease-in forwards;
+  --animate-toast-rise: toast-rise 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-toast-drop: toast-drop 160ms ease-in forwards;
   --animate-spin: spin 0.8s linear infinite;
   --animate-tab-hint: tab-hint 600ms ease-out forwards;
   --animate-sync-breathe: sync-breathe 1.4s ease-in-out infinite;
+  --animate-tab-lock-wiggle: tab-lock-wiggle 480ms ease-out;
+  --animate-tab-lock-cue: tab-lock-cue-fade 300ms ease-in 900ms forwards;
 
   --transition-duration-400: 400ms;
 
+  /* `translate`, not `transform`: it composes with an inline transform (the context menu's UI-scale). */
   @keyframes fadeIn {
     0% {
       opacity: 0;
-      transform: translateY(6px);
+      translate: 0 6px;
     }
     100% {
       opacity: 1;
-      transform: translateY(0);
+      translate: 0 0;
     }
+  }
+  @keyframes toast-rise {
+    from { clip-path: inset(100% 0 0 0); translate: 0 4px; }
+    to { clip-path: inset(0); translate: 0 0; }
+  }
+  @keyframes toast-drop {
+    to { clip-path: inset(0 0 100% 0); opacity: 0; }
   }
   @keyframes fadeOut {
     0% {
       opacity: 1;
-      transform: translateX(0) translateY(0);
+      translate: 0 0;
     }
     100% {
       opacity: 0;
-      transform: translateX(6px) translateY(0);
+      translate: 6px 0;
     }
   }
   @keyframes tab-hint {
@@ -82,12 +94,31 @@
     0%, 100% { opacity: 1; transform: scale(1); }
     50%      { opacity: 0.35; transform: scale(0.9); }
   }
+  @keyframes tab-lock-wiggle {
+    0%   { rotate: 0deg; }
+    15%  { rotate: -16deg; }
+    30%  { rotate: 14deg; }
+    45%  { rotate: -10deg; }
+    60%  { rotate: 7deg; }
+    75%  { rotate: -3deg; }
+    100% { rotate: 0deg; }
+  }
+  @keyframes tab-lock-cue-fade {
+    to { opacity: 0; }
+  }
+}
+
+.animate-tab-lock-wiggle {
+  transform-origin: 50% 35%;
 }
 
 /* Redeclaring fadeIn/fadeOut here overrides them only while the media query
    matches — every `.animate-fadeIn` / `.animate-fadeOut` user (e.g. the
    ShareMenu panel) drops the translate and keeps just the opacity fade. */
 @media (prefers-reduced-motion: reduce) {
+  @keyframes tab-lock-wiggle {
+    0%, 45% { color: var(--t-status-warning); }
+  }
   @keyframes fadeIn {
     0% { opacity: 0; }
     100% { opacity: 1; }
@@ -95,6 +126,13 @@
   @keyframes fadeOut {
     0% { opacity: 1; }
     100% { opacity: 0; }
+  }
+  @keyframes toast-rise {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes toast-drop {
+    to { opacity: 0; }
   }
 }
 
@@ -379,6 +417,17 @@
     box-shadow: var(--t-ring), var(--t-elev-1), var(--t-highlight);
   }
 
+  /* Mirrors BaseCard's GLASS_*_HOVER inline styles so plain buttons get the hover without JS. */
+  .surface-glass-interactive {
+    transition: background 150ms, box-shadow 150ms;
+  }
+  .surface-glass-interactive:hover:not(:disabled) {
+    background:
+      linear-gradient(140deg, rgba(255, 255, 255, 0.11) 0%, rgba(255, 255, 255, 0.03) 45%, transparent 100%),
+      color-mix(in srgb, var(--t-bg-card) 80%, transparent);
+    box-shadow: var(--t-ring-strong), var(--t-elev-1-hover), var(--t-highlight-strong);
+  }
+
   .surface-glass-modal {
     background:
       linear-gradient(150deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.025) 40%, transparent 100%),
@@ -424,6 +473,12 @@
     background: var(--t-bg-card);
     border-radius: var(--r-md);
     box-shadow: var(--t-ring), var(--t-elev-2);
+  }
+
+  /* !important: these edges sit on elements whose border colour is an inline style. */
+  .edge-strong,
+  .hover-edge:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--t-text-dim) 40%, transparent) !important;
   }
 
   /*
@@ -528,6 +583,10 @@
     background: color-mix(in srgb, var(--color-accent) 30%, transparent);
   }
 
+  ::placeholder {
+    color: var(--t-text-dim);
+  }
+
   body[data-native-term-selecting] * {
     -webkit-user-select: none;
     user-select: none;
@@ -539,11 +598,6 @@
     user-select: text;
   }
 
-}
-
-@keyframes toast-timer-drain {
-  from { transform: scaleX(1); }
-  to   { transform: scaleX(0); }
 }
 
 @keyframes ripple-enter-anim {
@@ -650,6 +704,11 @@ button svg *,
   opacity: 0.45;
   cursor: not-allowed;
 }
+.btn:focus-visible,
+.focus-ring:focus-visible {
+  outline: 2px solid var(--t-accent);
+  outline-offset: 2px;
+}
 
 /* Flat button treatment — accent / elevated fill + the core ring, no gradient
    sheen, inset highlight, or colored glow. One calm look for every button,
@@ -720,7 +779,7 @@ button svg *,
 
 .form-input:focus,
 .form-input:focus-visible,
-[data-script-editor].form-input:focus-within {
+[data-code-field].form-input:focus-within {
   outline: none;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--t-accent) 22%, transparent);
 }
@@ -776,6 +835,7 @@ fieldset:disabled :is(input, textarea, button) { cursor: default; }
   .checkbox-box[data-mixed]::after { content: ""; width: 0.5rem; height: 2px; border-radius: 1px; background: var(--t-on-accent); }
   input[type="checkbox"]:disabled { cursor: default; opacity: 0.6; }
   input[type="checkbox"]:focus-visible { outline: 2px solid var(--t-accent); outline-offset: 1px; }
+  .focus-ring-scope :focus-visible { outline: 2px solid var(--t-accent); outline-offset: 2px; }
 }
 
 /* ── Android shell: stop looking like a web page (A7) ─────────────────────────────
@@ -907,20 +967,20 @@ html[data-android] [data-mobile-edit-form] textarea.form-input {
   padding: 0.875rem 1rem;
   border-radius: 0.5rem;
 }
-html[data-android] [data-mobile-edit-form] [data-script-editor] { border-radius: 0.5rem; }
-html[data-android] [data-mobile-edit-form] [data-script-editor] .cm-content { padding-block: 0.875rem; }
-html[data-android] [data-mobile-edit-form] [data-script-editor] .cm-line { padding-inline: 1rem; }
-html[data-android] [data-mobile-edit-form] :is(input.form-input, textarea.form-input, [data-script-editor], [data-picker-trigger], [data-form-select], [data-chip-input]) {
+html[data-android] [data-mobile-edit-form] [data-code-field] { border-radius: 0.5rem; }
+html[data-android] [data-mobile-edit-form] [data-code-field] .cm-content { padding-block: 0.875rem; }
+html[data-android] [data-mobile-edit-form] [data-code-field] .cm-line { padding-inline: 1rem; }
+html[data-android] [data-mobile-edit-form] :is(input.form-input, textarea.form-input, [data-code-field], [data-picker-trigger], [data-form-select], [data-chip-input]) {
   /* M3 outline: the theme border tokens are near-invisible on the page background. */
   border-color: color-mix(in srgb, var(--t-text-primary) 30%, transparent) !important;
   transition: border-color var(--vt-dur-short3) var(--vt-ease-standard), box-shadow var(--vt-dur-short3) var(--vt-ease-standard);
 }
 html[data-android] [data-mobile-edit-form] :is(input.form-input, textarea.form-input):focus,
-html[data-android] [data-mobile-edit-form] :is([data-chip-input], [data-script-editor]):focus-within {
+html[data-android] [data-mobile-edit-form] :is([data-chip-input], [data-code-field]):focus-within {
   border-color: var(--t-accent) !important;
   box-shadow: inset 0 0 0 1px var(--t-accent);
 }
-html[data-android] [data-mobile-edit-form] :is(input, textarea, [data-script-editor])[aria-invalid="true"],
+html[data-android] [data-mobile-edit-form] :is(input, textarea, [data-code-field])[aria-invalid="true"],
 html[data-android] [data-mobile-edit-form][data-reveal-errors] :is(input, textarea):invalid {
   border-color: var(--t-status-error) !important;
   box-shadow: inset 0 0 0 1px var(--t-status-error);

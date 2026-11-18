@@ -1,3 +1,4 @@
+import { refuseWhilePreviewing } from "@/services/previewGuard";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
@@ -28,6 +29,7 @@ export function EntryDetail({ entry, onBack, onInstalled }: {
     setPicked(prev => prev.includes(eid) ? prev.filter(e => e !== eid) : [...prev, eid]);
 
   async function handleInstall() {
+    if (refuseWhilePreviewing()) return;
     setError(null);
     try {
       const result = await install([{ entry, snippetEids: selected }]);

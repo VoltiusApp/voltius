@@ -1,6 +1,5 @@
 /** Pure model of the mobile vault settings page — node-testable, no React. */
 import type { VaultMenuAction } from "@/components/vault-admin/vaultMenuItems";
-import type { MembersPanel } from "@/stores/uiStore";
 import type { VaultSettingsPage } from "@/stores/mobileNavCore";
 
 export type VaultSettingsSectionId = "general" | "people" | "danger";
@@ -33,9 +32,4 @@ export function vaultSettingsSections(actions: VaultMenuAction[]): VaultSettings
     { id: "danger", rows: DANGER.filter(has).map((id) => ({ id })) },
   ];
   return sections.filter((s) => s.rows.length > 0);
-}
-
-/** The vault settings sub-page that stands in for a Members side panel on the phone. */
-export function membersPanelPage(panel: MembersPanel): VaultSettingsPage {
-  return panel === "invite" ? "share" : panel;
 }

@@ -103,7 +103,8 @@
       "connectAsYours": "{{username}} · 你的，仅你可见",
       "connectAsTeam": "{{username}} · 团队身份",
       "connectAsAsk": "连接时会询问你",
-      "connectAsUnavailable": "你选择的身份不可用"
+      "connectAsUnavailable": "你选择的身份不可用",
+      "connectNeedsHost": "输入主机后即可连接"
     },
     "distroIconPicker": {
       "title": "图标",
@@ -168,7 +169,15 @@
       "keyPlaceholder": "KEY",
       "valuePlaceholder": "值",
       "removeAriaLabel": "移除变量",
-      "addButton": "添加变量"
+      "addButton": "添加变量",
+      "modeLabel": "编辑模式",
+      "modeList": "列表",
+      "pasteTip": "将 .env 文件粘贴到键字段中即可一次添加多个变量",
+      "rawHint": "每行一个 KEY=value。支持注释、引号和 export 前缀。",
+      "skippedLines": "已忽略的行：{{count}}",
+      "copyButton": "复制为 .env",
+      "downloadButton": "下载 .env",
+      "copied": "已复制"
     },
     "serialConfigOverlay": {
       "title": "串口连接",

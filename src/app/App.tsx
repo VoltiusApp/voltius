@@ -19,6 +19,7 @@ import { useImportExportContributions } from "@/hooks/useImportExportContributio
 import { useConnectionPresenceBroadcast } from "@/hooks/useConnectionPresenceBroadcast";
 import { useMcpServerSync } from "@/hooks/useMcpServerSync";
 import { useChangelogAutoOpen } from "@/hooks/useChangelogAutoOpen";
+import { useLaunchPromo } from "@/hooks/useLaunchPromo";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { injectPendingSnippet } from "@/services/snippetPendingInject";
 import { initUpdaterListener } from "@/services/updater";
@@ -34,10 +35,12 @@ import { startTeamDataScrub } from "@/services/teamDataScrub";
 import { startDeepLinks } from "@/services/deepLink";
 import { NotificationToastContainer } from "@/components/notifications/NotificationToastContainer";
 import ThemeCreator from "@/components/theme-creator/ThemeCreator";
-import { TrialExpiredModal } from "@/components/shared/TrialExpiredModal";
+import { PromoHost } from "@/components/promos/PromoHost";
 import CloudAuthModal from "@/components/layout/CloudAuthModal";
+import EnrollModal from "@/components/enrollment/EnrollModal";
 import WhatsNewModal from "@/components/changelog/WhatsNewModal";
 import { EmailVerificationRequiredModal } from "@/components/notifications/EmailVerificationRequiredModal";
+import { SyncedPluginConsentHost } from "@/components/settings/SyncedPluginConsentHost";
 import { DeepLinkConfirmModal } from "@/components/terminal/DeepLinkConfirmModal";
 import { FileAccessRequestModal } from "@/components/shared/FileAccessRequestModal";
 import { LanSyncIntroModal } from "@/components/shared/LanSyncIntroModal";
@@ -67,6 +70,7 @@ function App() {
   useConnectionPresenceBroadcast();
   useMcpServerSync();
   useChangelogAutoOpen();
+  useLaunchPromo(ready);
   useEffect(() => { initUpdaterListener(); useUpdaterPrefStore.getState().load(); }, []);
   useEffect(() => startTeamInbox(), []);
   useEffect(() => startTeamVaultNames(), []);
@@ -104,11 +108,13 @@ function App() {
       <NotificationToastContainer />
       {!isMobileShell && <FileAccessRequestModal />}
       <ThemeCreator />
-      <TrialExpiredModal />
+      <PromoHost />
       <CloudAuthModal />
+      <EnrollModal />
       <WhatsNewModal />
       <EmailVerificationRequiredModal />
       <DeepLinkConfirmModal />
+      <SyncedPluginConsentHost />
       <LanSyncIntroModal />
       <PairDeviceDialog />
       <RuleSetPromptHost />

@@ -11,7 +11,8 @@
       "importFrom": "导入自",
       "newHost": "新建主机",
       "newSerialHost": "新建串口主机",
-      "newFolder": "新建文件夹"
+      "newFolder": "新建文件夹",
+      "systemShell": "系统默认"
     },
     "card": {
       "pin": "置顶",
@@ -50,21 +51,17 @@
       "folders": "文件夹",
       "new": "新建",
       "pinned": "已置顶",
-      "folderEmpty": "此文件夹为空",
-      "addHost": "添加主机",
       "noSearchResults": "没有匹配 \"{{search}}\" 的主机",
       "ejectMoveTo": "移动到 {{name}}",
       "ejectRemoveFromFolder": "从文件夹中移除",
       "emptyState": {
         "title": "暂无主机",
-        "subtitle": "添加您的第一台 SSH 主机开始使用"
+        "subtitle": "添加服务器，一键即可连接。",
+        "import": "导入主机",
+        "quickConnect": "直接连接（不保存）"
       },
       "draft": {
         "unsaved": "未保存"
-      },
-      "vaultCascade": {
-        "moveDescription": "移动 \"{{folderName}}\" 也会将以下项目移动到 {{targetVaultName}}：",
-        "copyDescription": "复制 \"{{folderName}}\" 也会将以下项目复制到 {{targetVaultName}}："
       },
       "bulk": {
         "executeSnippetOn_one": "在 {{count}} 台主机上执行代码片段",
@@ -110,8 +107,9 @@
     "teamSessions": {
       "title": "团队会话",
       "joinByCode": "通过代码加入",
-      "emptyHint": "队友共享的终端会显示在这里。有邀请码？粘贴到搜索框即可加入。",
+      "emptyHint": "队友共享的终端会显示在这里。有邀请链接或邀请码？使用“通过代码加入”。",
       "live": "实时",
+      "sharedBy": "{{name}} 正在共享",
       "pasteInviteCode": "粘贴邀请链接或代码以加入私有会话：",
       "inviteCodePlaceholder": "voltius://join?… 或 sessionId:token",
       "join": "加入",

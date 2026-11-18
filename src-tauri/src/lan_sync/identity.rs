@@ -60,7 +60,7 @@ impl Drop for DeviceKey {
 }
 
 pub fn load_or_create_device_key() -> Result<DeviceKey, String> {
-    use crate::commands::keychain::{entry, read};
+    use crate::commands::keychain::{read, write};
     let corrupt = |why: String| format!("corrupt {DEVICE_KEY_ENTRY}: {why}");
     if let Some(stored) = read(DEVICE_KEY_ENTRY).map_err(|e| e.to_string())? {
         let stored = Zeroizing::new(stored);
@@ -77,9 +77,7 @@ pub fn load_or_create_device_key() -> Result<DeviceKey, String> {
     }
     let key = DeviceKey::generate();
     let encoded = Zeroizing::new(STANDARD.encode(key.private));
-    entry(DEVICE_KEY_ENTRY)
-        .and_then(|e| e.set_password(&encoded))
-        .map_err(|e| e.to_string())?;
+    write(DEVICE_KEY_ENTRY, &encoded).map_err(|e| e.to_string())?;
     Ok(key)
 }
 

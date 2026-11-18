@@ -17,6 +17,11 @@
         "bodyBilling": "L'abonnement Teams ou Business de {{name}} paiera désormais pour cette équipe, et seul {{name}} pourra la supprimer. Votre abonnement ne change pas : réduisez vos sièges ou résiliez-le vous-même.",
         "bodySelfHosted": "Seul {{name}} pourra supprimer cette équipe. Vous restez propriétaire et pourrez partir ensuite."
       },
+      "invite": {
+        "title": "Inviter {{name}} comme propriétaire ?",
+        "body": "Les propriétaires ont toutes les permissions, y compris ajouter et retirer d'autres propriétaires. Le propriétaire principal et la facturation ne changent pas.",
+        "confirm": "Envoyer l'invitation propriétaire"
+      },
       "grant": {
         "title": "Nommer {{name}} propriétaire ?",
         "body": "Les propriétaires ont toutes les permissions, y compris ajouter et retirer d'autres propriétaires.",
@@ -75,11 +80,14 @@
       "ADMINISTRATOR": "Administrateur"
     },
     "permissions": {
+      "youLack": "Vous n'avez pas la permission de faire ceci",
+      "youCannotEdit": "Vous n'avez pas la permission de modifier ceci",
       "title": "Permissions",
       "inheritedFrom": "Via {{roles}}",
       "notGranted": "Aucun rôle ne l'accorde",
       "effectiveAllowed": "autorisé",
       "effectiveDenied": "refusé",
+      "withExceptions": "sauf exceptions",
       "state": { "deny": "Refuser", "inherit": "Hériter", "allow": "Autoriser" },
       "readOnlyNoManage": "Vous avez besoin de la permission Gérer les membres",
       "readOnlyOwner": "Les permissions d'un propriétaire ne peuvent pas être modifiées",
@@ -125,6 +133,7 @@
       "nameHint": "Laisser vide pour afficher son identifiant."
     },
     "invite": {
+      "ownerOnlyOwners": "Seuls les propriétaires peuvent inviter un propriétaire",
       "nameLabel": "Nom dans cette équipe",
       "namePlaceholder": "ex. Jan Novák",
       "nameHint": "Les membres de l'équipe le voient à la place de son identifiant. Seuls les administrateurs peuvent le modifier.",
@@ -146,7 +155,7 @@
       "inviteArrow": "Inviter →",
       "handleRule": "Seuls les pseudos personnalisés se retrouvent avec une partie du nom. Pour un pseudo généré comme rapid-violet-8884, saisissez-le en entier ou utilisez son e-mail.",
       "seatsUnknown": "Nombre de postes indisponible — vérifiez votre connexion au serveur de synchronisation",
-      "seatsUnlimited": "{{used}} utilisés · illimité",
+      "seatsUnlimited": "{{used}} / ∞ postes utilisés",
       "inviteAction": "Inviter",
       "joinsAs": "Ils rejoignent en tant que",
       "selectRoleHint": "Sélectionnez au moins un rôle avant d'inviter",
@@ -159,6 +168,7 @@
       "resendTitle": "Renvoyer cette invitation"
     },
     "roleBlurb": {
+      "owner": "Les propriétaires ont toutes les permissions, y compris ajouter et retirer d'autres propriétaires.",
       "manager": "Les gestionnaires peuvent inviter des personnes, changer les rôles et gérer les liens.",
       "editor": "Les éditeurs peuvent ajouter et modifier les hôtes, clés et snippets de ce coffre-fort.",
       "member": "Les membres peuvent tout utiliser dans ce coffre-fort mais pas le modifier.",
@@ -180,6 +190,7 @@
       "userAdded": "{{name}} ajouté",
       "invitingEmail": "Invitation de {{email}}…",
       "invitationSentToEmail": "Invitation envoyée à {{email}}",
+      "invitationEmailNotSent": "Invitation enregistrée, mais l’e-mail à {{email}} n’a pas pu être envoyé. Cette personne rejoindra l’équipe en créant un compte avec cette adresse.",
       "invitingToSession": "Invitation de {{name}} à la session…",
       "invitedToSession": "{{name}} invité à la session",
       "convertingVault": "Transformation de {{vault}} en coffre-fort d'équipe…",
@@ -200,6 +211,8 @@
       "convertFailed": "Impossible de transformer {{vault}} en coffre-fort d'équipe — {{reason}}",
       "serverUnreachable": "le serveur de synchronisation est injoignable",
       "removeFailed": "Impossible de retirer {{name}} — {{reason}}",
+      "removePartial": "{{removed}} retiré(s). Impossible de retirer {{failed}} — {{reason}}",
+      "undoRolesNotRestorable": "Impossible de rétablir exactement les rôles de {{name}}. Invitez-les à nouveau et définissez leurs rôles manuellement.",
       "revokeFailed": "Impossible de révoquer l'invitation de {{name}} — {{reason}}",
       "grantKeyFailed": "Impossible d'accorder l'accès au coffre-fort à {{name}} — {{reason}}",
       "memberHasNoPublicKey": "Cette personne n'a pas encore publié de clé — demandez-lui de se connecter une fois.",
@@ -248,8 +261,9 @@
       "ownPlanTitle": "Convertir un coffre-fort en équipe nécessite votre propre forfait Teams",
       "upgradeDesc": "Invitez des membres, attribuez des rôles et partagez des identifiants en toute sécurité avec votre équipe.",
       "upgradeBtn": "Essayer Teams gratuitement pendant {{days}} jours →",
+      "upgradePlainBtn": "Passer à Teams →",
       "ownPlanBtn": "Prendre votre propre forfait Teams →",
-      "trialNote": "Carte bancaire requise · aucun prélèvement pendant l'essai"
+      "trialNote": "Sans carte bancaire · jusqu'à 10 coéquipiers"
     },
     "joinLinks": {
       "explainer": "Toute personne disposant du lien rejoint ce coffre-fort avec le rôle que vous choisissez. Le lien ne transporte jamais la clé du coffre-fort : elle arrive séparément, lorsqu'une personne qui la détient déjà est en ligne.",
@@ -314,6 +328,77 @@
       "newLink": "Nouveau lien",
       "cancel": "Annuler"
     },
+    "enrollment": {
+      "title": "Enrôlement d'appareils",
+      "explainer": "Un jeton unique pour toute l'entreprise, pour déployer Voltius avec Ansible ou un MDM. Les personnes qui l'utilisent demandent à rejoindre {{team}}.",
+      "domainsLabel": "Domaines e-mail autorisés",
+      "domainPlaceholder": "Ajouter un domaine",
+      "removeDomain": "Retirer {{domain}}",
+      "invalidDomain": "{{domain}} n'est pas un nom de domaine, comme example.com.",
+      "approve": "Un administrateur approuve chaque adhésion",
+      "noEmail": "Ce serveur ne peut pas envoyer d'e-mails : un administrateur doit donc approuver chaque adhésion.",
+      "expiresLabel": "Expire",
+      "expiry": {
+        "never": "Jamais",
+        "day30": "30 jours",
+        "day90": "90 jours",
+        "year1": "1 an"
+      },
+      "create": "Créer le jeton",
+      "guardHint": "Chaque adhésion exige un domaine e-mail correspondant, l'approbation d'un administrateur, ou les deux.",
+      "copyNow": "Copiez-le maintenant ; il ne sera plus affiché.",
+      "example": "Exemple",
+      "tokenLabel": "Jeton d'enrôlement",
+      "approvalOn": "approbation par un administrateur",
+      "approvalOff": "sans approbation",
+      "expiresOn": "expire le {{date}}",
+      "neverExpires": "n'expire jamais",
+      "expiredOn": "Expiré le {{date}}",
+      "expiredHint": "Renouvelez-le pour obtenir un jeton valide.",
+      "createdBy": "Créé par {{name}} · {{date}}",
+      "createdOn": "Créé le {{date}}",
+      "lastUsed": "Dernière utilisation {{when}}",
+      "neverUsed": "Jamais utilisé",
+      "counts": "{{joined}} adhésions · {{waiting}} en attente",
+      "notShownAgain": "Le jeton n'est plus affiché. Renouvelez-le pour en obtenir un nouveau.",
+      "rotate": "Renouveler",
+      "rotateTitle": "Renouveler le jeton d'enrôlement ?",
+      "rotateMessage": "Le jeton actuel cesse de fonctionner pour les nouveaux enrôlements. Les appareils déjà enrôlés avec lui continuent de recevoir la règle d'équipe.",
+      "rotateConfirm": "Renouveler le jeton",
+      "revoke": "Révoquer",
+      "revokeTitle": "Révoquer le jeton d'enrôlement ?",
+      "revokeMessage": "Les appareils ne pourront plus s'enrôler avec ce jeton, et ceux enrôlés avec lui ne recevront plus la règle d'équipe. Les personnes déjà arrivées restent membres.",
+      "revokeConfirm": "Révoquer le jeton",
+      "lapsed": "L'enrôlement d'appareils nécessite le forfait Business de l'équipe.",
+      "loadFailed": "Impossible de charger le jeton d'enrôlement — {{reason}}",
+      "toast": {
+        "create": {
+          "pending": "Création du jeton…",
+          "done": "Jeton d'enrôlement créé",
+          "failed": "Impossible de créer le jeton — {{reason}}"
+        },
+        "rotate": {
+          "pending": "Renouvellement du jeton…",
+          "done": "Jeton d'enrôlement renouvelé",
+          "failed": "Impossible de renouveler le jeton — {{reason}}"
+        },
+        "revoke": {
+          "pending": "Révocation du jeton…",
+          "done": "Jeton d'enrôlement révoqué",
+          "failed": "Impossible de révoquer le jeton — {{reason}}"
+        }
+      },
+      "error": {
+        "gone": "Ce jeton d'enrôlement a été révoqué ou a expiré.",
+        "needsGuard": "Ajoutez un domaine e-mail ou exigez une approbation.",
+        "needsApproval": "Ce serveur ne peut pas envoyer d'e-mails, chaque adhésion nécessite donc l'approbation d'un administrateur.",
+        "domainMismatch": "Le domaine de son e-mail ne figure pas dans la liste du jeton.",
+        "invalid": "Le serveur a refusé ces paramètres.",
+        "forbidden": "Vous n'avez pas l'autorisation de gérer l'enrôlement d'appareils."
+      },
+      "copyLink": "Copier le lien",
+      "copyLinkTitle": "Copier un lien qui ouvre Voltius sur cette inscription"
+    },
     "leaveTeam": "Quitter l'équipe",
     "offboarding": {
       "removeTitle_one": "Retirer {{names}} de cette équipe ?",
@@ -348,12 +433,287 @@
       "forceVault": "Imposer « Verrouiller le coffre »",
       "forceVaultDesc": "Les membres ne peuvent pas choisir « Verrouiller l'écran » : le verrouillage retire toujours la clé du coffre de la mémoire.",
       "immediateVaultWarning": "Avec « Immédiatement » et « Verrouiller le coffre », les sessions ouvertes des membres se ferment chaque fois qu'ils quittent Voltius, même un instant.",
-      "appliesToAll": "S'applique à tous les membres, vous compris. Les anciennes versions de Voltius ne l'appliquent pas.",
+      "appliesToAll": "S'applique à tous les membres, vous compris.",
       "lockBody": "Les règles de verrouillage nécessitent l'offre Business de l'équipe.",
       "lapsed": "Offre Business expirée : cette règle reste appliquée. Vous pouvez la supprimer.",
       "remove": "Supprimer la règle",
       "saving": "Enregistrement de la règle…",
       "saved": "Règle enregistrée"
+    },
+    "keyHealth": {
+      "title": "Santé de la clé du coffre",
+      "state": {
+        "upToDate": "À jour",
+        "rotationPending": "Nouvelle clé attendue",
+        "reencryptPending": "Rechiffrement en cours",
+        "attention": "À vérifier",
+        "unavailable": "Indisponible"
+      },
+      "version": "Clé version {{version}} · changée {{time}}",
+      "versionNever": "Clé version {{version}} · jamais changée",
+      "uncovered_one": "Il manque la clé actuelle à {{count}} membre.",
+      "uncovered_many": "Il manque la clé actuelle à {{count}} membres.",
+      "uncovered_other": "Il manque la clé actuelle à {{count}} membres.",
+      "requested": "Un membre est parti {{time}} : une nouvelle clé est attendue.",
+      "remaining_one": "{{count}} élément utilise encore une ancienne clé.",
+      "remaining_many": "{{count}} éléments utilisent encore une ancienne clé.",
+      "remaining_other": "{{count}} éléments utilisent encore une ancienne clé.",
+      "remainingUnknown": "Des éléments utilisent encore une ancienne clé.",
+      "blocked": "Aucune nouvelle clé ne peut être créée avant leur rechiffrement.",
+      "fromServer": "Selon le serveur.",
+      "device": {
+        "never": "Cet appareil n'a pas encore essayé.",
+        "finished": "Cet appareil a terminé son dernier essai {{time}}.",
+        "failed_one": "Cet appareil a essayé {{time}} : {{count}} élément a échoué.",
+        "failed_many": "Cet appareil a essayé {{time}} : {{count}} éléments ont échoué.",
+        "failed_other": "Cet appareil a essayé {{time}} : {{count}} éléments ont échoué.",
+        "stopped": "Cet appareil a essayé {{time}} et s'est arrêté : {{reason}}",
+        "skipped_one": "{{count}} élément doit être traité par quelqu'un qui peut le modifier.",
+        "skipped_many": "{{count}} éléments doivent être traités par quelqu'un qui peut les modifier.",
+        "skipped_other": "{{count}} éléments doivent être traités par quelqu'un qui peut les modifier."
+      },
+      "step": {
+        "status": "le serveur est injoignable.",
+        "rotate": "le serveur a refusé la nouvelle clé.",
+        "drain": "le rechiffrement du coffre a échoué."
+      },
+      "loadFailed": "Impossible de lire l'état de la clé. Vérifiez votre connexion, puis actualisez.",
+      "retry": "Réessayer",
+      "retrying": "Nouvel essai…",
+      "refresh": "Actualiser",
+      "retryDenied": "Créer une nouvelle clé demande les permissions Voir les mots de passe et Copier les mots de passe.",
+      "stuck": {
+        "title": "Éléments sur une ancienne clé",
+        "truncated": "Affichage des {{count}} premiers.",
+        "hidden_one": "{{count}} autre élément vous est masqué. Quelqu'un qui le voit doit réessayer.",
+        "hidden_many": "{{count}} autres éléments vous sont masqués. Quelqu'un qui les voit doit réessayer.",
+        "hidden_other": "{{count}} autres éléments vous sont masqués. Quelqu'un qui les voit doit réessayer."
+      },
+      "reason": {
+        "orphan": "Reste d'un élément supprimé",
+        "undecryptable": "Impossible à déchiffrer",
+        "uploadFailed": "Enregistrement impossible. Réessayez.",
+        "needsEditor": "Doit être traité par quelqu'un qui peut le modifier",
+        "waiting": "En attente du prochain essai"
+      },
+      "kind": {
+        "secret": "Mot de passe ou clé de {{name}}",
+        "deleted": "un élément supprimé",
+        "blob": "Anciennes données du coffre"
+      },
+      "unnamed": "{{type}} sans nom",
+      "type": {
+        "connection": "Hôte",
+        "identity": "Identité",
+        "key": "Clé SSH",
+        "folder": "Dossier",
+        "snippet": "Snippet",
+        "snippet_folder": "Dossier de snippets",
+        "port_forwarding_rule": "Règle de redirection de port"
+      },
+      "remove": "Retirer",
+      "removeTitle": "Retirer {{name}} ?",
+      "removeBody": "Il est impossible à déchiffrer et empêche ce coffre d'obtenir une nouvelle clé. Le retirer le supprime pour tous les membres, sans retour possible.",
+      "removeOrphanBody": "Il appartient à un élément qui n'existe plus. Le retirer permet à ce coffre d'obtenir de nouveau une nouvelle clé.",
+      "removing": "Suppression…",
+      "removed": "Retiré",
+      "note": "Une nouvelle clé protège ce qui est enregistré à partir de maintenant. Elle ne reprend pas ce qu'un ancien membre a déjà copié."
+    },
+    "devicePolicy": {
+      "title": "Règle des appareils",
+      "empty": "Verrouillez des réglages sur le Voltius de chaque membre. Même format que policy.json.",
+      "locked_one": "{{count}} verrouillé",
+      "locked_many": "{{count}} verrouillés",
+      "locked_other": "{{count}} verrouillés",
+      "limited_one": "{{count}} limité",
+      "limited_many": "{{count}} limités",
+      "limited_other": "{{count}} limités",
+      "updatedBy": "Modifiée par {{name}}, {{time}}",
+      "updated": "Modifiée {{time}}",
+      "show_one": "Afficher {{count}} réglage",
+      "show_many": "Afficher {{count}} réglages",
+      "show_other": "Afficher {{count}} réglages",
+      "hide": "Masquer les réglages",
+      "import": "Importer",
+      "export": "Exporter",
+      "clear": "Effacer",
+      "lapsed": "L'import d'une règle nécessite l'offre Business.",
+      "olderVersions": "Les anciennes versions de Voltius n'appliquent que les réglages de verrouillage.",
+      "loadFailed": "Impossible de charger la règle des appareils.",
+      "rangeMin": "min {{value}}",
+      "rangeMax": "max {{value}}",
+      "rangeBetween": "{{min}}–{{max}}",
+      "previewTitle": "Importer la règle d'équipe",
+      "fixErrors_one": "Corrigez {{count}} erreur dans le fichier et importez-le à nouveau. Les avertissements n'empêchent pas l'enregistrement.",
+      "fixErrors_many": "Corrigez {{count}} erreurs dans le fichier et importez-le à nouveau. Les avertissements n'empêchent pas l'enregistrement.",
+      "fixErrors_other": "Corrigez {{count}} erreurs dans le fichier et importez-le à nouveau. Les avertissements n'empêchent pas l'enregistrement.",
+      "warningsOnly": "Les avertissements n'empêchent pas l'enregistrement.",
+      "replaces": "L'enregistrement remplace la règle d'équipe sur le Voltius de chaque membre.",
+      "save": "Enregistrer la règle",
+      "saving": "Enregistrement de la règle d'équipe…",
+      "saved": "Règle d'équipe enregistrée",
+      "clearTitle": "Effacer la règle d'équipe ?",
+      "clearMessage": "Le Voltius de chaque membre revient à ses propres réglages. Cela supprime aussi les limites de verrouillage ci-dessus.",
+      "clearConfirm": "Effacer la règle",
+      "clearing": "Effacement de la règle d'équipe…",
+      "cleared": "Règle d'équipe effacée",
+      "issue": {
+        "machineOnly": "ne peut être défini que dans la règle machine",
+        "defaults": "Les valeurs par défaut vont dans la règle machine, pas dans la règle d'équipe",
+        "unknownKey": "est inconnu de cette version ; des versions plus récentes peuvent l'utiliser",
+        "type": "a une valeur que ce réglage n'accepte pas",
+        "range": "a une plage que ce réglage n'accepte pas",
+        "newerVersion": "Ce fichier nécessite une version plus récente de Voltius",
+        "file": "Ce fichier n'est pas un policy.json valide",
+        "plainTimeout": "ne s'applique qu'aux versions récentes de Voltius. Les anciennes exigent un maximum : {{example}}"
+      }
+    },
+    "joinRequests": {
+      "title": "Demandes d'adhésion",
+      "via": "via l'enrôlement d'appareils",
+      "reason": {
+        "approval": "En attente d'approbation",
+        "email_unverified": "En attente de vérification de l'e-mail",
+        "seat_limit": "Plus de siège disponible"
+      },
+      "approve": "Approuver",
+      "deny": "Refuser",
+      "noSeatToast": "Plus de siège disponible. Ajoutez des sièges, puis approuvez à nouveau.",
+      "emailUnverifiedToast": "Cette personne doit encore vérifier son adresse e-mail. Approuvez à nouveau ensuite.",
+      "gone": "Cette demande a déjà été traitée.",
+      "toast": {
+        "approve": {
+          "pending": "Approbation de la demande…",
+          "done": "Demande approuvée",
+          "failed": "Impossible d'approuver la demande — {{reason}}"
+        },
+        "deny": {
+          "pending": "Refus de la demande…",
+          "done": "Demande refusée",
+          "failed": "Impossible de refuser la demande — {{reason}}"
+        }
+      }
+    },
+    "viewAs": {
+      "loading": "Vérification de l'accès…",
+      "discardDraft": {
+        "title": "Abandonner les modifications non enregistrées ?",
+        "body": "Quitter l'aperçu abandonne vos modifications non enregistrées de l'accès de {{name}}.",
+        "confirm": "Abandonner et quitter"
+      },
+      "reason": {
+        "needsBusiness": "« Voir en tant que » fait partie du forfait Business",
+        "needsManage": "Vous avez besoin de la permission Gérer les membres ou Gérer les rôles pour utiliser « Voir en tant que »",
+        "self": "Vous ne pouvez pas utiliser « Voir en tant que » sur vous-même",
+        "serverTooOld": "Mettez à jour votre serveur pour utiliser Voir en tant que",
+        "previewing": "Quittez d'abord l'aperçu en cours"
+      },
+      "noPermission": "Vous n'avez pas la permission d'afficher cet aperçu",
+      "ended": "L'aperçu est terminé : ce membre ou ce rôle n'est plus disponible",
+      "failed": "Impossible de charger l'aperçu",
+      "readOnly": "Aperçu en lecture seule",
+      "lacksPermission": "Le rôle de ce membre ne l'autorise pas",
+      "locked": {
+        "auditLog": "Journal d'audit verrouillé pour ce membre",
+        "sessions": "Sessions de terminal verrouillées pour ce membre"
+      },
+      "viewingAs": "Vue en tant que {{name}}",
+      "viewingAsReadOnly": "Vue en tant que {{name}} · lecture seule",
+      "unsaved_one": "{{count}} modification non enregistrée",
+      "unsaved_many": "{{count}} modifications non enregistrées",
+      "unsaved_other": "{{count}} modifications non enregistrées",
+      "discard": "Abandonner",
+      "save": "Enregistrer",
+      "saveConfirm": "Enregistrer…",
+      "exit": "Quitter",
+      "changesAccess_one": "Modifie l'accès de {{count}} membre",
+      "changesAccess_many": "Modifie l'accès de {{count}} membres",
+      "changesAccess_other": "Modifie l'accès de {{count}} membres",
+      "roleTitle": "Rôle {{name}}",
+      "manageRolesRequired": "Il faut l'autorisation Gérer les rôles",
+      "builtinReadOnly": "Les rôles intégrés ne sont pas modifiables",
+      "affects_one": "Concerne {{count}} membre",
+      "affects_other": "Concerne {{count}} membres",
+      "affects_many": "Concerne {{count}} membres",
+      "roleKeyLoss": {
+        "title": "Retirer l'accès à la clé du coffre ?",
+        "body": "{{names}} perdra la clé du coffre. La clé est renouvelée pour tous les autres.",
+        "confirm": "Enregistrer et renouveler la clé"
+      },
+      "hiddenFrom": "Masqué pour {{name}}",
+      "hiddenNoKey": "{{name}} n'a pas la clé du coffre",
+      "cannotEdit": "Le rôle de ce membre ne permet pas la modification",
+      "draftBadge": "Brouillon",
+      "draftTag": "(brouillon)",
+      "draftChange": "Brouillon : {{from}} → {{to}}",
+      "ownerElsewhere": "Les changements de propriétaire se font ailleurs",
+      "keyLoss": "À l'enregistrement, {{name}} perd la clé du coffre et la clé est renouvelée pour les autres membres.",
+      "saveFailed": "{{failed}} modification(s) sur {{total}} non appliquée(s)",
+      "access": {
+        "title": "Accès de {{name}}",
+        "subtitle": "Les modifications s'affichent à gauche. Rien n'est encore enregistré.",
+        "can": "{{name}} peut",
+        "allPermissions": "Toutes les permissions…"
+      },
+      "step": {
+        "overrides": "Permissions personnalisées",
+        "addRole": "Ajouter {{role}}",
+        "removeRole": "Retirer {{role}}"
+      },
+      "level": {
+        "hidden": "Masqué",
+        "view": "Lecture seule",
+        "connect": "Peut se connecter",
+        "edit": "Peut modifier"
+      },
+      "secrets": {
+        "yes": "Secrets visibles",
+        "no": "Secrets masqués"
+      },
+      "why": {
+        "noVaultKey": "{{name}} n'a pas la clé du coffre, donc rien dans ce coffre ne peut être ouvert",
+        "as": "En tant que {{name}}",
+        "gets": "Ce que {{name}} obtient ici",
+        "addsUp": "Comment ça s'additionne",
+        "order": "Appliqué dans l'ordre : tout le monde, puis les rôles de {{name}}, puis {{name}}. À chaque étape, une autorisation peut annuler le refus qui la précède ; le refus propre à {{name}} pour toute l'équipe l'emporte toujours.",
+        "decidedByServer": "Décidé par le serveur",
+        "notGranted": "Aucun rôle de {{name}} ne l'autorise",
+        "someRole": "Un de ses rôles",
+        "thisItem": "cet élément",
+        "editRules": "Modifier les règles de {{folder}}",
+        "editRulesLocked": "Il vous faut Gérer les rôles sur {{folder}} pour modifier ses règles",
+        "editRulesUnavailable": "Les règles de {{folder}} ne peuvent pas être modifiées ici",
+        "editAccess": "Modifier l'accès de {{name}}",
+        "step": {
+          "roles_one": "Autorisé par le rôle {{roles}}",
+          "roles_other": "Autorisé par les rôles {{roles}}",
+          "roles_many": "Autorisé par les rôles {{roles}}",
+          "teamAllow": "{{name}} y est autorisé pour toute l'équipe",
+          "teamDeny": "{{name}} en est privé pour toute l'équipe",
+          "administrator": "{{name}} a Administrateur",
+          "everyoneDeny": "Tout le monde est refusé sur {{folder}}",
+          "everyoneAllow": "Tout le monde est autorisé sur {{folder}}",
+          "rolesDeny_one": "{{roles}} est refusé sur {{folder}}",
+          "rolesDeny_other": "{{roles}} sont refusés sur {{folder}}",
+          "rolesDeny_many": "{{roles}} sont refusés sur {{folder}}",
+          "rolesAllow_one": "{{roles}} est autorisé sur {{folder}}",
+          "rolesAllow_other": "{{roles}} sont autorisés sur {{folder}}",
+          "rolesAllow_many": "{{roles}} sont autorisés sur {{folder}}",
+          "memberDeny": "{{name}} est refusé sur {{folder}}",
+          "memberAllow": "{{name}} est autorisé sur {{folder}}",
+          "teamDenyLast": "Le refus propre à {{name}} pour toute l'équipe l'emporte sur {{folder}}",
+          "noView": "Masqué pour {{name}}, donc rien d'autre ne s'applique",
+          "needsConnect": "Les secrets exigent Se connecter, que {{name}} n'a pas ici",
+          "ruleNotShown": "Décidé par une règle sur {{folder}}"
+        }
+      },
+      "viewAs": "Voir en tant que",
+      "previewAsRole": "Aperçu en tant que rôle",
+      "menuItem": "Voir en tant que {{name}}",
+      "summary": {
+        "title": "Voir à quoi {{name}} a accès",
+        "counts": "{{hosts}} hôtes · {{snippets}} snippets · {{keys}} clés · {{hidden}} masqués"
+      }
     }
   }
 }

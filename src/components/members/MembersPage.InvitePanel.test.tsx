@@ -14,6 +14,9 @@ const h = vi.hoisted(() => ({
   usedSeats: 2,
   effectiveSeats: 3 as number | null,
   billingEnabled: true,
+  multiOwner: true,
+  myRoleIds: ["r-owner"] as string[],
+  teams: [{ id: "t1", owner_id: "me" }] as Array<Record<string, unknown>>,
 }));
 
 // Looks up the real English copy so the interpolating t below reproduces what
@@ -58,7 +61,11 @@ vi.mock("@/services/teamActionFeedback", () => ({
   runTeamAction: async (o: { run: () => Promise<unknown> }) => o.run(),
 }));
 vi.mock("@/stores/teamStore", () => {
-  const state = { assignMemberRole: h.assign, teams: [{ id: "t1", owner_id: "me" }] };
+  const state = {
+    assignMemberRole: h.assign,
+    get teams() { return h.teams; },
+    get membersByTeam() { return { t1: [{ user_id: "me", role_ids: h.myRoleIds }] }; },
+  };
   const useTeamStore = Object.assign(
     (sel: (s: typeof state) => unknown) => sel(state),
     { getState: () => state },
@@ -74,25 +81,31 @@ vi.mock("@/stores/subscriptionStore", () => ({
     { getState: () => ({ load: h.reload }) },
   ),
 }));
-vi.mock("@/services/serverCapabilities", () => ({ useServerBillingEnabled: () => h.billingEnabled }));
+vi.mock("@/services/serverCapabilities", () => ({
+  useServerBillingEnabled: () => h.billingEnabled,
+  useServerMultiOwner: () => h.multiOwner,
+}));
 vi.mock("@/hooks/useMyUserId", () => ({ useMyUserId: () => "me" }));
 vi.mock("@/components/settings/BuySeatsModal", () => ({
   default: ({
     pendingUser,
     pendingRole,
+    pendingRoleIds,
     onSuccess,
   }: {
     pendingUser: { user_id: string } | null;
     pendingRole: string;
+    pendingRoleIds?: string[];
     onSuccess: () => void;
   }) => (
-    <div data-testid="buy-seats-modal" data-pending-user={pendingUser?.user_id ?? "none"} data-role={pendingRole}>
+    <div data-testid="buy-seats-modal" data-pending-user={pendingUser?.user_id ?? "none"} data-role={pendingRole} data-role-ids={pendingRoleIds?.join(",")}>
       <button data-testid="buy-seats-success" onClick={onSuccess}>ok</button>
     </div>
   ),
 }));
 
 import { InvitePanel } from "./panels/InvitePanel";
+import { useTeamStore } from "@/stores/teamStore";
 
 const teamRoles: TeamRole[] = [
   { id: "r-owner", team_id: "t1", name: "owner", is_builtin: true, permissions: 0, position: 0, created_at: "" },
@@ -120,6 +133,9 @@ beforeEach(() => {
   h.usedSeats = 2;
   h.effectiveSeats = 3;
   h.billingEnabled = true;
+  h.multiOwner = true;
+  h.myRoleIds = ["r-owner"];
+  h.teams = [{ id: "t1", owner_id: "me" }];
   baseProps.onClose = vi.fn();
   baseProps.onMemberAdded = vi.fn();
 });
@@ -336,7 +352,7 @@ test("add rejects a transport failure (no HTTP status): named message shown, no 
   expect(await screen.findByText(/Could not invite included-alpha-3140/)).toBeTruthy();
   expect(container.textContent).not.toMatch(/http/i);
   // The dropdown also closes so the error is not hidden underneath it.
-  expect(screen.queryByText("included-alpha-3140")).toBeNull();
+  await waitFor(() => expect(screen.queryByText("included-alpha-3140")).toBeNull());
 });
 
 test("email invite success (not at limit): inviteByEmailAddress(default role) + reload + onMemberAdded", async () => {
@@ -351,8 +367,24 @@ test("email invite success (not at limit): inviteByEmailAddress(default role) + 
   fireEvent.click(await screen.findByRole("button", { name: /sendInviteLabel/ }));
 
   await waitFor(() => expect(baseProps.onMemberAdded).toHaveBeenCalled());
-  expect(h.inviteByEmailAddress).toHaveBeenCalledWith({ teamId: "t1", email: "a@b.com", roleName: "member" });
+  expect(h.inviteByEmailAddress).toHaveBeenCalledWith({ teamId: "t1", email: "a@b.com", roleName: "member", roleIds: ["r-mem"] });
   expect(h.reload).toHaveBeenCalled();
+});
+
+test("email invite the server could not email: the panel warns instead of reporting it sent", async () => {
+  vi.useFakeTimers();
+  h.searchUsers.mockResolvedValue([]);
+  h.inviteByEmailAddress.mockResolvedValue({ status: "invited", email_sent: false });
+  render(<InvitePanel {...baseProps} />);
+
+  await typeAndDebounce("a@b.com");
+  vi.useRealTimers();
+  fireEvent.click(await screen.findByRole("button", { name: /sendInviteLabel/ }));
+
+  const alert = await screen.findByRole("alert");
+  expect(alert.textContent).toBe(interpolatingT("members.toast.invitationEmailNotSent", { email: "a@b.com" }));
+  expect(screen.queryByText("members.toast.invitationSentToEmail")).toBeNull();
+  expect(baseProps.onMemberAdded).toHaveBeenCalled();
 });
 
 test("email invite at seat limit: BuySeatsModal(null); inviteByEmailAddress NOT called", async () => {
@@ -451,4 +483,142 @@ test("no role selected: the email-invite action is disabled, clicking does nothi
   expect(emailButton.disabled).toBe(true);
   fireEvent.click(emailButton);
   expect(h.inviteByEmailAddress).not.toHaveBeenCalled();
+});
+
+const withCustomRole: TeamRole[] = [
+  ...teamRoles,
+  { id: "r-dba", team_id: "t1", name: "dba", is_builtin: false, permissions: 0, position: 2, created_at: "" },
+];
+
+test("an email invite sends every ticked role, named by a builtin one (#779)", async () => {
+  vi.useFakeTimers();
+  h.searchUsers.mockResolvedValue([]);
+  h.inviteByEmailAddress.mockResolvedValue({ status: "invited" });
+  render(<InvitePanel {...baseProps} teamRoles={withCustomRole} />);
+
+  fireEvent.click(screen.getByText("dba"));
+  await typeAndDebounce("a@b.com");
+  vi.useRealTimers();
+  fireEvent.click(await screen.findByRole("button", { name: /sendInviteLabel/ }));
+
+  await waitFor(() => expect(h.inviteByEmailAddress).toHaveBeenCalled());
+  expect(h.inviteByEmailAddress).toHaveBeenCalledWith(expect.objectContaining({ roleName: "member", roleIds: ["r-mem", "r-dba"] }));
+});
+
+test("buying seats mid-invite keeps every ticked role", async () => {
+  vi.useFakeTimers();
+  h.usedSeats = 3;
+  h.searchUsers.mockResolvedValue([inA]);
+  render(<InvitePanel {...baseProps} teamRoles={withCustomRole} />);
+
+  fireEvent.click(screen.getByText("dba"));
+  await typeAndDebounce("in");
+  vi.useRealTimers();
+  fireEvent.click(screen.getByText("included-alpha-3140"));
+
+  expect(screen.getByTestId("buy-seats-modal").getAttribute("data-role-ids")).toBe("r-mem,r-dba");
+});
+
+test("a team below Business is not offered custom roles to invite with", async () => {
+  const team = useTeamStore.getState().teams[0] as { owner_tier?: string };
+  team.owner_tier = "teams";
+  try {
+    render(<InvitePanel {...baseProps} teamRoles={withCustomRole} />);
+    expect(screen.queryByText("dba")).toBeNull();
+    expect(screen.getByText("members.roleName.member")).toBeTruthy();
+  } finally {
+    delete team.owner_tier;
+  }
+});
+
+test("the Owner chip is not offered by a server without multiple owners", () => {
+  h.multiOwner = false;
+  render(<InvitePanel {...baseProps} />);
+  expect(screen.queryByText("members.roleName.owner")).toBeNull();
+});
+
+test("a non-Owner sees the Owner chip greyed out with the reason", () => {
+  h.myRoleIds = ["r-mem"];
+  render(<InvitePanel {...baseProps} />);
+  const chip = screen.getByText("members.roleName.owner").closest("button")!;
+  expect(chip.disabled).toBe(true);
+  expect(chip.title).toBe("members.invite.ownerOnlyOwners");
+});
+
+test("Owner replaces the other roles and is only sent after the confirmation", async () => {
+  vi.useFakeTimers();
+  h.searchUsers.mockResolvedValue([inA]);
+  h.inviteUserWithRoles.mockResolvedValue({ status: "pending" });
+  render(<InvitePanel {...baseProps} />);
+
+  fireEvent.click(screen.getByText("members.roleName.owner"));
+  await typeAndDebounce("in");
+  vi.useRealTimers();
+  fireEvent.click(screen.getByText("included-alpha-3140"));
+
+  expect(screen.getByText("members.ownership.invite.title")).toBeTruthy();
+  expect(h.inviteUserWithRoles).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByText("members.ownership.invite.confirm"));
+
+  await waitFor(() => expect(h.inviteUserWithRoles).toHaveBeenCalledWith(expect.objectContaining({ roleIds: ["r-owner"] })));
+});
+
+test("cancelling the Owner confirmation sends nothing", async () => {
+  vi.useFakeTimers();
+  h.searchUsers.mockResolvedValue([inA]);
+  render(<InvitePanel {...baseProps} />);
+
+  fireEvent.click(screen.getByText("members.roleName.owner"));
+  await typeAndDebounce("in");
+  vi.useRealTimers();
+  fireEvent.click(screen.getByText("included-alpha-3140"));
+  fireEvent.click(screen.getByText("common.action.cancel"));
+
+  expect(screen.queryByText("members.ownership.invite.title")).toBeNull();
+  expect(h.inviteUserWithRoles).not.toHaveBeenCalled();
+});
+
+test("picking another role after Owner drops Owner", () => {
+  const roles: TeamRole[] = [
+    ...teamRoles,
+    { id: "r-editor", team_id: "t1", name: "editor", is_builtin: true, permissions: 0, position: 2, created_at: "" },
+  ];
+  render(<InvitePanel {...baseProps} teamRoles={roles} />);
+  fireEvent.click(screen.getByText("members.roleName.owner"));
+  fireEvent.click(screen.getByText("members.roleName.editor"));
+  expect(screen.getByText("members.roleName.owner").closest("button")!.getAttribute("aria-pressed")).toBe("false");
+});
+
+test("a member inviting into someone else's unlimited team sees ∞, not their own plan, and no buy-seats", () => {
+  h.t.mockImplementation(interpolatingT);
+  h.teams = [{ id: "t1", owner_id: "boss", ownerSeats: { used: 3, total: null } }];
+  render(<InvitePanel {...baseProps} />);
+  expect(screen.getByText("3 / ∞ seats used")).toBeTruthy();
+  expect(screen.queryByText(/available/)).toBeNull();
+  expect(screen.queryByText(membersEn.members.invite.buySeats)).toBeNull();
+});
+
+test("a member inviting into someone else's capped team sees the owner's 2 / 5", () => {
+  h.t.mockImplementation(interpolatingT);
+  h.teams = [{ id: "t1", owner_id: "boss", ownerSeats: { used: 2, total: 5 } }];
+  render(<InvitePanel {...baseProps} />);
+  expect(screen.getByText("2 used · 3 available · 5 total")).toBeTruthy();
+  expect(screen.queryByText(membersEn.members.invite.buySeats)).toBeNull();
+});
+
+test("the team's own seats drive the limit pre-check, not the viewer's full plan", async () => {
+  h.usedSeats = 3;
+  h.effectiveSeats = 3;
+  h.teams = [{ id: "t1", owner_id: "boss", ownerSeats: { used: 1, total: null } }];
+  h.inviteUserWithRoles.mockResolvedValue({ status: "pending" });
+  vi.useFakeTimers();
+  h.searchUsers.mockResolvedValue([inA]);
+  render(<InvitePanel {...baseProps} />);
+
+  await typeAndDebounce("in");
+  vi.useRealTimers();
+  fireEvent.click(screen.getByText("included-alpha-3140"));
+
+  await waitFor(() => expect(h.inviteUserWithRoles).toHaveBeenCalled());
+  expect(screen.queryByTestId("buy-seats-modal")).toBeNull();
 });

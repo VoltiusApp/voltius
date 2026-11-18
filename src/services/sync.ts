@@ -1,9 +1,10 @@
 import { invoke } from "@/lib/invoke";
 import i18n from "@/i18n";
 import { logFailure } from "@/lib/logger";
-import { createSerialQueue } from "@/lib/serialQueue";
+import { serialMerge } from "@/services/serialMerge";
 import { forgetMergedRemoteBlobs, settledBlobs } from "@/services/settledBlobs";
-import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { remoteSources, type RemoteSourceFailure } from "@/services/remoteSources";
+import { useSubscriptionStore, type LoadSource } from "@/stores/subscriptionStore";
 import { getJwt, getServerUrl, isJwtExpiredOrExpiring, refreshAccessToken } from "@/services/authTokens";
 import { fetchAuthRateLimited } from "@/services/authFetch";
 import { getVaultKey, unlockVaultIfNeeded } from "@/services/vault";
@@ -15,17 +16,22 @@ import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useFolderStore } from "@/stores/folderStore";
-import { useTeamStore } from "@/stores/teamStore";
+import { useTeamStore, type Team } from "@/stores/teamStore";
+import { useEnrollmentStore } from "@/stores/enrollmentStore";
+import { setTeamsLoadedHook } from "@/stores/teamsLoadedHook";
 import { seatTeamName } from "@/services/planDisplay";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
+import { useFavoriteCommandStore } from "@/stores/favoriteCommandStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
+import { useSyncedPluginStore } from "@/stores/syncedPluginStore";
 import { entitiesDiffer, mergeEntities, mergeSecrets, secretsDiffer, type TimestampedEntity } from "@/services/crdt";
 import { filterRemoteExcluded, filterSecrets, collectExcludedIds, type SecretMaps } from "./syncExclusion";
 import { deviceScopedSecretIds } from "@/services/deviceScopedSecrets";
 import { LAN_GROUP_FILE, LAN_GROUP_SECRET_PREFIX } from "@/services/lanGroupFiles";
 import { filterIncoming, filterOutgoing, restoreLocal } from "@/services/user-data/syncFilter";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
+import { usePolicyStore } from "@/stores/policyStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { buildDecryptKeyCandidates } from "@/services/vaultKeyCandidates";
 import { publishMyPublicKey } from "@/services/multiplayerService";
@@ -35,7 +41,8 @@ import { handleMembershipChangedEvent, parseMembershipChangedEvent } from "@/ser
 import * as teamService from "@/services/teamService";
 import { SseDataLineParser } from "@/services/realtimeSseEvents";
 import { connectNativeSse } from "@/services/nativeSseStream";
-import { SSE_RETRY_GATEWAY_MAX_MS, sseRetryDelay } from "@/services/syncRetry";
+import { cancelTeamVaultCatchUp, catchUpTeamVaults, forgetTeamDataSeen } from "@/services/teamVaultCatchUp";
+import { RECONCILE_MS, SSE_RETRY_GATEWAY_MAX_MS, jittered, sseRetryDelay } from "@/services/syncRetry";
 import { isProxyAnswer, isUnreachable, reachableFetch } from "@/services/reachability";
 import { createWakeableSleeps } from "@/lib/wakeableSleep";
 import { onForeground, onNetworkBack } from "@/lib/networkSignals";
@@ -68,9 +75,11 @@ export const ENTITY_FILES = [
   "snippet_folders.json",
   "port_forwarding_rules.json",
   LAN_GROUP_FILE,
+  "favorite_commands.json",
+  "synced_plugins.json",
 ] as const;
 
-export type SyncStatus = "idle" | "syncing" | "success" | "error" | "offline";
+export type SyncStatus = "idle" | "syncing" | "success" | "partial" | "error" | "offline";
 
 // ─── Sync state (module-level, not a store) ──────────────────────────────────
 
@@ -91,8 +100,10 @@ let _blobSizeBytes: number | null = null;
 // A local change, or the launch sync, that an unreachable server left undone.
 let _pushOwed = false;
 let _loginSyncOwed = false;
-// Asked for while a sync ran; runs once that sync succeeds.
+// Asked for while a sync ran; runs once that sync succeeds. A failed sync is retried instead.
 let _syncOwed = false;
+let _retryTimer: ReturnType<typeof setTimeout> | null = null;
+let _failedSyncs = 0;
 const _listeners = new Set<() => void>();
 
 export function getSyncState() {
@@ -107,8 +118,15 @@ export function onSyncStateChange(fn: () => void): () => void {
 function setState(status: SyncStatus, error?: string) {
   _status = status;
   _error = error ?? null;
-  if (status === "success") _lastSync = new Date();
+  if (status === "success" || status === "partial") _lastSync = new Date();
   _listeners.forEach((fn) => fn());
+}
+
+/** A sync that finished: partial while any remote device's latest blob is still unmerged. */
+function setSynced(): void {
+  const failing = remoteSources.failing().length;
+  if (failing === 0) setState("success");
+  else setState("partial", i18n.t("layout.sync.status.partialDetail", { count: failing }));
 }
 
 function reportFailure(e: unknown): void {
@@ -118,8 +136,7 @@ function reportFailure(e: unknown): void {
     return;
   }
   setState("offline", msg);
-  // The stream cannot be healthy if a request just failed to reach the server.
-  _dropStream?.(e);
+  _doubtStream?.(e);
 }
 
 async function applyRemoteSettings(remotePayload: BlobPayload): Promise<void> {
@@ -157,6 +174,7 @@ function applyRemoteLiveSessions(remoteDeviceId: string, remotePayload: BlobPayl
 export { getServerUrl };
 
 const SEAT_REFRESH_DEBOUNCE_MS = 1_000;
+const PLAN_END_CONFIRM_MS = 2_000;
 // Spreads a whole team's refreshes so one office IP stays under the per-IP auth limit.
 const SEAT_REFRESH_JITTER_MS = 3_000;
 let seatRefreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -184,15 +202,27 @@ async function tryRefreshJwt(): Promise<string | null> {
   const wasProBefore = useSubscriptionStore.getState().isPro;
   const wasTeamsBefore = useSubscriptionStore.getState().isTeams;
   const wasTierBefore = useSubscriptionStore.getState().tier;
-  await useSubscriptionStore.getState().load().catch(logFailure("subscription load"));
-  const isProNow = useSubscriptionStore.getState().isPro;
+  const loadSubscription = () =>
+    useSubscriptionStore.getState().load().catch((e: unknown): LoadSource => {
+      logFailure("subscription load")(e);
+      return "cleared";
+    });
+  let source = await loadSubscription();
+  let planEnded = false;
+  if (wasProBefore && !useSubscriptionStore.getState().isPro) {
+    // A keychain miss right after the refresh reads as free; only a JWT that still says free twice is a real downgrade.
+    await new Promise((resolve) => setTimeout(resolve, PLAN_END_CONFIRM_MS));
+    const firstFromJwt = source === "jwt";
+    source = await loadSubscription();
+    planEnded = firstFromJwt && source === "jwt" && !useSubscriptionStore.getState().isPro;
+  }
   const isTeamsNow = useSubscriptionStore.getState().isTeams;
   if (useSubscriptionStore.getState().tier !== wasTierBefore) {
     const { useTeamStore } = await import("@/stores/teamStore");
     void useTeamStore.getState().loadTeams().catch(logFailure("teams reload after tier change"));
   }
 
-  if (wasProBefore && !isProNow) {
+  if (planEnded) {
     const { APP_SOURCE, useNotificationStore } = await import("@/stores/notificationStore");
     const { useUIStore } = await import("@/stores/uiStore");
     useNotificationStore.getState().addToast({
@@ -282,6 +312,19 @@ class BlobDecryptError extends Error {
   }
 }
 
+class BlobFetchError extends Error {
+  constructor(readonly status: number | null, readonly underlying: unknown) {
+    super(status ? `Sync blob download failed: HTTP ${status}` : "Sync blob download failed");
+    this.name = "BlobFetchError";
+  }
+}
+
+function sourceFailure(e: unknown): [RemoteSourceFailure, number | null] {
+  if (e instanceof BlobFetchError) return ["unavailable", e.status];
+  if (e instanceof BlobDecryptError) return ["undecryptable", null];
+  return ["unreadable", null];
+}
+
 /**
  * Decrypt a sync blob, trying every vault key the session holds (active vault key,
  * then kek, then dek). Recovers blobs written by devices on the *other* key during
@@ -348,8 +391,13 @@ export function getExcludedObjectIds(): string[] {
         ids: [...useFolderStore.getState().folders, ...useSnippetFolderStore.getState().folders]
           .map((f) => f.id),
       },
-      { type: "snippet", ids: useSnippetStore.getState().snippets.map((s) => s.id) },
+      // Favorite commands have no switch of their own: they follow snippets.
+      {
+        type: "snippet",
+        ids: [...useSnippetStore.getState().snippets, ...useFavoriteCommandStore.getState().favorites].map((s) => s.id),
+      },
       { type: "port-forwarding-rule", ids: usePortForwardingStore.getState().rules.map((r) => r.id) },
+      { type: "plugin", ids: useSyncedPluginStore.getState().entries.map((e) => e.id) },
     ],
     prefs.isObjectSynced,
     prefs.excludedIds,
@@ -480,9 +528,16 @@ async function listDevices(): Promise<DeviceInfo[]> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) return [];
   const res = await fetchWithAuth(`${serverUrl}/v1/sync/devices`, { method: "GET" });
-  if (!res.ok) return [];
+  if (!res.ok) throw new Error(i18n.t("common.error.serverError", { status: res.status }));
   const { devices } = await res.json();
   return devices ?? [];
+}
+
+/** Every device's blob, with the other devices tracked for the per-device sync results. */
+async function listTrackedDevices(): Promise<{ devices: DeviceInfo[]; localDeviceId: string }> {
+  const [devices, localDeviceId] = await Promise.all([listDevices(), getDeviceId()]);
+  remoteSources.track(devices.filter((d) => d.device_id !== localDeviceId));
+  return { devices, localDeviceId };
 }
 
 /** Reload all in-memory stores from disk after a merge. */
@@ -497,7 +552,16 @@ export async function reloadAllStores(): Promise<void> {
     useSnippetStore.getState().loadSnippets(),
     useSnippetFolderStore.getState().loadFolders(),
     usePortForwardingStore.getState().loadRules(),
+    useFavoriteCommandStore.getState().load(),
+    useSyncedPluginStore.getState().load(),
   ]);
+  reconcilePluginsAfterMerge();
+}
+
+export function reconcilePluginsAfterMerge(): void {
+  void import("@/services/pluginSync")
+    .then((m) => m.reconcileSyncedPlugins())
+    .catch(logFailure("reconcile synced plugins"));
 }
 
 async function settleVault(): Promise<void> {
@@ -552,8 +616,7 @@ async function completeTeamLoginSetup(): Promise<void> {
 
 type MergedPayload = Required<BlobPayload>;
 
-// `state_import` rewrites whole files: every read-merge-write of local state runs here, one at a time.
-export const serialMerge = createSerialQueue();
+export { serialMerge };
 
 export function parseEntities(json: string | undefined): TimestampedEntity[] {
   try {
@@ -599,15 +662,25 @@ export async function openRemoteBlob(
   return filterRemoteExcluded(await decryptBlob(candidates, blobBytes), excludedIds, ENTITY_FILES);
 }
 
-async function pullRemotePayload(serverUrl: string, remoteDeviceId: string): Promise<BlobPayload | null> {
-  const res = await fetchWithAuth(
-    `${serverUrl}/v1/sync/blob?device_id=${encodeURIComponent(remoteDeviceId)}`,
-    { method: "GET" },
-  );
-  if (res.status === 404) return null; // remote device has no blob yet
-  if (!res.ok) return null; // skip unreachable devices
+async function fetchRemoteBlob(serverUrl: string, remoteDeviceId: string): Promise<string | null> {
+  let res: Response;
+  try {
+    res = await fetchWithAuth(`${serverUrl}/v1/sync/blob?device_id=${encodeURIComponent(remoteDeviceId)}`, { method: "GET" });
+  } catch (e) {
+    throw new BlobFetchError(isUnreachable(e) ? e.status ?? null : null, e);
+  }
+  if (res.status === 404) return null;
+  if (!res.ok) throw new BlobFetchError(res.status, null);
+  try {
+    return (await res.json()).blob;
+  } catch (e) {
+    throw new BlobFetchError(null, e);
+  }
+}
 
-  const { blob: blobB64 } = await res.json();
+async function pullRemotePayload(serverUrl: string, remoteDeviceId: string): Promise<BlobPayload | null> {
+  const blobB64 = await fetchRemoteBlob(serverUrl, remoteDeviceId);
+  if (blobB64 === null) return null;
   return openRemoteBlob(sessionBlobKeys(), base64ToByteArray(blobB64));
 }
 
@@ -647,7 +720,7 @@ const deviceLabel = (device: DeviceInfo) => `device ${device.device_id}`;
 
 const PULL_CONCURRENCY = 4;
 
-/** Download and decrypt each device's blob, a few at once, in `devices` order; a device that fails is skipped. */
+/** Download and decrypt each device's blob, a few at once, in `devices` order; a device that fails is skipped and recorded. */
 async function pullRemotePayloads(devices: DeviceInfo[]): Promise<Array<[DeviceInfo, BlobPayload]>> {
   if (devices.length === 0) return [];
   const serverUrl = await getServerUrl();
@@ -657,8 +730,11 @@ async function pullRemotePayloads(devices: DeviceInfo[]): Promise<Array<[DeviceI
   await forEachRemoteBlob(indexed, ({ device }) => deviceLabel(device), async ({ device, i }) => {
     try {
       pulled[i] = await pullRemotePayload(serverUrl, device.device_id);
+      if (!pulled[i]) remoteSources.drop(device.device_id);
     } catch (e) {
-      if (e instanceof BlobDecryptError) settledBlobs.add(device);
+      const [failure, status] = sourceFailure(e);
+      if (failure !== "unavailable") settledBlobs.add(device);
+      remoteSources.failed(device, failure, status);
       throw e;
     }
   }, PULL_CONCURRENCY);
@@ -702,8 +778,9 @@ export const mergeRemotePayload = (remoteDeviceId: string, remotePayload: BlobPa
 function settledBlobsForCurrentInputs(): typeof settledBlobs {
   const { syncTypes, syncSettingDomains, settingSyncOverrides } = useSyncPrefsStore.getState();
   const { kek, dek } = useVaultKeysStore.getState();
+  const { machine, server } = usePolicyStore.getState();
   settledBlobs.useInputs(
-    JSON.stringify([syncTypes, syncSettingDomains, settingSyncOverrides, getExcludedObjectIds()]),
+    JSON.stringify([syncTypes, syncSettingDomains, settingSyncOverrides, getExcludedObjectIds(), machine.policy, server.policy]),
     [getVaultKey(), kek, dek],
   );
   return settledBlobs;
@@ -713,7 +790,10 @@ function settledBlobsForCurrentInputs(): typeof settledBlobs {
 async function pullAndMerge(devices: DeviceInfo[]): Promise<boolean> {
   const pulled = await pullRemotePayloads(devices);
   const changed = await mergeRemotePayloads(pulled.map(([device, payload]) => [device.device_id, payload]));
-  for (const [device] of pulled) settledBlobs.add(device);
+  for (const [device] of pulled) {
+    settledBlobs.add(device);
+    remoteSources.succeeded(device);
+  }
   return changed;
 }
 
@@ -737,6 +817,7 @@ export async function syncNow(forcePush = false): Promise<void> {
   if (!useSubscriptionStore.getState().isPro) return;
 
   _syncInFlight = true;
+  cancelSyncRetry();
   const mustPush = forcePush || _pushOwed;
   _pushOwed = false;
   let succeeded = false;
@@ -751,10 +832,9 @@ export async function syncNow(forcePush = false): Promise<void> {
     // and the sidebar immediately reflects joins/removals (no blob change needed).
     await loadTeamsForCurrentUser();
 
-    const [devices, localDeviceId] = await Promise.all([listDevices(), getDeviceId()]);
+    const { devices, localDeviceId } = await listTrackedDevices();
 
-    // A blob that fails to download or decrypt is skipped rather than surfacing a
-    // confusing "decryption failed" to the user.
+    // A blob that fails to download or decrypt is skipped and shown per device; the sync ends partial.
     const settled = settledBlobsForCurrentInputs();
     const anyPersonalChanged = await pullAndMerge(
       devices.filter((d) => d.device_id !== localDeviceId && !settled.has(d)),
@@ -771,12 +851,14 @@ export async function syncNow(forcePush = false): Promise<void> {
     }
 
     succeeded = true;
-    setState("success");
+    setSynced();
+    armReconcile();
     if (wasOffline) wakeSseRetry();
   } catch (e) {
     if (isPaymentRequired(e) && await loadTeamsForCurrentUser()) {
       await completeTeamLoginSetup();
       setState("success");
+      succeeded = true;
       return;
     }
     _pushOwed ||= mustPush;
@@ -788,7 +870,9 @@ export async function syncNow(forcePush = false): Promise<void> {
     _syncInFlight = false;
     const owed = _syncOwed && succeeded;
     _syncOwed = false;
+    _failedSyncs = succeeded ? 0 : _failedSyncs + 1;
     if (owed) syncInBackground().catch(logFailure("sync asked for during the previous one"));
+    if (!succeeded) scheduleSyncRetry();
   }
 }
 
@@ -839,12 +923,13 @@ export async function syncOnLoginReplace(): Promise<void> {
 
     if (!(await getServerUrl())) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
-    const pulled = await pullRemotePayloads(await listDevices());
+    const pulled = await pullRemotePayloads((await listTrackedDevices()).devices);
     await replaceWithPayloads(pulled.map(([device, payload]) => [device.device_id, payload]));
+    for (const [device] of pulled) remoteSources.succeeded(device);
     await push();
     await completeTeamLoginSetup();
 
-    setState("success");
+    setSynced();
   } catch (e) {
     if (isPaymentRequired(e) && await loadTeamsForCurrentUser()) {
       await completeTeamLoginSetup();
@@ -871,7 +956,7 @@ export async function syncOnLogin(): Promise<void> {
     // Pull ALL devices including own — skipping self would prevent recovery
     // after a local wipe (single-user: own blob is the only source of truth).
     // CRDT merge is idempotent so pulling own blob on normal login is safe.
-    const devices = await listDevices();
+    const { devices } = await listTrackedDevices();
 
     settledBlobsForCurrentInputs();
     await pullAndMerge(devices);
@@ -880,7 +965,7 @@ export async function syncOnLogin(): Promise<void> {
     await push();
     await completeTeamLoginSetup();
 
-    setState("success");
+    setSynced();
   } catch (e) {
     if (isPaymentRequired(e) && await loadTeamsForCurrentUser()) {
       await completeTeamLoginSetup();
@@ -892,6 +977,25 @@ export async function syncOnLogin(): Promise<void> {
   }
 }
 
+// ─── Per-device results ──────────────────────────────────────────────────────
+
+/** Downloads these devices' blobs again on a sync, even ones already merged or found undecryptable. */
+export function retryRemoteSources(deviceIds: string[]): Promise<void> {
+  for (const id of deviceIds) settledBlobs.forget(id);
+  return syncNow();
+}
+
+/** Deletes a device's blob from the server; a device still in use uploads a new one on its next sync. */
+export async function removeRemoteSource(deviceId: string): Promise<void> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const res = await fetchWithAuth(`${serverUrl}/v1/sync/blob/${encodeURIComponent(deviceId)}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(i18n.t("common.error.serverError", { status: res.status }));
+  settledBlobs.forget(deviceId);
+  remoteSources.drop(deviceId);
+  if (_status === "partial") setSynced();
+}
+
 // ─── Pause ───────────────────────────────────────────────────────────────────
 
 export function isSyncPaused(): boolean {
@@ -900,7 +1004,21 @@ export function isSyncPaused(): boolean {
 
 /** The realtime loop is retrying an unreachable server; it runs the owed sync once the stream opens. */
 function awaitingServer(): boolean {
-  return _status === "offline" && _sseAbort !== null && _dropStream === null;
+  return _status === "offline" && _sseAbort !== null && _doubtStream === null;
+}
+
+function cancelSyncRetry(): void {
+  if (_retryTimer) clearTimeout(_retryTimer);
+  _retryTimer = null;
+}
+
+/** Try a failed sync again later; syncInBackground still defers to the stream while it retries an unreachable server. */
+function scheduleSyncRetry(): void {
+  cancelSyncRetry();
+  _retryTimer = setTimeout(() => {
+    _retryTimer = null;
+    syncInBackground().catch(logFailure("retry after a failed sync"));
+  }, sseRetryDelay(_failedSyncs));
 }
 
 /** A sync nobody asked for: skipped while this device is paused, deferred while the server is unreachable. */
@@ -993,10 +1111,23 @@ const teamEventListeners = createListeners<[teamId: string]>();
 export const onTeamSseEvent = teamEventListeners.subscribe;
 
 let _sseAbort: AbortController | null = null;
-// Set while a stream is open: ends that one connection so the loop reconnects.
-let _dropStream: ((reason?: unknown) => void) | null = null;
+// Set while a stream is open: a request that failed to reach the server gives it one heartbeat to prove it is alive.
+let _doubtStream: ((reason: unknown) => void) | null = null;
 // The server sends a heartbeat every 30 s; a stream silent this long is dead.
 const STREAM_QUIET_MS = 75_000;
+const STREAM_DOUBTED_MS = 40_000;
+
+let _reconcileTimer: ReturnType<typeof setTimeout> | null = null;
+
+// Catches a cross-device push whose event never arrived on a stream that still hears heartbeats.
+function armReconcile(): void {
+  if (_reconcileTimer) clearTimeout(_reconcileTimer);
+  _reconcileTimer = _doubtStream === null ? null : setTimeout(() => {
+    _reconcileTimer = null;
+    syncInBackground().catch(logFailure("periodic reconcile"));
+    catchUpTeamVaults({ refetchUnversioned: false });
+  }, jittered(RECONCILE_MS));
+}
 
 const SSE_RETRY = "sse-retry";
 const _sseSleeps = createWakeableSleeps();
@@ -1022,6 +1153,9 @@ export function startRealtimeSync(): void {
 }
 
 export function stopRealtimeSync(): void {
+  cancelSyncRetry();
+  cancelTeamVaultCatchUp();
+  _failedSyncs = 0;
   _sseAbort?.abort();
   _sseAbort = null;
 }
@@ -1030,6 +1164,8 @@ export function stopRealtimeSync(): void {
 export function haltSync(): void {
   _halted = true;
   forgetMergedRemoteBlobs();
+  remoteSources.clear();
+  forgetTeamDataSeen();
   _syncOwed = false;
   stopRealtimeSync();
   if (_syncTimer) clearTimeout(_syncTimer);
@@ -1044,12 +1180,14 @@ export function resumeSync(): void {
 
 async function _sseLoop(signal: AbortSignal): Promise<void> {
   let failures = 0;
+  let reopened = false;
   while (!signal.aborted) {
     const attempt = new AbortController();
     const end = () => attempt.abort();
     signal.addEventListener("abort", end, { once: true });
     let healthy = false;
     let quiet: ReturnType<typeof setTimeout> | undefined;
+    let doubted: ReturnType<typeof setTimeout> | undefined;
     let failure: unknown;
     const drop = (reason?: unknown) => {
       healthy = false;
@@ -1058,13 +1196,22 @@ async function _sseLoop(signal: AbortSignal): Promise<void> {
     };
     const heard = () => {
       clearTimeout(quiet);
+      clearTimeout(doubted);
+      doubted = undefined;
       quiet = setTimeout(drop, STREAM_QUIET_MS);
+    };
+    const doubt = (reason: unknown) => {
+      doubted ??= setTimeout(() => drop(reason), STREAM_DOUBTED_MS);
     };
     try {
       await _sseConnect(attempt.signal, {
         onOpen: () => {
           healthy = true;
-          _dropStream = drop;
+          _doubtStream = doubt;
+          armReconcile();
+          // The first open follows the login sync, which already loaded every team vault.
+          if (reopened && !_loginSyncOwed) catchUpTeamVaults({ refetchUnversioned: true });
+          reopened = true;
           heard();
         },
         onData: heard,
@@ -1073,8 +1220,10 @@ async function _sseLoop(signal: AbortSignal): Promise<void> {
       failure = e;
     } finally {
       clearTimeout(quiet);
+      clearTimeout(doubted);
       signal.removeEventListener("abort", end);
-      _dropStream = null;
+      _doubtStream = null;
+      armReconcile();
     }
     if (signal.aborted) return;
     if (isUnreachable(failure) && !_syncInFlight) setState("offline", failure.message);
@@ -1152,9 +1301,15 @@ async function offboardFromTeam(tid: string, teamName: string): Promise<void> {
   // keys (#216).
   // undefined means the wipe never ran, so the key names are unknown and
   // unrecoverable; an empty array means it ran clean.
+  const teamHosts = await step("list the team's hosts", async () =>
+    (await import("@/services/revokedConnections")).teamConnectionIds(tid));
   const leftoverSecrets = await step("wipe the team's secrets", async () => {
     const { clearTeamStoresAndSecrets } = await import("@/services/teamVaultSync");
     return clearTeamStoresAndSecrets(tid);
+  });
+
+  await step("close open sessions to the team's hosts", async () => {
+    (await import("@/services/revokedConnections")).closeConnectionsLost(tid, teamHosts ?? []);
   });
 
   const survivors = leftoverSecrets ?? [];
@@ -1196,6 +1351,47 @@ async function offboardFromTeam(tid: string, teamName: string): Promise<void> {
   });
 }
 
+const offboarding = new Map<string, Promise<void>>();
+
+export async function offboardingSettled(): Promise<void> {
+  await Promise.allSettled([...offboarding.values()]);
+}
+
+function offboardOnce(tid: string, teamName: string): Promise<void> {
+  const running = offboarding.get(tid);
+  if (running) return running;
+  const done = offboardFromTeam(tid, teamName).finally(() => offboarding.delete(tid));
+  offboarding.set(tid, done);
+  return done;
+}
+
+/**
+ * Offboards every team that was listed, or still has data here, but is gone from
+ * the server's list and confirmed gone by the server. Any list refresh can be the
+ * one that drops a team; a missed membership_changed event otherwise leaves its
+ * secrets on this device (#790).
+ */
+async function offboardDroppedTeams(prev: Team[]): Promise<void> {
+  const [{ teamIdsWithLocalData }, { isStillMember }] = await Promise.all([
+    import("@/services/teamVaultSync"),
+    import("@/services/teamService"),
+  ]);
+  const held = await teamIdsWithLocalData();
+  // Read after the await: a team joined meanwhile is listed before any of its data loads.
+  const kept = new Set(useTeamStore.getState().teams.map((t) => t.id));
+  const names = new Map(prev.map((t) => [t.id, t.name] as const));
+  const dropped = new Set([...names.keys(), ...held].filter((tid) => !kept.has(tid)));
+  await Promise.all([...dropped].map(async (tid) => {
+    // A list that is wrong must never cost a member their local secrets.
+    if (await isStillMember(tid).catch(() => true)) return;
+    await offboardOnce(tid, names.get(tid) ?? tid);
+  }));
+}
+
+setTeamsLoadedHook((prev) => {
+  offboardDroppedTeams(prev).catch(logFailure("offboard dropped teams"));
+});
+
 export async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promise<void> {
   if (eventData.startsWith("team:")) {
     const teamId = eventData.slice(5);
@@ -1225,8 +1421,13 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
     const { checkAndRotateTeamKey } = await import("@/services/teamKeyRotation");
     checkAndRotateTeamKey(teamId).catch(logFailure(`team_members: checkAndRotateTeamKey team=${teamId}`));
     useTeamStore.getState().loadPendingInvitations(teamId).catch(logFailure(`team_members: loadPendingInvitations team=${teamId}`));
+  } else if (eventData.startsWith("join_requests:")) {
+    const teamId = eventData.slice("join_requests:".length);
+    useTeamStore.getState().loadJoinRequests(teamId).catch(logFailure(`join_requests: loadJoinRequests team=${teamId}`));
   } else if (eventData.startsWith("pending_invitations_changed:")) {
     useTeamStore.getState().loadMyPendingInvitations().catch(logFailure("pending_invitations_changed: loadMyPendingInvitations"));
+  } else if (eventData.startsWith("my_join_requests_changed:")) {
+    void useEnrollmentStore.getState().loadMyRequests();
   } else if (eventData.startsWith("membership_changed:")) {
     const parsed = parseMembershipChangedEvent(eventData);
     scheduleSeatRefresh();
@@ -1236,7 +1437,7 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
       await onTeamMembershipAdded(parsed.teamId);
     } else {
       const teamName = useTeamStore.getState().teams.find((t) => t.id === parsed.teamId)?.name ?? parsed.teamId;
-      await offboardFromTeam(parsed.teamId, teamName);
+      await offboardOnce(parsed.teamId, teamName);
     }
   } else if (eventData === "membership_changed") {
     scheduleSeatRefresh();
@@ -1248,18 +1449,11 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
     const { refreshAwaitingKeyTeams } = await import("@/services/teamDataManager");
     refreshAwaitingKeyTeams().catch(logFailure("membership_changed: refreshAwaitingKeyTeams"));
 
-    // Snapshot the names BEFORE loadTeams() runs: the removal is detected by
-    // diffing against a reloaded list, so by the time onTeamRemoved fires the
-    // departed team is already gone from the store and only its id remains.
-    const teamNamesBefore = new Map(
-      useTeamStore.getState().teams.map((t) => [t.id, t.name] as const),
-    );
-
+    // Removals are offboarded by the teams-loaded hook as soon as the list drops them.
     handleMembershipChangedEvent({
       getTeamIds: () => useTeamStore.getState().teams.map((t) => t.id),
       loadTeams: () => useTeamStore.getState().loadTeams(),
       onTeamAdded: onTeamMembershipAdded,
-      onTeamRemoved: (tid) => offboardFromTeam(tid, teamNamesBefore.get(tid) ?? tid),
     }).catch(logFailure("membership_changed"));
   } else if (eventData === "vault_key_changed") {
     const { refreshAwaitingKeyTeams } = await import("@/services/teamDataManager");
@@ -1285,11 +1479,14 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
     await refetchActiveSessions();
   } else if (eventData !== myDeviceId) {
     syncNow().catch(logFailure("cross-device push: syncNow"));
-    // "sync" is the server's lagged-receiver fallback: session_shared /
-    // session_ended may have been dropped, so refetch active sessions too.
+    // "sync" is the server's lagged-receiver fallback: session and team vault
+    // events may have been dropped, so refetch those too.
     // Scoped to that event — ordinary cross-device pushes carry a device id
     // and must not each cost a session round-trip.
-    if (eventData === "sync") refetchActiveSessions().catch(logFailure("sync fallback: refetchActiveSessions"));
+    if (eventData === "sync") {
+      refetchActiveSessions().catch(logFailure("sync fallback: refetchActiveSessions"));
+      catchUpTeamVaults({ refetchUnversioned: true });
+    }
   }
 }
 
@@ -1315,6 +1512,7 @@ async function _sseConnect(signal: AbortSignal, hooks: { onOpen: () => void; onD
     if (_status === "offline") setState("idle");
     // Catches any events missed while offline
     (_loginSyncOwed ? syncOnLogin() : syncInBackground()).catch(logFailure("syncNow on realtime connect"));
+    void useEnrollmentStore.getState().loadMyRequests();
 
     // Seed connection-presence snapshot so we render correct state even before any
     // SSE event arrives this session.
@@ -1323,6 +1521,7 @@ async function _sseConnect(signal: AbortSignal, hooks: { onOpen: () => void; onD
         import("@/services/connectionPresence"),
         import("@/stores/connectionPresenceStore"),
       ]);
+      useConnectionPresenceStore.getState().markStreamOpen();
       const entries = await fetchCurrentConnectionUsage();
       useConnectionPresenceStore.getState().setSnapshot(entries);
     })().catch(logFailure("connection presence snapshot"));

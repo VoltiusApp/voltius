@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { assertNotPreviewing } from "@/services/previewGuard";
 import type { Snippet, SnippetFormData } from "@/types";
 import type { SnippetPendingInject } from "@/services/snippetRunCore";
 import type { SequencePrompt } from "@/services/snippetSequence";
@@ -15,6 +16,9 @@ import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 
 export type GlobalPendingInject = SnippetPendingInject;
+
+/** A new snippet's starting content, handed to the Snippets panel's editor. */
+export type SnippetDraft = Pick<SnippetFormData, "name" | "steps">;
 
 /** Queue-unique identity for a prompt: the same snippet can be queued once per
  *  host, and the modal must remount (re-seed its values) for each one. */
@@ -44,6 +48,8 @@ interface SnippetStore {
   globalPendingInject: GlobalPendingInject | null;
   pendingSequences: QueuedSequencePrompt[];
   teamSnippets: Record<string, Snippet[]>;
+  snippetDraft: SnippetDraft | null;
+  setSnippetDraft: (draft: SnippetDraft | null) => void;
   loadSnippets: () => Promise<void>;
   setTeamSnippets: (teamId: string, items: Snippet[]) => void;
   clearTeamSnippets: (teamId?: string) => void;
@@ -65,6 +71,8 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   globalPendingInject: null,
   pendingSequences: [],
   teamSnippets: {},
+  snippetDraft: null,
+  setSnippetDraft: (snippetDraft) => set({ snippetDraft }),
 
   loadSnippets: async () => {
     set({ loading: true });
@@ -79,6 +87,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     set((s) => ({ teamSnippets: clearTeamMapEntry(s.teamSnippets, teamId) })),
 
   createSnippet: async (data) => {
+    assertNotPreviewing();
     if (isTeamVaultId(data.vault_id)) {
       const now = new Date().toISOString();
       const snippet: Snippet = {
@@ -126,6 +135,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   },
 
   updateSnippet: async (id, data) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamSnippets, id);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
@@ -207,6 +217,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   },
 
   deleteSnippet: async (id) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamSnippets, id);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
@@ -246,6 +257,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   },
 
   pinSnippet: async (id, pinned) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamSnippets, id);
     if (teamEntry) {
       await useTeamObjectPrefsStore.getState().setPinned(teamEntry.teamId, id, pinned);
@@ -261,6 +273,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   },
 
   pinSnippetForTeam: async (id, pinned) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamSnippets, id);
     if (!teamEntry) return;
     const { teamId } = teamEntry;

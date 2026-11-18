@@ -13,9 +13,13 @@ interface Props {
   jumpHosts: JumpHost[];
   onChange: (updated: JumpHost[]) => void;
   onBack: () => void;
+  /** Only this vault's hosts: a chain must resolve wherever the host itself does. */
+  vaultId: string;
+  /** The host being edited, which cannot be its own jump. */
+  hostId?: string;
 }
 
-export default function JumpHostsPanel({ jumpHosts, onChange, onBack }: Props) {
+export default function JumpHostsPanel({ jumpHosts, onChange, onBack, vaultId, hostId }: Props) {
   const { t } = useTranslation();
   const { connections } = useConnectionStore();
   const [showPicker, setShowPicker] = useState(false);
@@ -107,6 +111,8 @@ export default function JumpHostsPanel({ jumpHosts, onChange, onBack }: Props) {
           onPick={handlePick}
           onBack={() => setShowPicker(false)}
           showRecents={false}
+          vaultId={vaultId}
+          excludeId={hostId}
         />
       </SlideOver>
     </div>

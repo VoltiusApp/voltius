@@ -1,6 +1,6 @@
 [package]
 name = "voltius"
-version = "0.66.0"
+version = "0.78.0"
 description = "Open-Source SSH & SFTP Client"
 authors = ["Voltius Contributors"]
 edition = "2021"
@@ -16,6 +16,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+clap = { version = "4", features = ["derive", "color", "suggestions", "wrap_help"] }
+clap_complete = "4"
+anstream = "0.6"
+anstyle = "1"
 url = "2"
 quick-xml = "0.39"
 httpdate = "1"
@@ -35,7 +39,7 @@ uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 dirs = "6"
 # `des` enables the 3des-cbc cipher for the optional legacy-algorithms toggle.
-russh = { version = "0.64.1", default-features = false, features = ["flate2", "rsa", "ring", "des"] }
+russh = { version = "0.65.0", default-features = false, features = ["flate2", "rsa", "ring", "des"] }
 russh-sftp = "2.3"
 tokio-socks = "0.5"
 tokio-util = { version = "0.7", default-features = false, features = ["io", "io-util", "rt"] }
@@ -97,18 +101,19 @@ rustls-native-certs = "0.8"
 tauri-plugin-updater = "2"
 minisign-verify = "0.2"
 tauri-plugin-single-instance = "2"
-tauri-plugin-notification = "~2.4"
+tauri-plugin-notification = "2"
 # Reopen the window at the size and place it was closed at.
 tauri-plugin-window-state = "2"
 # machine-uid 0.6 has no Android/iOS backend (its lib.rs fails to compile there).
 # Desktop reads it via raw_machine_id(); mobile uses ANDROID_ID instead (see vault.rs).
 machine-uid = "0.6"
+plist = "1"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_NetworkManagement_IpHelper", "Win32_NetworkManagement_Ndis", "Win32_Networking_WinSock", "Win32_Security", "Win32_Security_Authorization", "Win32_Security_Credentials", "Win32_Security_Cryptography", "Win32_Storage_FileSystem", "Win32_System_Threading"] }
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_NetworkManagement_IpHelper", "Win32_NetworkManagement_Ndis", "Win32_Networking_WinSock", "Win32_Security", "Win32_Security_Authorization", "Win32_Security_Credentials", "Win32_Security_Cryptography", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_Console", "Win32_System_Threading", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 windows-registry = "0.6"
 windows-native-keyring-store = "1"
 windows = { version = "0.61", features = ["Security_Credentials_UI", "Win32_System_WinRT"] }
@@ -142,8 +147,18 @@ objc2-local-authentication = { version = "0.3", features = ["LAContext", "LAErro
 block2 = "0.6"
 
 [target.'cfg(target_os = "ios")'.dependencies]
-# NSArray for the share sheet (ios_native.rs).
-objc2-foundation = { version = "0.3", features = ["NSString", "NSArray"] }
+# NSArray for the share sheet (ios_native.rs); the rest for managed app configuration (policy/managed_ios.rs).
+objc2-foundation = { version = "0.3", features = [
+  "NSString",
+  "NSArray",
+  "NSUserDefaults",
+  "NSDictionary",
+  "NSValue",
+  "NSNotification",
+  "NSOperation",
+  "NSObject",
+  "block2",
+] }
 # iOS has only the data-protection keychain.
 apple-native-keyring-store = { version = "1", features = ["protected"] }
 

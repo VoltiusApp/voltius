@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Trans, useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAutosave } from "@/hooks/useAutosave";
+import { usePopoverFade } from "@/hooks/useDelayedUnmount";
 import { useFolderField } from "@/hooks/useFolderField";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useVaultScopedItems } from "@/hooks/useVaultScopedItems";
@@ -10,7 +11,7 @@ import TagSelector from "@/components/shared/TagSelector";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
-import { useSnippetStore } from "@/stores/snippetStore";
+import { useSnippetStore, type SnippetDraft } from "@/stores/snippetStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import {
@@ -19,6 +20,7 @@ import {
   nextPersonalPinValue,
 } from "@/hooks/useEffectivePinned";
 import { VaultPicker } from "@/components/shared/VaultPicker";
+import { vaultPickHandler } from "@/components/shared/vaultObjectForm";
 import { TagBadge } from "@/components/shared/TagBadge";
 import {
   PanelShell,
@@ -43,16 +45,19 @@ import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/componen
 
 interface Props {
   initial?: Snippet;
+  /** Starting content for a new snippet; nothing is saved until it is edited or saved. */
+  draft?: SnippetDraft;
   onSubmit: (data: SnippetFormData) => void | Promise<void>;
   onClose: () => void;
   onDuplicate?: () => void;
   onDelete?: () => void;
+  onMoveToVault?: (vaultId: string) => void;
   isDirtyRef?: React.MutableRefObject<boolean>;
 }
 
 export const SnippetForm = withEditAccess("snippet", (p: Props) => p.initial, SnippetFormEditor);
 
-function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, isDirtyRef, readOnly }: Props & EditAccessProps) {
+function SnippetFormEditor({ initial, draft, onSubmit, onClose, onDuplicate, onDelete, onMoveToVault, isDirtyRef, readOnly }: Props & EditAccessProps) {
   const { t } = useTranslation();
   const isNew = !initial;
   const pinSnippet = useSnippetStore((s) => s.pinSnippet);
@@ -68,8 +73,8 @@ function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, 
     [connections],
   );
 
-  const [name, setName]         = useState(initial?.name ?? "");
-  const [steps, setSteps]       = useState<SnippetStep[]>(initial?.steps ?? [{ kind: "script", content: "" }]);
+  const [name, setName]         = useState(initial?.name ?? draft?.name ?? "");
+  const [steps, setSteps]       = useState<SnippetStep[]>(initial?.steps ?? draft?.steps ?? [{ kind: "script", content: "" }]);
   const [description, setDesc]  = useState(initial?.description ?? "");
   const { folderId, setFolderId, keepSavedOnCancel } = useFolderField(initial?.folder_id);
   const [tags, setTags]         = useState<string[]>(initial?.tags ?? []);
@@ -81,6 +86,7 @@ function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, 
   const [vaultId, setVaultId]   = useState(initial?.vault_id ?? defaultVaultId);
   const [remotePick, setRemotePick] = useState<{ index: number; field: "from_path" | "to_path"; isDir: boolean } | null>(null);
   const vaultTouched = useRef(false);
+  const [draftUnsaved, setDraftUnsaved] = useState(!!draft && !initial);
   const folders = useVaultScopedItems(vaultId, personalFolders, teamSnippetFolders);
 
   // Single-script fast path: keep the plain textarea when the snippet is just one script step.
@@ -109,7 +115,7 @@ function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, 
   });
 
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
-    onSave: () => keepSavedOnCancel(onSubmit(buildData())),
+    onSave: () => saveNow(),
     canSave: () => steps.length > 0 && steps.some((s) => s.kind !== "script" || s.content.trim()),
     readOnly,
   });
@@ -122,6 +128,11 @@ function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, 
   useEffect(() => schedule(), [name, steps, description, folderId, tags, connTags, distros, favorite, vaultId]);
 
   const handleClose = () => flushAndClose(onClose);
+
+  function saveNow() {
+    setDraftUnsaved(false);
+    return keepSavedOnCancel(onSubmit(buildData()));
+  }
 
   // ── Tag helpers — all call markDirty ──────────────────────────────────────
 
@@ -153,11 +164,20 @@ function SnippetFormEditor({ initial, onSubmit, onClose, onDuplicate, onDelete, 
         icon="lucide:braces"
         // "Untitled snippet" is the persisted default name when left blank; kept in English until all creation sites are localized together (see i18n issue #14)
         title={isNew ? t("snippets.toolbar.newSnippet") : (name.trim() || "Untitled snippet")}
-        subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => { vaultTouched.current = true; if (id !== vaultId) setFolderId(null); setVaultId(id); markDirty(); }} disabled={readOnly} />}
+        subtitle={<VaultPicker vaultId={vaultId} onChange={vaultPickHandler({ existing: !!initial, onMoveToVault, flush, pick: (id) => { vaultTouched.current = true; if (id !== vaultId) setFolderId(null); setVaultId(id); markDirty(); } })} disabled={readOnly} />}
         onClose={handleClose}
         saveState={saveState}
         actions={
           <>
+            {draftUnsaved && !readOnly && (
+              <button
+                onClick={() => void saveNow()}
+                className="h-7 px-2.5 text-xs font-semibold rounded-lg"
+                style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
+              >
+                {t("common.action.save")}
+              </button>
+            )}
             {!isNew && <PinButton pinned={isPinned} onToggle={() => {
               if (!isTeamVault) {
                 pinSnippet(initial!.id, !isPinned).catch(() => {});
@@ -379,6 +399,7 @@ function AutocompleteTagInput({
   const match = searchMatcher(input);
   const filtered = suggestions.filter((s) => !tags.includes(s) && match(s));
   const showDropdown = open && filtered.length > 0;
+  const fade = usePopoverFade(showDropdown);
 
   return (
     <div ref={containerRef} className="relative">
@@ -422,10 +443,10 @@ function AutocompleteTagInput({
           }
         }}
       />
-      {showDropdown && (
+      {fade.mounted && (
         <div
-          className="absolute z-50 w-full mt-1 rounded-lg shadow-lg overflow-hidden"
-          style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}
+          className={`absolute z-50 w-full mt-1 rounded-lg shadow-lg overflow-hidden ${fade.className}`}
+          style={{ ...fade.style, background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}
         >
           {filtered.map((s) => (
             <button

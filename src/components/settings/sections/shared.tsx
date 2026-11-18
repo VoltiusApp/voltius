@@ -7,18 +7,24 @@ import { setKeySync } from "@/services/user-data/syncChoice";
 import { useIsMobile } from "@/utils/platform";
 import { ListRowContext } from "@/components/shared/listRowContext";
 import { Toggle } from "@/components/shared/Toggle";
+import { Managed, ManagedNote } from "@/components/shared/ManagedNote";
+import { inPolicyRange, isEnforcedLock, usePolicyLock, usePolicyRange, usePolicyRefresh } from "@/stores/policyStore";
+import { builtIn } from "@/services/policy/adminDefaults";
 import BottomSheet from "@/components/mobile/sheets/BottomSheet";
 import { SheetActionRow } from "@/components/mobile/sheets/SheetActionRow";
 import RowActionsButton from "@/components/mobile/RowActionsButton";
 import { useLongPress } from "@/components/mobile/useLongPress";
 import { ROW_ATTR, ROW_CONTROL_ATTR } from "@/components/settings/settingsMobileCore";
 
+export const SETTINGS_SURFACE = "rounded-lg bg-(--t-bg-elevated) border border-(--t-border)";
+export const SETTINGS_ROW_BUTTON = "shrink-0 text-xs px-2.5 py-1.5 rounded-lg font-medium bg-(--t-bg-input) text-(--t-text-primary) transition-opacity hover:opacity-75 disabled:opacity-50";
+
 /** Android: rows inside a SettingsGroup already sit in a full-bleed list. */
 const InSettingsGroup = createContext(false);
 
 /** A titled block of settings rows: the uppercase heading plus the row container. */
 export function SettingsGroup({ title, divided, className, children }: {
-  title: string;
+  title: ReactNode;
   /** Draw separators between rows. */
   divided?: boolean;
   className?: string;
@@ -42,7 +48,7 @@ export function SettingsGroup({ title, divided, className, children }: {
         {title}
       </h3>
       <div
-        className={`rounded-lg bg-(--t-bg-elevated) border border-(--t-border)${divided ? " divide-y divide-(--t-border)" : ""}`}
+        className={`${SETTINGS_SURFACE}${divided ? " divide-y divide-(--t-border)" : ""}`}
       >
         {children}
       </div>
@@ -57,7 +63,7 @@ export function SettingsGroup({ title, divided, className, children }: {
  * `list` rows sit inside a `SettingsGroup` container; `card` rows are their own
  * bordered card and stand alone.
  */
-export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, syncKey, variant = "list", className, children }: {
+export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, syncKey, policyKey, note, variant = "list", className, resetAlwaysVisible, children }: {
   title: ReactNode;
   desc?: ReactNode;
   dirty?: boolean;
@@ -68,21 +74,26 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
   truncateDesc?: boolean;
   /** Dotted key from SETTING_KEYS: adds the per-setting cloud-sync control. */
   syncKey?: string;
+  /** Policy key whose admin lock disables this row's control; defaults to `syncKey`. */
+  policyKey?: string;
+  note?: ReactNode;
   variant?: "list" | "card";
   className?: string;
+  resetAlwaysVisible?: boolean;
   children: ReactNode;
 }) {
   const isMobile = useIsMobile();
+  const managed = useRowManaged(policyKey ?? syncKey);
   if (isMobile) {
     return (
-      <MobileSettingRow title={title} desc={desc} dirty={dirty} onReset={onReset} dimmed={dimmed} truncateDesc={truncateDesc} syncKey={syncKey}>
+      <MobileSettingRow title={title} desc={desc} dirty={dirty} onReset={onReset} dimmed={dimmed} truncateDesc={truncateDesc} syncKey={syncKey} policyKey={policyKey} note={note}>
         {children}
       </MobileSettingRow>
     );
   }
   const card = variant === "card";
   const base = card
-    ? "group rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4 flex items-center justify-between gap-4"
+    ? `group ${SETTINGS_SURFACE} p-4 flex items-center justify-between gap-4`
     : "group flex items-center justify-between px-4 py-3 gap-4";
   const style = dimmed ? { opacity: 0.45 } : undefined;
 
@@ -101,14 +112,30 @@ export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, 
           </div>
         )}
       </div>
-      <div className="flex items-center gap-2 shrink-0">
-        {syncKey && <SyncKeyButton path={syncKey} />}
-        {dirty && onReset && <ResetButton onReset={onReset} />}
-        {dirty && <DirtyDot />}
-        {children}
+      <div className="flex flex-col items-end gap-1.5 shrink-0">
+        <div className="flex items-center gap-2">
+          {syncKey && !managed.locked && <SyncKeyButton path={syncKey} />}
+          {dirty && onReset && managed.resettable && <ResetButton onReset={onReset} alwaysVisible={resetAlwaysVisible} />}
+          {dirty && !managed.locked && <DirtyDot />}
+          <RowControl managed={managed}>{children}</RowControl>
+        </div>
+        {note}
       </div>
     </div>
   );
+}
+
+interface RowManaged { key: string | undefined; locked: boolean; teams: string[]; resettable: boolean }
+
+export function useRowManaged(key: string | undefined): RowManaged {
+  const lock = usePolicyLock(key ?? "");
+  const range = usePolicyRange(key ?? "");
+  const locked = !!key && isEnforcedLock(key);
+  return { key, locked, teams: lock.locked ? lock.teams : [], resettable: !locked && (!range || inPolicyRange(range, builtIn(key!))) };
+}
+
+export function RowControl({ managed, note, children }: { managed: RowManaged; note?: boolean; children: ReactNode }) {
+  return managed.locked ? <Managed policyKey={managed.key!} note={note}>{children}</Managed> : <>{children}</>;
 }
 
 export function ActionItem({ icon, label, sub, danger, disabled, onClick }: {
@@ -144,7 +171,7 @@ export function ActionItem({ icon, label, sub, danger, disabled, onClick }: {
     <button
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className="w-full flex items-start gap-3 px-4 py-3 rounded-lg text-left transition-colors bg-(--t-bg-elevated) border border-(--t-border) hover:bg-(--t-bg-card-hover)"
+      className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors ${SETTINGS_SURFACE} hover:bg-(--t-bg-card-hover)`}
       style={{
         cursor: disabled ? "default" : "pointer",
         opacity: disabled ? 0.5 : 1,
@@ -206,7 +233,7 @@ export function DirtyDot() {
   );
 }
 
-export function ResetButton({ onReset }: { onReset: () => void }) {
+export function ResetButton({ onReset, alwaysVisible }: { onReset: () => void; alwaysVisible?: boolean }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   if (isMobile) {
@@ -226,7 +253,7 @@ export function ResetButton({ onReset }: { onReset: () => void }) {
   return (
     <button
       onClick={onReset}
-      className="p-1 rounded-sm transition-opacity opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-(--t-text-muted)"
+      className={`p-1 rounded-sm transition-opacity ${alwaysVisible ? "" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 "}text-(--t-text-muted)`}
       onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-bright)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-muted)"; }}
       title={t("settings.shared.resetToDefault")}
@@ -241,10 +268,19 @@ function useKeySync(path: string) {
   const domainSynced = useSyncPrefsStore((s) => s.isDomainSynced(domainOf(path)));
   const synced = useSyncPrefsStore((s) => s.isSettingSynced(path));
   const deviceDefault = useSyncPrefsStore((s) => isDeviceScopedDefault(path, s.settingSyncOverrides ?? {}));
+  usePolicyRefresh();
   return { domainSynced, synced, deviceDefault };
 }
 
 export function SyncKeyButton({ path }: { path: string }) {
+  return (
+    <Managed policyKey={`sync.settings.${path}`}>
+      <SyncKeyButtonInner path={path} />
+    </Managed>
+  );
+}
+
+function SyncKeyButtonInner({ path }: { path: string }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const { domainSynced, synced, deviceDefault } = useKeySync(path);
@@ -288,7 +324,7 @@ export function SyncKeyButton({ path }: { path: string }) {
  * forwards it, see rowTapControl). Reset is a visible text button while the value is
  * off its default; a long-press opens the row's actions (reset, per-setting sync).
  */
-function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, syncKey, children }: {
+function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, syncKey, policyKey, note, children }: {
   title: ReactNode;
   desc?: ReactNode;
   dirty?: boolean;
@@ -296,13 +332,16 @@ function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, s
   dimmed?: boolean;
   truncateDesc?: boolean;
   syncKey?: string;
+  policyKey?: string;
+  note?: ReactNode;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
   const inGroup = useContext(InSettingsGroup);
+  const managed = useRowManaged(policyKey ?? syncKey);
   const [sheet, setSheet] = useState(false);
-  const canReset = !!(dirty && onReset);
-  const hasActions = canReset || !!syncKey;
+  const canReset = !!(dirty && onReset) && managed.resettable;
+  const hasActions = canReset || (!!syncKey && !managed.locked);
   const { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, onContextMenu, onClick } = useLongPress(() => setSheet(true));
   const ref = useRef<HTMLDivElement>(null);
   // Rows whose tap does something get the B5 ripple; a row holding only a text field doesn't.
@@ -322,13 +361,13 @@ function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, s
     <div
       ref={ref}
       {...{ [ROW_ATTR]: "" }}
-      className={`relative flex items-center gap-4 min-h-14 py-3 px-4${inGroup ? "" : " -mx-4"}`}
+      className={`relative flex flex-wrap items-center gap-x-4 gap-y-1 min-h-14 py-3 px-4${inGroup ? "" : " -mx-4"}`}
       {...press}
     >
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-40">
         <div className="flex items-center gap-1.5 text-base text-(--t-text-primary)" style={style}>
           <span className="min-w-0">{title}</span>
-          {dirty && <DirtyDot />}
+          {dirty && !managed.locked && <DirtyDot />}
           {syncKey && <HeldBackMark path={syncKey} />}
         </div>
         {desc !== undefined && (
@@ -336,11 +375,13 @@ function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, s
             {desc}
           </div>
         )}
+        {managed.locked && <ManagedNote className="mt-1" teams={managed.teams} />}
+        {note && <div className="mt-1">{note}</div>}
       </div>
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="flex flex-wrap items-center justify-end gap-1 ml-auto max-w-full">
         <ListRowContext.Provider value={rowContext}>
           {canReset && <ResetButton onReset={onReset!} />}
-          {children}
+          <RowControl managed={managed} note={false}>{children}</RowControl>
         </ListRowContext.Provider>
       </div>
       {hasActions && (
@@ -362,7 +403,7 @@ function MobileSettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, s
               it={{ icon: "lucide:rotate-ccw", label: t("settings.shared.resetToDefault"), slug: "reset", onTap: () => { onReset!(); setSheet(false); } }}
             />
           )}
-          {syncKey && <SyncSheetRow path={syncKey} />}
+          {syncKey && !managed.locked && <SyncSheetRow path={syncKey} />}
         </BottomSheet>
     )}
     </>
@@ -379,6 +420,14 @@ function HeldBackMark({ path }: { path: string }) {
 
 /** "Sync this setting" switch inside the Android row actions sheet. */
 function SyncSheetRow({ path }: { path: string }) {
+  return (
+    <Managed policyKey={`sync.settings.${path}`}>
+      <SyncSheetRowInner path={path} />
+    </Managed>
+  );
+}
+
+function SyncSheetRowInner({ path }: { path: string }) {
   const { t } = useTranslation();
   const { domainSynced, synced, deviceDefault } = useKeySync(path);
   const sub = !domainSynced
@@ -389,7 +438,7 @@ function SyncSheetRow({ path }: { path: string }) {
         ? t("settings.shared.sync.deviceDefault")
         : t("settings.shared.sync.off");
   return (
-    <div {...{ [ROW_ATTR]: "" }} data-ripple data-setting-sync={path} className="relative flex items-center gap-3 px-3 py-3 rounded-xl">
+    <div {...{ [ROW_ATTR]: "" }} data-ripple data-setting-sync={path} className="relative flex w-full items-center gap-3 px-3 py-3 rounded-xl">
       <Icon icon={synced ? "lucide:cloud" : "lucide:cloud-off"} width={18} className="shrink-0 text-(--t-text-primary)" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.shared.sync.label")}</p>

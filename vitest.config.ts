@@ -1,10 +1,11 @@
 import { defineConfig } from "vitest/config";
 import path from "path";
+import svgr from "vite-plugin-svgr";
 import { iconSubsets } from "./vite-plugin-icon-subsets";
 
 export default defineConfig({
   // Resolve the virtual icon subsets imported by ui.ts transitively via src/utils/icons.ts
-  plugins: [iconSubsets()],
+  plugins: [svgr(), iconSubsets()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

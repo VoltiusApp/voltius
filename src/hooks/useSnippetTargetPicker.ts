@@ -8,6 +8,7 @@ import { sessionMatchesQuery } from "@/utils/sessionLabel";
 import { useIsMobile } from "@/utils/platform";
 import { getSnippetInjectionTargetIds, waitForConnectedSessionIds } from "@/components/shared/sessionPickerTargets";
 import { useLocalShells } from "@/hooks/useLocalShells";
+import { refuseWhilePreviewing } from "@/services/previewGuard";
 
 export function useSnippetTargetPicker() {
   const sessions = useSessionStore((s) => s.sessions);
@@ -60,6 +61,7 @@ export function useSnippetTargetPicker() {
   const totalSelected = selectedSessionIds.size + selectedConnectionIds.size + (localShell !== null ? 1 : 0);
 
   async function confirm(onResolved: (ids: string[]) => void): Promise<void> {
+    if (refuseWhilePreviewing()) return;
     const sessionIds = [...selectedSessionIds];
     onResolved(sessionIds);
 

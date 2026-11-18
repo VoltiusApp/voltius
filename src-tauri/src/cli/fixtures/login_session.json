@@ -1,0 +1,14 @@
+{
+  "default_server": "https://api.voltius.app",
+  "keychain": {
+    "account_id": "acc-1",
+    "email": "ada@example.com",
+    "jwt": "fixture-jwt",
+    "master_password": "correct horse battery staple",
+    "mode": "server",
+    "refresh_token": "fixture-refresh-token",
+    "server_url": "https://sync.example.com:8443",
+    "wrapped_user_secrets": "d3JhcHBlZC11c2VyLXNlY3JldHM="
+  },
+  "server_input": "https://sync.example.com:8443/"
+}

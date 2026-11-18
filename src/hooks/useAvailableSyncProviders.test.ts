@@ -26,3 +26,16 @@ test("lists catalogue sync providers that are neither installed nor loaded", () 
   expect(result.current.available.map((p) => p.id)).toEqual(["plugin-cloudflare-sync"]);
   expect(result.current.appVersion).toBe("0.36.0");
 });
+
+test("hides providers the machine policy does not let the user install", async () => {
+  const { usePolicyStore } = await import("@/stores/policyStore");
+  const ids = () => renderHook(() => useAvailableSyncProviders()).result.current.available.map((p) => p.id);
+  try {
+    usePolicyStore.setState({ machine: { policy: { "plugins.allowInstall": false }, defaults: {} } });
+    expect(ids()).toEqual([]);
+    usePolicyStore.setState({ machine: { policy: { "plugins.allowInstall": false, "plugins.install": ["plugin-cloudflare-sync"] }, defaults: {} } });
+    expect(ids()).toEqual(["plugin-cloudflare-sync"]);
+  } finally {
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+  }
+});

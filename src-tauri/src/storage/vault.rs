@@ -2,13 +2,15 @@ use std::path::PathBuf;
 use tauri::AppHandle;
 use tauri::Manager;
 
+pub const VAULT_HOLD_FILE: &str = "vault.hold";
+
 fn vault_path(app: &AppHandle) -> PathBuf {
     let dir = app
         .path()
         .app_data_dir()
         .expect("failed to get app data dir");
     std::fs::create_dir_all(&dir).ok();
-    dir.join("vault.hold")
+    dir.join(VAULT_HOLD_FILE)
 }
 
 pub fn vault_exists(app: &AppHandle) -> bool {

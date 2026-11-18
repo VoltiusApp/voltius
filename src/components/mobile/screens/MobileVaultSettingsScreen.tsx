@@ -2,13 +2,13 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { APPBAR_TONAL } from "../MobileHeader";
-import { useCollapsingHeader } from "../useCollapsingHeader";
+import { NO_LARGE_TITLE, useCollapsingHeader } from "../useCollapsingHeader";
+import MobileSectionHeading from "../MobileSectionHeading";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useVaultContents } from "@/hooks/useVaultContents";
-import { useMyUserId } from "@/hooks/useMyUserId";
 import { useAutosave } from "@/hooks/useAutosave";
 import { useBackInterceptor } from "@/hooks/useBackInterceptor";
 import { ContentCounts } from "@/components/shared/ContentCounts";
@@ -23,14 +23,18 @@ import { resolveVaultAdminTarget, type VaultAdminTarget } from "@/components/vau
 import { useVaultAdminState } from "@/components/vault-admin/useVaultAdmin";
 import { useVaultAdminActions } from "@/components/vault-admin/useVaultAdminActions";
 import { VaultAdminDialogs, type VaultDialog } from "@/components/vault-admin/VaultAdminDialogs";
-import { VAULT_ACTION_ICONS, vaultMenuActions } from "@/components/vault-admin/vaultMenuItems";
+import { VAULT_ACTION_ICONS, isVaultNavigation, vaultMenuActions } from "@/components/vault-admin/vaultMenuItems";
+import { refuseWhilePreviewing } from "@/services/previewGuard";
+import { usePreviewReadOnly } from "@/hooks/useGreyedUnless";
 import { VaultShareSheet } from "@/components/vault-share/VaultShareSheet";
 import { TeamRolesPanel } from "@/components/members/panels/RolesPanel";
 import { SecurityPolicyPanel } from "@/components/members/panels/SecurityPolicyPanel";
-import type { VaultSettingsPage } from "@/stores/mobileNavCore";
+import type { MobileScreen, VaultSettingsPage } from "@/stores/mobileNavCore";
+import MobileMembersScreen from "./MobileMembersScreen";
 import { vaultSettingsSections, type VaultSettingsRow } from "./vaultSettingsCore";
 
-const NO_TITLE = { current: null };
+type ActionRow = Exclude<VaultSettingsRow, { id: "name" }>;
+
 const MAX_AVATARS = 3;
 
 /**
@@ -47,9 +51,11 @@ export default function MobileVaultSettingsScreen({ vaultId, page }: { vaultId: 
 
   const appbarRef = useRef<HTMLDivElement>(null);
   const largeTitleRef = useRef<HTMLDivElement>(null);
-  const scroll = useCollapsingHeader(appbarRef, page ? NO_TITLE : largeTitleRef);
+  const scroll = useCollapsingHeader(appbarRef, page ? NO_LARGE_TITLE : largeTitleRef);
 
   const title = page ? t(`mobile.vaultSettings.rows.${page}`) : (target?.name ?? t("mobile.vaultSettings.title"));
+
+  if (page === "members") return <MobileMembersScreen vaultId={vaultId} />;
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)" data-mobile-vault-settings={page ?? "root"}>
@@ -83,19 +89,36 @@ export default function MobileVaultSettingsScreen({ vaultId, page }: { vaultId: 
   );
 }
 
+const listsMembersOf = (screen: MobileScreen | undefined, vaultId: string, selectedVaultId: string | undefined) =>
+  screen?.kind === "more-page"
+    ? screen.page === "members" && selectedVaultId === vaultId
+    : screen?.kind === "vault-settings" && screen.page === "members" && screen.vaultId === vaultId;
+
 function VaultSettingsSubPage({ vaultId, target, page, onLeave }: {
   vaultId: string; target: VaultAdminTarget; page: VaultSettingsPage; onLeave: () => void;
 }) {
-  const myUserId = useMyUserId();
+  const push = useMobileNavStore((s) => s.push);
+  const selectedVaultId = useVaultStore((s) => s.selectedVaultIds[0]);
   const teamId = target.teamId;
+  const openPeople = () => {
+    const { stack, pop } = useMobileNavStore.getState();
+    if (listsMembersOf(stack[stack.length - 2], vaultId, selectedVaultId)) pop();
+    else push({ kind: "vault-settings", vaultId, page: "members" });
+  };
   // These panels were laid out for a 320 px desktop side panel: every button inside
   // gets a 48 dp hit area on the phone (C7).
   return (
-    <div data-vault-settings-page={page} data-vt-hit-scope className={page === "share" || page === "members" ? "" : "p-4"}>
-      {(page === "share" || page === "members") && (
-        <VaultShareSheet vaultId={vaultId} variant="page" initialTab={page === "members" ? "people" : "invite"} onRequestFull={onLeave} />
+    <div data-vault-settings-page={page} data-vt-hit-scope className={page === "share" ? "" : "p-4"}>
+      {page === "share" && (
+        <VaultShareSheet
+          vaultId={vaultId}
+          variant="page"
+          initialTab="invite"
+          onRequestFull={onLeave}
+          onOpenPeople={openPeople}
+        />
       )}
-      {page === "roles" && teamId && myUserId && <TeamRolesPanel teamId={teamId} myUserId={myUserId} />}
+      {page === "roles" && teamId && <TeamRolesPanel teamId={teamId} />}
       {page === "security" && teamId && <SecurityPolicyPanel teamId={teamId} />}
     </div>
   );
@@ -109,6 +132,7 @@ function VaultSettingsList({ vaultId, target, titleRef }: {
   const pop = useMobileNavStore((s) => s.pop);
   const { caps, memberCount, canShare } = useVaultAdminState(target);
   const sections = vaultSettingsSections(vaultMenuActions({ caps, canShare }));
+  const readOnly = usePreviewReadOnly();
   const [dialog, setDialog] = useState<VaultDialog>(null);
   // The dialogs are desktop modals: the system Back closes them, not the page under them.
   useBackInterceptor(dialog !== null, () => setDialog(null));
@@ -123,18 +147,18 @@ function VaultSettingsList({ vaultId, target, titleRef }: {
     if (!rolesByTeam[teamId]) loadRoles(teamId).catch(() => {});
   }, [teamId]);
 
-  const summary = (row: VaultSettingsRow): string | null => {
+  const summary = (row: ActionRow): string | null => {
     switch (row.id) {
       case "members": return memberCount !== null ? t("mobile.vaultSettings.summaries.members", { count: memberCount }) : null;
       case "delete": return t(teamId ? "mobile.vaultSettings.summaries.deleteTeam" : "mobile.vaultSettings.summaries.delete");
-      case "name": return null;
       default: return t(`mobile.vaultSettings.summaries.${row.id}`);
     }
   };
 
-  const tap = (row: VaultSettingsRow) => {
+  const tap = (row: ActionRow) => {
+    if (!isVaultNavigation(row.id) && refuseWhilePreviewing()) return;
     if (row.id === "makePrivate" || row.id === "delete" || row.id === "leave") setDialog(row.id);
-    else if (row.id !== "name") push({ kind: "vault-settings", vaultId, page: row.id });
+    else push({ kind: "vault-settings", vaultId, page: row.id });
   };
 
   return (
@@ -146,9 +170,7 @@ function VaultSettingsList({ vaultId, target, titleRef }: {
 
       {sections.map((section) => (
         <section key={section.id} data-vault-settings-section={section.id} className="mb-2">
-          <h2 className="px-4 pt-4 pb-2 text-sm font-medium" style={{ color: section.id === "danger" ? "var(--t-danger, #e5484d)" : "var(--t-accent)" }}>
-            {t(`mobile.vaultSettings.sections.${section.id}`)}
-          </h2>
+          <MobileSectionHeading label={t(`mobile.vaultSettings.sections.${section.id}`)} danger={section.id === "danger"} />
           {section.rows.map((row) =>
             row.id === "name" ? (
               <VaultNameRow key="name" target={target} editable={row.editable} />
@@ -159,6 +181,7 @@ function VaultSettingsList({ vaultId, target, titleRef }: {
                 icon={VAULT_ACTION_ICONS[row.id]}
                 label={t(`mobile.vaultSettings.rows.${row.id}`)}
                 summary={summary(row)}
+                greyedReason={isVaultNavigation(row.id) ? null : readOnly}
                 danger={section.id === "danger"}
                 chevron={section.id !== "danger"}
                 onTap={() => tap(row)}
@@ -181,19 +204,21 @@ function VaultSettingsList({ vaultId, target, titleRef }: {
   );
 }
 
-function SettingsRow({ id, icon, label, summary, danger, chevron, onTap }: {
-  id: string; icon: string; label: string; summary: string | null; danger?: boolean; chevron?: boolean; onTap: () => void;
+function SettingsRow({ id, icon, label, summary, greyedReason, danger, chevron, onTap }: {
+  id: string; icon: string; label: string; summary: string | null; greyedReason: string | null; danger?: boolean; chevron?: boolean; onTap: () => void;
 }) {
+  const subtitle = greyedReason ?? summary;
   return (
     <button
       data-vault-settings-row={id}
+      aria-disabled={greyedReason !== null || undefined}
       onClick={onTap}
-      className={`w-full flex items-center gap-4 pl-4 pr-3 py-2 text-left ${summary ? "min-h-[72px]" : "min-h-14"}`}
+      className={`w-full flex items-center gap-4 pl-4 pr-3 py-2 text-left aria-disabled:opacity-50 ${subtitle ? "min-h-[72px]" : "min-h-14"}`}
     >
       <Icon icon={icon} width={24} className="shrink-0" style={{ color: danger ? "var(--t-danger, #e5484d)" : "var(--t-text-dim)" }} />
       <span className="flex-1 min-w-0 flex flex-col">
         <span className="text-base truncate" style={{ color: danger ? "var(--t-danger, #e5484d)" : "var(--t-text-primary)" }}>{label}</span>
-        {summary && <span className="text-sm text-(--t-text-dim) line-clamp-2">{summary}</span>}
+        {subtitle && <span className="text-sm text-(--t-text-dim) line-clamp-2">{subtitle}</span>}
       </span>
       {chevron && <Icon icon="lucide:chevron-right" width={20} className="shrink-0 text-(--t-text-dim)" />}
     </button>
@@ -201,8 +226,10 @@ function SettingsRow({ id, icon, label, summary, danger, chevron, onTap }: {
 }
 
 /** The vault name, renamed in place: saved like the C5 edit forms (debounced, flushed on blur and on leaving). */
-function VaultNameRow({ target, editable }: { target: VaultAdminTarget; editable: boolean }) {
+function VaultNameRow({ target, editable: canRename }: { target: VaultAdminTarget; editable: boolean }) {
   const { t } = useTranslation();
+  const readOnly = usePreviewReadOnly();
+  const editable = canRename && readOnly === null;
   const { rename } = useVaultAdminActions(target);
   const [draft, setDraft] = useState(target.name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -238,7 +265,7 @@ function VaultNameRow({ target, editable }: { target: VaultAdminTarget; editable
       {editable && !draft.trim() && (
         <span data-field-error className="block mt-1 text-xs" style={{ color: "var(--t-danger, #e5484d)" }}>{t("mobile.vaultSettings.nameRequired")}</span>
       )}
-      {!editable && <span className="block text-xs text-(--t-text-dim)">{t("mobile.vaultSettings.nameReadOnly")}</span>}
+      {!editable && <span className="block text-xs text-(--t-text-dim)">{readOnly ?? t("mobile.vaultSettings.nameReadOnly")}</span>}
     </label>
   );
 }

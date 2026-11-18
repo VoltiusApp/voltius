@@ -1,21 +1,14 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import i18n from "@/i18n";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useSessionStore } from "@/stores/sessionStore";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { cardGridProps } from "@/components/shared/cardGrid";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { vaultOverviewSections } from "./vaultOverviewSections";
+import { HostPingDot, hostAddress, hostDisplayName, useConnectFromHome } from "./hostDisplay";
 import type { Connection } from "@/types";
-
-function displayName(c: Connection): string {
-  if (c.name?.trim()) return c.name.trim();
-  if (c.connection_type === "serial" || c.serial_port) return c.serial_port ?? i18n.t("home.serialFallback");
-  return `${c.username}@${c.host}`;
-}
 
 interface VaultCardProps {
   name: string;
@@ -32,10 +25,10 @@ function VaultCard({ name, hosts, totalHosts, onConnect, onOpen }: VaultCardProp
     <div className="surface-glass flex flex-col rounded-2xl p-4 gap-3">
       <button onClick={onOpen} className="group flex items-center gap-2 text-left">
         <Icon icon="lucide:vault" width={13} style={{ color: "var(--t-text-dim)" }} />
-        <span className="text-xs font-semibold text-(--t-text-secondary) group-hover:text-(--t-text-primary) group-hover:underline">
+        <span className="text-sm font-semibold text-(--t-text-primary) group-hover:underline">
           {name}
         </span>
-        <span className="ml-auto text-[10px]" style={{ color: "var(--t-text-dim)" }}>
+        <span className="ml-auto text-xs" style={{ color: "var(--t-text-dim)" }}>
           {t("home.vaultCard.hostCount", { count: totalHosts })}
         </span>
       </button>
@@ -50,27 +43,24 @@ function VaultCard({ name, hosts, totalHosts, onConnect, onOpen }: VaultCardProp
             <button
               key={conn.id}
               onClick={() => onConnect(conn)}
-              className="group flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-left transition-colors w-full"
-              style={{ color: "var(--t-text-primary)" }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-              }}
+              className="group flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-left transition-colors w-full text-(--t-text-primary) hover:bg-(--t-bg-elevated)"
             >
-              <ConnectionAvatar connection={conn} size={24} />
-              <span className="flex-1 text-xs font-medium truncate">{displayName(conn)}</span>
+              <span className="relative shrink-0">
+                <ConnectionAvatar connection={conn} size={24} />
+                <HostPingDot connection={conn} size="sm" />
+              </span>
+              <span className="max-w-[65%] text-sm font-medium truncate">{hostDisplayName(conn)}</span>
+              <span className="flex-1 min-w-0 font-mono text-xs text-right truncate text-(--t-text-dim)" title={hostAddress(conn)}>{hostAddress(conn)}</span>
               <Icon
                 icon="lucide:terminal"
                 width={12}
-                className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                className="opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity shrink-0"
                 style={{ color: "var(--t-text-dim)" }}
               />
             </button>
           ))}
           {hidden > 0 && (
-            <button onClick={onOpen} className="self-start text-[10px] px-2 pt-1 text-(--t-text-dim) hover:text-(--t-accent) hover:underline">
+            <button onClick={onOpen} className="self-start text-xs px-2 pt-1 text-(--t-text-dim) hover:text-(--t-accent) hover:underline">
               {t("home.vaultCard.more", { count: hidden })}
             </button>
           )}
@@ -85,15 +75,9 @@ export function VaultsOverview() {
   const connections = useAllConnections();
   const vaults = useVaultStore((s) => s.vaults);
   const selectVaultOnly = useVaultStore((s) => s.selectVaultOnly);
-  const connect = useSessionStore((s) => s.connect);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
   const setHomeView = useUIStore((s) => s.setHomeView);
-
-  const handleConnect = (conn: Connection) => {
-    connect(conn.id).catch(() => {});
-    setHomeView(false);
-    setActiveNav("terminal");
-  };
+  const handleConnect = useConnectFromHome();
 
   const openVault = (vaultId: string) => {
     selectVaultOnly(vaultId);
@@ -114,7 +98,7 @@ export function VaultsOverview() {
       >
         {t("common.entity.vaults")}
       </h2>
-      <div {...cardGridProps("grid", "card")}>
+      <div {...cardGridProps("grid", "wide", "items-start")}>
         {sections.map(({ vault, hosts, totalHosts }) => (
           <VaultCard
             key={vault.id}

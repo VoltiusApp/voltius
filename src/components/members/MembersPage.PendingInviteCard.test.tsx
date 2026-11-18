@@ -38,6 +38,7 @@ const props = {
   inv,
   teamId: "t1",
   roles: [],
+  canInvite: true,
   onRevoked: vi.fn(),
   onResent: vi.fn(),
 };
@@ -85,6 +86,16 @@ test("button disabled while revoke in flight, re-enables after resolve", async (
   await waitFor(() => expect(btn.disabled).toBe(true));
   resolveRevoke!();
   await waitFor(() => expect(btn.disabled).toBe(false));
+});
+
+test("without invite permission both actions are greyed with the reason and do nothing", () => {
+  render(<PendingInviteCard {...props} canInvite={false} />);
+  const buttons = screen.getAllByTitle("members.permissions.youLack") as HTMLButtonElement[];
+  expect(buttons).toHaveLength(2);
+  expect(buttons.every((b) => b.disabled)).toBe(true);
+  buttons.forEach((b) => fireEvent.click(b));
+  expect(h.revoke).not.toHaveBeenCalled();
+  expect(h.inviteByEmail).not.toHaveBeenCalled();
 });
 
 test("shows how long a live invitation has left", () => {
@@ -146,4 +157,22 @@ test("invited by shows the inviter's name from the roster, and the invitation's 
   expect(screen.getByText(/Jan/)).toBeTruthy();
   expect(screen.queryByText(/quiet-otter-1/)).toBeNull();
   useTeamStore.setState({ membersByTeam: {} });
+});
+
+const multiRoles = [
+  { id: "r-mem", team_id: "t1", name: "member", is_builtin: true, permissions: 0, position: 1, created_at: "" },
+  { id: "r-dba", team_id: "t1", name: "dba", is_builtin: false, permissions: 0, position: 4, created_at: "" },
+];
+
+test("an invitation lists every role it carries (#779)", () => {
+  render(<PendingInviteCard {...props} roles={multiRoles} inv={{ ...inv, role_ids: ["r-dba", "r-mem"] }} />);
+  expect(screen.getByText("members.roleName.member")).toBeTruthy();
+  expect(screen.getByText("dba")).toBeTruthy();
+});
+
+test("resending keeps every role of the invitation", async () => {
+  render(<PendingInviteCard {...props} roles={multiRoles} inv={{ ...inv, role_ids: ["r-dba", "r-mem"] }} />);
+  fireEvent.click(screen.getByTitle("members.invite.resendTitle"));
+  await waitFor(() => expect(h.inviteByEmail).toHaveBeenCalled());
+  expect(h.inviteByEmail).toHaveBeenCalledWith(expect.objectContaining({ roleName: "member", roleIds: ["r-dba", "r-mem"] }));
 });

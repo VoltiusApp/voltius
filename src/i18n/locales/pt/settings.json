@@ -1,6 +1,10 @@
 {
   "settings": {
     "terminal": {
+      "commandHistory": {
+        "title": "Histórico de comandos",
+        "desc": "Lembra os comandos executados nos terminais. Uma linha só é guardada quando o terminal a exibe de volta, então senhas digitadas em prompts ocultos nunca são salvas. Linhas que começam com espaço nunca são salvas. Desativar interrompe o registro; o que já foi salvo permanece até você limpá-lo no painel Histórico."
+      },
       "heading": "Comportamento do terminal",
       "preferredShell": {
         "title": "Shell preferido"
@@ -57,10 +61,31 @@
       }
     },
     "appearance": {
+      "marketplace": {
+        "installedLabel": "Marketplace",
+        "available": "Do marketplace",
+        "get": "Obter",
+        "remove": "Remover",
+        "fromSource": "de {{source}}",
+        "desktopOnly": "Somente computador",
+        "partOfPlugin": "Parte de {{plugin}}. Gerencie em Plugins.",
+        "browseAll": "Ver tudo no marketplace",
+        "loading": "Carregando temas…",
+        "unreachable_one": "{{count}} marketplace inacessível",
+        "unreachable_many": "{{count}} marketplaces inacessíveis",
+        "unreachable_other": "{{count}} marketplaces inacessíveis"
+      },
       "themeActions": "Ações do tema",
       "interface": "Interface",
       "language": {
         "title": "Idioma"
+      },
+      "timeFormat": {
+        "title": "Formato de hora",
+        "desc": "Como os horários são exibidos em todo o aplicativo.",
+        "auto": "Automático (idioma)",
+        "12h": "12 horas",
+        "24h": "24 horas"
       },
       "groupTabsByHost": {
         "title": "Agrupar abas por host",
@@ -273,7 +298,7 @@
       "title": "Configurações",
       "close": "Fechar configurações",
       "back": "Voltar",
-      "openHint": "Ctrl+, para abrir",
+      "openHint": "{{shortcut}} para abrir",
       "expandPluginGroup": "Expandir configurações do plugin",
       "collapsePluginGroup": "Recolher configurações do plugin"
     },
@@ -300,6 +325,15 @@
         "unknown": "Desconhecido"
       },
       "sessionSecurity": {
+        "rememberPassword": {
+          "toggle": "Lembrar senha mestra",
+          "desc": "Abre o seu cofre na inicialização sem pedir a senha. Enquanto esta opção estiver ativada, a senha fica guardada no chaveiro do sistema deste dispositivo, onde, no Linux e no Windows, outros programas executados com a sua conta podem lê-la. Desative para digitá-la a cada inicialização.",
+          "enableTitle": "Lembrar sua senha mestra",
+          "enableBody": "Digite sua senha mestra para guardá-la no chaveiro do sistema deste dispositivo.",
+          "systemAuthNeedsIt": "Requer \"Lembrar senha mestra\" neste dispositivo. Sem isso, o Voltius pede sua senha mestra na inicialização e depois que o cofre é bloqueado; só a tela de bloqueio abre com a autenticação do sistema.",
+          "removeFailed": "Não foi possível remover a senha mestra guardada do chaveiro do sistema.",
+          "storeFailed": "Não foi possível guardar a senha mestra no chaveiro do sistema."
+        },
         "title": "Segurança da sessão",
         "autoLockLabel": "Bloqueio automático após inatividade",
         "autoLockDesc": "Bloqueia o Voltius após esse período de inatividade, ou assim que você sai do aplicativo.",
@@ -310,6 +344,9 @@
           "30min": "30 minutos",
           "1h": "1 hora",
           "4h": "4 horas",
+          "minutes_one": "{{count}} minuto",
+          "minutes_many": "{{count}} de minutos",
+          "minutes_other": "{{count}} minutos",
           "immediately": "Imediatamente"
         },
         "lockAction": {
@@ -348,8 +385,7 @@
         "policy": {
           "timeout": "Definido por {{teams}}: no máximo {{duration}}.",
           "timeoutImmediately": "Definido por {{teams}}: bloquear assim que você sair do Voltius.",
-          "vault": "Definido por {{teams}}: Bloquear cofre é obrigatório.",
-          "yourTeam": "sua equipe"
+          "vault": "Definido por {{teams}}: Bloquear cofre é obrigatório."
         }
       },
       "email": "E-mail",
@@ -411,6 +447,45 @@
         "done": "Concluído",
         "changing": "Alterando…",
         "changeBtn": "Alterar senha"
+      },
+      "sessions": {
+        "title": "Dispositivos conectados",
+        "loading": "Carregando dispositivos…",
+        "empty": "Ainda não há dispositivos para mostrar.",
+        "unknownDevice": "Dispositivo desconhecido",
+        "thisDevice": "Este dispositivo",
+        "cli": "CLI",
+        "signedIn": "Conectado em {{date}}",
+        "lastActive": "Ativo {{ago}}",
+        "signOut": "Desconectar",
+        "signOutNamed": "Desconectar {{name}}",
+        "signOutOthers": "Desconectar outros dispositivos",
+        "signOutEverywhere": "Desconectar de todos",
+        "working": "Desconectando…",
+        "retry": "Tentar novamente",
+        "note": "Desconectar um dispositivo encerra o acesso dele à sua conta; os dados que já estão nele não são apagados. Dispositivos conectados antes desta atualização aparecem aqui depois que renovarem o login.",
+        "offline": "Você está offline.",
+        "unsupported": "Seu servidor ainda não oferece suporte a isso.",
+        "unavailable": "A lista de dispositivos não foi carregada.",
+        "ended": "Este dispositivo foi desconectado. Entre novamente para gerenciar seus dispositivos.",
+        "confirm": {
+          "one": {
+            "title": "Desconectar {{name}}?",
+            "message": "{{name}} perde o acesso à sua conta e precisará entrar novamente. Os dados que já estão nele não são apagados."
+          },
+          "this": {
+            "title": "Desconectar este dispositivo?",
+            "message": "Este dispositivo para de sincronizar até você entrar novamente. Os dados dele continuam aqui."
+          },
+          "others": {
+            "title": "Desconectar outros dispositivos?",
+            "message": "Todos os outros dispositivos precisarão entrar novamente, inclusive os que ainda não aparecem na lista. Este dispositivo continua conectado. Os dados que já estão neles não são apagados."
+          },
+          "all": {
+            "title": "Desconectar de todos?",
+            "message": "Todos os dispositivos, inclusive este, precisarão entrar novamente. Os dados que já estão neles não são apagados."
+          }
+        }
       },
       "twoFactor": {
         "label": "Autenticação de dois fatores",
@@ -519,23 +594,39 @@
         "seatsUsed": "{{used}} / {{total}} usados",
         "upgradeToPro": "Atualize para desbloquear a sincronização na nuvem e mais",
         "upgrade": "Atualizar",
-        "upgradeToTeams": "Experimente o Teams grátis por {{days}} dias: cofres compartilhados e funções para sua equipe. Cartão obrigatório.",
-        "teamsButton": "Experimentar grátis →",
+        "upgradeToTeams": "Experimente o Teams grátis por {{days}} dias — sem cartão de crédito",
+        "teamsButton": "Iniciar teste",
+        "activateTrial": "Ativar 14 dias de Pro",
+        "activate": "Ativar",
+        "upgradeToTeamsPlain": "Faça upgrade para o Teams: cofres compartilhados e funções para sua equipe.",
         "viewAllPlans": "Ver todos os planos →",
+        "everythingIn": "Tudo do {{plan}}, mais:",
+        "nextAdds": "O {{plan}} adiciona:",
+        "freeForEveryone": "Grátis para todos:",
         "feature": {
-          "localVault": "Cofre local",
-          "auditLogs": "Registros de auditoria",
-          "gistSync": "Sincronização com GitHub Gist",
+          "privateVault": "1 cofre privado",
           "localSync": "Sincronização pela rede local",
           "deviceFiles": "Transferência de arquivos entre seus dispositivos",
-          "realtimeSync": "Sincronização em nuvem em tempo real",
+          "syncPlugins": "Plugins de sincronização Gist, Cloudflare e S3",
+          "cli": "Linha de comando (voltius-cli)",
+          "machinePolicy": "Política da máquina para implantações em frota",
+          "mdm": "Configuração gerenciada (MDM)",
+          "auditLogs": "Registros de auditoria locais",
+          "cloudSync": "Sincronização em nuvem, mesmo quando seus dispositivos nunca estão online ao mesmo tempo",
+          "cloudBackup": "Backup criptografado no Voltius Cloud",
+          "crossDeviceSessions": "Sessões entre dispositivos",
           "unlimitedVaults": "Cofres privados ilimitados",
-          "terminalSharing": "Compartilhamento de terminal (1 sessão · 1 convidado)",
-          "teamVaults": "Cofres de equipe compartilhados",
-          "teamSharing": "Compartilhamento em equipe (5 sessões · 10 convidados)",
-          "seats": "Assentos (conforme adquiridos)",
-          "lockPolicy": "Política de bloqueio da equipe (limite de bloqueio automático, Bloquear cofre)",
-          "granularPermissions": "Funções personalizadas, permissões por membro e por objeto"
+          "terminalSharing_one": "Compartilhamento de terminal: 1 sessão, 1 convidado",
+          "terminalSharing_many": "Compartilhamento de terminal: {{count}} sessões, {{guests}} convidados cada",
+          "terminalSharing_other": "Compartilhamento de terminal: {{count}} sessões, {{guests}} convidados cada",
+          "teamVaults": "Cofres de equipe compartilhados e convites",
+          "builtInRoles": "Funções integradas",
+          "teamAuditLogs": "Registros de auditoria da equipe",
+          "granularPermissions": "Funções personalizadas, permissões por membro e por objeto, com a prévia Ver como",
+          "teamPolicy": "Política da equipe: trave qualquer configuração para todos os membros",
+          "enrolment": "Tokens de inscrição de dispositivos para implantações em frota",
+          "commercialLicense": "Licença comercial para auto-hospedagem",
+          "prioritySupport": "Suporte prioritário"
         }
       },
       "buySeats": {
@@ -720,6 +811,10 @@
         "port-forwarding-rule": {
           "label": "Encaminhamento de portas",
           "sub": "Regras de túnel salvas"
+        },
+        "plugin": {
+          "label": "Plugins",
+          "sub": "Plugins instalados"
         }
       },
       "settingsTitle": "Configurações",
@@ -747,6 +842,34 @@
         "deviceDefault": "padrão do dispositivo",
         "yourChoice": "sua escolha",
         "resume": "Retomar sincronização"
+      },
+      "devices": {
+        "title": "Seus dispositivos",
+        "footer": "Cada dispositivo envia sua própria cópia criptografada. Esta lista mostra se este dispositivo conseguiu ler a cópia mais recente de cada um.",
+        "empty": "Nenhum outro dispositivo sincronizou ainda.",
+        "unnamed": "Dispositivo {{id}}",
+        "state": {
+          "synced": "Sincronizado",
+          "pending": "Aguardando a próxima sincronização",
+          "unavailable": "Não foi possível baixar",
+          "unavailableStatus": "Não foi possível baixar (HTTP {{status}})",
+          "undecryptable": "Não foi possível descriptografar: criptografado com uma chave que este dispositivo não tem",
+          "unreadable": "A cópia está danificada e não pode ser lida"
+        },
+        "hint": {
+          "unavailable": "Geralmente é temporário. O Voltius tenta de novo na próxima sincronização.",
+          "undecryptable": "Esse dispositivo talvez ainda use uma chave de cofre antiga. Abra o Voltius nele para enviar uma nova cópia, ou remova-o aqui se não o usa mais.",
+          "unreadable": "Abra o Voltius nesse dispositivo para enviar uma nova cópia, ou remova-o aqui se não o usa mais."
+        },
+        "changed": "Alterado {{time}}",
+        "lastSynced": "Lido {{time}}",
+        "neverSynced": "Nunca lido",
+        "retry": "Tentar de novo",
+        "retryNone": "Nada para tentar de novo",
+        "remove": "Remover",
+        "removeTitle": "Remover {{name}} da sincronização na nuvem?",
+        "removeBody": "A cópia criptografada dele é apagada do servidor. O que este dispositivo já sincronizou dele permanece. Se você ainda usa esse dispositivo, ele envia uma nova cópia na próxima sincronização.",
+        "removeFailed": "Não foi possível remover o dispositivo: {{error}}"
       }
     },
     "vaults": {
@@ -836,6 +959,22 @@
     },
     "plugins": {
       "categoryLabel": "Plugin",
+      "sync": {
+        "installedOne": "{{plugin}} instalado a partir de {{device}}",
+        "installedOneUnknown": "{{plugin}} instalado a partir de outro dispositivo",
+        "installedMany": "{{count}} plugins instalados a partir dos seus outros dispositivos",
+        "removedOne": "{{plugin}} removido (removido em {{device}})",
+        "removedOneUnknown": "{{plugin}} removido (removido em outro dispositivo)",
+        "removedMany": "{{count}} plugins removidos (removidos nos seus outros dispositivos)",
+        "notHere": "Não neste dispositivo",
+        "keepHere": "Manter neste dispositivo",
+        "blocked": {
+          "localSource": "Instalado a partir de um ficheiro ou URL, por isso outros dispositivos não o conseguem obter",
+          "managed": "Gerido pela sua organização",
+          "typeOff": "A sincronização de plugins está desativada nas definições de sincronização",
+          "noChannel": "Ative a sincronização ou junte-se a um grupo de sincronização local para sincronizar plugins"
+        }
+      },
       "tabs": {
         "installed": "Instalados ({{count}})",
         "browse": "Explorar",
@@ -857,6 +996,7 @@
         "sourceLocal": "Local",
         "sourceUrl": "URL",
         "sourceInstalled": "Instalado",
+        "sourceOrganization": "Organização",
         "unverified": "Não verificado",
         "update": "Atualizar",
         "updating": "Atualizando…",
@@ -876,6 +1016,7 @@
         "addSourcePlaceholder": "https://example.com/plugins.json",
         "add": "Adicionar",
         "installedBadge": "Instalado",
+        "installsOff": "Sua organização desativou a instalação de plugins.",
         "byAuthor": "por {{author}} · v{{version}}",
         "noCatalog": "Nenhum plugin no catálogo.",
         "noResults": "Nenhum resultado.",
@@ -929,6 +1070,7 @@
           "proxmoxManage": { "label": "Gerenciar o Proxmox", "description": "Listar e controlar contêineres LXC, incluindo criar, excluir e reverter snapshots. Isso pode destruir dados permanentemente." },
           "sftpRead": { "label": "Ler arquivos", "description": "Navegar e ler arquivos nos seus hosts SSH/FTP salvos e neste computador." },
           "sftpWrite": { "label": "Gravar e mover arquivos", "description": "Criar, renomear, substituir e excluir arquivos nos seus hosts SSH/FTP salvos e neste computador, e copiar arquivos entre eles. Isso pode destruir dados permanentemente." },
+          "hostExec": { "label": "Executar qualquer comando nos seus hosts", "description": "Executar qualquer comando, como você, em qualquer host aberto e neste computador, e ler a saída. É acesso total ao shell: pode ler segredos, alterar configurações e destruir dados permanentemente." },
           "audit": { "label": "Registrar eventos de auditoria", "description": "Adicionar entradas ao seu registro de auditoria descrevendo o que ele fez. Para um host em um cofre de equipe, essas entradas também são enviadas ao servidor dessa equipe." },
           "auditRead": { "label": "Ler o registro de atividades", "description": "Ler o registro de atividades deste dispositivo, incluindo quais hosts foram acessados, quais arquivos foram tocados e o que outros plugins fizeram. Quando uma equipe é indicada, também lê o log do lado do servidor dessa equipe — a atividade de todos os membros." },
           "mcpContribute": { "label": "Expor ferramentas a agentes de IA externos", "description": "Permite que este plugin adicione seus próprios comandos ao servidor MCP do Voltius, para que qualquer agente de IA externo que você tenha conectado possa executá-los — usando as próprias permissões deste plugin." },
@@ -1213,6 +1355,9 @@
       }
     },
     "toggleDefs": {
+      "commandHistory": {
+        "label": "Histórico de comandos"
+      },
       "cursorBlink": {
         "label": "Cursor piscante"
       },
@@ -1391,6 +1536,30 @@
           "desc": "Abrir notas do host no painel direito"
         }
       }
+    },
+    "search": {
+      "placeholder": "Pesquisar configurações",
+      "clear": "Limpar pesquisa",
+      "changed": "Alteradas",
+      "changedTitle": "Alteradas em relação ao padrão",
+      "results_one": "{{count}} resultado",
+      "results_many": "{{count}} resultados",
+      "results_other": "{{count}} resultados",
+      "changedOnly": "Somente alteradas",
+      "open": "Abrir",
+      "openSection": "Abrir {{section}}",
+      "undo": "Desfazer",
+      "resetAll": "Redefinir tudo",
+      "resetAllConfirm_one": "Redefinir {{count}} configuração? As configurações gerenciadas pela equipe, de segurança e de sincronização são mantidas.",
+      "resetAllConfirm_many": "Redefinir {{count}} configurações? As configurações gerenciadas pela equipe, de segurança e de sincronização são mantidas.",
+      "resetAllConfirm_other": "Redefinir {{count}} configurações? As configurações gerenciadas pela equipe, de segurança e de sincronização são mantidas.",
+      "cancel": "Cancelar",
+      "emptyChanged": "Todas as configurações estão no padrão.",
+      "emptyQuery": "Nenhuma configuração corresponde a “{{query}}”.",
+      "emptyQueryChanged": "Nenhuma configuração alterada corresponde a “{{query}}”.",
+      "changedSub_one": "{{count}} configuração difere do padrão",
+      "changedSub_many": "{{count}} configurações diferem do padrão",
+      "changedSub_other": "{{count}} configurações diferem do padrão"
     }
   }
 }

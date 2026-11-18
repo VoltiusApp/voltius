@@ -26,10 +26,6 @@ export function ChipInput({
   const boxRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const setBorder = (color: string) => {
-    if (boxRef.current) boxRef.current.style.borderColor = color;
-  };
-
   // Android keyboards send no usable keydown for a comma, so it is read from the text.
   const handleChange = (text: string) => {
     const word = text.slice(0, -1).trim();
@@ -52,13 +48,9 @@ export function ChipInput({
     <div
       ref={boxRef}
       data-chip-input
-      className="flex flex-wrap items-center gap-1.5 px-2.5 py-2 rounded-lg cursor-text min-h-[38px]"
+      className="flex flex-wrap items-center gap-1.5 px-2.5 py-2 rounded-lg cursor-text min-h-[38px] hover-edge"
       style={{ background: "var(--t-bg-base)", border: "1px solid var(--t-border)", transition: "border-color 150ms" }}
       onClick={() => inputRef.current?.focus()}
-      onMouseEnter={() => setBorder("var(--t-border-hover)")}
-      onMouseLeave={() => {
-        if (document.activeElement !== inputRef.current) setBorder("var(--t-border)");
-      }}
     >
       {value.map((item) =>
         renderChip(
@@ -90,10 +82,9 @@ export function ChipInput({
           aria-label={ariaLabel}
           onChange={(e) => handleChange(e.target.value)}
           onFocus={onFocus}
-          onBlur={() => setBorder("var(--t-border)")}
           onKeyDown={handleKeyDown}
           placeholder={keepPlaceholder || value.length === 0 ? placeholder : ""}
-          className="flex-1 bg-transparent outline-hidden text-xs text-(--t-text-primary) placeholder:text-(--t-text-dim) min-w-0"
+          className="flex-1 bg-transparent outline-hidden text-xs text-(--t-text-primary) min-w-0"
         />
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { focusSession, getTerminalApi } from "@/hooks/useTerminal";
+import { focusSession, getTerminalApi, holdSessionFit } from "@/hooks/useTerminal";
 import { sendSpecialKey } from "@/services/terminalInput";
 import { showAndroidKeyboard, hideAndroidKeyboard, setAndroidKeyboardTarget, setSelectionTouchFeed } from "@/services/androidKeyboard";
 import { useIsAndroid } from "@/utils/platform";
@@ -12,6 +12,7 @@ import { MAX_TERMINAL_FONT_SIZE, MIN_TERMINAL_FONT_SIZE, useUIStore } from "@/st
 import { useThemeStore } from "@/stores/themeStore";
 import { haptic } from "@/lib/haptics";
 import { animate, motionMs, SESSION_MOTION } from "@/lib/motion";
+import { mobileSessions } from "./useMobileSessions";
 import { useSessionStore } from "@/stores/sessionStore";
 import { VelocityTracker } from "./sheets/sheetDrag";
 import { adjacentSessionId, claimSwipeAxis, inEdgeZone, sessionSwipeStep, SWIPE_FOLLOW } from "./sessionSwipeCore";
@@ -22,7 +23,7 @@ const DOUBLE_TAP = { ms: 300, px: 24 };
 type Phase = "idle" | "pending" | "scrolling" | "swiping" | "native" | "pinching";
 
 /** Terminal sessions in chip order (the top bar hides multiplayer ones too). */
-const sessionIds = () => useSessionStore.getState().sessions.filter((s) => s.type !== "multiplayer").map((s) => s.id);
+const sessionIds = () => mobileSessions(useSessionStore.getState().sessions).map((s) => s.id);
 
 /** Mobile terminal gestures: drag scrolls, a sideways swipe switches session, long-press selects
  *  natively (Paste on blank), double-tap sends Tab, pinch sets the font size (#159); single taps
@@ -60,7 +61,12 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
     if (!root || !container) return;
     const sel = createNativeSelection(root, () => getTerminalApi(sessionId), (on) => {
       if (isAndroid) setSelectionTouchFeed(on);
+      if (!on) holdSessionFit(sessionId, false);
     });
+    const disarmUnlessSelecting = () => {
+      sel.disarm();
+      if (!sel.isSelecting()) holdSessionFit(sessionId, false);
+    };
     const w = window as unknown as { __voltiusSelTouch?: (y: number | null) => void };
     const onFinger = (y: number | null) => sel.finger(y);
     w.__voltiusSelTouch = onFinger;
@@ -142,7 +148,11 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
         if (onText.current) {
           phase.current = "native";
           sel.arm();
-          if (isAndroid) hideAndroidKeyboard(true);
+          if (isAndroid) {
+            // The keyboard closing grows the terminal; refitting would slide other text under the finger.
+            holdSessionFit(sessionId, true);
+            hideAndroidKeyboard(true);
+          }
         } else {
           showPaste(start.current.x, start.current.y);
         }
@@ -212,7 +222,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
       const wasPhase = phase.current;
 
       if (wasPhase === "native" || sel.isSelecting()) {
-        sel.disarm();
+        disarmUnlessSelecting();
         reset();
         return;
       }
@@ -270,8 +280,14 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
 
     const onTouchCancel = () => {
       if (phase.current === "swiping") endSwipe(0, 0);
-      sel.disarm();
+      disarmUnlessSelecting();
       reset();
+    };
+
+    // A WebView long-press fires contextmenu, which the terminal container turns into a paste.
+    const onContextMenu = (e: Event) => {
+      e.stopPropagation();
+      if (!(e.target as Element | null)?.closest?.("[data-native-selection]")) e.preventDefault();
     };
 
     const opts: AddEventListenerOptions = { capture: true, passive: false };
@@ -279,15 +295,18 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
     container.addEventListener("touchmove", onTouchMove, opts);
     container.addEventListener("touchend", onTouchEnd, opts);
     container.addEventListener("touchcancel", onTouchCancel, opts);
+    container.addEventListener("contextmenu", onContextMenu, true);
     return () => {
       const rm: EventListenerOptions = { capture: true };
       container.removeEventListener("touchstart", onTouchStart, rm);
       container.removeEventListener("touchmove", onTouchMove, rm);
       container.removeEventListener("touchend", onTouchEnd, rm);
       container.removeEventListener("touchcancel", onTouchCancel, rm);
+      container.removeEventListener("contextmenu", onContextMenu, rm);
       clearLongPress();
       lastTap.current = null;
       sel.dispose();
+      holdSessionFit(sessionId, false);
       if (w.__voltiusSelTouch === onFinger) delete w.__voltiusSelTouch;
       setPaste(null);
     };

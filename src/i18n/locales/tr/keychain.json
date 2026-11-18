@@ -51,10 +51,6 @@
         "message_other": "{{count}} öğeyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
         "folderCascade_one": "Seçili klasörlerdeki {{count}} öğe de silinecek.",
         "folderCascade_other": "Seçili klasörlerdeki {{count}} öğe de silinecek."
-      },
-      "vaultCascade": {
-        "moveDescription": "\"{{folderName}}\" taşındığında aşağıdaki öğeler de {{targetVaultName}} adlı kasaya taşınacak:",
-        "copyDescription": "\"{{folderName}}\" kopyalandığında aşağıdaki öğeler de {{targetVaultName}} adlı kasaya kopyalanacak:"
       }
     },
     "cards": {
@@ -101,7 +97,7 @@
       "titleEdit": "Kimliği düzenle",
       "sectionCredentials": "Kimlik bilgileri",
       "sectionNewKeyMaterial": "Yeni anahtar içeriği",
-      "sectionLinkedTo": "Bağlı sunucular",
+      "sectionLinkedTo": "Şunlara bağlı",
       "sshKeyLabel": "SSH anahtarı",
       "noKey": "Anahtar yok",
       "newKeyInline": "Yeni anahtar (satır içi)...",
@@ -110,7 +106,10 @@
       "keyLabel": "Anahtar etiketi",
       "keyLabelPlaceholder": "SSH anahtarım (isteğe bağlı)",
       "editHostTitle": "Sunucuyu düzenle",
-      "unlinkTitle": "Bağlantıyı kaldır — kimlik bilgilerini sunucuya satır içi kopyala"
+      "unlinkTitle": "Bağlantıyı kaldır — kimlik bilgilerini sunucuya satır içi kopyala",
+      "editIdentityTitle": "Kimliği düzenle",
+      "unlinkNoPermission": "Bu sunucunun bağlantısını kaldırma izniniz yok",
+      "unlinkFailed": "“{{name}}” bağlantısı kaldırılamadı: {{error}}"
     },
     "exportPanel": {
       "exportSectionLabel": "Dışa aktar",

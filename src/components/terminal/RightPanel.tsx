@@ -1,10 +1,7 @@
-import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
-import { useUIStore, type RightPanelSection } from "@/stores/uiStore";
+import { useUIStore, RIGHT_PANEL_WIDTH, type RightPanelSection } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
-import { resolveLabel } from "@/plugins/resolveLabel";
-import { useUiLanguage } from "@/i18n";
 import { usePluginStore } from "@/stores/pluginStore";
 import { SnippetsPanel } from "@/components/terminal/SnippetsPanel";
 import { PortsPanel } from "@/components/terminal/PortsPanel";
@@ -12,59 +9,28 @@ import { HistoryPanel } from "@/components/terminal/HistoryPanel";
 import PanelSftpSection from "@/components/terminal/PanelSftpSection";
 import { NotesPanel } from "@/components/terminal/NotesPanel";
 import { useThemeStore } from "@/stores/themeStore";
-import { BUILT_IN_THEMES } from "@/themes/presets";
-import type { AppTheme } from "@/themes/types";
+import { useInstalledThemes } from "@/hooks/useInstalledThemes";
+import { useMarketplaceThemes } from "@/hooks/useMarketplaceThemes";
+import { openMarketplaceThemes, paletteOf } from "@/themes/marketplaceThemes";
+import {
+  BrowseMarketplaceThemesButton, MarketplaceSourceBadge, MarketplaceThemeStatus, ThemeGetButton, ThemeTerminalPreview,
+} from "@/components/shared/ThemeParts";
 import { useCurrentSessionTunnelCount } from "@/hooks/useCurrentSessionTunnelCount";
 import { useActiveHostConnection } from "@/hooks/useActiveHostConnection";
-import { SidePanelColumn } from "@/components/layout/SidePanelColumn";
-import { orderPluginSections } from "./rightPanelOrder";
+import { SidePanelColumn, sidePanelWidthStyles } from "@/components/layout/SidePanelColumn";
+import { pluginSectionIdOf, useTerminalPanels } from "./terminalPanels";
 
-const PANEL_WIDTH = 300;
-
-// ─── Theme preview thumbnail ──────────────────────────────────────────────────
-
-function getBuiltinSections(t: (key: string) => string): { id: RightPanelSection; icon: string; title: string }[] {
-  return [
-    { id: "snippets", icon: "lucide:braces",      title: t("common.entity.snippets") },
-    { id: "history",  icon: "lucide:clock",       title: t("terminal.rightPanel.sections.history") },
-    { id: "notes",    icon: "lucide:notebook-pen", title: t("terminal.rightPanel.sections.notes") },
-    { id: "themes",   icon: "lucide:palette",     title: t("terminal.rightPanel.themes") },
-    { id: "ports",    icon: "lucide:network",     title: t("terminal.ports.header.title") },
-    { id: "sftp",     icon: "lucide:folder-tree", title: t("terminal.rightPanel.sections.sftp") },
-  ];
-}
-
-function ThemePreview({ theme }: { theme: AppTheme }) {
-  const t = theme.terminal;
-  return (
-    <div
-      style={{
-        width: 72, height: 52, borderRadius: 6, flexShrink: 0,
-        background: t.background,
-        border: "1px solid rgba(255,255,255,0.08)",
-        padding: "7px 8px",
-        display: "flex", flexDirection: "column", gap: 4,
-        overflow: "hidden",
-      }}
-    >
-      <div style={{ display: "flex", gap: 3 }}>
-        <div style={{ height: 5, borderRadius: 2, background: t.green, flex: 3 }} />
-        <div style={{ height: 5, borderRadius: 2, background: t.blue, flex: 2 }} />
-      </div>
-      <div style={{ height: 4, borderRadius: 2, background: t.yellow, width: "70%" }} />
-      <div style={{ height: 4, borderRadius: 2, background: t.cyan, width: "55%" }} />
-      <div style={{ height: 4, borderRadius: 2, background: t.foreground, width: "80%", opacity: 0.3 }} />
-    </div>
-  );
-}
+const PANEL_GUTTER = 16;
 
 // ─── Themes section ───────────────────────────────────────────────────────────
 
 function ThemesSection() {
   const { t } = useTranslation();
-  const { activeThemeId, customThemes, setTheme, deleteCustomTheme, getActiveTheme } = useThemeStore();
+  const { activeThemeId, setTheme, getActiveTheme } = useThemeStore();
   const openThemeCreator = useUIStore((s) => s.openThemeCreator);
-  const allThemes = [...BUILT_IN_THEMES, ...customThemes];
+  const allThemes = useInstalledThemes();
+  const marketplace = useMarketplaceThemes();
+  const pluginThemes = usePluginStore((s) => s.pluginThemes);
 
   return (
     <div className="flex flex-col h-full">
@@ -93,6 +59,8 @@ function ThemesSection() {
       <div className="flex-1 overflow-y-auto">
         {allThemes.map((theme) => {
           const isActive = theme.id === activeThemeId;
+          const removal = marketplace.removal(theme);
+          const removalLabel = removal?.kind === "uninstall" ? t("settings.appearance.marketplace.remove") : t("common.action.delete");
           return (
             <div
               key={theme.id}
@@ -103,7 +71,7 @@ function ThemesSection() {
               onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
             >
               <div className="relative">
-                <ThemePreview theme={theme} />
+                <ThemeTerminalPreview colors={paletteOf(theme).terminal} />
                 {isActive && (
                   <div style={{ position: "absolute", inset: 0, borderRadius: 6, border: `2px solid ${theme.ui.tabActiveText}`, pointerEvents: "none" }} />
                 )}
@@ -113,31 +81,33 @@ function ThemesSection() {
                   {theme.name}
                 </p>
                 <p className="text-xs mt-0.5 text-(--t-text-muted)">
-                  {isActive ? t("terminal.rightPanel.themeActive") : theme.builtIn ? t("terminal.rightPanel.themeBuiltin") : t("terminal.rightPanel.themeCustom")}
+                  {isActive ? t("terminal.rightPanel.themeActive")
+                    : pluginThemes.has(theme.id) ? t("settings.appearance.marketplace.installedLabel")
+                    : theme.builtIn ? t("terminal.rightPanel.themeBuiltin") : t("terminal.rightPanel.themeCustom")}
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 {!theme.builtIn && (
-                  <>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); openThemeCreator(theme.id); }}
-                      className="p-1.5 rounded-sm transition-colors text-(--t-text-muted)"
-                      onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-muted)")}
-                      title={t("common.action.edit")}
-                    >
-                      <Icon icon="lucide:pencil" width={12} />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); deleteCustomTheme(theme.id); if (activeThemeId === theme.id) setTheme("abyss"); }}
-                      className="p-1.5 rounded-sm transition-colors text-(--t-text-muted)"
-                      onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-status-error)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-muted)")}
-                      title={t("common.action.delete")}
-                    >
-                      <Icon icon="lucide:trash-2" width={12} />
-                    </button>
-                  </>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); openThemeCreator(theme.id); }}
+                    className="p-1.5 rounded-sm transition-colors text-(--t-text-muted)"
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-muted)")}
+                    title={t("common.action.edit")}
+                  >
+                    <Icon icon="lucide:pencil" width={12} />
+                  </button>
+                )}
+                {removal && (
+                  <button
+                    aria-label={removalLabel}
+                    title={removal.disabledReason ?? removalLabel}
+                    disabled={removal.disabledReason !== null}
+                    onClick={(e) => { e.stopPropagation(); removal.remove(); }}
+                    className="p-1.5 rounded-sm transition-colors text-(--t-text-muted) enabled:hover:text-(--t-status-error) disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Icon icon="lucide:trash-2" width={12} />
+                  </button>
                 )}
               </div>
             </div>
@@ -153,7 +123,34 @@ function ThemesSection() {
           <Icon icon="lucide:circle-plus" width={15} />
           <span className="text-sm font-medium">{t("terminal.rightPanel.createNewTheme")}</span>
         </button>
+
+        {marketplace.available.length > 0 && (
+          <div className="px-4 pt-4 pb-2">
+            <p className="text-sm font-medium text-(--t-text-bright)">{t("settings.appearance.marketplace.available")}</p>
+          </div>
+        )}
+        {marketplace.available.map((item) => (
+          <div
+            key={item.entry.id}
+            data-theme-available={item.entry.id}
+            className="flex items-center gap-3 px-4 py-3 border-b border-b-(--t-border)"
+          >
+            <ThemeTerminalPreview colors={item.preview?.terminal ?? null} />
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
+              <p className="text-sm font-medium truncate text-(--t-text-primary)">{item.entry.name}</p>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <ThemeGetButton busy={marketplace.busy.has(item.entry.id)} disabledReason={item.disabledReason} onClick={() => marketplace.get(item)} />
+                <MarketplaceSourceBadge sourceName={item.sourceName} />
+              </div>
+            </div>
+          </div>
+        ))}
+        <div className="flex flex-col gap-2 px-4 py-3">
+          <MarketplaceThemeStatus loading={marketplace.loading} unreachableCount={marketplace.unreachableCount} />
+          <BrowseMarketplaceThemesButton onClick={openMarketplaceThemes} />
+        </div>
       </div>
+      {marketplace.modal}
     </div>
   );
 }
@@ -179,25 +176,36 @@ function UnavailablePluginSection() {
   );
 }
 
+/** The content of one terminal side panel, on desktop and on phones. `onInjected` runs after
+ *  a panel types a command into the session. */
+export function TerminalPanelBody({ section, onInjected }: { section: RightPanelSection; onInjected?: () => void }) {
+  const pluginSections = usePluginStore((s) => s.rightPanelSections);
+  switch (section) {
+    case "snippets": return <SnippetsPanel />;
+    case "history": return <HistoryPanel onInjected={onInjected} />;
+    case "notes": return <NotesPanel />;
+    case "themes": return <ThemesSection />;
+    case "ports": return <PortsPanel />;
+    case "sftp": return <PanelSftpSection />;
+  }
+  const pluginId = pluginSectionIdOf(section);
+  if (pluginId === null) return null;
+  const plugin = pluginSections.get(pluginId);
+  // The selection is persisted, so it outlives the plugin that registered it.
+  if (!plugin) return <UnavailablePluginSection />;
+  const Component = plugin.component;
+  return <Component />;
+}
+
 // ─── Main RightPanel ──────────────────────────────────────────────────────────
 
 function PanelContent() {
   const { t } = useTranslation();
   const rightPanelSection = useUIStore((s) => s.rightPanelSection);
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
-  const pluginSections = usePluginStore((s) => s.rightPanelSections);
-  const locale = useUiLanguage();
   const tunnelCount = useCurrentSessionTunnelCount();
   const hasNotes = !!useActiveHostConnection().connection?.notes?.trim();
-
-  const allSections = useMemo(() => [
-    ...getBuiltinSections(t),
-    ...orderPluginSections([...pluginSections.values()]).map((s) => ({
-      id: `plugin:${s.id}` as RightPanelSection,
-      icon: s.icon ?? "lucide:puzzle",
-      title: resolveLabel(s.label),
-    })),
-  ], [pluginSections, t, locale]);
+  const allSections = useTerminalPanels();
 
   return (
     <div className="flex flex-row h-full">
@@ -249,24 +257,7 @@ function PanelContent() {
 
       {/* Content */}
       <div className="flex-1 min-w-0 min-h-0 overflow-hidden">
-        {rightPanelSection === "snippets" && <SnippetsPanel />}
-        {rightPanelSection === "history"  && <HistoryPanel />}
-        {rightPanelSection === "notes"    && <NotesPanel />}
-        {rightPanelSection === "themes"   && <ThemesSection />}
-        {rightPanelSection === "ports"    && <PortsPanel />}
-        {rightPanelSection === "sftp"     && <PanelSftpSection />}
-        {rightPanelSection?.startsWith("plugin:") && (() => {
-          const pluginId = rightPanelSection.slice("plugin:".length);
-          const section = pluginSections.get(pluginId);
-          // The selection is persisted, so it outlives the plugin that registered
-          // it: uninstalling or disabling one leaves this pointing at a section
-          // that no longer exists, and its rail tab is gone too. Returning null
-          // there left an open, empty panel with no tab highlighted and no way to
-          // tell whether it was broken or just empty.
-          if (!section) return <UnavailablePluginSection />;
-          const Component = section.component;
-          return <Component />;
-        })()}
+        <TerminalPanelBody section={rightPanelSection} />
       </div>
     </div>
   );
@@ -275,15 +266,29 @@ function PanelContent() {
 export default function RightPanel() {
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const activeNav = useUIStore((s) => s.activeNav);
-  const { sessions, activeSessionId } = useSessionStore();
+  const panelWidth = useUIStore((s) => s.rightPanelWidth);
+  const setPanelWidth = useUIStore((s) => s.setRightPanelWidth);
+  const hasActiveSession = useSessionStore((s) => s.activeSessionId !== null && s.sessions.length > 0);
+  const { t } = useTranslation();
 
-  const hasActiveSession = activeSessionId !== null && sessions.length > 0;
   const isTerminalView = hasActiveSession && activeNav !== "hosts";
 
   if (!isTerminalView) return null;
 
   return (
-    <SidePanelColumn testId="right-panel" open={rightPanelOpen} side="right" columnWidth={PANEL_WIDTH + 16} cardWidth="20rem">
+    <SidePanelColumn
+      testId="right-panel"
+      open={rightPanelOpen}
+      side="right"
+      {...sidePanelWidthStyles(panelWidth, PANEL_GUTTER)}
+      resize={{
+        min: RIGHT_PANEL_WIDTH.min,
+        max: RIGHT_PANEL_WIDTH.max,
+        defaultWidth: RIGHT_PANEL_WIDTH.default,
+        onChange: setPanelWidth,
+        label: t("terminal.rightPanel.resizeHandle"),
+      }}
+    >
       <PanelContent />
     </SidePanelColumn>
   );

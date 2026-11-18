@@ -4,6 +4,8 @@ import { FormSelect } from "@/components/shared/FormSelect";
 import { SecretInput } from "@/components/shared/vaultObjectForm";
 import { DEFAULT_PROXY_PORT, isCustomProxyMode } from "@/services/proxy";
 import { formIdentifierProps, formInputClass, formInputStyle, formLabelClass, formLabelStyle } from "@/components/shared/Panel";
+import { ManagedWhen } from "@/components/shared/ManagedNote";
+import { usePolicyLock } from "@/stores/policyStore";
 
 export interface ProxyFieldsValue {
   mode: string;
@@ -23,7 +25,10 @@ interface ProxyFieldsProps {
   onTextBlur?: () => void;
   passwordError?: string;
   disabled?: boolean;
-  renderRow?: (select: ReactNode) => ReactNode;
+  /** "host": a lock disables every field, since a host's own proxy is ignored under it. */
+  scope?: "global" | "host";
+  /** `locked`: the admin's proxy lock applies; the row shows its note. */
+  renderRow?: (select: ReactNode, locked: boolean) => ReactNode;
   className?: string;
 }
 
@@ -37,9 +42,17 @@ function parsePort(text: string): number | undefined | null {
   return Number.isInteger(n) && n >= 1 && n <= 65535 ? n : null;
 }
 
+function useProxyLock(modes: ProxyFieldsProps["modes"]): Partial<ProxyFieldsValue> | undefined {
+  const lock = usePolicyLock("appSettings.proxy");
+  if (!lock.locked) return undefined;
+  const fields = lock.value as ProxyFieldsValue;
+  // A mode this select doesn't offer (a host's "none") reads as inheriting the global proxy.
+  return { ...fields, mode: modes.some((m) => m.value === fields.mode) ? fields.mode : "" };
+}
+
 export default function ProxyFields({
   modes,
-  value,
+  value: own,
   onChange,
   password,
   passwordSaved,
@@ -48,10 +61,17 @@ export default function ProxyFields({
   onTextBlur,
   passwordError,
   disabled,
+  scope = "global",
   renderRow = (select) => select,
   className = "",
 }: ProxyFieldsProps) {
   const { t } = useTranslation();
+  const lock = useProxyLock(modes);
+  const value = lock ? { ...own, ...lock } : own;
+  const patch = (fields: Partial<ProxyFieldsValue>) => onChange({ ...own, ...fields });
+  const lockable = (field: string, control: ReactNode) => (
+    <ManagedWhen locked={!!lock && (scope === "host" || field in lock)} note={false}>{control}</ManagedWhen>
+  );
   const id = useId();
   const [badPort, setBadPort] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -64,32 +84,33 @@ export default function ProxyFields({
       return;
     }
     setBadPort(null);
-    onChange({ ...value, port });
+    patch({ port });
   };
 
   const label = (field: string) => (
     <label htmlFor={`${id}-${field}`} className={formLabelClass} style={formLabelStyle}>{t(`connections.form.proxy.${field}`)}</label>
   );
 
-  const select = (
+  const select = lockable("mode",
     <FormSelect
       className="w-36 shrink-0"
       ariaLabel={t("connections.form.proxy.label")}
       value={value.mode}
       options={modes}
       disabled={disabled}
-      onChange={(mode) => { setBadPort(null); onChange({ ...value, mode }); }}
-    />
+      onChange={(mode) => { setBadPort(null); patch({ mode }); }}
+    />,
   );
 
   return (
     <>
-      {renderRow(select)}
+      {renderRow(select, !!lock)}
       {custom && (
         <div className={`flex flex-col gap-2.5 ${className}`}>
           <div className="flex gap-2.5">
             <div className="flex-1 min-w-0">
               {label("host")}
+              {lockable("host",
               <input
                 id={`${id}-host`}
                 className={formInputClass}
@@ -97,13 +118,14 @@ export default function ProxyFields({
                 value={value.host ?? ""}
                 placeholder="proxy.example.com"
                 disabled={disabled}
-                onChange={(e) => onChange({ ...value, host: e.target.value.trim() || undefined })}
+                onChange={(e) => patch({ host: e.target.value.trim() || undefined })}
                 onBlur={onTextBlur}
                 {...formIdentifierProps}
-              />
+              />)}
             </div>
             <div className="w-20 shrink-0">
               {label("port")}
+              {lockable("port",
               <input
                 id={`${id}-port`}
                 aria-invalid={badPort !== null}
@@ -114,7 +136,7 @@ export default function ProxyFields({
                 placeholder={String(DEFAULT_PROXY_PORT[value.mode as keyof typeof DEFAULT_PROXY_PORT])}
                 disabled={disabled}
                 onChange={(e) => changePort(e.target.value.trim())}
-              />
+              />)}
             </div>
           </div>
           {!value.host && (
@@ -124,6 +146,7 @@ export default function ProxyFields({
           <div className="grid grid-cols-2 gap-2.5">
             <div className="min-w-0">
               {label("username")}
+              {lockable("username",
               <input
                 id={`${id}-username`}
                 className={formInputClass}
@@ -131,13 +154,14 @@ export default function ProxyFields({
                 value={value.username ?? ""}
                 placeholder={t("connections.form.optional")}
                 disabled={disabled}
-                onChange={(e) => onChange({ ...value, username: e.target.value || undefined })}
+                onChange={(e) => patch({ username: e.target.value || undefined })}
                 onBlur={onTextBlur}
                 {...formIdentifierProps}
-              />
+              />)}
             </div>
             <div className="min-w-0">
               {label("password")}
+              {lockable("password",
               <SecretInput
                 id={`${id}-password`}
                 value={password}
@@ -148,7 +172,7 @@ export default function ProxyFields({
                 onToggleShow={() => setShowPassword((v) => !v)}
                 autoComplete="new-password"
                 disabled={disabled}
-              />
+              />)}
             </div>
           </div>
           {passwordError && <FieldError>{passwordError}</FieldError>}

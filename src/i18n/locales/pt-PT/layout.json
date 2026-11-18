@@ -26,7 +26,7 @@
       "getStartedSub_ios": "Protegido pelo keychain do SO — sem palavra-passe necessária",
       "or": "ou",
       "cloudAccount": "Conta na nuvem",
-      "cloudAccountSub": "Dispositivos emparelhados automaticamente · Pro adiciona nuvem e cópias de segurança",
+      "cloudAccountSub": "Grátis · dispositivos emparelhados automaticamente. Pro adiciona nuvem e cópias de segurança.",
       "cloudAccountSub_ios": "Sincronizar entre dispositivos — entre ou crie uma",
       "back": "Voltar",
       "signupPrompt": "Crie uma conta para emparelhar os seus dispositivos automaticamente",
@@ -47,10 +47,27 @@
       "e2eeNotice": "Seus dados são encriptados ponta a ponta — o servidor não pode lê-los.",
       "openSource": "Código aberto.",
       "agreeToTerms": "Ao criar uma conta, você concorda com nossos <terms>Termos de Serviço</terms> e <privacy>Política de Privacidade</privacy>.",
-      "accountCreatedToast": "Conta criada! Verifique seu e-mail para confirmar.",
+      "accountCreatedToast": "Conta criada. Verifique seu e-mail para confirmar.",
       "vaultUnreadableBodyNoPassword": "O ficheiro de segredos deste dispositivo não pode ser aberto com a chave armazenada nesta máquina. Nada foi eliminado. Deixe-o de lado para começar com um cofre vazio, ou restaure um dos cópias de segurança abaixo.",
       "vaultSetAsideLocal": "Deixar de lado e começar do zero",
-      "vaultSetAsideLocalSub": "Mantém uma cópia de cópia de segurança neste dispositivo"
+      "vaultSetAsideLocalSub": "Mantém uma cópia de cópia de segurança neste dispositivo",
+      "addAccountLater": "Pode criar uma conta mais tarde e manter os seus hosts.",
+      "errorEmailRequired": "Introduza o seu e-mail",
+      "masterPasswordNote": "Esta palavra-passe encripta os seus dados. Não pode ser redefinida nem recuperada, por isso guarde-a num local seguro.",
+      "invitation": {
+        "toggle": "Tem um link de convite?",
+        "placeholder": "Link do convite",
+        "use": "Usar",
+        "checking": "A verificar…",
+        "invalid": "Isto não é um link de convite. Cole o link completo do e-mail.",
+        "notFound": "Nenhum convite pendente em {{server}} corresponde a este link. Verifique o endereço do servidor ou peça um novo convite.",
+        "closedHint": "Este servidor só cria contas por convite. Cole o link do seu e-mail de convite.",
+        "joining": "Entrar em {{team}}",
+        "invitedBy": "{{inviter}} convidou-o como {{role}}",
+        "invitedAs": "Convidado como {{role}}",
+        "remove": "Remover convite",
+        "createAndJoin": "Criar conta e entrar"
+      }
     },
     "cloudAuthModal": {
       "registerTitle": "Criar conta na nuvem",
@@ -64,7 +81,6 @@
       "createMasterPasswordPlaceholder": "Criar palavra-passe mestra",
       "confirmMasterPasswordPlaceholder": "Confirmar palavra-passe mestra",
       "errorPasswordRequired": "Palavra-passe necessária",
-      "errorMinLength4": "Pelo menos 4 caracteres",
       "pleaseWait": "Aguarde…",
       "reauthTitle": "Entrar novamente",
       "reauthDesc": "Sua sessão neste dispositivo terminou. Digite sua palavra-passe mestra para se reconectar."
@@ -118,12 +134,6 @@
       "sectionLocal": "Local",
       "noHostsMatch": "Nenhum host corresponde a \"{{query}}\"",
       "noHostsYet": "Nenhum host ainda",
-      "connectTo": "Conectar a {{user}}@{{host}}",
-      "portSsh": "Porta {{port}} · SSH",
-      "openWeb": "Abrir {{host}}:{{port}}",
-      "portWeb": "{{protocol}} · página web",
-      "serialConnection": "Conexão serial",
-      "configurePortBaud": "Configurar porta e baud",
       "localShellFallback": "Shell local"
     },
     "sidebarAccount": {
@@ -280,8 +290,15 @@
         "notConfigured": "Sincronização não configurada",
         "paused": "Sincronização pausada",
         "default": "Sincronização",
-        "unknown": "desconhecido"
-      }
+        "unknown": "desconhecido",
+        "partial": "Sincronizado parcialmente",
+        "partialAt": "Sincronizado parcialmente · {{time}}",
+        "partialTooltip": "Sincronizado parcialmente: {{error}}",
+        "partialDetail_one": "Não foi possível sincronizar {{count}} dispositivo",
+        "partialDetail_many": "Não foi possível sincronizar {{count}} dispositivos",
+        "partialDetail_other": "Não foi possível sincronizar {{count}} dispositivos"
+      },
+      "showDevices": "Ver dispositivos →"
     },
     "titleBar": {
       "sftp": "SFTP",
@@ -318,8 +335,8 @@
         "closeAll": "Fechar todas {{count}}",
         "openInSplit": "Abrir em divisão",
         "inSplit": "em divisão",
-        "pin": "Fixar lista de sessões",
-        "unpin": "Desfixar lista de sessões",
+        "pin": "Mostrar no painel lateral",
+        "unpin": "Ocultar painel lateral",
         "status": {
           "connected": "Conectado · {{time}}",
           "connecting": "A ligar…",
@@ -341,10 +358,26 @@
         "closeTab_many": "Fechar aba ({{count}} sessões)"
       },
       "plan": {
-        "upgradeTrial": "Atualizar · Avaliação Gratuita de 14d",
-        "upgrade": "Atualizar"
+        "upgradeTrial": "Ativar 14 dias de Pro",
+        "upgrade": "Atualizar",
+        "endingSoon_one": "{{plan}} · {{count}} dia restante",
+        "endingSoon_many": "{{plan}} · {{count}} de dias restantes",
+        "endingSoon_other": "{{plan}} · {{count}} dias restantes"
       },
-      "splitLabelMore": "{{label}} + {{count}}"
+      "splitLabelMore": "{{label}} + {{count}}",
+      "lock": {
+        "keptToast_one": "{{count}} separador bloqueado mantido",
+        "keptToast_many": "{{count}} separadores bloqueados mantidos",
+        "keptToast_other": "{{count}} separadores bloqueados mantidos",
+        "closeBlocked": "Desbloqueie o separador para o fechar",
+        "unlockHint": "Bloqueado · clique para desbloquear",
+        "lockTab": "Bloquear separador",
+        "unlockTab": "Desbloquear separador",
+        "lockPane": "Bloquear painel",
+        "unlockPane": "Desbloquear painel",
+        "pinTab": "Afixar separador",
+        "unpinTab": "Desafixar separador"
+      }
     },
     "vaultHeader": {
       "members": "Membros",
@@ -415,6 +448,73 @@
       "once": "Permitir uma vez",
       "always": "Permitir sempre",
       "sessionToast": "{{name}} abriu os seus ficheiros"
+    },
+    "enroll": {
+      "title": "Entrar em {{team}}",
+      "subtitle": "Crie a sua conta Voltius ou inicie sessão para aderir a {{team}}.",
+      "orgServer": "O servidor da sua organização",
+      "domainNote": "Utilize o seu e-mail {{domains}}",
+      "approvalNote": "Um administrador aprova cada pedido",
+      "domainError": "{{team}} só aceita e-mails {{domains}}.",
+      "createAndJoin": "Criar conta e aderir",
+      "signInAndJoin": "Iniciar sessão e aderir",
+      "skip": "Ignorar por agora",
+      "continue": "Continuar",
+      "currentPasswordPlaceholder": "Palavra-passe mestre atual",
+      "resolving": "A verificar o token de inscrição…",
+      "confirm": {
+        "title": "{{team}} em {{host}}",
+        "body": "Só continue se a sua empresa lhe enviou esta ligação. O Voltius enviará o seu início de sessão para {{host}}."
+      },
+      "error": {
+        "title": "Não é possível utilizar este token de inscrição",
+        "gone": "Este token de inscrição foi revogado ou expirou. Peça um novo ao seu administrador.",
+        "lapsed": "O plano de {{team}} expirou, por isso o token de inscrição não funciona de momento.",
+        "lapsedNoTeam": "O plano desta equipa expirou, por isso o token de inscrição não funciona de momento.",
+        "serverTooOld": "Este servidor ainda não suporta tokens de inscrição.",
+        "rateLimited": "Demasiadas tentativas a partir desta rede. Tente novamente dentro de um minuto.",
+        "unreachable": "Não é possível contactar {{host}}."
+      },
+      "outcome": {
+        "member": {
+          "title": "Já faz parte de {{team}}",
+          "body": "Os cofres da equipa aparecem assim que o Voltius de um administrador estiver online."
+        },
+        "approval": {
+          "title": "Pedido enviado",
+          "body": "Um administrador de {{team}} irá aprová-lo. Receberá uma notificação."
+        },
+        "email": {
+          "title": "Verifique o seu e-mail para aderir a {{team}}",
+          "body": "Enviámos uma ligação para {{email}}. Adere automaticamente assim que for verificado.",
+          "resend": "Reenviar e-mail"
+        },
+        "seat": {
+          "title": "{{team}} não tem lugares livres",
+          "body": "Um administrador foi notificado. Irá aderir assim que houver um lugar livre."
+        }
+      },
+      "tokenEntry": {
+        "toggle": "Tem um token de inscrição?",
+        "placeholder": "vte1.…",
+        "invalid": "Isto não é um token de inscrição."
+      },
+      "localNote": "Os hosts deste dispositivo passam para o cofre privado da nova conta. {{team}} não os consegue ler.",
+      "already": {
+        "title": "Já está em {{team}}",
+        "body": "{{email}} já é membro."
+      },
+      "join": {
+        "title": "Entrar em {{team}} como {{email}}",
+        "body": "Usa a conta com que tem sessão iniciada em {{host}}.",
+        "action": "Entrar",
+        "other": "Usar outra conta"
+      },
+      "replace": {
+        "title": "Substituir os dados deste dispositivo?",
+        "body": "Iniciar sessão como {{email}} substitui os hosts, chaves e snippets deste dispositivo pelos guardados nessa conta.",
+        "confirm": "Iniciar sessão e substituir"
+      }
     }
   }
 }

@@ -4,6 +4,8 @@ import { useAllKeys } from "@/hooks/useAllKeys";
 import { useAllSnippets } from "@/hooks/useAllSnippets";
 import { useAllPortForwardingRules } from "@/hooks/useAllPortForwardingRules";
 import { useVaultStore } from "@/stores/vaultStore";
+import { usePreviewShows } from "@/hooks/previewScope";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 
 export interface VaultObjectType {
   /** Also names the count's label: common.contentCounts.<key>. */
@@ -23,15 +25,16 @@ export function useVaultContents(vaultId?: string): VaultObjectType[] {
   const pfRules = useAllPortForwardingRules();
   // A linked team vault is selected by its local id, but its objects carry the team id.
   const teamId = useVaultStore((s) => (vaultId ? s.vaults.find((v) => v.id === vaultId)?.teamId : undefined));
+  const shows = usePreviewShows();
 
-  const filter = <T extends { vault_id?: string }>(items: T[]) =>
-    vaultId ? items.filter((i) => [vaultId, teamId].includes(i.vault_id ?? "personal")) : items;
+  const filter = <T extends { id: string; vault_id?: string }>(items: T[]) =>
+    items.filter((i) => (!vaultId || [vaultId, teamId].includes(i.vault_id ?? "personal")) && shows(i.id));
 
   return [
     { key: "connections",         icon: "lucide:server",     count: filter(connections).length },
     { key: "identities",          icon: "lucide:id-card",    count: filter(identities).length },
     { key: "keys",                icon: "lucide:key-round",  count: filter(keys).length },
     { key: "snippets",            icon: "lucide:braces",     count: filter(snippets).length },
-    { key: "portForwardingRules", icon: "lucide:network",    count: filter(pfRules).length },
+    { key: "portForwardingRules", icon: PORT_FORWARDING_ICON, count: filter(pfRules).length },
   ];
 }

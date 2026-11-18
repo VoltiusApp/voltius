@@ -103,7 +103,8 @@
       "connectAsYours": "{{username}} · vaše, jen pro vás",
       "connectAsTeam": "{{username}} · týmová identita",
       "connectAsAsk": "Přihlašovací údaje zadáte při připojení",
-      "connectAsUnavailable": "Vámi zvolená identita není k dispozici"
+      "connectAsUnavailable": "Vámi zvolená identita není k dispozici",
+      "connectNeedsHost": "Pro připojení zadejte host"
     },
     "distroIconPicker": {
       "title": "Ikona",
@@ -168,7 +169,15 @@
       "keyPlaceholder": "NÁZEV",
       "valuePlaceholder": "hodnota",
       "removeAriaLabel": "Odebrat proměnnou",
-      "addButton": "Přidat proměnnou"
+      "addButton": "Přidat proměnnou",
+      "modeLabel": "Režim úprav",
+      "modeList": "Seznam",
+      "pasteTip": "Vložte soubor .env do pole klíče a přidejte více proměnných najednou",
+      "rawHint": "Jeden KLÍČ=hodnota na řádek. Komentáře, uvozovky a prefix export jsou povoleny.",
+      "skippedLines": "Ignorované řádky: {{count}}",
+      "copyButton": "Kopírovat jako .env",
+      "downloadButton": "Stáhnout .env",
+      "copied": "Zkopírováno"
     },
     "serialConfigOverlay": {
       "title": "Sériové připojení",

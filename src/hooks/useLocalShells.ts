@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
-import { invoke } from "@/lib/invoke";
+import { usePolicyStore } from "@/stores/policyStore";
+import { allowedShells, detectedShells, listLocalShells, shellPolicyEntries } from "@/services/local";
 import type { ShellOption } from "@/components/layout/newSessionItems";
 
-/** Detected local shells from the backend (`local_list_shells`), fetched once on mount. */
-export function useLocalShells(): ShellOption[] {
-  const [shells, setShells] = useState<ShellOption[]>([]);
+export function useLocalShellsState(): { shells: ShellOption[]; detecting: boolean } {
+  const [detected, setDetected] = useState(detectedShells);
+  const [detecting, setDetecting] = useState(!detected);
   useEffect(() => {
-    invoke<ShellOption[]>("local_list_shells").then(setShells).catch(() => {});
+    listLocalShells(true).then(setDetected).catch(() => {}).finally(() => setDetecting(false));
   }, []);
-  return shells;
+  usePolicyStore(() => JSON.stringify(shellPolicyEntries() ?? null));
+  return { shells: allowedShells(detected ?? []), detecting };
 }
+
+export const useLocalShells = (): ShellOption[] => useLocalShellsState().shells;

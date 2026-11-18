@@ -17,6 +17,11 @@
         "bodyBilling": "A própria assinatura Teams ou Business de {{name}} paga por esta equipe daqui em diante, e apenas eles podem excluí-la. Sua assinatura permanece como está: reduza suas vagas ou cancele você mesmo.",
         "bodySelfHosted": "Apenas {{name}} poderá eliminar esta equipe. Você permanece como Proprietário e pode sair depois."
       },
+      "invite": {
+        "title": "Convidar {{name}} como Proprietário?",
+        "body": "Os Proprietários têm todas as permissões, incluindo adicionar e remover outros Proprietários. O proprietário principal e a faturação mantêm-se.",
+        "confirm": "Enviar convite de Proprietário"
+      },
       "grant": {
         "title": "Tornar {{name}} um Proprietário?",
         "body": "Proprietários têm todas as permissões, incluindo adicionar e remover outros Proprietários.",
@@ -75,21 +80,24 @@
       "ADMINISTRATOR": "Administrador"
     },
     "permissions": {
+      "youLack": "Não tem permissão para fazer isto",
+      "youCannotEdit": "Não tem permissão para editar isto",
       "title": "Permissões",
       "inheritedFrom": "De {{roles}}",
       "notGranted": "Nenhuma função concede isto",
       "effectiveAllowed": "permitido",
       "effectiveDenied": "negado",
+      "withExceptions": "com exceções",
       "state": {
         "deny": "Negar",
         "inherit": "Herdar",
         "allow": "Permitir"
       },
-      "readOnlyNoManage": "Você precisa da permissão Gerenciar membros",
-      "readOnlyOwner": "As permissões de um proprietário não podem ser sobrescritas",
-      "readOnlySelf": "Você não pode alterar suas próprias permissões",
-      "readOnlyHigherRole": "Este membro detém uma função igual ou superior à sua",
-      "readOnlyNotHeld": "Você não pode conceder uma permissão que não detém",
+      "readOnlyNoManage": "Precisa da permissão Gerir membros",
+      "readOnlyOwner": "As permissões de um proprietário não podem ser substituídas",
+      "readOnlySelf": "Não pode alterar as suas próprias permissões",
+      "readOnlyHigherRole": "Este membro tem uma função igual ou superior à sua",
+      "readOnlyNotHeld": "Não pode conceder uma permissão que não tem",
       "overrideMarker": "Tem sobrescritas de permissão",
       "filterPlaceholder": "Filtrar permissões…",
       "group": {
@@ -129,6 +137,7 @@
       "nameHint": "Deixe vazio para mostrar o identificador deles."
     },
     "invite": {
+      "ownerOnlyOwners": "Só os Proprietários podem convidar alguém como Proprietário",
       "nameLabel": "Nome nesta equipe",
       "namePlaceholder": "ex. Jan Novák",
       "nameHint": "Colegas de equipe veem isto em vez do identificador deles. Apenas admins podem alterá-lo.",
@@ -150,7 +159,7 @@
       "inviteArrow": "Convidar →",
       "handleRule": "Apenas identificadores personalizados correspondem a parte de um nome. Para um identificador gerado como rapid-violet-8884, digite-o completo ou use o e-mail deles.",
       "seatsUnknown": "Contagem de vagas indisponível — verifique sua conexão com o servidor de sincronização",
-      "seatsUnlimited": "{{used}} usadas · ilimitado",
+      "seatsUnlimited": "{{used}} / ∞ lugares utilizados",
       "inviteAction": "Convidar",
       "joinsAs": "Eles entram como",
       "selectRoleHint": "Selecione pelo menos uma função antes de convidar",
@@ -163,6 +172,7 @@
       "expiredOn": "Expirado em {{date}}"
     },
     "roleBlurb": {
+      "owner": "Os Proprietários têm todas as permissões, incluindo adicionar e remover outros Proprietários.",
       "manager": "Gerentes podem convidar pessoas, alterar funções e gerenciar links.",
       "editor": "Editores podem adicionar e alterar hosts, chaves e snippets neste cofre.",
       "member": "Membros podem usar tudo neste cofre, mas não alterar.",
@@ -184,6 +194,7 @@
       "userAdded": "{{name}} adicionado",
       "invitingEmail": "A convidar {{email}}...",
       "invitationSentToEmail": "Convite enviado para {{email}}",
+      "invitationEmailNotSent": "Convite guardado, mas não foi possível enviar o e-mail para {{email}}. A pessoa junta-se à equipa ao criar uma conta com este endereço.",
       "invitingToSession": "A convidar {{name}} para a sessão...",
       "invitedToSession": "Convidado {{name}} para a sessão",
       "convertingVault": "Transformando {{vault}} em um cofre de equipe...",
@@ -203,7 +214,9 @@
       "seatLimitReached": "Não há vagas disponíveis. Peça ao administrador do servidor para aumentar o limite de vagas.",
       "convertFailed": "Não foi transformar {{vault}} em um cofre de equipe — {{reason}}",
       "serverUnreachable": "o servidor de sincronização não pôde ser alcançado",
-      "removeFailed": "Não foi remover {{name}} — {{reason}}",
+      "removeFailed": "Não foi possível remover {{name}} — {{reason}}",
+      "removePartial": "{{removed}} removido(s). Não foi possível remover {{failed}} — {{reason}}",
+      "undoRolesNotRestorable": "Não é possível repor exatamente as funções de {{name}}. Convide-os novamente e defina as funções manualmente.",
       "revokeFailed": "Não foi revogar o convite para {{name}} — {{reason}}",
       "grantKeyFailed": "Não foi conceder acesso ao cofre para {{name}} — {{reason}}",
       "memberHasNoPublicKey": "Eles não publicaram uma chave ainda — peça para eles entrarem uma vez.",
@@ -252,8 +265,9 @@
       "ownPlanTitle": "Converter um cofre numa equipa exige o seu próprio plano Teams",
       "upgradeDesc": "Convidar membros, atribuir funções e compartilhar credenciais com segurança com sua equipe.",
       "upgradeBtn": "Experimente Teams gratuitamente por {{days}} dias →",
+      "upgradePlainBtn": "Mudar para o Teams →",
       "ownPlanBtn": "Subscrever o seu próprio plano Teams →",
-      "trialNote": "Cartão necessário · sem cobrança durante a avaliação"
+      "trialNote": "Sem cartão de crédito · até 10 colegas"
     },
     "joinLinks": {
       "explainer": "Qualquer pessoa com o link entra neste cofre na função que você escolhe. O link nunca carrega a chave do cofre — ela chega separadamente, assim que alguém que já a tem estiver online.",
@@ -318,6 +332,77 @@
       "newLink": "Novo link",
       "cancel": "Cancelar"
     },
+    "enrollment": {
+      "title": "Inscrição de dispositivos",
+      "explainer": "Um token único para toda a empresa, para implantar o Voltius com Ansible ou MDM. Quem o usar pede para entrar em {{team}}.",
+      "domainsLabel": "Domínios de e-mail permitidos",
+      "domainPlaceholder": "Adicionar um domínio",
+      "removeDomain": "Remover {{domain}}",
+      "invalidDomain": "{{domain}} não é um nome de domínio, como example.com.",
+      "approve": "Um administrador aprova cada entrada",
+      "noEmail": "Este servidor não consegue enviar e-mails, por isso um administrador tem de aprovar cada entrada.",
+      "expiresLabel": "Expira",
+      "expiry": {
+        "never": "Nunca",
+        "day30": "30 dias",
+        "day90": "90 dias",
+        "year1": "1 ano"
+      },
+      "create": "Criar token",
+      "guardHint": "Cada entrada exige um domínio de e-mail correspondente, a aprovação de um administrador, ou ambos.",
+      "copyNow": "Copie agora; não será mostrado novamente.",
+      "example": "Exemplo",
+      "tokenLabel": "Token de inscrição",
+      "approvalOn": "aprovação por administrador",
+      "approvalOff": "sem aprovação",
+      "expiresOn": "expira em {{date}}",
+      "neverExpires": "nunca expira",
+      "expiredOn": "Expirou em {{date}}",
+      "expiredHint": "Renove-o para obter um token válido.",
+      "createdBy": "Criado por {{name}} · {{date}}",
+      "createdOn": "Criado em {{date}}",
+      "lastUsed": "Último uso {{when}}",
+      "neverUsed": "Nunca usado",
+      "counts": "{{joined}} entraram · {{waiting}} em espera",
+      "notShownAgain": "O token não é mostrado novamente. Renove-o para obter um novo.",
+      "rotate": "Renovar",
+      "rotateTitle": "Renovar o token de inscrição?",
+      "rotateMessage": "O token atual deixa de funcionar para novas inscrições. Os dispositivos já inscritos com ele continuam a receber a política da equipa.",
+      "rotateConfirm": "Renovar token",
+      "revoke": "Revogar",
+      "revokeTitle": "Revogar o token de inscrição?",
+      "revokeMessage": "Os dispositivos deixam de poder inscrever-se com ele, e os dispositivos inscritos com ele deixam de receber a política da equipa. Quem já entrou continua membro.",
+      "revokeConfirm": "Revogar token",
+      "lapsed": "A inscrição de dispositivos requer o plano Business da equipa.",
+      "loadFailed": "Não foi possível carregar o token de inscrição — {{reason}}",
+      "toast": {
+        "create": {
+          "pending": "A criar o token…",
+          "done": "Token de inscrição criado",
+          "failed": "Não foi possível criar o token — {{reason}}"
+        },
+        "rotate": {
+          "pending": "A renovar o token…",
+          "done": "Token de inscrição renovado",
+          "failed": "Não foi possível renovar o token — {{reason}}"
+        },
+        "revoke": {
+          "pending": "A revogar o token…",
+          "done": "Token de inscrição revogado",
+          "failed": "Não foi possível revogar o token — {{reason}}"
+        }
+      },
+      "error": {
+        "gone": "Este token de inscrição foi revogado ou expirou.",
+        "needsGuard": "Adicione um domínio de e-mail ou exija aprovação.",
+        "needsApproval": "Este servidor não consegue enviar e-mails, por isso cada entrada exige a aprovação de um administrador.",
+        "domainMismatch": "O domínio do e-mail não está na lista do token.",
+        "invalid": "O servidor recusou estas definições.",
+        "forbidden": "Não tem permissão para gerir a inscrição de dispositivos."
+      },
+      "copyLink": "Copiar ligação",
+      "copyLinkTitle": "Copiar uma ligação que abre o Voltius nesta inscrição"
+    },
     "offboarding": {
       "removeTitle_one": "Remover {{names}} desta equipe?",
       "removeTitle_other": "Remover {{count}} pessoas desta equipe?",
@@ -352,12 +437,287 @@
       "forceVault": "Exigir Bloqueio de cofre",
       "forceVaultDesc": "Membros não podem escolher Bloquear tela, então o bloqueio sempre remove a chave do cofre da memória.",
       "immediateVaultWarning": "Com Imediatamente e Bloqueio de cofre, as sessões abertas dos membros fecham sempre que eles saem do Voltius, mesmo que brevemente.",
-      "appliesToAll": "Aplica-se a todos os membros, você incluído. Versões mais antigas do Voltius não impõem isto.",
+      "appliesToAll": "Aplica-se a todos os membros, incluindo a si.",
       "lockBody": "Políticas de bloqueio precisam do plano Business da equipe.",
       "lapsed": "Plano Business expirado: esta política permanece aplicada. Você pode removê-la.",
       "remove": "Remover política",
       "saving": "A guardar política de bloqueio…",
       "saved": "Política de bloqueio guardada"
+    },
+    "keyHealth": {
+      "title": "Estado da chave do cofre",
+      "state": {
+        "upToDate": "Atualizada",
+        "rotationPending": "Nova chave pendente",
+        "reencryptPending": "A recriptografar",
+        "attention": "Requer atenção",
+        "unavailable": "Indisponível"
+      },
+      "version": "Versão da chave {{version}} · alterada {{time}}",
+      "versionNever": "Versão da chave {{version}} · nunca alterada",
+      "uncovered_one": "Falta a chave atual a {{count}} membro.",
+      "uncovered_many": "Falta a chave atual a {{count}} membros.",
+      "uncovered_other": "Falta a chave atual a {{count}} membros.",
+      "requested": "Um membro saiu {{time}}, por isso é necessária uma nova chave.",
+      "remaining_one": "{{count}} item ainda usa uma chave antiga.",
+      "remaining_many": "{{count}} itens ainda usam uma chave antiga.",
+      "remaining_other": "{{count}} itens ainda usam uma chave antiga.",
+      "remainingUnknown": "Alguns itens ainda usam uma chave antiga.",
+      "blocked": "Nenhuma nova chave pode ser criada até que sejam recriptografados.",
+      "fromServer": "Informado pelo servidor.",
+      "device": {
+        "never": "Este dispositivo ainda não tentou.",
+        "finished": "Este dispositivo concluiu a última tentativa {{time}}.",
+        "failed_one": "Este dispositivo tentou {{time}}: {{count}} item falhou.",
+        "failed_many": "Este dispositivo tentou {{time}}: {{count}} itens falharam.",
+        "failed_other": "Este dispositivo tentou {{time}}: {{count}} itens falharam.",
+        "stopped": "Este dispositivo tentou {{time}} e parou: {{reason}}",
+        "skipped_one": "{{count}} item precisa de alguém que o possa editar.",
+        "skipped_many": "{{count}} itens precisam de alguém que os possa editar.",
+        "skipped_other": "{{count}} itens precisam de alguém que os possa editar."
+      },
+      "step": {
+        "status": "não foi possível contactar o servidor.",
+        "rotate": "o servidor recusou a nova chave.",
+        "drain": "não foi possível recriptografar o cofre."
+      },
+      "loadFailed": "Não foi possível ler o estado da chave. Verifique a ligação e atualize.",
+      "retry": "Tentar novamente",
+      "retrying": "A tentar novamente…",
+      "refresh": "Atualizar",
+      "retryDenied": "Criar uma nova chave exige as permissões Ver senhas e Copiar senhas.",
+      "stuck": {
+        "title": "Itens numa chave antiga",
+        "truncated": "A mostrar os primeiros {{count}}.",
+        "hidden_one": "Mais {{count}} item está oculto para si. Alguém que o veja precisa de tentar novamente.",
+        "hidden_many": "Mais {{count}} itens estão ocultos para si. Alguém que os veja precisa de tentar novamente.",
+        "hidden_other": "Mais {{count}} itens estão ocultos para si. Alguém que os veja precisa de tentar novamente."
+      },
+      "reason": {
+        "orphan": "Resto de um item eliminado",
+        "undecryptable": "Não é possível descriptografar",
+        "uploadFailed": "Não foi possível guardar. Tente novamente.",
+        "needsEditor": "Precisa de alguém que o possa editar",
+        "waiting": "À espera da próxima tentativa"
+      },
+      "kind": {
+        "secret": "Senha ou chave de {{name}}",
+        "deleted": "um item eliminado",
+        "blob": "Dados antigos do cofre"
+      },
+      "unnamed": "{{type}} sem nome",
+      "type": {
+        "connection": "Host",
+        "identity": "Identidade",
+        "key": "Chave SSH",
+        "folder": "Pasta",
+        "snippet": "Snippet",
+        "snippet_folder": "Pasta de snippets",
+        "port_forwarding_rule": "Regra de redirecionamento de porta"
+      },
+      "remove": "Remover",
+      "removeTitle": "Remover {{name}}?",
+      "removeBody": "Não é possível descriptografá-lo, por isso impede este cofre de obter uma nova chave. Removê-lo elimina-o para todos os membros e não pode ser desfeito.",
+      "removeOrphanBody": "Pertence a um item que já não existe. Removê-lo permite que este cofre volte a obter uma nova chave.",
+      "removing": "A remover…",
+      "removed": "Removido",
+      "note": "Uma nova chave protege o que for guardado a partir de agora. Não recupera nada que um antigo membro já tenha copiado."
+    },
+    "devicePolicy": {
+      "title": "Política de dispositivos",
+      "empty": "Bloqueie definições no Voltius de cada membro. Usa o mesmo formato que o policy.json.",
+      "locked_one": "{{count}} bloqueada",
+      "locked_many": "{{count}} bloqueadas",
+      "locked_other": "{{count}} bloqueadas",
+      "limited_one": "{{count}} limitada",
+      "limited_many": "{{count}} limitadas",
+      "limited_other": "{{count}} limitadas",
+      "updatedBy": "Atualizada por {{name}}, {{time}}",
+      "updated": "Atualizada {{time}}",
+      "show_one": "Mostrar {{count}} definição",
+      "show_many": "Mostrar {{count}} definições",
+      "show_other": "Mostrar {{count}} definições",
+      "hide": "Ocultar definições",
+      "import": "Importar",
+      "export": "Exportar",
+      "clear": "Limpar",
+      "lapsed": "Importar uma política requer o plano Business.",
+      "olderVersions": "Versões mais antigas do Voltius só aplicam as definições de bloqueio da aplicação.",
+      "loadFailed": "Não foi possível carregar a política de dispositivos.",
+      "rangeMin": "mín. {{value}}",
+      "rangeMax": "máx. {{value}}",
+      "rangeBetween": "{{min}}–{{max}}",
+      "previewTitle": "Importar política da equipa",
+      "fixErrors_one": "Corrija {{count}} erro no ficheiro e importe-o novamente. Os avisos não impedem a gravação.",
+      "fixErrors_many": "Corrija {{count}} erros no ficheiro e importe-o novamente. Os avisos não impedem a gravação.",
+      "fixErrors_other": "Corrija {{count}} erros no ficheiro e importe-o novamente. Os avisos não impedem a gravação.",
+      "warningsOnly": "Os avisos não impedem a gravação.",
+      "replaces": "Guardar substitui a política da equipa no Voltius de cada membro.",
+      "save": "Guardar política",
+      "saving": "A guardar política da equipa…",
+      "saved": "Política da equipa guardada",
+      "clearTitle": "Limpar a política da equipa?",
+      "clearMessage": "O Voltius de cada membro volta às suas próprias definições. Isto também remove os limites de bloqueio da aplicação acima.",
+      "clearConfirm": "Limpar política",
+      "clearing": "A limpar política da equipa…",
+      "cleared": "Política da equipa limpa",
+      "issue": {
+        "machineOnly": "só pode ser definido na política da máquina",
+        "defaults": "Valores predefinidos pertencem à política da máquina, não à política da equipa",
+        "unknownKey": "é desconhecido para esta versão; versões mais recentes podem usá-lo",
+        "type": "tem um valor que esta definição não aceita",
+        "range": "tem um intervalo que esta definição não aceita",
+        "newerVersion": "Este ficheiro precisa de uma versão mais recente do Voltius",
+        "file": "Este ficheiro não é um policy.json válido",
+        "plainTimeout": "só se aplica em versões mais recentes do Voltius. As antigas precisam de um máximo: {{example}}"
+      }
+    },
+    "joinRequests": {
+      "title": "Pedidos de adesão",
+      "via": "via inscrição de dispositivos",
+      "reason": {
+        "approval": "A aguardar aprovação",
+        "email_unverified": "A aguardar verificação do e-mail",
+        "seat_limit": "Sem lugar disponível"
+      },
+      "approve": "Aprovar",
+      "deny": "Recusar",
+      "noSeatToast": "Sem lugar disponível. Adicione lugares e aprove novamente.",
+      "emailUnverifiedToast": "Ainda falta verificar o endereço de e-mail. Aprove novamente depois disso.",
+      "gone": "Este pedido já foi tratado.",
+      "toast": {
+        "approve": {
+          "pending": "A aprovar o pedido…",
+          "done": "Pedido aprovado",
+          "failed": "Não foi possível aprovar o pedido — {{reason}}"
+        },
+        "deny": {
+          "pending": "A recusar o pedido…",
+          "done": "Pedido recusado",
+          "failed": "Não foi possível recusar o pedido — {{reason}}"
+        }
+      }
+    },
+    "viewAs": {
+      "loading": "A verificar o acesso…",
+      "discardDraft": {
+        "title": "Descartar alterações não guardadas?",
+        "body": "Sair da pré-visualização descarta as suas alterações não guardadas ao acesso de {{name}}.",
+        "confirm": "Descartar e sair"
+      },
+      "reason": {
+        "needsBusiness": "«Ver como» faz parte do plano Business",
+        "needsManage": "Precisa da permissão Gerir membros ou Gerir funções para usar «Ver como»",
+        "self": "Não pode usar «Ver como» em si próprio",
+        "serverTooOld": "Atualize o seu servidor para usar Ver como",
+        "previewing": "Saia primeiro da pré-visualização atual"
+      },
+      "noPermission": "Não tem permissão para pré-visualizar isto",
+      "ended": "A pré-visualização terminou: este membro ou função já não está disponível",
+      "failed": "Não foi possível carregar a pré-visualização",
+      "readOnly": "Pré-visualização só de leitura",
+      "lacksPermission": "A função deste membro não permite isto",
+      "locked": {
+        "auditLog": "Registo de auditoria bloqueado para este membro",
+        "sessions": "Sessões de terminal bloqueadas para este membro"
+      },
+      "viewingAs": "A ver como {{name}}",
+      "viewingAsReadOnly": "A ver como {{name}} · só de leitura",
+      "unsaved_one": "{{count}} alteração por guardar",
+      "unsaved_many": "{{count}} alterações por guardar",
+      "unsaved_other": "{{count}} alterações por guardar",
+      "discard": "Descartar",
+      "save": "Guardar",
+      "saveConfirm": "Guardar…",
+      "exit": "Sair",
+      "changesAccess_one": "Altera o acesso de {{count}} membro",
+      "changesAccess_many": "Altera o acesso de {{count}} membros",
+      "changesAccess_other": "Altera o acesso de {{count}} membros",
+      "roleTitle": "Função {{name}}",
+      "manageRolesRequired": "É necessária a permissão Gerir funções",
+      "builtinReadOnly": "As funções integradas não podem ser editadas",
+      "affects_one": "Afeta {{count}} membro",
+      "affects_other": "Afeta {{count}} membros",
+      "affects_many": "Afeta {{count}} membros",
+      "roleKeyLoss": {
+        "title": "Remover o acesso à chave do cofre?",
+        "body": "{{names}} perderá a chave do cofre. A chave é renovada para todos os outros.",
+        "confirm": "Guardar e renovar a chave"
+      },
+      "hiddenFrom": "Oculto para {{name}}",
+      "hiddenNoKey": "{{name}} não tem a chave do cofre",
+      "cannotEdit": "A função deste membro não permite editar",
+      "draftBadge": "Rascunho",
+      "draftTag": "(rascunho)",
+      "draftChange": "Rascunho: {{from}} → {{to}}",
+      "ownerElsewhere": "As alterações de proprietário são feitas noutro local",
+      "keyLoss": "Ao guardar, {{name}} perde a chave do cofre e a chave é rodada para os restantes membros.",
+      "saveFailed": "{{failed}} de {{total}} alterações não foram aplicadas",
+      "access": {
+        "title": "Acesso de {{name}}",
+        "subtitle": "As edições aparecem à esquerda. Ainda nada foi guardado.",
+        "can": "{{name}} pode",
+        "allPermissions": "Todas as permissões…"
+      },
+      "step": {
+        "overrides": "Substituições de permissões",
+        "addRole": "Adicionar {{role}}",
+        "removeRole": "Remover {{role}}"
+      },
+      "level": {
+        "hidden": "Oculto",
+        "view": "Apenas visualização",
+        "connect": "Pode ligar",
+        "edit": "Pode editar"
+      },
+      "secrets": {
+        "yes": "Segredos visíveis",
+        "no": "Segredos ocultos"
+      },
+      "why": {
+        "noVaultKey": "{{name}} não tem a chave do cofre, por isso nada neste cofre pode ser aberto",
+        "as": "Como {{name}}",
+        "gets": "O que {{name}} obtém aqui",
+        "addsUp": "Como se soma",
+        "order": "Aplicado por ordem: todos, depois as funções de {{name}}, depois {{name}}. Em cada passo, uma permissão pode desfazer a recusa anterior; a recusa própria de {{name}} em toda a equipa vence sempre.",
+        "decidedByServer": "Decidido pelo servidor",
+        "notGranted": "Nenhuma função de {{name}} o permite",
+        "someRole": "Uma das suas funções",
+        "thisItem": "este item",
+        "editRules": "Editar regras em {{folder}}",
+        "editRulesLocked": "Precisa da permissão Gerir funções em {{folder}} para editar as suas regras",
+        "editRulesUnavailable": "As regras de {{folder}} não podem ser editadas aqui",
+        "editAccess": "Editar o acesso de {{name}}",
+        "step": {
+          "roles_one": "Permitido pela função {{roles}}",
+          "roles_other": "Permitido pelas funções {{roles}}",
+          "roles_many": "Permitido pelas funções {{roles}}",
+          "teamAllow": "{{name}} tem permissão em toda a equipa",
+          "teamDeny": "{{name}} tem recusa em toda a equipa",
+          "administrator": "{{name}} tem Administrador",
+          "everyoneDeny": "Todos são recusados em {{folder}}",
+          "everyoneAllow": "Todos são permitidos em {{folder}}",
+          "rolesDeny_one": "{{roles}} é recusado em {{folder}}",
+          "rolesDeny_other": "{{roles}} são recusados em {{folder}}",
+          "rolesDeny_many": "{{roles}} são recusados em {{folder}}",
+          "rolesAllow_one": "{{roles}} é permitido em {{folder}}",
+          "rolesAllow_other": "{{roles}} são permitidos em {{folder}}",
+          "rolesAllow_many": "{{roles}} são permitidos em {{folder}}",
+          "memberDeny": "{{name}} é recusado em {{folder}}",
+          "memberAllow": "{{name}} é permitido em {{folder}}",
+          "teamDenyLast": "A recusa própria de {{name}} em toda a equipa prevalece sobre {{folder}}",
+          "noView": "Oculto para {{name}}, por isso nada mais se aplica",
+          "needsConnect": "Os segredos exigem Conectar, que {{name}} não tem aqui",
+          "ruleNotShown": "Decidido por uma regra em {{folder}}"
+        }
+      },
+      "viewAs": "Ver como",
+      "previewAsRole": "Pré-visualizar como função",
+      "menuItem": "Ver como {{name}}",
+      "summary": {
+        "title": "Veja a que {{name}} pode aceder",
+        "counts": "{{hosts}} anfitriões · {{snippets}} snippets · {{keys}} chaves · {{hidden}} ocultos"
+      }
     }
   }
 }

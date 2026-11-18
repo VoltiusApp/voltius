@@ -15,6 +15,8 @@
     "port-in-use": "{{port}} portu ve sonrakiler zaten kullanımda ({{attempts}} port denendi)",
     "bind-address-unavailable": "Bu bilgisayarda {{address}} adresi yok",
     "remote-forward-denied": "Sunucu uzak yönlendirmeyi reddetti — port orada zaten kullanımda olabilir ya da yönlendirmeye izin verilmiyor olabilir",
+    "ssh-legacy-algorithms-required": "Sunucu yalnızca varsayılan olarak kapalı olan eski algoritmaları sunuyor ({{offered}}). Bağlanmak için bu sunucuda \"Eski algoritmalar\" seçeneğini açın.",
+    "ssh-no-common-algorithm": "Sunucu yalnızca Voltius'un desteklemediği algoritmaları sunuyor: {{offered}}.",
     "ssh-key-rejected": "Açık anahtar kimlik doğrulaması reddedildi",
     "ssh-password-rejected": "Parola kimlik doğrulaması reddedildi — kullanıcı adını ve parolayı kontrol edin",
     "ssh-password-expired": "Sunucu yeni bir parola istiyor — bir kez terminalden giriş yapıp parolayı orada değiştirin",

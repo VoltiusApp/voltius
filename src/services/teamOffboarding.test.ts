@@ -2,18 +2,24 @@ import { test, expect, vi, beforeEach } from "vitest";
 import type { TeamMember } from "@/services/teamService";
 
 const h = vi.hoisted(() => ({
-  removeMember: vi.fn(async () => {}),
+  removeMember: vi.fn(async (_teamId: string, _userId: string) => {}),
   addMemberById: vi.fn(async () => {}),
   assignMemberRole: vi.fn(async () => {}),
   loadMembers: vi.fn(async () => {}),
   push: vi.fn(),
+  action: undefined as undefined | { run: () => Promise<unknown>; warning?: (r: unknown) => string | null },
+  result: undefined as unknown,
 }));
 
 vi.mock("@/i18n", () => ({
   default: { t: (k: string, o?: Record<string, unknown>) => (o ? `${k}:${JSON.stringify(o)}` : k) },
 }));
 vi.mock("@/services/teamActionFeedback", () => ({
-  runTeamAction: async (o: { run: () => Promise<unknown> }) => o.run(),
+  runTeamAction: async (o: { run: () => Promise<unknown>; warning?: (r: unknown) => string | null }) => {
+    h.action = o;
+    h.result = await o.run();
+    return h.result;
+  },
 }));
 vi.mock("@/stores/teamStore", () => ({
   useTeamStore: {
@@ -22,6 +28,14 @@ vi.mock("@/stores/teamStore", () => ({
       addMemberById: h.addMemberById,
       assignMemberRole: h.assignMemberRole,
       loadMembers: h.loadMembers,
+      rolesByTeam: {
+        t1: [
+          { id: "r1", name: "member", is_builtin: true },
+          { id: "r2", name: "connect-only", is_builtin: true },
+          { id: "r3", name: "Auditors", is_builtin: false },
+          { id: "r4", name: "owner", is_builtin: true },
+        ],
+      },
     }),
   },
 }));
@@ -31,14 +45,14 @@ vi.mock("@/stores/historyStore", () => ({
 
 import { departMembers, departConsequences, markSelfDeparture, selfDeparture } from "./teamOffboarding";
 
-const member = (id: string): TeamMember => ({
+const member = (id: string, role_ids = ["r1"]): TeamMember => ({
   team_id: "t1",
   user_id: id,
   handle: `user-${id}`,
   invited_by_display_name: null,
   joined_at: "2024-01-01",
   public_key: "",
-  role_ids: ["r1"],
+  role_ids,
 });
 
 beforeEach(() => {
@@ -47,6 +61,9 @@ beforeEach(() => {
   h.assignMemberRole.mockClear();
   h.loadMembers.mockClear();
   h.push.mockClear();
+  h.removeMember.mockImplementation(async () => {});
+  h.action = undefined;
+  h.result = undefined;
 });
 
 test("removes every member passed to it", async () => {
@@ -63,15 +80,27 @@ test("pushes exactly one undo entry for a bulk removal", async () => {
   expect(h.push).toHaveBeenCalledTimes(1);
 });
 
-test("undo restores every member and their roles", async () => {
-  await departMembers("t1", [member("a"), member("b")], { mode: "remove" });
+test("undo re-invites every member with the role they had", async () => {
+  await departMembers("t1", [member("a"), member("b", ["r2"])], { mode: "remove" });
 
   await h.push.mock.calls[0][0].undo();
 
-  expect(h.addMemberById).toHaveBeenCalledWith("t1", "a");
-  expect(h.addMemberById).toHaveBeenCalledWith("t1", "b");
-  expect(h.assignMemberRole).toHaveBeenCalledWith("t1", "a", "r1");
+  expect(h.addMemberById).toHaveBeenCalledWith("t1", "a", "member");
+  expect(h.addMemberById).toHaveBeenCalledWith("t1", "b", "connect-only");
+  expect(h.assignMemberRole).not.toHaveBeenCalled();
   expect(h.loadMembers).toHaveBeenCalledWith("t1");
+});
+
+test.each([
+  ["several roles", ["r1", "r2"]],
+  ["a custom role", ["r3"]],
+  ["no role", []],
+  ["the owner role", ["r4"]],
+])("undo refuses, and re-invites nobody, when a member held %s (#785)", async (_label, roleIds) => {
+  await departMembers("t1", [member("a"), member("b", roleIds)], { mode: "remove" });
+
+  await expect(h.push.mock.calls[0][0].undo()).rejects.toThrow("members.error.undoRolesNotRestorable");
+  expect(h.addMemberById).not.toHaveBeenCalled();
 });
 
 test("leaving pushes no undo entry", async () => {
@@ -137,4 +166,58 @@ test("the undo label names a member by their member name", async () => {
   await departMembers("t1", [{ ...member("a"), member_name: "Jan" }, member("b")], { mode: "remove" });
 
   expect(h.push.mock.calls[0][0].label).toContain("Jan, @user-b");
+});
+
+const failFor = (...ids: string[]) =>
+  h.removeMember.mockImplementation(async (_t: string, userId: string) => {
+    if (ids.includes(userId)) throw new Error(`boom-${userId}`);
+  });
+
+test("a failed removal does not stop the rest of the batch (#786)", async () => {
+  failFor("b");
+  await departMembers("t1", [member("a"), member("b"), member("c")], { mode: "remove" });
+  expect(h.removeMember.mock.calls.map((c) => c[1])).toEqual(["a", "b", "c"]);
+});
+
+test("a partial removal warns with who was removed and who was not", async () => {
+  failFor("b");
+  await departMembers("t1", [member("a"), member("b"), member("c")], { mode: "remove" });
+  const warning = h.action?.warning?.(h.result);
+  expect(warning).toContain("members.error.removePartial");
+  expect(warning).toContain('"removed":"@user-a, @user-c"');
+  expect(warning).toContain('"failed":"@user-b"');
+});
+
+test("a full removal does not warn", async () => {
+  await departMembers("t1", [member("a"), member("b")], { mode: "remove" });
+  expect(h.action?.warning?.(h.result) ?? null).toBeNull();
+});
+
+test("undo after a partial removal brings back only the members actually removed", async () => {
+  failFor("b");
+  await departMembers("t1", [member("a"), member("b"), member("c", ["r2"])], { mode: "remove" });
+  expect(h.push).toHaveBeenCalledTimes(1);
+  const entry = h.push.mock.calls[0][0] as { label: string; undo: () => Promise<void>; redo: () => Promise<void> };
+  expect(entry.label).toContain('"count":2');
+  await entry.undo();
+  expect(h.addMemberById.mock.calls).toEqual([["t1", "a", "member"], ["t1", "c", "connect-only"]]);
+  h.removeMember.mockClear();
+  await entry.redo();
+  expect(h.removeMember.mock.calls.map((c) => c[1])).toEqual(["a", "c"]);
+});
+
+test("a partial removal refreshes the member list and still calls onDone", async () => {
+  failFor("b");
+  const onDone = vi.fn();
+  await departMembers("t1", [member("a"), member("b")], { mode: "remove", onDone });
+  expect(h.loadMembers).toHaveBeenCalledWith("t1");
+  expect(onDone).toHaveBeenCalled();
+});
+
+test("when every removal fails, nothing is recorded and the error propagates", async () => {
+  failFor("a", "b");
+  const onDone = vi.fn();
+  await expect(departMembers("t1", [member("a"), member("b")], { mode: "remove", onDone })).rejects.toThrow("boom-a");
+  expect(h.push).not.toHaveBeenCalled();
+  expect(onDone).not.toHaveBeenCalled();
 });

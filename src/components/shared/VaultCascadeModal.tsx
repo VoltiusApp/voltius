@@ -1,7 +1,7 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { Modal, ModalCard } from "./Modal";
-import type { PendingCascade } from "@/hooks/useVaultCascade";
+import type { PendingCascade } from "@/hooks/useCrossVaultPasteConfirm";
 
 interface Props {
   cascade: PendingCascade;
@@ -13,6 +13,8 @@ const typeIcon: Record<string, string> = {
   identity: "lucide:user",
   key: "lucide:key",
   connection: "lucide:server",
+  snippet: "lucide:braces",
+  port_forward: "lucide:arrow-right-left",
 };
 
 function getTypeLabel(t: (key: string) => string): Record<string, string> {
@@ -20,6 +22,8 @@ function getTypeLabel(t: (key: string) => string): Record<string, string> {
     identity: t("shared.vaultCascadeModal.typeLabel.identity"),
     key: t("shared.vaultCascadeModal.typeLabel.key"),
     connection: t("common.entity.host"),
+    snippet: t("common.entity.snippet"),
+    port_forward: t("common.entity.rule"),
   };
 }
 

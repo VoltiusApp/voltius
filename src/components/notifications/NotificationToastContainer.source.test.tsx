@@ -9,7 +9,7 @@ vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/services/account", () => ({ getAppLock: async () => null, setAppLock: async () => {} }));
 
 import { NotificationToastContainer } from "./NotificationToastContainer";
-import { APP_SOURCE, useNotificationStore, type NotificationSource } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore, type NotificationSource, type ToastHost } from "@/stores/notificationStore";
 
 afterEach(() => {
   cleanup();
@@ -18,20 +18,26 @@ afterEach(() => {
 
 const DOCKER: NotificationSource = { kind: "plugin", id: "docker", name: "Docker" };
 
-function show(source: NotificationSource, type: "toast" | "progress") {
+function show(source: NotificationSource, type: "toast" | "progress", host?: ToastHost) {
   render(<NotificationToastContainer />);
   act(() => {
-    useNotificationStore.getState().addToast({ source, type, message: "container restarted", severity: "info", duration: 0 });
+    useNotificationStore.getState().addToast({ source, host, type, message: "container restarted", severity: "info", duration: 0 });
   });
 }
 
-test.each(["toast", "progress"] as const)("a %s from the app carries no source tag", (type) => {
+test.each(["toast", "progress"] as const)("a %s from the app carries no source label", (type) => {
   show(APP_SOURCE, type);
   expect(screen.getByText("container restarted")).toBeTruthy();
+  expect(screen.queryByText("Docker")).toBeNull();
   expect(screen.queryByText(/^\[.*\]$/)).toBeNull();
 });
 
 test.each(["toast", "progress"] as const)("a %s from a plugin names the plugin", (type) => {
   show(DOCKER, type);
-  expect(screen.getByText("[Docker]")).toBeTruthy();
+  expect(screen.getByText("Docker")).toBeTruthy();
+});
+
+test.each(["toast", "progress"] as const)("a %s about a host names the host", (type) => {
+  show(APP_SOURCE, type, { connectionId: "c1", name: "web-prod-01" });
+  expect(screen.getByText("web-prod-01")).toBeTruthy();
 });

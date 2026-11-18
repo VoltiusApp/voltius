@@ -40,5 +40,6 @@ cask "voltius" do
   depends_on :macos
 
   app "Voltius.app"
+  binary "#{appdir}/Voltius.app/Contents/MacOS/voltius-cli"
 end
 EOF

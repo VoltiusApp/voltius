@@ -1,5 +1,6 @@
 import type { FileEntry } from "@/components/filetransfer/SFTPTypes";
 import type { MyDevice } from "@/services/myDevices";
+import { allKeysSelected, pruneKeys, toggleAllKeys, toggleKey } from "../selectionCore";
 
 /**
  * SFTP selection mode (pure, see MobileSftpScreen / MobileSftpPane). One pane at a time
@@ -26,25 +27,9 @@ export function paneItems(sel: SftpSelection, pane: SftpPaneId): FileEntry[] {
   return sel.pane === pane ? sel.items : [];
 }
 
-/** Add or remove `f` (by path). */
-export function toggleItem(items: FileEntry[], f: FileEntry): FileEntry[] {
-  return items.some((x) => x.path === f.path) ? items.filter((x) => x.path !== f.path) : [...items, f];
-}
+const path = (f: FileEntry) => f.path;
 
-/** Select every visible entry, or none when they all are already. */
-export function toggleAll(items: FileEntry[], visible: FileEntry[]): FileEntry[] {
-  return allSelected(items, visible) ? [] : visible;
-}
-
-export function allSelected(items: FileEntry[], visible: FileEntry[]): boolean {
-  if (visible.length === 0) return false;
-  const have = new Set(items.map((x) => x.path));
-  return visible.every((v) => have.has(v.path));
-}
-
-/** Drop selected entries the listing no longer has (deleted, renamed, refreshed away). Same array when nothing changed. */
-export function pruneSelection(items: FileEntry[], entries: FileEntry[]): FileEntry[] {
-  const present = new Set(entries.map((e) => e.path));
-  const kept = items.filter((x) => present.has(x.path));
-  return kept.length === items.length ? items : kept;
-}
+export const toggleItem = (items: FileEntry[], f: FileEntry): FileEntry[] => toggleKey(items, f, path);
+export const toggleAll = (items: FileEntry[], visible: FileEntry[]): FileEntry[] => toggleAllKeys(items, visible, path);
+export const allSelected = (items: FileEntry[], visible: FileEntry[]): boolean => allKeysSelected(items, visible, path);
+export const pruneSelection = (items: FileEntry[], entries: FileEntry[]): FileEntry[] => pruneKeys(items, entries, path);

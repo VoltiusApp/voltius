@@ -1,12 +1,12 @@
 {
   "omni": {
-    "searchPlaceholder": "Sunucu, anahtar, kimlik ve komut ara...",
+    "searchPlaceholder": "Sunucu, komut ve ayar ara ya da user@host yazın",
     "categoryBadges": {
       "all": "Tümü",
-      "join": "join> Oturumlar",
-      "snippets": "> Kod parçacıkları",
-      "marketplace": "m> Mağaza",
-      "settings": "@ Ayarlar"
+      "join": "Ekip oturumları",
+      "snippets": "Kod parçacıkları",
+      "marketplace": "Eklentiler",
+      "settings": "Ayarlar"
     },
     "sections": {
       "quickConnect": "Hızlı bağlan",
@@ -22,19 +22,18 @@
       "settings": "Ayarlar",
       "joinByInviteCode": "Davet koduyla katıl",
       "importExport": "İçe / dışa aktar",
-      "availablePlugins": "Kullanılabilir eklentiler"
+      "availablePlugins": "Kullanılabilir eklentiler",
+      "enrollmentToken": "Kayıt jetonu"
     },
-    "settingsDescription": "Ayarlar",
     "pluginSettingsDescription": "Eklenti ayarları",
     "pluginNotInstalled": "Yüklü değil",
     "editHost": "Sunucuyu düzenle",
-    "deleteHost": "Sunucuyu sil",
     "resume": "Devam et",
     "join": "Katıl",
     "participantCount_one": "{{count}} kişi",
     "participantCount_other": "{{count}} kişi",
     "joinCodePrompt": {
-      "title": "Davet koduyla katıl...",
+      "title": "Davet koduyla katıl…",
       "subtitle": "Özel bir oturuma katılmak için davet kodunuzu buraya yapıştırın"
     },
     "joinCodeEntered": {
@@ -49,7 +48,10 @@
       "configurePortAndBaud": "Port ve baud hızını yapılandır",
       "localShellNamed": "Yerel kabuk ({{shell}})",
       "localShell": "Yerel kabuk",
-      "openLocalTerminal": "Yerel terminal aç"
+      "openLocalTerminal": "Yerel terminal aç",
+      "connectToHost": "{{host}} sunucusuna bağlan",
+      "invalidPort": "Geçersiz port",
+      "portRange": "Port 1 ile 65535 arasında olmalı"
     },
     "localShellDefault": "Yerel kabuk",
     "emptyState": {
@@ -118,7 +120,38 @@
       "exportSnippets": "Kod parçacıklarını dışa aktar…",
       "exportPortForwarding": "Port yönlendirme kurallarını dışa aktar…",
       "exportThemes": "Özel temaları dışa aktar…",
-      "importThemes": "Temaları içe aktar…"
+      "importThemes": "Temaları içe aktar…",
+      "disconnectAllNone": "Kesilecek açık oturum yok",
+      "disconnectAllConfirm_one": "{{count}} oturumun bağlantısı kesilsin mi? Onaylamak için tekrar Enter'a basın",
+      "disconnectAllConfirm_other": "{{count}} oturumun bağlantısı kesilsin mi? Onaylamak için tekrar Enter'a basın",
+      "disconnectAllConfirmKept_one": "{{count}} oturumun bağlantısı kesilsin mi? {{kept}} Onaylamak için tekrar Enter'a basın",
+      "disconnectAllConfirmKept_other": "{{count}} oturumun bağlantısı kesilsin mi? {{kept}} Onaylamak için tekrar Enter'a basın",
+      "disconnectAllKept_one": "{{count}} kilitli sekme açık kalacak.",
+      "disconnectAllKept_other": "{{count}} kilitli sekme açık kalacak.",
+      "disconnectAllLocked_one": "Açık olan tek oturum kilitli. Bağlantıyı kesmek için kilidini açın",
+      "disconnectAllLocked_other": "Açık {{count}} oturumun tümü kilitli. Bağlantıyı kesmek için kilitlerini açın",
+      "lockTab": "Sekmeyi Kilitle",
+      "unlockTab": "Sekmenin Kilidini Aç",
+      "pinTab": "Sekmeyi Sabitle",
+      "unpinTab": "Sekmenin Sabitlemesini Kaldır",
+      "noActiveTab": "Etkin terminal sekmesi yok"
+    },
+    "dialogLabel": "Komut paleti",
+    "resultCount_one": "{{count}} sonuç",
+    "resultCount_other": "{{count}} sonuç",
+    "snippetNeedsSession": "Önce bir terminal açın, ardından kod parçacığını buradan çalıştırın",
+    "joinFailed": "Oturuma katılınamadı: {{reason}}",
+    "hints": {
+      "move": "Gezin",
+      "open": "Aç",
+      "edit": "Sunucuyu düzenle",
+      "scope": "Kapsam",
+      "close": "Kapat"
+    },
+    "enrollToken": {
+      "title": "Bu kayıt jetonuyla {{team}} ekibine katıl",
+      "titleUnknown": "Bu kayıt jetonuyla bir şirkete katıl",
+      "detailApproval": "{{host}} · Her isteği bir yönetici onaylar"
     }
   }
 }

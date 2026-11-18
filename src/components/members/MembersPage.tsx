@@ -2,50 +2,41 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { cardGridProps } from "@/components/shared/cardGrid";
 import { SectionHeader } from "@/components/shared/SectionHeader";
 import { selectFollowing } from "@/utils/cardInteraction";
-import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamMember } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useUIStore, type MembersPanel } from "@/stores/uiStore";
-import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { isMobileShell } from "@/utils/platform";
-import { membersPanelPage } from "@/components/mobile/screens/vaultSettingsCore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
-import { useHistoryStore } from "@/stores/historyStore";
 import { avatarColor } from "@/components/shared/AvatarStack";
-import { useMyUserId } from "@/hooks/useMyUserId";
-import { getMyHandle } from "@/services/account";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { PanelShell, PanelHeader } from "@/components/shared/Panel";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
-import { effectivePermissions, hasBuiltinRole, PERM_BITS } from "@/hooks/usePermission";
-import { useBusinessLock } from "@/hooks/useBusinessLock";
+import { useLackReason } from "@/hooks/useGreyedUnless";
+import { refuseWhilePreviewing, whenWritable } from "@/services/previewGuard";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { TeamRolesPanel } from "@/components/members/panels/RolesPanel";
 import { SecurityPolicyPanel } from "@/components/members/panels/SecurityPolicyPanel";
-import { VAULT_MANAGER_BITS } from "@/services/permissions";
 import { guestCapFor, inviteSessionOf, memberHasAccess, seatUsage, sessionDisplayName } from "@/services/teamSharing";
 import { RoleToggleChip, roleLabel } from "@/components/members/roleChips";
 import { ConvertToTeamGate } from "@/components/vault-share/ConvertToTeamGate";
 import { OffboardingDialog } from "@/components/members/OffboardingDialog";
 import { PendingInviteCard } from "@/components/members/cards/PendingInviteCard";
+import { JoinRequestsSection } from "@/components/members/cards/JoinRequests";
 import { MembersToolbar } from "@/components/members/MembersToolbar";
-import { RoleBadges } from "@/components/members/roleBadges";
 import { MemberCard, memberOpenAction } from "@/components/members/cards/MemberCard";
-import { SelfCard } from "@/components/members/cards/SelfCard";
+import { PrivateVaultMembers, privateVaultGate, useMyHandle } from "@/components/members/cards/PrivateVaultMembers";
+import { MembersEmptyState } from "@/components/members/cards/MembersEmptyState";
 import { MemberDetailPanel } from "@/components/members/panels/MemberDetailPanel";
 import { InvitePanel } from "@/components/members/panels/InvitePanel";
-import { SignInToCloudCTA, UpgradeToTeamsCTA } from "@/components/members/panels/MembersCTA";
-import { compareStrings } from "@/utils/localeFormat";
-import { searchMatcher } from "@/utils/search";
-import { memberLabel, memberSortKey, memberNamingSupported } from "@/services/memberLabel";
-import { memberOwnership } from "@/services/teamOwnership";
-import { useOwnershipContext } from "@/hooks/useOwnershipContext";
+import { memberLabel, memberNamingSupported } from "@/services/memberLabel";
+import { ROLE_MODE_ICONS, useMembersModel } from "@/components/members/useMembersModel";
+import { useViewAsGate } from "@/components/preview/useViewAsEntry";
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -53,11 +44,8 @@ export default function MembersPage() {
   const { t } = useTranslation();
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const vaults = useVaultStore((s) => s.vaults);
-  const { teams, loadTeams, membersByTeam, loadMembers, rolesByTeam, loadRoles, pendingInvitationsByTeam, loadPendingInvitations } = useTeamStore();
+  const { teams, loadPendingInvitations } = useTeamStore();
   const { tier, ownsTeamsPlan, accountMode } = useSubscriptionStore();
-  const assignMemberRole = useTeamStore((s) => s.assignMemberRole);
-  const removeMemberRole = useTeamStore((s) => s.removeMemberRole);
-  const push = useHistoryStore((s) => s.push);
   const { activeSessions, connections } = useTeamSessionStore();
 
   const layoutMode = useUIStore((s) => s.membersLayoutMode);
@@ -66,20 +54,15 @@ export default function MembersPage() {
   const setSortMode = useUIStore((s) => s.setMembersSortMode);
   const membersPanelPending = useUIStore((s) => s.membersPanelPending);
   const clearMembersPanelPending = useUIStore((s) => s.clearMembersPanelPending);
-  const openCloudAuth = useUIStore((s) => s.openCloudAuth);
 
-  const myUserId = useMyUserId();
-  const [myHandle, setMyHandle] = useState<string | null>(null);
+  const noPermission = useLackReason();
+  const myHandle = useMyHandle();
   const [primaryVaultId, setPrimaryVaultId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string[]>([]);
   const [panel, setPanel] = useState<MembersPanel | "detail" | null>(null);
   const togglePanel = (next: MembersPanel) => {
-    // Android: a 320 px side panel is most of the phone; the vault settings sub-page is the same panel full-screen.
-    if (isMobileShell() && primaryVaultId) {
-      useMobileNavStore.getState().push({ kind: "vault-settings", vaultId: primaryVaultId, page: membersPanelPage(next) });
-      return;
-    }
+    if (next === "invite" && refuseWhilePreviewing()) return;
     setPanel((cur) => (cur === next ? null : next));
   };
   const closeTransientPanel = () => setPanel((cur) => (cur === "detail" || cur === "invite" ? null : cur));
@@ -93,13 +76,6 @@ export default function MembersPage() {
   const [detailMemberId, setDetailMemberId] = useState<string | null>(null);
 
   useEffect(() => {
-    // getMyHandle() resolves to "" (never rejects) on a keychain miss with no
-    // server to fall back to, so this always settles the loading skeleton.
-    getMyHandle().then(setMyHandle).catch(() => setMyHandle(""));
-    loadTeams().catch(() => {});
-  }, [loadTeams]);
-
-  useEffect(() => {
     if (selectedVaultIds.length > 0) {
       setPrimaryVaultId((prev) =>
         selectedVaultIds.includes(prev ?? "") ? prev : selectedVaultIds[0]
@@ -109,81 +85,20 @@ export default function MembersPage() {
     }
   }, [selectedVaultIds]);
 
-  const localVault = primaryVaultId ? vaults.find((v) => v.id === primaryVaultId) : null;
-  const standaloneTeam = !localVault && primaryVaultId ? teams.find((t) => t.id === primaryVaultId) : null;
-  const teamId = localVault?.teamId ?? standaloneTeam?.id ?? null;
-  const pendingInvites = pendingInvitationsByTeam[teamId ?? ""] ?? [];
-
-  const members = useMemo(() => (teamId ? (membersByTeam[teamId] ?? []) : []), [teamId, membersByTeam]);
-  const teamRoles = useMemo(() => (teamId ? (rolesByTeam[teamId] ?? []) : []), [teamId, rolesByTeam]);
-  const { locked: businessLocked } = useBusinessLock(teamId);
-  const myMember = members.find((m) => m.user_id === myUserId);
-
-  // Compute effective permissions from role bits
-  const myEffectivePerms = myMember ? effectivePermissions(myMember, teamRoles, businessLocked) : 0;
-  const canManageMembers = (myEffectivePerms & PERM_BITS.MANAGE_MEMBERS) !== 0;
-  const canNameMembers = canManageMembers && memberNamingSupported(members);
-  const canManageRoles = (myEffectivePerms & PERM_BITS.MANAGE_ROLES) !== 0;
-  const canManageVault = (myEffectivePerms & VAULT_MANAGER_BITS) !== 0;
-  const canInvite = (myEffectivePerms & PERM_BITS.INVITE_MEMBERS) !== 0;
-
-  const isOwnerMember = (member: TeamMember) =>
-    hasBuiltinRole(member, "owner", teamRoles);
-  const ownershipCtx = useOwnershipContext(teamId, myMember, teamRoles);
-  const outOfReach = (member: TeamMember) =>
-    memberOwnership(ownershipCtx, { userId: member.user_id, isMe: member.user_id === myUserId, isOwner: isOwnerMember(member) })
-      .protectedFromViewer;
-  const canActOn = (member: TeamMember) =>
-    canManageMembers && !outOfReach(member) && member.user_id !== myUserId;
-  const canEditMember = (member: TeamMember) => canNameMembers || canActOn(member);
+  const model = useMembersModel(primaryVaultId);
+  const {
+    teamId, localVault, members, roles: teamRoles, pending: pendingInvites, myUserId, myMember,
+    canManageMembers, canManageRoles, canInvite, canManageVault, canNameMembers,
+    isOwnerMember, canActOn, canEditMember, outOfReach, reload,
+  } = model;
+  const viewAsGate = useViewAsGate(teamId ?? "");
 
   const existingMemberIds = useMemo(() => new Set(members.map((m) => m.user_id)), [members]);
 
-  const reload = () => {
-    if (!teamId) return;
-    loadMembers(teamId).catch(() => {});
-    if (canManageMembers) {
-      loadPendingInvitations(teamId).catch(() => {});
-    }
-  };
-
-  useEffect(() => {
-    if (!teamId) return;
-    loadMembers(teamId).catch(() => {});
-    loadRoles(teamId).catch(() => {});
-  }, [teamId, loadMembers, loadRoles]);
-
-  useEffect(() => {
-    if (!teamId || !canManageMembers) return;
-    loadPendingInvitations(teamId).catch(() => {});
-  }, [teamId, canManageMembers, loadPendingInvitations]);
-
-  // Filter + sort
   const searchLower = search.trim();
-  const filteredMembers = useMemo(() => {
-    let result = members;
-    if (searchLower) { const match = searchMatcher(searchLower); result = result.filter((m) => match(m.handle, m.member_name)); }
-    if (roleFilter.length > 0) result = result.filter((m) => roleFilter.some((rid) => m.role_ids.includes(rid)));
-    return result;
-  }, [members, searchLower, roleFilter]);
-
-  const sortedMembers = useMemo(() => {
-    return [...filteredMembers].sort((a, b) => {
-      switch (sortMode) {
-        case "name-asc":  return compareStrings(memberSortKey(a), memberSortKey(b));
-        case "name-desc": return compareStrings(memberSortKey(b), memberSortKey(a));
-        case "newest":    return b.joined_at.localeCompare(a.joined_at);
-        case "oldest":    return a.joined_at.localeCompare(b.joined_at);
-        case "role-asc": {
-          const posA = Math.min(...(a.role_ids.map((rid) => teamRoles.find((r) => r.id === rid)?.position ?? 9999)));
-          const posB = Math.min(...(b.role_ids.map((rid) => teamRoles.find((r) => r.id === rid)?.position ?? 9999)));
-          if (posA !== posB) return posA - posB;
-          return compareStrings(memberSortKey(a), memberSortKey(b));
-        }
-        default: return 0;
-      }
-    });
-  }, [filteredMembers, sortMode, teamRoles]);
+  const sortedMembers = useMemo(() => model.visible(search, roleFilter, sortMode),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [members, teamRoles, search, roleFilter, sortMode]);
 
   const orderedIds = useMemo(() => sortedMembers.map((m) => m.user_id), [sortedMembers]);
 
@@ -223,6 +138,8 @@ export default function MembersPage() {
       return [{ localSessionId, connectionName: sessionDisplayName(active), session, atCap }];
     }), [connections, activeSessions, tier]);
 
+  const askOffboarding = whenWritable(setOffboardingMembers);
+
   // Context menu builders
   const buildContextMenuItems = (member: TeamMember): ContextMenuItem[] => {
     const canActOnMember = canActOn(member);
@@ -232,47 +149,23 @@ export default function MembersPage() {
       onClick: () => openDetail(member.user_id),
     }];
 
-    if (canActOnMember && teamRoles.length > 0) {
-      const sortedRoles = [...teamRoles]
-        .filter((r) => !(r.is_builtin && r.name === "owner"))
-        .sort((a, b) => a.position - b.position);
-      const assignedRoles = sortedRoles.filter((r) => member.role_ids.includes(r.id));
-      const unassignedRoles = sortedRoles.filter((r) => !member.role_ids.includes(r.id) && !(businessLocked && !r.is_builtin));
+    if (!canManageMembers) {
+      items.push({ label: t("members.roles"), icon: "lucide:shield", disabledReason: noPermission, onClick: () => {} });
+    } else if (canActOnMember && teamRoles.length > 0) {
+      const assignedRoles = model.roleOptions([member], "remove").filter((r) => member.role_ids.includes(r.id));
+      const unassignedRoles = model.roleOptions([member], "assign").filter((r) => !member.role_ids.includes(r.id));
 
       const assignedItems: ContextMenuItem[] = assignedRoles.map((r) => ({
         label: roleLabel(t, r.name),
         icon: "lucide:square-check-big",
-        onClick: () => {
-          void removeMemberRole(teamId!, member.user_id, r.id).then(() => {
-            push({
-              label: t("members.history.removeRole", { name: memberLabel(member) }),
-              undo: async () => { await assignMemberRole(teamId!, member.user_id, r.id); reload(); },
-              redo: async () => { await removeMemberRole(teamId!, member.user_id, r.id); reload(); },
-            });
-            reload();
-          });
-        },
+        onClick: () => void model.changeRole([member], r, "remove"),
       }));
 
       const unassignedItems: ContextMenuItem[] = unassignedRoles.map((r, i) => ({
         label: roleLabel(t, r.name),
         icon: "lucide:square",
         divider: i === 0 && assignedItems.length > 0,
-        onClick: () => {
-          const name = roleLabel(t, r.name);
-          void runTeamAction({
-            pending: t("members.toast.assigningRoleTo", { role: name, name: memberLabel(member) }),
-            success: t("members.toast.roleAssignedTo", { role: name, name: memberLabel(member) }),
-            run: () => assignMemberRole(teamId!, member.user_id, r.id),
-          }).then(() => {
-            push({
-              label: t("members.history.assignRole", { name: memberLabel(member) }),
-              undo: async () => { await removeMemberRole(teamId!, member.user_id, r.id); reload(); },
-              redo: async () => { await assignMemberRole(teamId!, member.user_id, r.id); reload(); },
-            });
-            reload();
-          }).catch(() => { /* toast already reports the failure */ });
-        },
+        onClick: () => void model.changeRole([member], r, "assign"),
       }));
 
       const roleChildren = [...assignedItems, ...unassignedItems];
@@ -297,13 +190,13 @@ export default function MembersPage() {
         children: invitable.length > 0
           ? invitable.map(({ localSessionId, connectionName }) => ({
               label: connectionName,
-              onClick: () => {
+              onClick: whenWritable(() => {
                 void runTeamAction({
                   pending: t("members.toast.invitingToSession", { name: memberLabel(member) }),
                   success: t("members.toast.invitedToSession", { name: memberLabel(member) }),
                   run: () => useTeamSessionStore.getState().inviteToActiveSession(localSessionId, { ...member, handle: member.handle ?? "" }),
                 }).catch(() => { /* toast already reports the failure */ });
-              },
+              }),
             }))
           : [{
               label: t(hostedSessions.length > 0 ? "members.contextMenu.noInvitableSessions" : "members.contextMenu.noActiveSessions"),
@@ -312,13 +205,25 @@ export default function MembersPage() {
       });
     }
 
-    if (canActOnMember) {
+    if (canActOnMember || !canManageMembers) {
       items.push({
         label: t("members.kick"),
         icon: "lucide:user-minus",
         danger: true,
         divider: true,
-        onClick: () => setOffboardingMembers([member]),
+        disabledReason: canManageMembers ? undefined : noPermission,
+        onClick: () => askOffboarding([member]),
+      });
+    }
+
+    if (!isMobileShell()) {
+      const viewAs = viewAsGate({ type: "member", user_id: member.user_id });
+      const afterRoles = Math.max(items.findIndex((i) => i.label === t("members.roles")), 0) + 1;
+      items.splice(afterRoles, 0, {
+        label: t("members.viewAs.menuItem", { name: memberLabel(member) }),
+        icon: "lucide:scan-eye",
+        disabledReason: viewAs.reasonText ?? undefined,
+        onClick: viewAs.enter,
       });
     }
 
@@ -335,88 +240,35 @@ export default function MembersPage() {
 
     const items: ContextMenuItem[] = [];
 
-    if (canManageMembers && teamRoles.length > 0) {
-      const sortedBulkRoles = [...teamRoles]
-        .filter((r) => !(r.is_builtin && r.name === "owner"))
-        .sort((a, b) => a.position - b.position);
-      items.push({
-        label: t("members.contextMenu.assignRoleBulk", { count: selectedMembers.length }),
-        icon: "lucide:shield",
-        children: sortedBulkRoles
-          .filter((r) => !(businessLocked && !r.is_builtin && !selectedMembers.every((m) => m.role_ids.includes(r.id))))
-          .map((r) => ({
-          label: roleLabel(t, r.name),
-          onClick: () => {
-            const prevRoleIds = selectedMembers.map((m) => ({ userId: m.user_id, roleIds: [...m.role_ids] }));
-            const label = t("members.history.assignRoleBulk", { count: selectedMembers.length });
-            void runTeamAction({
-              pending: label,
-              success: label,
-              run: () => Promise.all(selectedMembers.map((m) => assignMemberRole(teamId!, m.user_id, r.id))),
-            }).then(() => {
-              push({
-                label,
-                undo: async () => {
-                  await Promise.all(prevRoleIds.map(({ userId }) => removeMemberRole(teamId!, userId, r.id)));
-                  reload();
-                },
-                redo: async () => {
-                  await Promise.all(selectedMembers.map((m) => assignMemberRole(teamId!, m.user_id, r.id)));
-                  reload();
-                },
-              });
-              reload();
-            }).catch(() => { /* toast already reports the failure */ });
-          },
-        })),
-      });
-
-      items.push({
-        label: t("members.contextMenu.removeRoleBulk", { count: selectedMembers.length }),
-        icon: "lucide:shield-off",
-        children: sortedBulkRoles.map((r) => ({
-          label: roleLabel(t, r.name),
-          onClick: () => {
-            void Promise.all(
-              selectedMembers
-                .filter((m) => m.role_ids.includes(r.id))
-                .map((m) => removeMemberRole(teamId!, m.user_id, r.id))
-            ).then(() => {
-              push({
-                label: t("members.history.removeRoleBulk", { count: selectedMembers.length }),
-                undo: async () => {
-                  await Promise.all(
-                    selectedMembers.filter((m) => m.role_ids.includes(r.id)).map((m) => assignMemberRole(teamId!, m.user_id, r.id))
-                  );
-                  reload();
-                },
-                redo: async () => {
-                  await Promise.all(
-                    selectedMembers.filter((m) => m.role_ids.includes(r.id)).map((m) => removeMemberRole(teamId!, m.user_id, r.id))
-                  );
-                  reload();
-                },
-              });
-              reload();
-            });
-          },
-        })),
-      });
+    if (!canManageMembers || teamRoles.length > 0) {
+      for (const mode of ["assign", "remove"] as const) {
+        items.push({
+          label: t(`members.contextMenu.${mode}RoleBulk`, { count: selectedMembers.length }),
+          icon: ROLE_MODE_ICONS[mode],
+          ...(canManageMembers
+            ? {
+                children: model.roleOptions(selectedMembers, mode).map((r) => ({
+                  label: roleLabel(t, r.name),
+                  onClick: () => void model.changeRole(selectedMembers, r, mode, { bulk: true }),
+                })),
+              }
+            : { disabledReason: noPermission, onClick: () => {} }),
+        });
+      }
     }
 
-    if (canManageMembers) {
-      items.push({
-        label: t("members.contextMenu.kickBulk", { count: selectedMembers.length }),
-        icon: "lucide:user-minus",
-        danger: true,
-        divider: items.length > 0,
-        onClick: () => setOffboardingMembers(selectedMembers),
-      });
-    }
+    items.push({
+      label: t("members.contextMenu.kickBulk", { count: selectedMembers.length }),
+      icon: "lucide:user-minus",
+      danger: true,
+      divider: items.length > 0,
+      disabledReason: canManageMembers ? undefined : noPermission,
+      onClick: () => askOffboarding(selectedMembers),
+    });
 
     return items.length > 0 ? items : undefined;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIdSet, sortedMembers, myUserId, canManageMembers, teamRoles, teamId, t, businessLocked, ownershipCtx.multiOwner, ownershipCtx.billingOwnerId, ownershipCtx.viewerIsOwner, ownershipCtx.viewerIsPrimary]);
+  }, [selectedIdSet, sortedMembers, myUserId, canManageMembers, noPermission, teamRoles, teamId, t, outOfReach, model.roleOptions, model.changeRole]);
 
 const vaultTabs = selectedVaultIds.length > 1
     ? selectedVaultIds.map((vid) => {
@@ -425,84 +277,14 @@ const vaultTabs = selectedVaultIds.length > 1
       })
     : undefined;
 
-  // ── No vault selected ──────────────────────────────────────────────────────
-  if (!primaryVaultId) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-(--t-bg-base)">
-        <div
-          className="flex items-center justify-center rounded-3xl w-[5.333rem] h-[5.333rem] text-(--t-text-dim)"
-          style={{
-            background: "linear-gradient(135deg, var(--t-bg-elevated) 0%, var(--t-bg-card) 100%)",
-            border: "1px solid var(--t-border)",
-          }}
-        >
-          <Icon icon="lucide:users-round" width={36} />
-        </div>
-        <div className="flex flex-col items-center gap-1.5 text-center">
-          <span className="text-base font-semibold text-(--t-text-primary)">{t("members.empty.noVaultTitle")}</span>
-          <span className="text-sm text-(--t-text-dim) max-w-[18.667rem]">
-            {t("members.empty.noVaultDesc")}
-          </span>
-        </div>
-      </div>
-    );
-  }
+  if (!primaryVaultId) return <MembersEmptyState kind="noVault" />;
 
   // ── Private vault (no team yet) ────────────────────────────────────────────
   if (localVault && !teamId) {
-    const isCloudAccount = accountMode === "server";
-    const canPrivateInvite = isCloudAccount && ownsTeamsPlan && !!myUserId;
-
-    const toolbar = (
-      <MembersToolbar
-        search={search}
-        onSearchChange={setSearch}
-        layoutMode={layoutMode}
-        onLayoutModeChange={setLayoutMode}
-        sortMode={sortMode}
-        onSortModeChange={setSortMode}
-        canInvite={canPrivateInvite}
-        activePanel={panel}
-        onTogglePanel={togglePanel}
-        selectedCount={0}
-        vaultTabs={vaultTabs}
-        primaryVaultId={primaryVaultId}
-        onSelectVault={setPrimaryVaultId}
-      />
-    );
-
-    if (!isCloudAccount) {
-      return (
-        <div className="flex-1 flex flex-col bg-(--t-bg-base)">
-          {toolbar}
-          <SignInToCloudCTA onSignIn={() => openCloudAuth("signin")} />
-        </div>
-      );
-    }
-
-    if (!ownsTeamsPlan) {
-      return (
-        <div className="flex-1 flex flex-col bg-(--t-bg-base)">
-          {toolbar}
-          <UpgradeToTeamsCTA />
-        </div>
-      );
-    }
-    if (!myUserId) {
-      return (
-        <div className="flex-1 flex flex-col bg-(--t-bg-base)">
-          {toolbar}
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
-            <Icon icon="lucide:users-round" width={28} style={{ color: "var(--t-text-dim)" }} />
-            <p className="text-sm text-(--t-text-dim)">{t("members.empty.signInToInvite")}</p>
-          </div>
-        </div>
-      );
-    }
-
+    const privateReady = privateVaultGate({ accountMode, ownsTeamsPlan, myUserId }) === "ready";
     return (
       <>
-        {panel === "invite" && (
+        {panel === "invite" && privateReady && (
           <ConvertToTeamGate
             vaultId={primaryVaultId}
             vaultName={localVault.name}
@@ -510,32 +292,33 @@ const vaultTabs = selectedVaultIds.length > 1
             onConverted={() => {}}
           />
         )}
-        <div className="flex-1 flex flex-col chrome-canvas">
-          {toolbar}
-          <div className="flex-1 overflow-y-auto px-9 pt-5 pb-9">
-          <div className="mb-6">
-            <SectionHeader label={t("members.heading.members")} count={1} />
-            <div
-              {...cardGridProps(layoutMode, "compact")}
-            >
-              <SelfCard handle={myHandle} layoutMode={layoutMode} />
-            </div>
-          </div>
-        </div>
-        </div>
+        <PrivateVaultMembers
+          handle={myHandle}
+          myUserId={myUserId}
+          layoutMode={layoutMode}
+          header={
+            <MembersToolbar
+              search={search}
+              onSearchChange={setSearch}
+              layoutMode={layoutMode}
+              onLayoutModeChange={setLayoutMode}
+              sortMode={sortMode}
+              onSortModeChange={setSortMode}
+              canInvite={privateReady}
+              activePanel={panel}
+              onTogglePanel={togglePanel}
+              selectedCount={0}
+              vaultTabs={vaultTabs}
+              primaryVaultId={primaryVaultId}
+              onSelectVault={setPrimaryVaultId}
+            />
+          }
+        />
       </>
     );
   }
 
-  // ── Vault not found ────────────────────────────────────────────────────────
-  if (!teamId) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center bg-(--t-bg-base)">
-        <Icon icon="lucide:vault" width={28} style={{ color: "var(--t-text-dim)" }} />
-        <p className="text-sm text-(--t-text-dim)">{t("members.empty.vaultNotFound")}</p>
-      </div>
-    );
-  }
+  if (!teamId) return <MembersEmptyState kind="vaultNotFound" />;
 
   // ── Team vault ─────────────────────────────────────────────────────────────
   // Hidden, not cleared: a deep link opens it before this team's members (and so our permissions) load.
@@ -564,6 +347,7 @@ const vaultTabs = selectedVaultIds.length > 1
               teamRoles={teamRoles}
               canManageMembers={canManageMembers}
               canNameMembers={canNameMembers}
+              namingSupported={memberNamingSupported(members)}
               isTargetOwner={isOwnerMember(detailMember)}
               viewer={myMember}
               onClose={() => setPanel(null)}
@@ -581,8 +365,8 @@ const vaultTabs = selectedVaultIds.length > 1
                 onMemberAdded={reload}
               />
             )
-            : shownPanel === "roles" && myUserId
-              ? toolbarPanel(t("members.roles"), "lucide:shield", <TeamRolesPanel teamId={teamId} myUserId={myUserId} />)
+            : shownPanel === "roles"
+              ? toolbarPanel(t("members.roles"), "lucide:shield", <TeamRolesPanel teamId={teamId} />)
               : shownPanel === "security"
                 ? toolbarPanel(t("members.security.title"), "lucide:shield-check", <SecurityPolicyPanel teamId={teamId} />)
                 : null
@@ -624,7 +408,7 @@ const vaultTabs = selectedVaultIds.length > 1
                 {[...teamRoles].sort((a, b) => a.position - b.position).map((r) => (
                   <RoleToggleChip
                     key={r.id}
-                    variant="pill"
+                    variant="chip-sm"
                     name={r.name}
                     color={r.color}
                     fallbackColor={avatarColor(r.name)}
@@ -635,8 +419,7 @@ const vaultTabs = selectedVaultIds.length > 1
                 {roleFilter.length > 0 && (
                   <button
                     onClick={() => setRoleFilter([])}
-                    className="text-[10px] px-2 py-0.5 rounded-full transition-colors"
-                    style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)" }}
+                    className="text-xs px-2.5 py-1 rounded-lg transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
                   >
                     {t("members.toolbar.clear")}
                   </button>
@@ -649,7 +432,6 @@ const vaultTabs = selectedVaultIds.length > 1
               <SectionHeader
                 label={t("members.heading.members")}
                 count={sortedMembers.length}
-                aside={myMember && <RoleBadges member={myMember} roles={teamRoles} />}
               />
 
               {sortedMembers.length === 0 && members.length === 0 && (
@@ -696,6 +478,7 @@ const vaultTabs = selectedVaultIds.length > 1
                       inv={inv}
                       teamId={teamId}
                       roles={teamRoles}
+                      canInvite={canInvite}
                       onRevoked={() => { if (teamId) loadPendingInvitations(teamId).catch(() => {}); }}
                       onResent={() => { if (teamId) loadPendingInvitations(teamId).catch(() => {}); }}
                     />
@@ -704,6 +487,7 @@ const vaultTabs = selectedVaultIds.length > 1
               </div>
             )}
 
+            {canInvite && teamId && <JoinRequestsSection teamId={teamId} />}
           </div>
         </DragSelectSurface>
       </div>

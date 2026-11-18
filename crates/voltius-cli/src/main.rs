@@ -1,0 +1,126 @@
+use std::ffi::OsString;
+use std::path::{Path, PathBuf};
+use std::process::{Command, ExitCode, ExitStatus};
+
+const CLI_MARKER: &str = "__voltius_cli";
+
+fn sibling_app(launcher: &Path) -> PathBuf {
+    let name = if cfg!(windows) {
+        "voltius.exe"
+    } else {
+        "voltius"
+    };
+    launcher.with_file_name(name)
+}
+
+fn status_code(status: ExitStatus) -> i32 {
+    #[cfg(unix)]
+    if let Some(signal) = std::os::unix::process::ExitStatusExt::signal(&status) {
+        return 128 + signal;
+    }
+    status.code().unwrap_or(1)
+}
+
+// The app attaches to this console, so Ctrl+C reaches it and it restores the terminal itself.
+#[cfg(windows)]
+fn leave_ctrl_c_to_the_app() {
+    type Handler = unsafe extern "system" fn(u32) -> i32;
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn SetConsoleCtrlHandler(handler: Option<Handler>, add: i32) -> i32;
+    }
+    const CTRL_BREAK_EVENT: u32 = 1;
+    unsafe extern "system" fn ignore(event: u32) -> i32 {
+        (event <= CTRL_BREAK_EVENT) as i32
+    }
+    unsafe { SetConsoleCtrlHandler(Some(ignore), 1) };
+}
+
+fn run(app: &Path, args: &[OsString]) -> i32 {
+    #[cfg(windows)]
+    leave_ctrl_c_to_the_app();
+    match Command::new(app).arg(CLI_MARKER).args(args).status() {
+        Ok(status) => status_code(status),
+        Err(e) => {
+            eprintln!("error: cannot run {}: {e}", app.display());
+            5
+        }
+    }
+}
+
+fn main() -> ExitCode {
+    let launcher = match std::env::current_exe().and_then(|p| p.canonicalize()) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("error: cannot locate voltius-cli: {e}");
+            return ExitCode::from(5);
+        }
+    };
+    let args: Vec<OsString> = std::env::args_os().skip(1).collect();
+    let code = run(&sibling_app(&launcher), &args);
+    ExitCode::from(u8::try_from(code).unwrap_or(1))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sibling_is_next_to_launcher() {
+        let app = sibling_app(Path::new("/opt/voltius/voltius-cli"));
+        let name = if cfg!(windows) {
+            "voltius.exe"
+        } else {
+            "voltius"
+        };
+        assert_eq!(app, Path::new("/opt/voltius").join(name));
+    }
+
+    static SPAWN: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    // A fork in a parallel test inherits a script's open write fd until exec, so running it fails with ETXTBSY.
+    fn serialized<T>(f: impl FnOnce() -> T) -> T {
+        let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
+        f()
+    }
+
+    #[cfg(unix)]
+    fn run_script(tag: &str, script: &str, args: &[OsString]) -> i32 {
+        use std::os::unix::fs::PermissionsExt;
+        serialized(|| {
+            let dir =
+                std::env::temp_dir().join(format!("voltius-cli-{tag}-{}", std::process::id()));
+            std::fs::create_dir_all(&dir).unwrap();
+            let app = dir.join("voltius");
+            std::fs::write(&app, script).unwrap();
+            std::fs::set_permissions(&app, std::fs::Permissions::from_mode(0o755)).unwrap();
+            let code = run(&app, args);
+            std::fs::remove_dir_all(&dir).unwrap();
+            code
+        })
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn forwards_exit_code_and_marker() {
+        let script = "#!/bin/sh\n[ \"$1\" = __voltius_cli ] && [ \"$2\" = x ] && exit 7\nexit 1\n";
+        assert_eq!(run_script("exit", script, &[OsString::from("x")]), 7);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn signal_exit_is_128_plus_signal() {
+        assert_eq!(
+            run_script("sig", "#!/bin/sh\nkill -TERM $$\n", &[]),
+            128 + 15
+        );
+    }
+
+    #[test]
+    fn missing_app_is_exit_5() {
+        assert_eq!(
+            serialized(|| run(Path::new("/nonexistent/voltius"), &[])),
+            5
+        );
+    }
+}

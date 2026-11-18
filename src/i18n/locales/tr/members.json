@@ -17,6 +17,11 @@
         "bodyBilling": "Bundan sonra bu ekibin ödemesini {{name}} kişisinin kendi Teams veya Business aboneliği yapar ve ekibi yalnızca o silebilir. Aboneliğiniz değişmez: koltuklarınızı azaltın veya kendiniz iptal edin.",
         "bodySelfHosted": "Bu ekibi yalnızca {{name}} silebilecek. Sahip olarak kalırsınız ve sonra ayrılabilirsiniz."
       },
+      "invite": {
+        "title": "{{name}} sahip olarak davet edilsin mi?",
+        "body": "Sahipler, başka sahip ekleme ve kaldırma dahil tüm izinlere sahiptir. Birincil sahip ve faturalandırma değişmez.",
+        "confirm": "Sahip davetini gönder"
+      },
       "grant": {
         "title": "{{name}} sahip yapılsın mı?",
         "body": "Sahipler, başka sahip ekleme ve kaldırma dahil tüm izinlere sahiptir.",
@@ -75,11 +80,14 @@
       "ADMINISTRATOR": "Yönetici"
     },
     "permissions": {
+      "youLack": "Bunu yapma izniniz yok",
+      "youCannotEdit": "Bunu düzenleme izniniz yok",
       "title": "İzinler",
       "inheritedFrom": "Kaynak rol: {{roles}}",
       "notGranted": "Hiçbir rol bu izni vermiyor",
       "effectiveAllowed": "izin verildi",
       "effectiveDenied": "reddedildi",
+      "withExceptions": "istisnalarla",
       "state": {
         "deny": "Reddet",
         "inherit": "Devral",
@@ -129,6 +137,7 @@
       "nameHint": "Kullanıcı adını göstermek için boş bırakın."
     },
     "invite": {
+      "ownerOnlyOwners": "Yalnızca sahipler birini sahip olarak davet edebilir",
       "nameLabel": "Bu ekipteki adı",
       "namePlaceholder": "ör. Jan Novák",
       "nameHint": "Ekip üyeleri kullanıcı adı yerine bunu görür. Yalnızca yöneticiler değiştirebilir.",
@@ -150,7 +159,7 @@
       "inviteArrow": "Davet et →",
       "handleRule": "Adın bir kısmıyla yalnızca özel kullanıcı adları eşleşir. rapid-violet-8884 gibi otomatik oluşturulmuş bir kullanıcı adını tam olarak yazın veya kişinin e-posta adresini kullanın.",
       "seatsUnknown": "Lisans sayısı alınamadı — eşitleme sunucusuyla bağlantınızı kontrol edin",
-      "seatsUnlimited": "{{used}} kullanılıyor · sınırsız",
+      "seatsUnlimited": "{{used}} / ∞ lisans kullanılıyor",
       "inviteAction": "Davet et",
       "joinsAs": "Katılım rolü",
       "selectRoleHint": "Davet etmeden önce en az bir rol seçin",
@@ -162,6 +171,7 @@
       "expiredOn": "Süresi doldu: {{date}}"
     },
     "roleBlurb": {
+      "owner": "Sahipler, başka sahip ekleme ve kaldırma dahil tüm izinlere sahiptir.",
       "manager": "Yöneticiler kişileri davet edebilir, rolleri değiştirebilir ve bağlantıları yönetebilir.",
       "editor": "Düzenleyiciler bu kasadaki sunucuları, anahtarları ve kod parçacıklarını ekleyip değiştirebilir.",
       "member": "Üyeler bu kasadaki her şeyi kullanabilir ancak değiştiremez.",
@@ -183,6 +193,7 @@
       "userAdded": "{{name}} eklendi",
       "invitingEmail": "Davet ediliyor: {{email}}...",
       "invitationSentToEmail": "Davet gönderildi: {{email}}",
+      "invitationEmailNotSent": "Davet kaydedildi ancak {{email}} adresine e-posta gönderilemedi. Bu adresle kaydolduğunda ekibe katılacak.",
       "invitingToSession": "Oturuma davet ediliyor: {{name}}...",
       "invitedToSession": "Oturuma davet edildi: {{name}}",
       "convertingVault": "Ekip kasasına dönüştürülüyor: {{vault}}...",
@@ -203,6 +214,8 @@
       "convertFailed": "{{vault}} ekip kasasına dönüştürülemedi — {{reason}}",
       "serverUnreachable": "eşitleme sunucusuna ulaşılamadı",
       "removeFailed": "{{name}} kaldırılamadı — {{reason}}",
+      "removePartial": "{{removed}} kaldırıldı. {{failed}} kaldırılamadı — {{reason}}",
+      "undoRolesNotRestorable": "{{name}} için roller tam olarak geri yüklenemiyor. Yeniden davet edip rolleri elle atayın.",
       "revokeFailed": "{{name}} için davet iptal edilemedi — {{reason}}",
       "grantKeyFailed": "{{name}} için kasa erişimi verilemedi — {{reason}}",
       "memberHasNoPublicKey": "Bu kişi henüz bir anahtar yayımlamadı — bir kez oturum açmasını isteyin.",
@@ -250,8 +263,9 @@
       "ownPlanTitle": "Bir kasayı ekibe dönüştürmek için kendi Teams planınız gerekir",
       "upgradeDesc": "Üye davet edin, rol atayın ve kimlik bilgilerini ekibinizle güvenle paylaşın.",
       "upgradeBtn": "Teams'i {{days}} gün ücretsiz dene →",
+      "upgradePlainBtn": "Teams'e geç →",
       "ownPlanBtn": "Kendi Teams planınızı alın →",
-      "trialNote": "Kart gerekir · deneme süresince ücret alınmaz"
+      "trialNote": "Kredi kartı yok · 10 ekip arkadaşına kadar"
     },
     "joinLinks": {
       "explainer": "Bağlantıya sahip herkes bu kasaya seçtiğiniz rolle katılır. Bağlantı kasanın anahtarını hiçbir zaman taşımaz — anahtar, ona zaten sahip olan biri çevrimiçi olduğunda ayrıca iletilir.",
@@ -312,6 +326,77 @@
       "newLink": "Yeni bağlantı",
       "cancel": "İptal"
     },
+    "enrollment": {
+      "title": "Cihaz kaydı",
+      "explainer": "Voltius'u Ansible veya MDM ile dağıtmak için şirket genelinde tek bir belirteç. Bunu kullananlar {{team}} ekibine katılmak için istekte bulunur.",
+      "domainsLabel": "İzin verilen e-posta alan adları",
+      "domainPlaceholder": "Alan adı ekle",
+      "removeDomain": "{{domain}} alan adını kaldır",
+      "invalidDomain": "{{domain}}, example.com gibi bir alan adı değil.",
+      "approve": "Her katılımı bir yönetici onaylar",
+      "noEmail": "Bu sunucu e-posta gönderemez, bu yüzden her katılımı bir yönetici onaylamalıdır.",
+      "expiresLabel": "Geçerlilik",
+      "expiry": {
+        "never": "Süresiz",
+        "day30": "30 gün",
+        "day90": "90 gün",
+        "year1": "1 yıl"
+      },
+      "create": "Belirteç oluştur",
+      "guardHint": "Her katılım için eşleşen bir e-posta alan adı, bir yöneticinin onayı veya ikisi birden gerekir.",
+      "copyNow": "Şimdi kopyalayın; bir daha gösterilmez.",
+      "example": "Örnek",
+      "tokenLabel": "Kayıt belirteci",
+      "approvalOn": "yönetici onaylar",
+      "approvalOff": "onay yok",
+      "expiresOn": "{{date}} tarihinde sona erer",
+      "neverExpires": "süresiz",
+      "expiredOn": "{{date}} tarihinde sona erdi",
+      "expiredHint": "Çalışan bir belirteç almak için yenileyin.",
+      "createdBy": "Oluşturan: {{name}} · {{date}}",
+      "createdOn": "Oluşturulma: {{date}}",
+      "lastUsed": "Son kullanım: {{when}}",
+      "neverUsed": "Hiç kullanılmadı",
+      "counts": "Katılan: {{joined}} · bekleyen: {{waiting}}",
+      "notShownAgain": "Belirteç bir daha gösterilmez. Yenisini almak için yenileyin.",
+      "rotate": "Yenile",
+      "rotateTitle": "Kayıt belirteci yenilensin mi?",
+      "rotateMessage": "Mevcut belirteç yeni kayıtlar için çalışmayı bırakır. Onunla zaten kaydolmuş cihazlar ekip politikasını almaya devam eder.",
+      "rotateConfirm": "Belirteci yenile",
+      "revoke": "İptal et",
+      "revokeTitle": "Kayıt belirteci iptal edilsin mi?",
+      "revokeMessage": "Cihazlar artık bununla kaydolamaz ve onunla kaydolmuş olanlar ekip politikasını almayı bırakır. Zaten katılmış olanlar üye kalır.",
+      "revokeConfirm": "Belirteci iptal et",
+      "lapsed": "Cihaz kaydı için ekibin Business planı gerekir.",
+      "loadFailed": "Kayıt belirteci yüklenemedi — {{reason}}",
+      "toast": {
+        "create": {
+          "pending": "Belirteç oluşturuluyor…",
+          "done": "Kayıt belirteci oluşturuldu",
+          "failed": "Belirteç oluşturulamadı — {{reason}}"
+        },
+        "rotate": {
+          "pending": "Belirteç yenileniyor…",
+          "done": "Kayıt belirteci yenilendi",
+          "failed": "Belirteç yenilenemedi — {{reason}}"
+        },
+        "revoke": {
+          "pending": "Belirteç iptal ediliyor…",
+          "done": "Kayıt belirteci iptal edildi",
+          "failed": "Belirteç iptal edilemedi — {{reason}}"
+        }
+      },
+      "error": {
+        "gone": "Bu kayıt belirteci iptal edildi veya süresi doldu.",
+        "needsGuard": "Bir e-posta alan adı ekleyin veya onay isteyin.",
+        "needsApproval": "Bu sunucu e-posta gönderemez, bu yüzden her katılım bir yöneticinin onayını gerektirir.",
+        "domainMismatch": "E-posta alan adı belirtecin listesinde değil.",
+        "invalid": "Sunucu bu ayarları reddetti.",
+        "forbidden": "Cihaz kaydını yönetme izniniz yok."
+      },
+      "copyLink": "Bağlantıyı kopyala",
+      "copyLinkTitle": "Voltius'u bu kayda açan bir bağlantıyı kopyala"
+    },
     "offboarding": {
       "removeTitle_one": "{{names}} bu ekipten kaldırılsın mı?",
       "removeTitle_other": "{{count}} kişi bu ekipten kaldırılsın mı?",
@@ -344,12 +429,272 @@
       "forceVault": "\"Kasayı kilitle\" zorunlu olsun",
       "forceVaultDesc": "Üyeler ekran kilidini seçemez, bu yüzden kilitleme kasa anahtarını her zaman bellekten siler.",
       "immediateVaultWarning": "Hemen ve Kasayı kilitle birlikteyken, üyelerin açık oturumları Voltius'tan her ayrıldıklarında, kısa süreliğine bile olsa kapanır.",
-      "appliesToAll": "Siz dahil her üyeye uygulanır. Eski Voltius sürümleri bunu uygulamaz.",
+      "appliesToAll": "Siz dahil her üyeye uygulanır.",
       "lockBody": "Kilit politikaları ekibin Business planını gerektirir.",
       "lapsed": "Business planı sona erdi: bu politika uygulanmaya devam ediyor. Kaldırabilirsiniz.",
       "remove": "Politikayı kaldır",
       "saving": "Politika kaydediliyor…",
       "saved": "Politika kaydedildi"
+    },
+    "keyHealth": {
+      "title": "Kasa anahtarı durumu",
+      "state": {
+        "upToDate": "Güncel",
+        "rotationPending": "Yeni anahtar bekleniyor",
+        "reencryptPending": "Yeniden şifreleniyor",
+        "attention": "İlgi gerekiyor",
+        "unavailable": "Kullanılamıyor"
+      },
+      "version": "Anahtar sürümü {{version}} · {{time}} değişti",
+      "versionNever": "Anahtar sürümü {{version}} · hiç değişmedi",
+      "uncovered_one": "{{count}} üyede güncel anahtar yok.",
+      "uncovered_other": "{{count}} üyede güncel anahtar yok.",
+      "requested": "Bir üye {{time}} ayrıldı, bu yüzden yeni bir anahtar gerekiyor.",
+      "remaining_one": "{{count}} öğe hâlâ eski bir anahtar kullanıyor.",
+      "remaining_other": "{{count}} öğe hâlâ eski bir anahtar kullanıyor.",
+      "remainingUnknown": "Bazı öğeler hâlâ eski bir anahtar kullanıyor.",
+      "blocked": "Bunlar yeniden şifrelenene kadar yeni anahtar oluşturulamaz.",
+      "fromServer": "Sunucunun bildirdiği durum.",
+      "device": {
+        "never": "Bu cihaz henüz denemedi.",
+        "finished": "Bu cihaz son denemesini {{time}} tamamladı.",
+        "failed_one": "Bu cihaz {{time}} denedi: {{count}} öğe başarısız oldu.",
+        "failed_other": "Bu cihaz {{time}} denedi: {{count}} öğe başarısız oldu.",
+        "stopped": "Bu cihaz {{time}} denedi ve durdu: {{reason}}",
+        "skipped_one": "{{count}} öğeyi düzenleme yetkisi olan biri işlemeli.",
+        "skipped_other": "{{count}} öğeyi düzenleme yetkisi olan biri işlemeli."
+      },
+      "step": {
+        "status": "sunucuya ulaşılamadı.",
+        "rotate": "sunucu yeni anahtarı reddetti.",
+        "drain": "kasa yeniden şifrelenemedi."
+      },
+      "loadFailed": "Anahtar durumu okunamadı. Bağlantınızı kontrol edip yenileyin.",
+      "retry": "Şimdi yeniden dene",
+      "retrying": "Yeniden deneniyor…",
+      "refresh": "Yenile",
+      "retryDenied": "Yeni anahtar oluşturmak için Parolaları görüntüleme ve Parolaları kopyalama izinleri gerekir.",
+      "stuck": {
+        "title": "Eski anahtardaki öğeler",
+        "truncated": "İlk {{count}} öğe gösteriliyor.",
+        "hidden_one": "{{count}} öğe daha sizden gizli. Onu görebilen biri yeniden denemeli.",
+        "hidden_other": "{{count}} öğe daha sizden gizli. Onları görebilen biri yeniden denemeli."
+      },
+      "reason": {
+        "orphan": "Silinmiş bir öğeden kalan",
+        "undecryptable": "Şifresi çözülemiyor",
+        "uploadFailed": "Kaydedilemedi. Yeniden deneyin.",
+        "needsEditor": "Düzenleme yetkisi olan biri gerekiyor",
+        "waiting": "Sonraki deneme bekleniyor"
+      },
+      "kind": {
+        "secret": "{{name}} parolası veya anahtarı",
+        "deleted": "silinmiş bir öğe",
+        "blob": "Eski kasa verisi"
+      },
+      "unnamed": "Adsız {{type}}",
+      "type": {
+        "connection": "sunucu",
+        "identity": "kimlik",
+        "key": "SSH anahtarı",
+        "folder": "klasör",
+        "snippet": "kod parçası",
+        "snippet_folder": "kod parçası klasörü",
+        "port_forwarding_rule": "port yönlendirme kuralı"
+      },
+      "remove": "Kaldır",
+      "removeTitle": "{{name}} kaldırılsın mı?",
+      "removeBody": "Şifresi çözülemediği için bu kasanın yeni anahtar almasını engelliyor. Kaldırmak onu tüm üyeler için siler ve geri alınamaz.",
+      "removeOrphanBody": "Artık var olmayan bir öğeye ait. Kaldırmak bu kasanın yeniden yeni anahtar almasını sağlar.",
+      "removing": "Kaldırılıyor…",
+      "removed": "Kaldırıldı",
+      "note": "Yeni anahtar bundan sonra kaydedilenleri korur. Eski bir üyenin zaten kopyaladığı şeyleri geri alamaz."
+    },
+    "devicePolicy": {
+      "title": "Cihaz politikası",
+      "empty": "Her üyenin Voltius'unda ayarları kilitleyin. policy.json ile aynı biçimi kullanır.",
+      "locked_one": "{{count}} kilitli",
+      "locked_other": "{{count}} kilitli",
+      "limited_one": "{{count}} sınırlı",
+      "limited_other": "{{count}} sınırlı",
+      "updatedBy": "{{name}} güncelledi, {{time}}",
+      "updated": "Güncellendi: {{time}}",
+      "show_one": "{{count}} ayarı göster",
+      "show_other": "{{count}} ayarı göster",
+      "hide": "Ayarları gizle",
+      "import": "İçe aktar",
+      "export": "Dışa aktar",
+      "clear": "Temizle",
+      "lapsed": "Politika içe aktarmak için Business gerekir.",
+      "olderVersions": "Eski Voltius sürümleri yalnızca uygulama kilidi ayarlarını uygular.",
+      "loadFailed": "Cihaz politikası yüklenemedi.",
+      "rangeMin": "en az {{value}}",
+      "rangeMax": "en çok {{value}}",
+      "rangeBetween": "{{min}}–{{max}}",
+      "previewTitle": "Ekip politikasını içe aktar",
+      "fixErrors_one": "Dosyadaki {{count}} hatayı düzeltip yeniden içe aktarın. Uyarılar kaydetmeyi engellemez.",
+      "fixErrors_other": "Dosyadaki {{count}} hatayı düzeltip yeniden içe aktarın. Uyarılar kaydetmeyi engellemez.",
+      "warningsOnly": "Uyarılar kaydetmeyi engellemez.",
+      "replaces": "Kaydetmek, her üyenin Voltius'undaki ekip politikasını değiştirir.",
+      "save": "Politikayı kaydet",
+      "saving": "Ekip politikası kaydediliyor…",
+      "saved": "Ekip politikası kaydedildi",
+      "clearTitle": "Ekip politikası temizlensin mi?",
+      "clearMessage": "Her üyenin Voltius'u kendi ayarlarına döner. Bu, yukarıdaki uygulama kilidi sınırlarını da kaldırır.",
+      "clearConfirm": "Politikayı temizle",
+      "clearing": "Ekip politikası temizleniyor…",
+      "cleared": "Ekip politikası temizlendi",
+      "issue": {
+        "machineOnly": "yalnızca makine politikasında ayarlanabilir",
+        "defaults": "Varsayılanlar ekip politikasına değil, makine politikasına aittir",
+        "unknownKey": "bu sürüm tarafından bilinmiyor; daha yeni sürümler kullanabilir",
+        "type": "bu ayarın kabul etmediği bir değere sahip",
+        "range": "bu ayarın kabul etmediği bir aralığa sahip",
+        "newerVersion": "Bu dosya daha yeni bir Voltius sürümü gerektirir",
+        "file": "Bu dosya geçerli bir policy.json değil",
+        "plainTimeout": "yalnızca yeni Voltius sürümlerinde uygulanır. Eski sürümler bir üst sınır ister: {{example}}"
+      }
+    },
+    "joinRequests": {
+      "title": "Katılma istekleri",
+      "via": "cihaz kaydı üzerinden",
+      "reason": {
+        "approval": "Onay bekliyor",
+        "email_unverified": "E-posta doğrulaması bekliyor",
+        "seat_limit": "Boş koltuk yok"
+      },
+      "approve": "Onayla",
+      "deny": "Reddet",
+      "noSeatToast": "Boş koltuk yok. Koltuk ekleyin, sonra tekrar onaylayın.",
+      "emailUnverifiedToast": "Kişinin hâlâ e-posta adresini doğrulaması gerekiyor. Doğruladıktan sonra tekrar onaylayın.",
+      "gone": "Bu istek zaten işlendi.",
+      "toast": {
+        "approve": {
+          "pending": "İstek onaylanıyor…",
+          "done": "İstek onaylandı",
+          "failed": "İstek onaylanamadı — {{reason}}"
+        },
+        "deny": {
+          "pending": "İstek reddediliyor…",
+          "done": "İstek reddedildi",
+          "failed": "İstek reddedilemedi — {{reason}}"
+        }
+      }
+    },
+    "viewAs": {
+      "loading": "Erişim denetleniyor…",
+      "discardDraft": {
+        "title": "Kaydedilmemiş değişiklikler atılsın mı?",
+        "body": "Önizlemeden çıkmak, {{name}} erişiminde kaydedilmemiş değişikliklerinizi atar.",
+        "confirm": "At ve çık"
+      },
+      "reason": {
+        "needsBusiness": "\"Şu olarak görüntüle\" Business planına dahildir",
+        "needsManage": "\"Şu olarak görüntüle\" için Üyeleri yönet veya Rolleri yönet izni gerekir",
+        "self": "\"Şu olarak görüntüle\" kendiniz için kullanılamaz",
+        "serverTooOld": "\"Şu olarak görüntüle\" özelliğini kullanmak için sunucunuzu güncelleyin",
+        "previewing": "Önce mevcut önizlemeden çıkın"
+      },
+      "noPermission": "Bunu önizleme izniniz yok",
+      "ended": "Önizleme sona erdi: bu üye veya rol artık mevcut değil",
+      "failed": "Önizleme yüklenemedi",
+      "readOnly": "Salt okunur önizleme",
+      "lacksPermission": "Bu üyenin rolü buna izin vermiyor",
+      "locked": {
+        "auditLog": "Denetim günlüğü bu üye için kilitli",
+        "sessions": "Terminal oturumları bu üye için kilitli"
+      },
+      "viewingAs": "{{name}} olarak görüntüleniyor",
+      "viewingAsReadOnly": "{{name}} olarak görüntüleniyor · salt okunur",
+      "unsaved_one": "{{count}} kaydedilmemiş değişiklik",
+      "unsaved_other": "{{count}} kaydedilmemiş değişiklik",
+      "discard": "Vazgeç",
+      "save": "Kaydet",
+      "saveConfirm": "Kaydet…",
+      "exit": "Çık",
+      "changesAccess_one": "{{count}} üyenin erişimini değiştirir",
+      "changesAccess_other": "{{count}} üyenin erişimini değiştirir",
+      "roleTitle": "Rol {{name}}",
+      "manageRolesRequired": "Rolleri yönetme izni gerekir",
+      "builtinReadOnly": "Yerleşik roller düzenlenemez",
+      "affects_one": "{{count}} üyeyi etkiler",
+      "affects_other": "{{count}} üyeyi etkiler",
+      "roleKeyLoss": {
+        "title": "Kasa anahtarı erişimi kaldırılsın mı?",
+        "body": "{{names}} kasa anahtarını kaybedecek. Anahtar diğer herkes için yenilenir.",
+        "confirm": "Kaydet ve anahtarı yenile"
+      },
+      "hiddenFrom": "{{name}} için gizli",
+      "hiddenNoKey": "{{name}} kasa anahtarına sahip değil",
+      "cannotEdit": "Bu üyenin rolü düzenlemeye izin vermiyor",
+      "draftBadge": "Taslak",
+      "draftTag": "(taslak)",
+      "draftChange": "Taslak: {{from}} → {{to}}",
+      "ownerElsewhere": "Sahip değişiklikleri başka yerde yapılır",
+      "keyLoss": "Kaydedildiğinde {{name}} kasa anahtarını kaybeder ve anahtar diğer üyeler için yenilenir.",
+      "saveFailed": "{{total}} değişikliğin {{failed}} tanesi uygulanamadı",
+      "access": {
+        "title": "{{name}} erişimi",
+        "subtitle": "Düzenlemeler solda önizlenir. Henüz hiçbir şey kaydedilmedi.",
+        "can": "{{name}} şunları yapabilir",
+        "allPermissions": "Tüm izinler…"
+      },
+      "step": {
+        "overrides": "İzin geçersiz kılmaları",
+        "addRole": "{{role}} ekle",
+        "removeRole": "{{role}} kaldır"
+      },
+      "level": {
+        "hidden": "Gizli",
+        "view": "Salt görüntüleme",
+        "connect": "Bağlanabilir",
+        "edit": "Düzenleyebilir"
+      },
+      "secrets": {
+        "yes": "Gizli bilgiler görünür",
+        "no": "Gizli bilgiler gizli"
+      },
+      "why": {
+        "noVaultKey": "{{name}} kasa anahtarına sahip değil, bu yüzden bu kasadaki hiçbir şey açılamaz",
+        "as": "{{name}} olarak",
+        "gets": "{{name}} burada neler alıyor",
+        "addsUp": "Nasıl toplanıyor",
+        "order": "Sırayla uygulanır: herkes, sonra {{name}} kullanıcısının rolleri, sonra {{name}}. Her adımda bir izin, önceki reddi geri alabilir; {{name}} kullanıcısının kendi ekip genelindeki reddi her zaman kazanır.",
+        "decidedByServer": "Sunucu tarafından belirlendi",
+        "notGranted": "{{name}} kullanıcısının hiçbir rolü buna izin vermiyor",
+        "someRole": "Rollerinden biri",
+        "thisItem": "bu öğe",
+        "editRules": "{{folder}} kurallarını düzenle",
+        "editRulesLocked": "{{folder}} kurallarını düzenlemek için Rolleri yönet izni gerekir",
+        "editRulesUnavailable": "{{folder}} kuralları burada düzenlenemez",
+        "editAccess": "{{name}} erişimini düzenle",
+        "step": {
+          "roles_one": "{{roles}} rolüyle izin verildi",
+          "roles_other": "{{roles}} rolleriyle izin verildi",
+          "teamAllow": "{{name}} için ekip genelinde izinli",
+          "teamDeny": "{{name}} için ekip genelinde reddedildi",
+          "administrator": "{{name}} Yönetici iznine sahip",
+          "everyoneDeny": "{{folder}} üzerinde herkes reddedildi",
+          "everyoneAllow": "{{folder}} üzerinde herkese izin verildi",
+          "rolesDeny_one": "{{folder}} üzerinde {{roles}} reddedildi",
+          "rolesDeny_other": "{{folder}} üzerinde {{roles}} reddedildi",
+          "rolesAllow_one": "{{folder}} üzerinde {{roles}} için izin verildi",
+          "rolesAllow_other": "{{folder}} üzerinde {{roles}} için izin verildi",
+          "memberDeny": "{{folder}} üzerinde {{name}} reddedildi",
+          "memberAllow": "{{folder}} üzerinde {{name}} için izin verildi",
+          "teamDenyLast": "{{name}} kullanıcısının kendi ekip genelindeki reddi {{folder}} kuralına üstün gelir",
+          "noView": "{{name}} için gizli, bu yüzden başka hiçbir şey uygulanmaz",
+          "needsConnect": "Gizli bilgiler Bağlan gerektirir; {{name}} burada buna sahip değil",
+          "ruleNotShown": "{{folder}} üzerindeki bir kuralla belirlendi"
+        }
+      },
+      "viewAs": "Şu olarak görüntüle",
+      "previewAsRole": "Rol olarak önizle",
+      "menuItem": "{{name}} olarak görüntüle",
+      "summary": {
+        "title": "{{name}} kullanıcısının nelere erişebildiğini görün",
+        "counts": "{{hosts}} sunucu · {{snippets}} snippet · {{keys}} anahtar · {{hidden}} gizli"
+      }
     }
   }
 }

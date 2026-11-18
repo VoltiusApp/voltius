@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { filterIconOptions, getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, glossyTileStyle } from "@/utils/icons";
+import { choiceHover } from "@/components/shared/selectableChip";
 import { PickerSearch } from "@/components/shared/pickerParts";
 
 /** Distro/icon chooser body: search + grid of CONNECTION_ICON_OPTIONS, hosted in a
@@ -51,7 +52,7 @@ export function DistroIconPicker({
                 key={option.id}
                 type="button"
                 onClick={() => { onPick(option.id); onClose(); }}
-                className="flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-colors"
+                className={`flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-colors${choiceHover(selected)}`}
                 style={{
                   background: selected
                     ? "color-mix(in srgb, var(--t-accent) 18%, var(--t-bg-input))"
@@ -61,13 +62,11 @@ export function DistroIconPicker({
                 onMouseEnter={(e) => {
                   if (!selected) {
                     e.currentTarget.style.background = "var(--t-bg-input-hover)";
-                    e.currentTarget.style.borderColor = "var(--t-border-hover)";
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!selected) {
                     e.currentTarget.style.background = "var(--t-bg-input)";
-                    e.currentTarget.style.borderColor = "var(--t-border)";
                   }
                 }}
                 title={option.label}

@@ -17,6 +17,16 @@ export function changelogSection(changelog, version) {
   return body.length ? body.join("\n") : null;
 }
 
+/** Sections from `version` down to, but not including, `since` (newest first). */
+export function changelogSince(changelog, version, since) {
+  const heads = [...changelog.matchAll(/^## \[([^\]]+)\]/gm)].map((m) => m[1]);
+  const from = heads.indexOf(version);
+  if (from < 0) return null;
+  const to = since ? heads.indexOf(since, from) : -1;
+  const sections = heads.slice(from, to > from ? to : from + 1).map((v) => changelogSection(changelog, v));
+  return sections.filter(Boolean).join("\n") || null;
+}
+
 const ISSUE_REFS = /\s*\((?:#\d+(?:[–-]#?\d+)?(?:,\s*)?)+\)/g;
 
 function plain(text) {

@@ -1,6 +1,10 @@
 {
   "settings": {
     "terminal": {
+      "commandHistory": {
+        "title": "Komut Geçmişi",
+        "desc": "Terminallerde çalıştırdığınız komutları hatırlar. Bir satır yalnızca terminal onu geri gösterdiğinde saklanır; bu nedenle gizli istemlere yazılan parolalar asla kaydedilmez. Boşlukla başlayan satırlar asla kaydedilmez. Kapatmak kaydı durdurur; kaydedilenler, Geçmiş panelinden temizleyene kadar kalır."
+      },
       "heading": "Terminal davranışı",
       "preferredShell": {
         "title": "Tercih edilen kabuk"
@@ -57,10 +61,30 @@
       }
     },
     "appearance": {
+      "marketplace": {
+        "installedLabel": "Market",
+        "available": "Marketten",
+        "get": "Al",
+        "remove": "Kaldır",
+        "fromSource": "{{source}} kaynağından",
+        "desktopOnly": "Yalnızca masaüstü",
+        "partOfPlugin": "{{plugin}} eklentisinin parçası. Eklentiler bölümünden yönetin.",
+        "browseAll": "Markette tümüne göz at",
+        "loading": "Temalar yükleniyor…",
+        "unreachable_one": "{{count}} market erişilemiyor",
+        "unreachable_other": "{{count}} market erişilemiyor"
+      },
       "themeActions": "Tema işlemleri",
       "interface": "Arayüz",
       "language": {
         "title": "Dil"
+      },
+      "timeFormat": {
+        "title": "Saat biçimi",
+        "desc": "Uygulama genelinde saatlerin nasıl gösterileceği.",
+        "auto": "Otomatik (dile göre)",
+        "12h": "12 saat",
+        "24h": "24 saat"
       },
       "groupTabsByHost": {
         "title": "Sekmeleri ana makineye göre grupla",
@@ -279,7 +303,7 @@
       "title": "Ayarlar",
       "close": "Ayarları kapat",
       "back": "Geri",
-      "openHint": "Açmak için Ctrl+,",
+      "openHint": "Açmak için {{shortcut}}",
       "expandPluginGroup": "Eklenti ayarlarını genişlet",
       "collapsePluginGroup": "Eklenti ayarlarını daralt"
     },
@@ -306,6 +330,15 @@
         "unknown": "Bilinmiyor"
       },
       "sessionSecurity": {
+        "rememberPassword": {
+          "toggle": "Ana parolayı hatırla",
+          "desc": "Kasanızı açılışta parola sormadan açar. Bu açıkken parola bu cihazın sistem anahtar zincirinde saklanır; Linux ve Windows'ta sizin hesabınızla çalışan diğer programlar onu oradan okuyabilir. Her açılışta yazmak için kapatın.",
+          "enableTitle": "Ana parolanızı hatırlayın",
+          "enableBody": "Ana parolanızı bu cihazın sistem anahtar zincirinde saklamak için girin.",
+          "systemAuthNeedsIt": "Bu cihazda \"Ana parolayı hatırla\" gerekir. Bu olmadan Voltius ana parolanızı açılışta ve kasa kilitlendikten sonra sorar; sistem kimlik doğrulamasıyla yalnızca kilit ekranı açılır.",
+          "removeFailed": "Kayıtlı ana parola sistem anahtar zincirinden kaldırılamadı.",
+          "storeFailed": "Ana parola sistem anahtar zincirine kaydedilemedi."
+        },
         "title": "Oturum Güvenliği",
         "autoLockLabel": "Hareketsizlikten sonra otomatik kilitle",
         "autoLockDesc": "Voltius'u bu kadar hareketsizlikten sonra ya da uygulamadan ayrıldığınız anda kilitler.",
@@ -316,6 +349,8 @@
           "30min": "30 dakika",
           "1h": "1 saat",
           "4h": "4 saat",
+          "minutes_one": "{{count}} dakika",
+          "minutes_other": "{{count}} dakika",
           "immediately": "Hemen"
         },
         "needsSystemAuth": "Ana parolası olmayan bir hesabı kilitlemek için sistem kimlik doğrulamasını açın.",
@@ -323,8 +358,7 @@
         "policy": {
           "timeout": "{{teams}} ilkesi: en fazla {{duration}}.",
           "timeoutImmediately": "{{teams}} ilkesi: Voltius'tan çıkınca hemen kilitle.",
-          "vault": "{{teams}} ilkesi: \"Kasayı kilitle\" zorunlu.",
-          "yourTeam": "Ekibinizin"
+          "vault": "{{teams}} ilkesi: \"Kasayı kilitle\" zorunlu."
         },
         "lockAction": {
           "label": "Kilitlerken",
@@ -417,6 +451,45 @@
         "done": "Tamam",
         "changing": "Değiştiriliyor…",
         "changeBtn": "Parolayı değiştir"
+      },
+      "sessions": {
+        "title": "Oturum açık cihazlar",
+        "loading": "Cihazlar yükleniyor…",
+        "empty": "Henüz gösterilecek cihaz yok.",
+        "unknownDevice": "Bilinmeyen cihaz",
+        "thisDevice": "Bu cihaz",
+        "cli": "CLI",
+        "signedIn": "Oturum açıldı: {{date}}",
+        "lastActive": "Etkin: {{ago}}",
+        "signOut": "Oturumu kapat",
+        "signOutNamed": "{{name}} oturumunu kapat",
+        "signOutOthers": "Diğer cihazlarda oturumu kapat",
+        "signOutEverywhere": "Her yerde oturumu kapat",
+        "working": "Oturum kapatılıyor…",
+        "retry": "Yeniden dene",
+        "note": "Bir cihazda oturumu kapatmak hesabınıza erişimini sonlandırır; üzerindeki veriler silinmez. Bu güncellemeden önce oturum açmış cihazlar, oturumlarını bir sonraki yenilemelerinden sonra burada görünür.",
+        "offline": "Çevrimdışısınız.",
+        "unsupported": "Sunucunuz bunu henüz desteklemiyor.",
+        "unavailable": "Cihaz listesi yüklenmedi.",
+        "ended": "Bu cihazda oturum kapatıldı. Cihazlarınızı yönetmek için yeniden oturum açın.",
+        "confirm": {
+          "one": {
+            "title": "{{name}} oturumu kapatılsın mı?",
+            "message": "{{name}} hesabınıza erişimini kaybeder ve yeniden oturum açması gerekir. Üzerindeki veriler silinmez."
+          },
+          "this": {
+            "title": "Bu cihazda oturum kapatılsın mı?",
+            "message": "Bu cihaz, yeniden oturum açana kadar eşitlemeyi durdurur. Verileri burada kalır."
+          },
+          "others": {
+            "title": "Diğer cihazlarda oturum kapatılsın mı?",
+            "message": "Henüz listede olmayanlar dahil diğer tüm cihazların yeniden oturum açması gerekir. Bu cihazda oturum açık kalır. Üzerlerindeki veriler silinmez."
+          },
+          "all": {
+            "title": "Her yerde oturum kapatılsın mı?",
+            "message": "Bu cihaz dahil tüm cihazların yeniden oturum açması gerekir. Üzerlerindeki veriler silinmez."
+          }
+        }
       },
       "twoFactor": {
         "label": "İki adımlı doğrulama",
@@ -525,23 +598,38 @@
         "seatsUsed": "{{used}} / {{total}} kullanılıyor",
         "upgradeToPro": "Bulut eşitleme ve daha fazlasının kilidini açmak için yükseltin",
         "upgrade": "Yükselt",
-        "upgradeToTeams": "Teams'i {{days}} gün ücretsiz deneyin: ekibiniz için paylaşılan kasalar ve roller. Kart gerekir.",
-        "teamsButton": "Ücretsiz dene →",
+        "upgradeToTeams": "Teams'i {{days}} gün ücretsiz deneyin — kredi kartı gerekmez",
+        "teamsButton": "Denemeyi başlat",
+        "activateTrial": "14 günlük Pro'yu etkinleştir",
+        "activate": "Etkinleştir",
+        "upgradeToTeamsPlain": "Teams'e geçin: ekibiniz için paylaşılan kasalar ve roller.",
         "viewAllPlans": "Tüm planları gör →",
+        "everythingIn": "{{plan}} planındaki her şey, artı:",
+        "nextAdds": "{{plan}} şunları ekler:",
+        "freeForEveryone": "Herkese ücretsiz:",
         "feature": {
-          "localVault": "Yerel kasa",
-          "auditLogs": "Denetim günlükleri",
-          "gistSync": "GitHub Gist eşitleme",
+          "privateVault": "1 özel kasa",
           "localSync": "Yerel ağ eşitlemesi",
           "deviceFiles": "Cihazlarınız arasında dosya aktarımı",
-          "realtimeSync": "Gerçek zamanlı bulut eşitleme",
+          "syncPlugins": "Gist, Cloudflare ve S3 eşitleme eklentileri",
+          "cli": "Komut satırı (voltius-cli)",
+          "machinePolicy": "Toplu dağıtımlar için makine politikası",
+          "mdm": "Yönetilen yapılandırma (MDM)",
+          "auditLogs": "Yerel denetim günlükleri",
+          "cloudSync": "Cihazlarınız hiç aynı anda çevrimiçi olmasa bile bulut eşitleme",
+          "cloudBackup": "Voltius Cloud'da şifreli yedek",
+          "crossDeviceSessions": "Cihazlar arası oturumlar",
           "unlimitedVaults": "Sınırsız özel kasa",
-          "terminalSharing": "Terminal paylaşımı (1 oturum · 1 konuk)",
-          "teamVaults": "Paylaşılan ekip kasaları",
-          "teamSharing": "Ekip paylaşımı (5 oturum · 10 konuk)",
-          "seats": "Lisanslar (satın alınan kadar)",
-          "lockPolicy": "Ekip kilit politikası (otomatik kilit sınırı, Kasayı kilitle)",
-          "granularPermissions": "Özel roller, üye ve nesne bazlı izinler"
+          "terminalSharing_one": "Terminal paylaşımı: 1 oturum, 1 konuk",
+          "terminalSharing_other": "Terminal paylaşımı: {{count}} oturum, her birinde {{guests}} konuk",
+          "teamVaults": "Paylaşılan ekip kasaları ve davetler",
+          "builtInRoles": "Yerleşik roller",
+          "teamAuditLogs": "Ekip denetim günlükleri",
+          "granularPermissions": "Özel roller, üye ve nesne bazlı izinler, Şu olarak görüntüle önizlemesiyle",
+          "teamPolicy": "Ekip politikası: herhangi bir ayarı tüm üyeler için kilitleyin",
+          "enrolment": "Toplu dağıtımlar için cihaz kayıt belirteçleri",
+          "commercialLicense": "Kendi sunucunuzda barındırma için ticari lisans",
+          "prioritySupport": "Öncelikli destek"
         }
       },
       "buySeats": {
@@ -623,6 +711,10 @@
         "port-forwarding-rule": {
           "label": "Port Yönlendirme",
           "sub": "Kaydedilmiş tünel kuralları"
+        },
+        "plugin": {
+          "label": "Eklentiler",
+          "sub": "Yüklü eklentiler"
         }
       },
       "settingsTitle": "Ayarlar",
@@ -665,6 +757,34 @@
         "deviceDefault": "cihaz varsayılanı",
         "yourChoice": "seçiminiz",
         "resume": "Eşitlemeyi sürdür"
+      },
+      "devices": {
+        "title": "Cihazlarınız",
+        "footer": "Her cihaz kendi şifreli kopyasını yükler. Bu liste, bu cihazın her birinin son kopyasını okuyup okuyamadığını gösterir.",
+        "empty": "Henüz başka bir cihaz eşitlenmedi.",
+        "unnamed": "Cihaz {{id}}",
+        "state": {
+          "synced": "Eşitlendi",
+          "pending": "Sonraki eşitleme bekleniyor",
+          "unavailable": "İndirilemedi",
+          "unavailableStatus": "İndirilemedi (HTTP {{status}})",
+          "undecryptable": "Şifresi çözülemiyor: bu cihazda olmayan bir anahtarla şifrelenmiş",
+          "unreadable": "Kopyası bozuk ve okunamıyor"
+        },
+        "hint": {
+          "unavailable": "Genellikle geçicidir. Voltius sonraki eşitlemede yeniden dener.",
+          "undecryptable": "O cihaz hâlâ eski bir kasa anahtarı kullanıyor olabilir. Yeni bir kopya yüklemesi için o cihazda Voltius'u açın ya da artık kullanmıyorsanız buradan kaldırın.",
+          "unreadable": "Yeni bir kopya yüklemesi için o cihazda Voltius'u açın ya da artık kullanmıyorsanız buradan kaldırın."
+        },
+        "changed": "Değişti: {{time}}",
+        "lastSynced": "Okundu: {{time}}",
+        "neverSynced": "Hiç okunmadı",
+        "retry": "Yeniden dene",
+        "retryNone": "Yeniden denenecek bir şey yok",
+        "remove": "Kaldır",
+        "removeTitle": "{{name}} bulut eşitlemeden kaldırılsın mı?",
+        "removeBody": "Şifreli kopyası sunucudan silinir. Bu cihazın ondan zaten eşitlediği veriler kalır. O cihazı hâlâ kullanıyorsanız, bir sonraki eşitlemede yeni bir kopya yükler.",
+        "removeFailed": "Cihaz kaldırılamadı: {{error}}"
       }
     },
     "vaults": {
@@ -1074,6 +1194,9 @@
       }
     },
     "toggleDefs": {
+      "commandHistory": {
+        "label": "Komut Geçmişi"
+      },
       "cursorBlink": {
         "label": "İmleç Yanıp Sönmesi"
       },
@@ -1263,6 +1386,22 @@
     },
     "plugins": {
       "categoryLabel": "Eklenti",
+      "sync": {
+        "installedOne": "{{plugin}}, {{device}} cihazından yüklendi",
+        "installedOneUnknown": "{{plugin}}, başka bir cihazdan yüklendi",
+        "installedMany": "Diğer cihazlarınızdan {{count}} eklenti yüklendi",
+        "removedOne": "{{plugin}} kaldırıldı ({{device}} cihazında kaldırılmıştı)",
+        "removedOneUnknown": "{{plugin}} kaldırıldı (başka bir cihazda kaldırılmıştı)",
+        "removedMany": "{{count}} eklenti kaldırıldı (diğer cihazlarınızda kaldırılmıştı)",
+        "notHere": "Bu cihazda olmasın",
+        "keepHere": "Bu cihazda tut",
+        "blocked": {
+          "localSource": "Bir dosyadan veya URL'den yüklendi, bu yüzden diğer cihazlar alamaz",
+          "managed": "Kuruluşunuz tarafından yönetiliyor",
+          "typeOff": "Eklenti eşitleme, Eşitleme ayarlarında kapalı",
+          "noChannel": "Eklentileri eşitlemek için eşitlemeyi açın veya yerel bir eşitleme grubuna katılın"
+        }
+      },
       "tabs": {
         "installed": "Kurulu ({{count}})",
         "browse": "Göz at",
@@ -1283,6 +1422,7 @@
         "sourceLocal": "Yerel",
         "sourceUrl": "URL",
         "sourceInstalled": "Kurulu",
+        "sourceOrganization": "Kuruluş",
         "unverified": "Doğrulanmamış",
         "update": "Güncelle",
         "updating": "Güncelleniyor…",
@@ -1302,6 +1442,7 @@
         "addSourcePlaceholder": "https://example.com/plugins.json",
         "add": "Ekle",
         "installedBadge": "Kurulu",
+        "installsOff": "Kuruluşunuz eklenti kurmayı kapattı.",
         "byAuthor": "Geliştirici: {{author}} · v{{version}}",
         "noCatalog": "Katalogda eklenti yok.",
         "noResults": "Sonuç yok.",
@@ -1400,6 +1541,7 @@
             "label": "Dosya yaz ve taşı",
             "description": "Kayıtlı SSH/FTP sunucularınızda ve bu bilgisayarda dosya oluşturur, yeniden adlandırır, üzerine yazar ve siler; bunlar arasında dosya kopyalar. Bu, verileri kalıcı olarak yok edebilir."
           },
+          "hostExec": { "label": "Sunucularınızda herhangi bir komut çalıştırma", "description": "Açık olan herhangi bir sunucuda ve bu bilgisayarda sizin adınıza herhangi bir komut çalıştırır ve çıktısını okur. Bu tam kabuk erişimidir: gizli bilgileri okuyabilir, yapılandırmayı değiştirebilir ve verileri kalıcı olarak silebilir." },
           "audit": {
             "label": "Denetim olayları kaydet",
             "description": "Denetim günlüğünüze, yaptığı işlemleri açıklayan kayıtlar ekler. Ekip kasasındaki bir sunucu için bu kayıtlar o ekibin sunucusuna da gönderilir."
@@ -1618,6 +1760,27 @@
           }
         }
       }
+    },
+    "search": {
+      "placeholder": "Ayarlarda ara",
+      "clear": "Aramayı temizle",
+      "changed": "Değiştirilenler",
+      "changedTitle": "Varsayılandan farklı olanlar",
+      "results_one": "{{count}} sonuç",
+      "results_other": "{{count}} sonuç",
+      "changedOnly": "Yalnızca değiştirilenler",
+      "open": "Aç",
+      "openSection": "{{section}} bölümünü aç",
+      "undo": "Geri al",
+      "resetAll": "Tümünü sıfırla",
+      "resetAllConfirm_one": "{{count}} ayar sıfırlansın mı? Ekibin yönettiği ayarlar, güvenlik ve eşitleme ayarları korunur.",
+      "resetAllConfirm_other": "{{count}} ayar sıfırlansın mı? Ekibin yönettiği ayarlar, güvenlik ve eşitleme ayarları korunur.",
+      "cancel": "İptal",
+      "emptyChanged": "Tüm ayarlar varsayılan değerinde.",
+      "emptyQuery": "“{{query}}” ile eşleşen ayar yok.",
+      "emptyQueryChanged": "“{{query}}” ile eşleşen değiştirilmiş ayar yok.",
+      "changedSub_one": "{{count}} ayar varsayılandan farklı",
+      "changedSub_other": "{{count}} ayar varsayılandan farklı"
     }
   }
 }

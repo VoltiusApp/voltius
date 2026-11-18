@@ -73,6 +73,13 @@ export function departConsequences(mode: DepartMode, names: string[]): DepartCon
   };
 }
 
+/** The builtin role an invitation can restore exactly, or null when the member's roles don't fit in one. */
+function invitableRole(teamId: string, roleIds: string[]): string | null {
+  if (roleIds.length !== 1) return null;
+  const role = (useTeamStore.getState().rolesByTeam[teamId] ?? []).find((r) => r.id === roleIds[0]);
+  return role?.is_builtin && role.name !== "owner" ? role.name : null;
+}
+
 /**
  * The single removal path. Every call site — detail panel, context menu, bulk
  * selection and leave — routes through here, so the confirmation copy, the undo
@@ -85,45 +92,63 @@ export async function departMembers(
 ): Promise<void> {
   if (members.length === 0) return;
 
-  const snapshots = members.map((m) => ({ user_id: m.user_id, role_ids: [...m.role_ids] }));
+  const snapshots = members.map((m) => ({ user_id: m.user_id, role: invitableRole(teamId, m.role_ids), label: memberLabel(m, "") }));
   const count = members.length;
-  const names = members.map((m) => memberLabel(m, "")).join(", ");
+  const names = snapshots.map((s) => s.label).join(", ");
   const store = () => useTeamStore.getState();
 
   if (opts.mode === "leave") markSelfDeparture(teamId, "leave");
 
-  await runTeamAction({
+  const { removed } = await runTeamAction({
     pending: opts.mode === "leave"
       ? i18n.t("members.toast.leavingTeam")
       : i18n.t("members.toast.removingMember", { name: names }),
     success: opts.mode === "leave"
       ? i18n.t("members.toast.leftTeam")
       : i18n.t("members.toast.memberRemoved", { name: names, count }),
+    warning: ({ removed, failed }) => failed.length === 0 ? null : i18n.t("members.error.removePartial", {
+      removed: removed.map((s) => s.label).join(", "),
+      failed: failed.map((f) => f.label).join(", "),
+      reason: userFacingReason(failed[0].error),
+    }),
     // Same failure copy as the single-member helper in vaultShare; this path
     // keeps one toast for the whole batch rather than nesting N of them.
     error: (e: Error) =>
       i18n.t("members.error.removeFailed", { name: names, reason: userFacingReason(e) }),
     run: async () => {
-      for (const m of members) await store().removeMember(teamId, m.user_id);
+      const removed: typeof snapshots = [];
+      const failed: { label: string; error: Error }[] = [];
+      for (const s of snapshots) {
+        try {
+          await store().removeMember(teamId, s.user_id);
+          removed.push(s);
+        } catch (e) {
+          failed.push({ label: s.label, error: e instanceof Error ? e : new Error(String(e)) });
+        }
+      }
+      if (removed.length === 0) throw failed[0].error;
+      if (failed.length > 0) await store().loadMembers(teamId).catch(() => {});
+      return { removed, failed };
     },
   });
 
   // No undo for leaving: re-adding yourself to a team you left is not a call
   // you are authorised to make.
   if (opts.mode === "remove") {
+    const removedNames = removed.map((s) => s.label).join(", ");
     useHistoryStore.getState().push({
-      label: i18n.t("members.history.remove", { name: names, count }),
+      label: i18n.t("members.history.remove", { name: removedNames, count: removed.length }),
       undo: async () => {
-        for (const s of snapshots) {
-          await store().addMemberById(teamId, s.user_id);
-          for (const rid of s.role_ids) {
-            await store().assignMemberRole(teamId, s.user_id, rid).catch(() => {});
-          }
+        // An invitation carries one builtin role, applied on accept; anything else would come back as the default.
+        const unrestorable = removed.filter((s) => !s.role).map((s) => s.label);
+        if (unrestorable.length > 0) {
+          throw new Error(i18n.t("members.error.undoRolesNotRestorable", { name: unrestorable.join(", ") }));
         }
+        for (const s of removed) if (s.role) await store().addMemberById(teamId, s.user_id, s.role);
         await store().loadMembers(teamId);
       },
       redo: async () => {
-        for (const s of snapshots) await store().removeMember(teamId, s.user_id);
+        for (const s of removed) await store().removeMember(teamId, s.user_id);
         await store().loadMembers(teamId);
       },
     });

@@ -15,6 +15,8 @@
     "port-in-use": "Port {{port}} and the ports after it are already in use ({{attempts}} tried)",
     "bind-address-unavailable": "This computer has no address {{address}}",
     "remote-forward-denied": "The server refused the remote forward — the port may already be in use there, or forwarding is not allowed",
+    "ssh-legacy-algorithms-required": "The server only offers older algorithms that are off by default ({{offered}}). Turn on \"Legacy Algorithms\" for this host to connect.",
+    "ssh-no-common-algorithm": "The server only offers algorithms Voltius does not support: {{offered}}.",
     "ssh-key-rejected": "Public key authentication rejected",
     "ssh-password-rejected": "Password authentication rejected — check the username and password",
     "ssh-password-expired": "The server requires a new password — sign in once from a terminal and change it there",

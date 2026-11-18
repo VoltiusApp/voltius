@@ -1,5 +1,6 @@
-import { describe, test, expect, beforeEach } from "vitest";
+import { describe, test, expect, beforeEach, vi } from "vitest";
 import { useLocaleStore } from "@/stores/localeStore";
+import { resetPolicy, withPolicy } from "@/test/policy";
 import { createI18nAPI, formatRelativeTime } from "./i18n";
 
 describe("createI18nAPI", () => {
@@ -16,6 +17,18 @@ describe("createI18nAPI", () => {
     api.register({ en: { greeting: "Hello" }, fr: { greeting: "Bonjour" } });
     useLocaleStore.getState().setLocale("fr");
     expect(api.t("greeting")).toBe("Bonjour");
+  });
+
+  test("onLocaleChange fires only when the effective locale changes", () => {
+    resetPolicy();
+    const cb = vi.fn();
+    const off = createI18nAPI().onLocaleChange(cb);
+    withPolicy({ "appSettings.toggles.cursor-blink": true });
+    expect(cb).not.toHaveBeenCalled();
+    withPolicy({ "appSettings.locale": "fr" });
+    expect(cb).toHaveBeenCalledExactlyOnceWith("fr");
+    off();
+    resetPolicy();
   });
 
   test("falls back to English when the active locale is missing the key", () => {

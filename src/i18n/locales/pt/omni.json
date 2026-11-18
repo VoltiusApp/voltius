@@ -1,12 +1,12 @@
 {
   "omni": {
-    "searchPlaceholder": "Buscar hosts, chaves, identidades e comandos…",
+    "searchPlaceholder": "Buscar hosts, comandos e configurações, ou digite user@host",
     "categoryBadges": {
       "all": "Todos",
-      "join": "participar> Sessões",
-      "snippets": "> Snippets",
-      "marketplace": "m> Marketplace",
-      "settings": "@ Configurações"
+      "join": "Sessões da equipe",
+      "snippets": "Snippets",
+      "marketplace": "Plugins",
+      "settings": "Configurações"
     },
     "sections": {
       "quickConnect": "Conexão Rápida",
@@ -22,13 +22,12 @@
       "settings": "Configurações",
       "joinByInviteCode": "Participar por código de convite",
       "importExport": "Importar / Exportar",
-      "availablePlugins": "Plugins disponíveis"
+      "availablePlugins": "Plugins disponíveis",
+      "enrollmentToken": "Token de inscrição"
     },
-    "settingsDescription": "Configurações",
     "pluginSettingsDescription": "Configurações de Plugin",
     "pluginNotInstalled": "Não instalado",
     "editHost": "Editar host",
-    "deleteHost": "Excluir host",
     "resume": "Retomar",
     "join": "Participar",
     "participantCount_one": "{{count}} pessoa",
@@ -50,7 +49,10 @@
       "configurePortAndBaud": "Configurar porta e baud",
       "localShellNamed": "Shell local ({{shell}})",
       "localShell": "Shell local",
-      "openLocalTerminal": "Abrir um terminal local"
+      "openLocalTerminal": "Abrir um terminal local",
+      "connectToHost": "Conectar a {{host}}",
+      "invalidPort": "Porta inválida",
+      "portRange": "As portas vão de 1 a 65535"
     },
     "localShellDefault": "Shell local",
     "emptyState": {
@@ -119,7 +121,43 @@
       "exportSnippets": "Exportar snippets…",
       "exportPortForwarding": "Exportar regras de encaminhamento de porta…",
       "exportThemes": "Exportar temas personalizados…",
-      "importThemes": "Importar temas…"
+      "importThemes": "Importar temas…",
+      "disconnectAllNone": "Nenhuma sessão aberta para desconectar",
+      "disconnectAllConfirm_one": "Desconectar {{count}} sessão? Pressione Enter de novo para confirmar",
+      "disconnectAllConfirm_many": "Desconectar {{count}} sessões? Pressione Enter de novo para confirmar",
+      "disconnectAllConfirm_other": "Desconectar {{count}} sessões? Pressione Enter de novo para confirmar",
+      "disconnectAllConfirmKept_one": "Desconectar {{count}} sessão? {{kept}} Pressione Enter de novo para confirmar",
+      "disconnectAllConfirmKept_many": "Desconectar {{count}} sessões? {{kept}} Pressione Enter de novo para confirmar",
+      "disconnectAllConfirmKept_other": "Desconectar {{count}} sessões? {{kept}} Pressione Enter de novo para confirmar",
+      "disconnectAllKept_one": "{{count}} aba bloqueada continua aberta.",
+      "disconnectAllKept_many": "{{count}} abas bloqueadas continuam abertas.",
+      "disconnectAllKept_other": "{{count}} abas bloqueadas continuam abertas.",
+      "disconnectAllLocked_one": "A única sessão aberta está bloqueada. Desbloqueie-a para desconectar",
+      "disconnectAllLocked_many": "As {{count}} sessões abertas estão bloqueadas. Desbloqueie-as para desconectar",
+      "disconnectAllLocked_other": "As {{count}} sessões abertas estão bloqueadas. Desbloqueie-as para desconectar",
+      "lockTab": "Bloquear Aba",
+      "unlockTab": "Desbloquear Aba",
+      "pinTab": "Fixar Aba",
+      "unpinTab": "Desafixar Aba",
+      "noActiveTab": "Nenhuma aba de terminal ativa"
+    },
+    "dialogLabel": "Paleta de comandos",
+    "resultCount_one": "{{count}} resultado",
+    "resultCount_many": "{{count}} resultados",
+    "resultCount_other": "{{count}} resultados",
+    "snippetNeedsSession": "Abra um terminal primeiro e depois execute o snippet daqui",
+    "joinFailed": "Não foi possível entrar na sessão: {{reason}}",
+    "hints": {
+      "move": "Mover",
+      "open": "Abrir",
+      "edit": "Editar host",
+      "scope": "Escopo",
+      "close": "Fechar"
+    },
+    "enrollToken": {
+      "title": "Entrar em {{team}} com este token de inscrição",
+      "titleUnknown": "Entrar numa empresa com este token de inscrição",
+      "detailApproval": "{{host}} · Um administrador aprova cada pedido"
     }
   }
 }

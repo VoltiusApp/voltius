@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Icon } from "@iconify/react";
 import { MiniAvatar } from "@/components/shared/AvatarStack";
 import type { UserSearchResult } from "@/hooks/useUserSearch";
+import { usePopoverFade } from "@/hooks/useDelayedUnmount";
 
 interface EmailInviteOption {
   visible: boolean;
@@ -50,6 +51,7 @@ export function UserSearchField({
   const iconWidth = md ? 14 : 13;
   const showEmail = !!emailOption?.visible;
   const showDropdown = open && (results.length > 0 || showEmail || emptyLabel !== undefined);
+  const fade = usePopoverFade(showDropdown);
 
   return (
     <div className="relative">
@@ -78,10 +80,11 @@ export function UserSearchField({
         )}
       </div>
 
-      {showDropdown && (
+      {fade.mounted && (
         <div
           ref={dropdownRef}
-          className="surface-float absolute z-50 left-0 right-0 mt-1 overflow-hidden"
+          className={`surface-float absolute z-50 left-0 right-0 mt-1 overflow-hidden ${fade.className}`}
+          style={fade.style}
         >
           {results.length === 0 && emptyLabel !== undefined && !showEmail && (
             <p className="px-4 py-3 text-xs" style={{ color: "var(--t-text-dim)" }}>{emptyLabel}</p>

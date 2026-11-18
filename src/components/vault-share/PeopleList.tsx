@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
-import { roleChipColors } from "@/components/members/roleChips";
+import { RoleNamePill } from "@/components/members/roleChips";
 
 export type Person = {
   userId: string;
@@ -32,33 +32,20 @@ export function PeopleList({ people, canManage, onRemove, onRevoke, onGrantKey, 
           key={p.invitationId ?? p.userId}
           className="flex flex-col gap-1 px-3 py-2 rounded-lg bg-(--t-bg-card)"
         >
-          {/* Wraps rather than squeezes: at the popover's width, flexing a long
-              handle against the chips shredded it into a five-line column. */}
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+          <div className="flex items-center gap-2.5">
             <PresenceAvatar handle={p.label} size={26} online={p.online} />
-            {/* No truncation: read before granting access. */}
-            <span className="text-xs text-(--t-text-primary) break-all flex-1 basis-32 min-w-0">
-              {p.label}
-            </span>
-
-            {p.state === "pending" && (
-              <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full border border-dashed border-(--t-border) text-(--t-text-dim)">
-                {t("members.people.pending")}
-              </span>
-            )}
-
-            {p.roleNames.map((name) => {
-              const { color, bg } = roleChipColors(name);
-              return (
-                <span
-                  key={name}
-                  className="shrink-0 text-[10px] px-2 py-0.5 rounded-full capitalize"
-                  style={{ color, background: bg }}
-                >
-                  {name}
-                </span>
-              );
-            })}
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
+              {/* No truncation: read before granting access. */}
+              <span className="text-xs text-(--t-text-primary) break-all">{p.label}</span>
+              <div className="flex flex-wrap items-center gap-1">
+                {p.state === "pending" && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full border border-dashed border-(--t-border) text-(--t-text-dim)">
+                    {t("members.people.pending")}
+                  </span>
+                )}
+                {p.roleNames.map((name) => <RoleNamePill key={name} name={name} />)}
+              </div>
+            </div>
 
             {p.state === "pending" && (
               <button

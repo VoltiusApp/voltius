@@ -1,4 +1,5 @@
 import i18n from "@/i18n";
+import { timeFormatSetting } from "@/stores/localeStore";
 
 // Dates, numbers and sort order follow the app language, not the OS locale:
 // `toLocaleDateString()` and `Intl.*(undefined)` would show an English date
@@ -7,14 +8,14 @@ import i18n from "@/i18n";
 
 type DateInput = Date | number | string;
 
-const cache = new Map<string, Intl.DateTimeFormat | Intl.NumberFormat | Intl.Collator>();
+const cache = new Map<string, Intl.DateTimeFormat | Intl.NumberFormat | Intl.Collator | Intl.ListFormat>();
 
 /** The app language, as a BCP 47 tag for Intl. */
 export function appLocale(): string {
   return i18n.language || "en";
 }
 
-function cached<T extends Intl.DateTimeFormat | Intl.NumberFormat | Intl.Collator>(
+function cached<T extends Intl.DateTimeFormat | Intl.NumberFormat | Intl.Collator | Intl.ListFormat>(
   kind: string,
   options: object,
   make: (locale: string) => T,
@@ -31,8 +32,16 @@ function cached<T extends Intl.DateTimeFormat | Intl.NumberFormat | Intl.Collato
 
 const toDate = (d: DateInput): Date => (d instanceof Date ? d : new Date(d));
 
+const HOUR_CYCLES = { auto: undefined, "12h": "h12", "24h": "h23" } as const;
+
+function withHourCycle(options: Intl.DateTimeFormatOptions): Intl.DateTimeFormatOptions {
+  const hourCycle = options.hour ? HOUR_CYCLES[timeFormatSetting.get()] : undefined;
+  return hourCycle ? { ...options, hourCycle } : options;
+}
+
 function formatDateTimeWith(d: DateInput, options: Intl.DateTimeFormatOptions): string {
-  return cached("dt", options, (l) => new Intl.DateTimeFormat(l, options)).format(toDate(d));
+  const effective = withHourCycle(options);
+  return cached("dt", effective, (l) => new Intl.DateTimeFormat(l, effective)).format(toDate(d));
 }
 
 const DATE: Intl.DateTimeFormatOptions = { year: "numeric", month: "numeric", day: "numeric" };
@@ -40,6 +49,8 @@ const TIME: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit", s
 
 /** "Mar 4, 2026" */
 export const SHORT_DATE: Intl.DateTimeFormatOptions = { year: "numeric", month: "short", day: "numeric" };
+/** "March 4, 2026" */
+export const LONG_DATE: Intl.DateTimeFormatOptions = { year: "numeric", month: "long", day: "numeric" };
 /** "Mar 4" */
 export const MONTH_DAY: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
 /** "14:05" / "02:05 PM" */
@@ -69,6 +80,11 @@ export function formatDateTime(d: DateInput, options: Intl.DateTimeFormatOptions
 
 export function formatNumber(n: number, options: Intl.NumberFormatOptions = {}): string {
   return cached("num", options, (l) => new Intl.NumberFormat(l, options)).format(n);
+}
+
+/** "a, b and c" in the app language. */
+export function formatList(items: string[]): string {
+  return cached("list", {}, (l) => new Intl.ListFormat(l, { type: "conjunction" })).format(items);
 }
 
 /**

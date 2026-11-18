@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { touchAppSetting } from "./appSettingsTimestampStore";
+import { writeAndTouch, writeAndTouchUnlessLocked } from "./appSettingsTimestampStore";
 import { clampScrollbackLines, DEFAULT_SCROLLBACK_LINES } from "./terminalSettingsUtils";
+import { storeSetting } from "@/services/policy/effectiveCore";
 import { DEFAULT_KEYWORD_RULES, sanitizeKeywordRules, type KeywordRule } from "@/utils/keywordMatcher";
 
 export const CURSOR_STYLES = ["bar", "block", "underline"] as const;
@@ -20,7 +21,17 @@ interface TerminalSettingsStore {
 }
 
 // Every setter reports its leaf; the settings registry decides whether it syncs.
-const touchTerminal = (key: keyof TerminalSettingsStore) => touchAppSetting(`appSettings.terminal.${key}`);
+const terminalKey = (key: keyof TerminalSettingsStore) => `appSettings.terminal.${key}`;
+const unlessLocked = (key: keyof TerminalSettingsStore, write: () => void) => writeAndTouchUnlessLocked(terminalKey(key), write);
+
+const OLD_DEFAULT_SCROLLBACK_LINES = 50_000;
+
+// v0: a saved 50,000 is indistinguishable from the old default, so it follows the new one.
+export function migrateTerminalSettings(persisted: unknown, version: number): Partial<TerminalSettingsStore> {
+  const state = { ...(persisted as Partial<TerminalSettingsStore>) };
+  if (version < 1 && state.scrollbackLines === OLD_DEFAULT_SCROLLBACK_LINES) state.scrollbackLines = DEFAULT_SCROLLBACK_LINES;
+  return state;
+}
 
 export const useTerminalSettingsStore = create<TerminalSettingsStore>()(
   persist(
@@ -29,13 +40,15 @@ export const useTerminalSettingsStore = create<TerminalSettingsStore>()(
       scrollbackLines: DEFAULT_SCROLLBACK_LINES,
       cursorStyle: DEFAULT_CURSOR_STYLE,
       keywordRules: DEFAULT_KEYWORD_RULES,
-      setPreferredShell: (shell) => { set({ preferredShell: shell }); touchTerminal("preferredShell"); },
-      setScrollbackLines: (lines) => { set({ scrollbackLines: clampScrollbackLines(lines) }); touchTerminal("scrollbackLines"); },
-      setCursorStyle: (style) => { set({ cursorStyle: style }); touchTerminal("cursorStyle"); },
-      setKeywordRules: (rules) => { set({ keywordRules: sanitizeKeywordRules(rules) }); touchTerminal("keywordRules"); },
+      setPreferredShell: (shell) => unlessLocked("preferredShell", () => set({ preferredShell: shell })),
+      setScrollbackLines: (lines) => unlessLocked("scrollbackLines", () => set({ scrollbackLines: clampScrollbackLines(lines) })),
+      setCursorStyle: (style) => unlessLocked("cursorStyle", () => set({ cursorStyle: style })),
+      setKeywordRules: (rules) => writeAndTouch(terminalKey("keywordRules"), () => set({ keywordRules: sanitizeKeywordRules(rules) })),
     }),
     {
       name: "voltius-terminal-settings",
+      version: 1,
+      migrate: (persisted, version) => migrateTerminalSettings(persisted, version) as TerminalSettingsStore,
       merge: (persisted, current) => {
         const state = { ...current, ...(persisted as Partial<TerminalSettingsStore>) };
         state.scrollbackLines = clampScrollbackLines(state.scrollbackLines);
@@ -46,3 +59,7 @@ export const useTerminalSettingsStore = create<TerminalSettingsStore>()(
     },
   ),
 );
+
+export const cursorStyleSetting = storeSetting(useTerminalSettingsStore, "cursorStyle", terminalKey("cursorStyle"));
+export const preferredShellSetting = storeSetting(useTerminalSettingsStore, "preferredShell", terminalKey("preferredShell"));
+export const keywordRulesSetting = storeSetting(useTerminalSettingsStore, "keywordRules", terminalKey("keywordRules"));

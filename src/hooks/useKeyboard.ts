@@ -2,12 +2,15 @@ import { useEffect } from "react";
 import { useUIStore } from "@/stores/uiStore";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useSessionStore } from "@/stores/sessionStore";
-import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { closeSessionTabs } from "@/services/closeSession";
+import { sessionsPinnedFirst } from "@/services/tabLock";
 import { matchShortcut } from "@/stores/shortcutStore";
+import { primaryOnly } from "@/utils/primaryModifier";
 import { matchPanelShortcut } from "@/hooks/panelShortcuts";
 import { useHistoryStore } from "@/stores/historyStore";
 import { openTerminalSearch, isTerminalSearchNavKey, handleTerminalSearchNav } from "@/hooks/useTerminal";
 import { handleDuplicateShortcut } from "@/services/duplicateSession";
+import { pluginSectionIdOf } from "@/components/terminal/terminalPanels";
 
 const CLIPBOARD_TABS = new Set(["hosts", "keychain", "port-forwarding", "snippets"]);
 
@@ -20,7 +23,8 @@ export function useKeyboard() {
 
       if (matchShortcut("omni", e)) {
         e.preventDefault();
-        useUIStore.getState().setOmniOpen(true);
+        const { omniOpen, setOmniOpen } = useUIStore.getState();
+        setOmniOpen(!omniOpen);
         return;
       }
 
@@ -53,8 +57,9 @@ export function useKeyboard() {
         const BUILTIN_SEARCHABLE_SECTIONS = ["snippets", "history"];
         // Not keyed by a literal plugin section id — a plugin opts in via
         // providesPanelSearch so a squatted id can't inherit the Ctrl+F wiring.
-        const isPluginSectionSearchable = rightPanelSection.startsWith("plugin:") &&
-          usePluginStore.getState().rightPanelSections.get(rightPanelSection.slice("plugin:".length))?.providesPanelSearch === true;
+        const pluginSectionId = pluginSectionIdOf(rightPanelSection);
+        const isPluginSectionSearchable = pluginSectionId !== null &&
+          usePluginStore.getState().rightPanelSections.get(pluginSectionId)?.providesPanelSearch === true;
         if (rightPanelOpen && (BUILTIN_SEARCHABLE_SECTIONS.includes(rightPanelSection) || isPluginSectionSearchable)) {
           window.dispatchEvent(new CustomEvent("voltius:focus-panel-search"));
         } else if (activeNav === "terminal") {
@@ -105,7 +110,7 @@ export function useKeyboard() {
         }
       }
 
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key === "a") {
+      if (primaryOnly(e) && !e.shiftKey && !e.altKey && e.key === "a") {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent("voltius:select-all"));
         return;
@@ -157,31 +162,15 @@ export function useKeyboard() {
 
       if (matchShortcut("close-tab", e)) {
         e.preventDefault();
-        const { activeSessionId, disconnect, removeSession, sessions } =
-          useSessionStore.getState();
-        if (activeSessionId) {
-          const session = sessions.find((s) => s.id === activeSessionId);
-          // Clean up any active multiplayer connection first
-          const mpConn = useTeamSessionStore.getState().connections[activeSessionId];
-          if (mpConn) {
-            if (mpConn.role === "host") {
-              useTeamSessionStore.getState().stopSharing(activeSessionId).catch(() => {});
-            } else {
-              useTeamSessionStore.getState().leaveSession(activeSessionId);
-            }
-          }
-          if (session?.status === "connected" || session?.status === "connecting") {
-            disconnect(activeSessionId);
-          } else {
-            removeSession(activeSessionId);
-          }
-        }
+        const { activeSessionId } = useSessionStore.getState();
+        if (activeSessionId) closeSessionTabs([activeSessionId]);
         return;
       }
 
       if (matchShortcut("next-tab", e)) {
         e.preventDefault();
-        const { sessions, activeSessionId, setActive } = useSessionStore.getState();
+        const { activeSessionId, setActive } = useSessionStore.getState();
+        const sessions = sessionsPinnedFirst(useSessionStore.getState().sessions);
         if (sessions.length > 1 && activeSessionId) {
           const idx = sessions.findIndex((s) => s.id === activeSessionId);
           const next = sessions[(idx + 1) % sessions.length];
@@ -192,7 +181,8 @@ export function useKeyboard() {
 
       if (matchShortcut("prev-tab", e)) {
         e.preventDefault();
-        const { sessions, activeSessionId, setActive } = useSessionStore.getState();
+        const { activeSessionId, setActive } = useSessionStore.getState();
+        const sessions = sessionsPinnedFirst(useSessionStore.getState().sessions);
         if (sessions.length > 1 && activeSessionId) {
           const idx = sessions.findIndex((s) => s.id === activeSessionId);
           const prev = sessions[(idx - 1 + sessions.length) % sessions.length];

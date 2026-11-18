@@ -1,40 +1,16 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { domainOf, settingKey } from "@/services/user-data/settingKeys";
+import { isLocked, lockedBool } from "./policyStore";
+import { SYNC_SETTING_DOMAINS } from "./syncDomains";
+import { whenWritable } from "@/services/previewGuard";
 
-// ─── Registry ────────────────────────────────────────────────────────────────
-// Add new syncable object types here. SyncSection reads this automatically;
-// labels live in settings.sync.objectType.<id>.{label,sub}.
-
-export interface SyncObjectTypeDef {
-  id: string;
-}
-
-export const SYNC_OBJECT_TYPES: SyncObjectTypeDef[] = [
-  { id: "connection" },
-  { id: "identity" },
-  { id: "key" },
-  { id: "folder" },
-  { id: "snippet" },
-  { id: "port-forwarding-rule" },
-];
-
-export interface SyncSettingDomainDef {
-  /** Handler key from USER_DATA_HANDLERS. */
-  id: string;
-}
-
-// `vaults` is deliberately absent: it is tombstone-merged data, not a
-// preference, and switching it off would strand deletes on this device.
-export const SYNC_SETTING_DOMAINS: SyncSettingDomainDef[] = [
-  { id: "themes" },
-  { id: "uiPreferences" },
-  { id: "shortcuts" },
-  { id: "appSettings" },
-  { id: "recentPeople" },
-];
+export * from "./syncDomains";
 
 const TOGGLEABLE_DOMAINS = new Set(SYNC_SETTING_DOMAINS.map((d) => d.id));
+
+const flipExcluded = (excluded: string[], id: string): string[] =>
+  excluded.includes(id) ? excluded.filter((x) => x !== id) : [...excluded, id];
 
 // ─── Store ───────────────────────────────────────────────────────────────────
 
@@ -53,6 +29,7 @@ interface SyncPrefsStore {
 
   setSyncType: (typeId: string, v: boolean) => void;
   toggleExcluded: (id: string) => void;
+  setObjectsSynced: (objects: { id: string; typeId: string }[], synced: boolean) => void;
   isExcluded: (id: string) => boolean;
   isTypeSynced: (typeId: string) => boolean;
   isObjectSynced: (id: string, typeId: string) => boolean;
@@ -73,43 +50,51 @@ export const useSyncPrefsStore = create<SyncPrefsStore>()(
       paused: false,
 
       setSyncType: (typeId, v) =>
+        !isLocked(`sync.types.${typeId}`) &&
         set((s) => ({ syncTypes: { ...s.syncTypes, [typeId]: v } })),
 
-      toggleExcluded: (id) =>
-        set((s) => ({
-          excludedIds: s.excludedIds.includes(id)
-            ? s.excludedIds.filter((x) => x !== id)
-            : [...s.excludedIds, id],
-        })),
+      toggleExcluded: whenWritable((id: string) => set((s) => ({ excludedIds: flipExcluded(s.excludedIds, id) }))),
+
+      setObjectsSynced: whenWritable((objects: { id: string; typeId: string }[], synced: boolean) => {
+        const s = get();
+        const flips = objects.filter(({ id, typeId }) => s.isObjectSynced(id, typeId) !== synced);
+        set({ excludedIds: flips.reduce((excluded, { id }) => flipExcluded(excluded, id), s.excludedIds) });
+      }),
 
       isExcluded: (id) => get().excludedIds.includes(id),
 
-      isTypeSynced: (typeId) => get().syncTypes[typeId] ?? true,
+      isTypeSynced: (typeId) => lockedBool(`sync.types.${typeId}`) ?? get().syncTypes[typeId] ?? true,
 
       isObjectSynced: (id, typeId) => {
         const s = get();
-        if ((s.syncTypes[typeId] ?? true) === false) return false;
+        if (!s.isTypeSynced(typeId)) return false;
         return !s.excludedIds.includes(id);
       },
 
       setSyncSettingDomain: (id, v) =>
+        !isLocked(`sync.domains.${id}`) &&
         set((s) => ({ syncSettingDomains: { ...s.syncSettingDomains, [id]: v } })),
 
       isDomainSynced: (id) => {
         if (!TOGGLEABLE_DOMAINS.has(id)) return true;
-        return get().syncSettingDomains[id] ?? true;
+        return lockedBool(`sync.domains.${id}`) ?? get().syncSettingDomains[id] ?? true;
       },
 
       // Not folded into setSyncType/setSyncSettingDomain: a computed-key
       // generic setter needs an `as Pick<SyncPrefsStore, K>` cast, which
       // costs more than the three explicit one-liners it would replace.
       setSettingSync: (path, v) =>
+        !isLocked(`sync.settings.${path}`) &&
         set((s) => ({ settingSyncOverrides: { ...s.settingSyncOverrides, [path]: v } })),
 
       isSettingSynced: (path) => {
         const s = get();
         if (!s.isDomainSynced(domainOf(path))) return false;
-        return (s.settingSyncOverrides ?? {})[path] ?? !settingKey(path)?.deviceScoped;
+        return (
+          lockedBool(`sync.settings.${path}`) ??
+          (s.settingSyncOverrides ?? {})[path] ??
+          !settingKey(path)?.deviceScoped
+        );
       },
 
       setPaused: (v) => set({ paused: v }),

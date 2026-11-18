@@ -1,20 +1,33 @@
+import type { CSSProperties } from "react";
 import { Icon } from "@iconify/react";
+import { choiceHover, tint } from "@/components/shared/selectableChip";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import type { TeamMember, TeamRole } from "@/services/teamService";
 // Both from the service, not the hook: @/hooks/usePermission pulls teamService
 // and i18n in at runtime, which every consumer of this leaf module would then
 // have to mock.
-import { PERM_BITS, PERM_META, type Permission, type RuleSubject } from "@/services/permissions";
+import { PERM_BITS, PERM_META, type MemberReadOnlyReason, type Permission, type RuleSubject } from "@/services/permissions";
 import { memberLabel } from "@/services/memberLabel";
 
-export const ROLE_META: Record<string, { color: string; bg: string }> = {
-  owner:          { color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
-  manager:        { color: "#60a5fa", bg: "rgba(96,165,250,0.12)"  },
-  editor:         { color: "#34d399", bg: "rgba(52,211,153,0.12)"  },
-  member:         { color: "var(--t-text-secondary)", bg: "var(--t-bg-elevated)" },
-  "connect-only": { color: "#f59e0b", bg: "rgba(245,158,11,0.12)"  },
+export const ROLE_META: Record<string, { color: string }> = {
+  owner:          { color: "#a78bfa" },
+  manager:        { color: "#60a5fa" },
+  editor:         { color: "#34d399" },
+  member:         { color: "var(--t-text-secondary)" },
+  "connect-only": { color: "#f59e0b" },
 };
+
+export const READONLY_REASON_KEYS: Record<MemberReadOnlyReason, string> = {
+  noManage: "members.permissions.readOnlyNoManage",
+  owner: "members.permissions.readOnlyOwner",
+  self: "members.permissions.readOnlySelf",
+  higherRole: "members.permissions.readOnlyHigherRole",
+  notHeld: "members.permissions.readOnlyNotHeld",
+};
+
+export const readOnlyReasonText = (t: TFunction, kind: MemberReadOnlyReason | null): string | null =>
+  kind ? t(READONLY_REASON_KEYS[kind]) : null;
 
 /**
  * A role's display name. The built-in roles arrive from the server as fixed
@@ -23,6 +36,19 @@ export const ROLE_META: Record<string, { color: string; bg: string }> = {
  */
 export function roleLabel(t: TFunction, name: string): string {
   return Object.prototype.hasOwnProperty.call(ROLE_META, name) ? t(`members.roleName.${name}`) : name;
+}
+
+export function roleChangeCopy(t: TFunction, role: TeamRole, member: TeamMember, assigning: boolean) {
+  const vars = { role: roleLabel(t, role.name), name: memberLabel(member) };
+  return assigning
+    ? { pending: t("members.toast.assigningRoleTo", vars), success: t("members.toast.roleAssignedTo", vars), label: t("members.history.assignRole", vars) }
+    : { pending: t("members.toast.removingRoleFrom", vars), success: t("members.toast.roleRemovedFrom", vars), label: t("members.history.removeRole", vars) };
+}
+
+export function rolesGranting(t: TFunction, roles: TeamRole[], roleIds: string[], locked: boolean, permission: Permission): string[] {
+  return roles
+    .filter((r) => (!locked || r.is_builtin) && roleIds.includes(r.id) && (r.permissions & PERM_BITS[permission]) !== 0)
+    .map((r) => roleLabel(t, r.name));
 }
 
 export function ruleSubjectLabel(t: TFunction, s: RuleSubject, roles: TeamRole[], members: TeamMember[]): string {
@@ -36,9 +62,24 @@ export function ruleSubjectLabel(t: TFunction, s: RuleSubject, roles: TeamRole[]
  * then the caller's fallback.
  */
 export function roleChipColors(name: string, override?: string | null, fallback = "var(--t-accent)") {
-  const meta = ROLE_META[name];
-  const color = override ?? meta?.color ?? fallback;
-  return { meta, color, bg: meta?.bg ?? `${color}1a` };
+  const color = override ?? ROLE_META[name]?.color ?? fallback;
+  return { color, bg: tint(color, 14), border: tint(color, 60) };
+}
+
+export function roleToggleStyle(name: string, active: boolean, override?: string | null, fallback?: string): CSSProperties {
+  if (!active) return { background: "transparent", color: "var(--t-text-dim)", border: `1px solid ${tint("var(--t-text-dim)", 30)}` };
+  const { color, bg, border } = roleChipColors(name, override, fallback);
+  return { background: bg, color, border: `1px solid ${border}` };
+}
+
+export function RoleNamePill({ name }: { name: string }) {
+  const { t } = useTranslation();
+  const { color, bg } = roleChipColors(name);
+  return (
+    <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full" style={{ color, background: bg }}>
+      {roleLabel(t, name)}
+    </span>
+  );
 }
 
 export function permissionLabel(t: TFunction, permission: Permission): string {
@@ -67,7 +108,7 @@ export function RolePermissionTooltip({ role, color }: { role: TeamRole; color: 
         color: "var(--t-text-primary)",
       }}
     >
-      <p className="font-semibold mb-1 capitalize">{roleLabel(t, role.name)}</p>
+      <p className="font-semibold mb-1">{roleLabel(t, role.name)}</p>
       <ul className="space-y-0.5">
         {permLabels.slice(0, 8).map((l) => (
           <li key={l} className="flex items-center gap-1" style={{ color: "var(--t-text-dim)" }}>
@@ -110,6 +151,7 @@ interface RoleToggleChipProps {
   color?: string | null;
   fallbackColor?: string;
   disabled?: boolean;
+  disabledReason?: string;
   /**
    * Show the plain-language `members.roleBlurb.*` line under an active chip —
    * for the surfaces where a role is being *granted*, not merely displayed.
@@ -119,21 +161,17 @@ interface RoleToggleChipProps {
 }
 
 export function RoleToggleChip({
-  name, active, onClick, variant = "chip", color: override, fallbackColor, disabled, blurb,
+  name, active, onClick, variant = "chip", color: override, fallbackColor, disabled, disabledReason, blurb,
 }: RoleToggleChipProps) {
   const { t } = useTranslation();
-  const { color, bg } = roleChipColors(name, override, fallbackColor);
-
   const button = (
     <button
       onClick={onClick}
-      disabled={disabled}
-      className={VARIANT_CLASS[variant]}
-      style={{
-        background: active ? bg : "var(--t-bg-elevated)",
-        color: active ? color : "var(--t-text-dim)",
-        border: `1px solid ${active ? `${color}44` : "var(--t-border)"}`,
-      }}
+      disabled={disabled || !!disabledReason}
+      title={disabledReason}
+      className={`${VARIANT_CLASS[variant]} disabled:opacity-50 disabled:cursor-not-allowed${choiceHover(active)}`}
+      aria-pressed={active}
+      style={roleToggleStyle(name, active, override, fallbackColor)}
     >
       {variant !== "pill" && active && <Icon icon="lucide:check" width={9} />}
       {roleLabel(t, name)}

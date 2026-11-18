@@ -43,3 +43,9 @@ test("a non-manager sees no destructive actions", () => {
   render(<PeopleList people={[person({})]} canManage={false} onRemove={vi.fn()} onRevoke={vi.fn()} onGrantKey={vi.fn()} onCopyInviteLink={vi.fn()} />);
   expect(screen.queryByTitle("members.people.remove")).toBeNull();
 });
+
+test("role pills use the translated role name with no case transform", () => {
+  const { container } = render(<PeopleList people={[person({ roleNames: ["connect-only"] })]} canManage onRemove={vi.fn()} onRevoke={vi.fn()} onGrantKey={vi.fn()} onCopyInviteLink={vi.fn()} />);
+  expect(screen.getByText("members.roleName.connect-only")).toBeTruthy();
+  expect(container.querySelector(".capitalize")).toBeNull();
+});

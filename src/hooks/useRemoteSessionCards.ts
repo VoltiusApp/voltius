@@ -6,6 +6,7 @@ import { useToggle } from "@/stores/toggleSettingsStore";
 import { getJoinableSessions, joinRemoteSession, killRemoteSession } from "@/services/crossDeviceSessions";
 import type { RemoteSession } from "@/stores/liveSessionManifestCore";
 import { usePendingKills } from "@/hooks/usePendingKills";
+import { connectionTarget, refuseWhilePreviewing } from "@/services/previewGuard";
 
 export const KILL_WINDOW_MS = 5000;
 
@@ -45,12 +46,13 @@ export function useRemoteSessionCards(onJoin?: () => void) {
     stateOf: (id: string): RemoteCardState =>
       pending.has(id) ? "pending" : committing.has(id) ? "committing" : failedIds.has(id) ? "failed" : "idle",
     join: (session: RemoteSession) => {
-      if (joiningId) return;
+      if (joiningId || refuseWhilePreviewing(connectionTarget(session.connectionId))) return;
       setJoiningId(session.sessionId);
       onJoin?.();
       void joinRemoteSession(session).finally(() => setJoiningId(null));
     },
     kill: (id: string) => {
+      if (refuseWhilePreviewing()) return;
       dismiss(id);
       start(id);
     },

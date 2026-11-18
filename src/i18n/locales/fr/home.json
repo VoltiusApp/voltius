@@ -5,33 +5,13 @@
       "afternoon": "Bon après-midi",
       "evening": "Bonsoir"
     },
-    "search": {
-      "placeholder": "Rechercher des hôtes, sessions, extraits…"
-    },
-    "stat": {
-      "vaults_one": "coffre",
-      "vaults_many": "coffres",
-      "vaults_other": "coffres",
-      "hosts_one": "hôte",
-      "hosts_many": "hôtes",
-      "hosts_other": "hôtes",
-      "activeSessions_one": "session active",
-      "activeSessions_many": "sessions actives",
-      "activeSessions_other": "sessions actives",
-      "portForwards_one": "redirection de port",
-      "portForwards_many": "redirections de port",
-      "portForwards_other": "redirections de port"
-    },
     "quickActions": {
       "export": "Exporter",
       "import": "Importer"
     },
     "recentHosts": {
       "title": "Hôtes récents",
-      "seeAll": "Tout voir",
-      "prevPage": "Page précédente",
-      "nextPage": "Page suivante",
-      "pageNumber": "Page {{number}}"
+      "seeAll": "Tout voir"
     },
     "allHosts": {
       "back": "Retour",
@@ -42,7 +22,15 @@
       "pin": "Épingler",
       "unpin": "Désépingler",
       "serial": "série",
-      "baud": "{{rate}} bauds"
+      "baud": "{{rate}} bauds",
+      "pinHost": "Épingler {{name}}",
+      "unpinHost": "Désépingler {{name}}",
+      "status": {
+        "up": "Joignable",
+        "down": "Injoignable",
+        "unknown": "Statut inconnu",
+        "knock": "Fermé jusqu'au port knocking"
+      }
     },
     "serialFallback": "Série",
     "vaultCard": {
@@ -51,6 +39,25 @@
       "hostCount_other": "{{count}} hôtes",
       "empty": "Aucun hôte pour l'instant",
       "more": "+{{count}} de plus"
+    },
+    "firstRun": {
+      "title": "Connectez-vous à votre premier serveur",
+      "body": "Saisissez une adresse pour ouvrir un terminal maintenant, ou ajoutez-la comme hôte pour la conserver.",
+      "addressPlaceholder": "utilisateur@hôte ou utilisateur@hôte:2222",
+      "addressLabel": "Adresse du serveur",
+      "addressHint": "Utilisez utilisateur@hôte, avec :port s'il ne s'agit pas du 22. Les codes d'invitation de session fonctionnent aussi.",
+      "join": "Rejoindre",
+      "importOther": "Importer depuis une autre application",
+      "localTerminal": "Ouvrir un terminal local",
+      "importSshConfig_one": "Importer {{count}} hôte depuis ~/.ssh/config",
+      "importSshConfig_many": "Importer {{count}} hôtes depuis ~/.ssh/config",
+      "importSshConfig_other": "Importer {{count}} hôtes depuis ~/.ssh/config"
+    },
+    "connect": {
+      "label": "Se connecter à un serveur",
+      "placeholder": "user@host, un nom d'hôte ou un code d'invitation",
+      "search": "Rechercher",
+      "searchEverything": "Tout rechercher"
     }
   }
 }

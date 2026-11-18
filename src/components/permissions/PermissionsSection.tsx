@@ -4,14 +4,16 @@ import { BusinessLapseNotice, BusinessLockLine } from "@/components/shared/Busin
 import { FormSection } from "@/components/shared/Panel";
 import { PickerSurface } from "@/components/shared/PickerSurface";
 import { PickerOption, PickerSearch } from "@/components/shared/pickerParts";
+import { choiceHover, selectableChipStyle } from "@/components/shared/selectableChip";
 import { PermissionOverrideRow } from "@/components/members/panels/PermissionOverrideRow";
 import { permissionLabel, roleLabel, ruleSubjectLabel } from "@/components/members/roleChips";
 import { useBusinessLock } from "@/hooks/useBusinessLock";
 import { useRuleSet } from "@/hooks/useRuleSet";
 import { saveObjectRules, syncWithFolder, type RuleEdit } from "@/services/ruleSetEditing";
-import { isSynced, setOfParent } from "@/services/ruleSetPointers";
+import { withControlAuthority } from "@/services/previewGuard";
+import { isSynced, rulesAvailable, setOfParent } from "@/services/ruleSetPointers";
 import {
-  OBJECT_RULE_ROWS, PERM_BITS, applyOverrideState, overrideStateOf, resolveObjectPermissions, ruleSubjectKey, ruleSubjectOf,
+  OBJECT_RULE_ROWS, PERM_BITS, applyOverrideState, hasNarrowerException, overrideStateOf, resolveObjectPermissions, ruleSubjectKey, ruleSubjectOf,
   type OverrideState, type Permission, type RuleEntry, type RuleSubject,
 } from "@/services/permissions";
 import type { TeamObjectType } from "@/services/teamObjects";
@@ -65,8 +67,9 @@ function SubjectChips({ listed, candidates, selected, nameOf, onSelect, onAdd, d
           key={ruleSubjectKey(s)}
           type="button"
           onClick={() => onSelect(s)}
-          className="px-2 py-0.5 rounded-md text-xs bg-(--t-bg-base) border border-(--t-border-hover) text-(--t-text-primary)"
-          style={ruleSubjectKey(s) === ruleSubjectKey(selected) ? { background: "var(--t-bg-elevated)" } : undefined}
+          aria-pressed={ruleSubjectKey(s) === ruleSubjectKey(selected)}
+          className={`px-2 py-0.5 rounded-md text-xs font-medium transition-colors${choiceHover(ruleSubjectKey(s) === ruleSubjectKey(selected))}`}
+          style={selectableChipStyle(ruleSubjectKey(s) === ruleSubjectKey(selected))}
         >
           {nameOf(s)}
         </button>
@@ -101,13 +104,14 @@ interface PermissionsSectionProps {
   objectId: string;
   vaultId?: string;
   type: TeamObjectType;
+  controlAuthority?: boolean;
 }
 
 export function PermissionsSection(props: PermissionsSectionProps) {
   return <ObjectPermissions key={props.objectId} {...props} />;
 }
 
-function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps) {
+function ObjectPermissions({ objectId, vaultId, type, controlAuthority = false }: PermissionsSectionProps) {
   const { t } = useTranslation();
   const teams = useTeamStore((s) => s.teams);
   const teamId = useVaultStore((s) => resolveTeamIdFromCollections(vaultId, teams, s.vaults));
@@ -139,7 +143,7 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
     }
   }
 
-  if (!teamId || !entries || !supported || !access || access.deleted) return null;
+  if (!teamId || !entries || !rulesAvailable(supported, access)) return null;
   if ((access.myPermissions & PERM_BITS.MANAGE_ROLES) === 0) return null;
 
   const roles = rolesByTeam[teamId] ?? [];
@@ -149,6 +153,7 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
   const synced = isSynced(entries, objectId);
   const parentSet = setOfParent(entries, access.parentId);
   const target = { teamId, objectId, type };
+  const write = <T,>(run: () => Promise<T>) => (controlAuthority ? withControlAuthority(run) : run());
   const isCredential = type === "key" || type === "identity";
   const listed = listedSubjects(draft, roles, added);
   const nameOf = (s: RuleSubject) => ruleSubjectLabel(t, s, roles, members);
@@ -162,18 +167,20 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
   const sourceOf = (from: string[]) =>
     from.length > 2 ? [t("shared.permissions.section.roleCount", { count: from.length })] : from;
 
-  const preview = (permission: Permission): { from: string[]; grants: boolean } => {
+  const preview = (permission: Permission, state: OverrideState): { from: string[]; grants: boolean; exceptions: boolean } => {
     const bit = PERM_BITS[permission];
     if (selected.type === "member") {
       const member = members.find((m) => m.user_id === selected.id);
-      const others = draft.filter((e) => !(e.subject_type === "member" && e.subject_id === selected.id));
       return {
         from: sourceOf(rolesGranting(bit, member?.role_ids ?? [])),
-        grants: member ? (resolveObjectPermissions(member, roles, others, locked) & bit) !== 0 : false,
+        grants: member ? (resolveObjectPermissions(member, roles, draft, locked) & bit) !== 0 : false,
+        exceptions: false,
       };
     }
     const from = rolesGranting(bit, selected.type === "role" ? [selected.id] : undefined);
-    return { from: sourceOf(from), grants: from.length > 0 };
+    // A business lock drops object-rule allows but keeps denies.
+    const grants = state === "deny" ? false : state === "allow" && !locked ? true : from.length > 0;
+    return { from: sourceOf(from), grants, exceptions: hasNarrowerException(draft, selected, bit, grants, locked, members) };
   };
 
   const save = (edit: RuleEdit) => {
@@ -184,7 +191,7 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
     chain.current = chain.current.then(async () => {
       try {
         if (gen !== generation.current) return;
-        const saved = await saveObjectRules(target, edit);
+        const saved = await write(() => saveObjectRules(target, edit));
         if (saved) lastSaved.current = saved;
       } catch (e) {
         generation.current += 1;
@@ -212,8 +219,9 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
     ? (parentName ? t("shared.permissions.section.syncedWith", { folder: parentName }) : t("shared.permissions.section.syncedTeam"))
     : t(parentSet === null ? "shared.permissions.section.ownPermissions" : "shared.permissions.section.notSynced");
   const current = entryFor(draft, selected);
-  const connectState = overrideStateOf("CONNECT", current?.allow ?? 0, current?.deny ?? 0);
-  const connectDenied = connectState === "deny" || (connectState === "inherit" && !preview("CONNECT").grants);
+  const stateOf = (permission: Permission) => overrideStateOf(permission, current?.allow ?? 0, current?.deny ?? 0);
+  const connectState = stateOf("CONNECT");
+  const connectDenied = connectState === "deny" || (connectState === "inherit" && !preview("CONNECT", connectState).grants);
   const connectLabel = isCredential ? t("shared.permissions.section.use") : permissionLabel(t, "CONNECT");
 
   const hasRules = draft.length > 0 || ruleSet.status !== "ok";
@@ -237,7 +245,7 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
               <button
                 type="button"
                 className="text-(--t-accent)"
-                onClick={() => void syncWithFolder(target).catch((e) => setError(errorText(e)))}
+                onClick={() => void write(() => syncWithFolder(target)).catch((e) => setError(errorText(e)))}
               >
                 {t(parentSet === null ? "shared.permissions.section.useTeams" : "shared.permissions.section.syncNow")}
               </button>
@@ -254,7 +262,8 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
           />
           <div>
             {OBJECT_RULE_ROWS[type].map((permission) => {
-              const p = preview(permission);
+              const state = stateOf(permission);
+              const p = preview(permission, state);
               const needsConnect = connectDenied && (permission === "VIEW_SECRETS" || permission === "COPY_SECRETS");
               return (
                 <PermissionOverrideRow
@@ -262,9 +271,10 @@ function ObjectPermissions({ objectId, vaultId, type }: PermissionsSectionProps)
                   permission={permission}
                   label={isCredential && permission === "CONNECT" ? connectLabel : undefined}
                   note={needsConnect ? t("shared.permissions.section.requiresConnect", { connect: connectLabel }) : undefined}
-                  state={overrideStateOf(permission, current?.allow ?? 0, current?.deny ?? 0)}
+                  state={state}
                   inheritedFrom={p.from}
-                  inheritedGrants={p.grants && !needsConnect}
+                  granted={p.grants && !needsConnect}
+                  exceptions={p.exceptions}
                   disabled={locked || ruleSet.status !== "ok" || needsConnect}
                   onChange={(next) => change(permission, next)}
                 />

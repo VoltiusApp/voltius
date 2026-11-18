@@ -9,14 +9,15 @@ import { TriStateToggle } from "./TriStateToggle";
 
 afterEach(cleanup);
 
-test("three radios, the active one checked, D10 outline classes", () => {
+test("three radios, the active one checked and tinted in its state colour", () => {
   render(<TriStateToggle value="allow" onChange={() => {}} label="Connect" />);
   const group = screen.getByRole("radiogroup", { name: "Connect" });
-  expect(group.className).toContain("bg-(--t-bg-base)");
-  expect(group.className).toContain("border-(--t-border-hover)");
+  expect(group.className).toContain("border-(--t-border)");
   expect(group.className).toContain("divide-x");
   const radios = screen.getAllByRole("radio");
   expect(radios.map((r) => r.getAttribute("aria-checked"))).toEqual(["false", "false", "true"]);
+  expect(radios[2].style.background).toBe("color-mix(in srgb, var(--t-status-connected) 20%, transparent)");
+  expect(radios[0].style.background).toBe("transparent");
 });
 
 test("clicking reports the next state; disabled reports nothing", () => {
@@ -27,4 +28,14 @@ test("clicking reports the next state; disabled reports nothing", () => {
   rerender(<TriStateToggle value="inherit" onChange={onChange} label="x" disabled />);
   fireEvent.click(screen.getByRole("radio", { name: "members.permissions.state.allow" }));
   expect(onChange).toHaveBeenCalledTimes(1);
+});
+
+test("touch_size_segments_are_44_by_40", () => {
+  const { rerender } = render(<TriStateToggle value="inherit" onChange={() => {}} label="x" size="touch" />);
+  for (const r of screen.getAllByRole("radio")) {
+    expect(r.className).toContain("w-11");
+    expect(r.className).toContain("h-10");
+  }
+  rerender(<TriStateToggle value="inherit" onChange={() => {}} label="x" />);
+  for (const r of screen.getAllByRole("radio")) expect(r.className).toContain("px-2.5 py-1");
 });

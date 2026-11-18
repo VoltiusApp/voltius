@@ -177,7 +177,8 @@ export interface PluginTransfer {
   owner?: string;
 }
 
-export type SyncProviderStatus = "idle" | "syncing" | "success" | "error" | "offline";
+/** `partial`: the sync finished but some sources could not be read. */
+export type SyncProviderStatus = "idle" | "syncing" | "success" | "partial" | "error" | "offline";
 
 export type SyncProviderAvailability = "active" | "not_configured" | "disabled" | "locked" | "needs_upgrade" | "paused";
 
@@ -420,8 +421,10 @@ export interface MobileScreenProps {
 }
 
 export interface MobileScreen {
+  /** Same id as a right panel section: phones open this screen for that panel instead of
+   *  its desktop component. */
   id: string;
-  /** Screen key MobileShell looks up on navigation, e.g. "docker", "metrics". */
+  /** Key that `pushMobileScreen` entries address, e.g. "docker-logs". */
   kind: string;
   render: React.FC<MobileScreenProps>;
 }
@@ -455,6 +458,8 @@ export interface PluginSession {
   localShell?: string;
   /** The user-given name its tab shows; unset, the tab shows `connectionName`. */
   title?: string;
+  /** The user locked this tab: `sessions.close` rejects with `tab_locked`. */
+  locked?: boolean;
 }
 
 // ─── Files (SFTP / FTP / local) ────────────────────────────────────────────
@@ -502,6 +507,46 @@ export interface SftpAPI {
   transfer(src: FileEndpoint, dst: FileEndpoint, transferId?: string): Promise<void>;
   /** Release the handle held for `target`, if any. */
   disconnect(target: FileTarget): Promise<void>;
+}
+
+// ─── Host commands ─────────────────────────────────────────────────────────
+
+export interface HostExecOptions {
+  /** Default 30 000 for `exec`, unlimited for `stream`; 0 means no limit. */
+  timeoutMs?: number;
+  /** `exec` only: cap per output stream, default 1 MiB, at most 64 MiB. */
+  maxBytes?: number;
+  stdin?: string;
+}
+
+export interface HostExecResult {
+  stdout: string;
+  stderr: string;
+  /** Null when the command was stopped or ended without reporting a status. */
+  code: number | null;
+  timedOut: boolean;
+  /** Output passed `maxBytes`; the command was stopped there. */
+  truncated: boolean;
+  cancelled: boolean;
+}
+
+export interface HostStreamHandlers {
+  /** Always whole lines, except possibly the last chunk. */
+  onStdout?(chunk: string): void;
+  onStderr?(chunk: string): void;
+}
+
+export interface HostStreamHandle {
+  /** Settles once the command ends; stdout/stderr are empty, they went to the handlers. */
+  done: Promise<HostExecResult>;
+  cancel(): void;
+}
+
+/** Commands on a session's machine, on their own channel. GATED (host:exec).
+ *  Remote: the login shell parses it. Local: `sh -c`, or the session's shell on Windows. */
+export interface HostAPI {
+  exec(sessionId: string, command: string, opts?: HostExecOptions): Promise<HostExecResult>;
+  stream(sessionId: string, command: string, handlers: HostStreamHandlers, opts?: HostExecOptions): HostStreamHandle;
 }
 
 export type PluginTheme = AppTheme;
@@ -1288,6 +1333,9 @@ export interface PluginAPI {
   // Files over SFTP/FTP and the local disk — GATED, split
   // sftp:read (list/stat/readText) / sftp:write (everything that mutates).
   sftp: SftpAPI;
+
+  // Commands on a session's machine — GATED (host:exec).
+  host: HostAPI;
 
   proxmox: ProxmoxAPI;
 

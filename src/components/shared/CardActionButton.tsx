@@ -11,18 +11,21 @@ interface Props {
   reveal?: boolean;
   width?: number;
   iconClassName?: string;
+  disabled?: boolean;
 }
 
 const REVEAL = "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100";
 
-export function CardActionButton({ icon, title, onClick, danger, reveal = true, width = 18, iconClassName }: Props) {
+export function CardActionButton({ icon, title, onClick, danger, reveal = true, width = 18, iconClassName, disabled }: Props) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={(e) => { e.stopPropagation(); onClick(e); }}
       onDoubleClick={(e) => e.stopPropagation()}
-      className={`flex ${reveal ? REVEAL : ""} items-center justify-center p-1.5 rounded-lg transition-colors text-(--t-text-secondary)`}
+      className={`flex ${reveal ? REVEAL : ""} items-center justify-center p-1.5 rounded-lg transition-colors text-(--t-text-secondary) disabled:opacity-40 disabled:cursor-not-allowed`}
       onMouseEnter={(e) => {
+        if (disabled) return;
         e.currentTarget.style.color = danger ? "var(--t-status-error)" : "var(--t-text-primary)";
         e.currentTarget.style.background = danger
           ? "color-mix(in srgb, var(--t-status-error) 18%, transparent)"

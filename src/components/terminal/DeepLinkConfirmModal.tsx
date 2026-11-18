@@ -3,23 +3,30 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { Modal, ModalCard } from "@/components/shared/Modal";
 import { useDeepLinkStore } from "@/stores/deepLinkStore";
-import { intentKey, type ConfirmIntent } from "@/services/deepLinkUrl";
-import { CONFIRM_SPECS, type ConfirmRoute, type ConfirmSpec } from "./deepLinkConfirmSpecs";
+import { intentKey } from "@/services/deepLinkUrl";
+import { parseEnrollmentToken } from "@/services/enrollment/enrollmentToken";
+import { useUIStore } from "@/stores/uiStore";
+import { CONFIRM_SPECS, type ConfirmRoute, type ConfirmSpec, type SheetIntent } from "./deepLinkConfirmSpecs";
 import type { TranslatableMessage } from "@/plugins/installErrors";
 
 export function DeepLinkConfirmModal() {
   const prompt = useDeepLinkStore((s) => s.prompt);
-  // Keyed by intent: a new link remounts the sheet, which is what discards a prior
-  // failure's error and re-runs `load` against the new target. The key embeds a
-  // join token, so it must never be logged.
-  return prompt ? <ConfirmSheet key={intentKey(prompt)} intent={prompt} /> : null;
+  useEffect(() => {
+    if (prompt?.route !== "enroll") return;
+    const parts = parseEnrollmentToken(prompt.token);
+    if (parts) useUIStore.getState().openEnroll(parts, "link");
+    useDeepLinkStore.getState().dismissPrompt();
+  }, [prompt]);
+  if (!prompt || prompt.route === "enroll") return null;
+  // A new link remounts the sheet, dropping a prior error; the key embeds a join token, never log it.
+  return <ConfirmSheet key={intentKey(prompt)} intent={prompt} />;
 }
 
 function failureMessage(spec: ConfirmSpec<ConfirmRoute, unknown>, e: unknown): TranslatableMessage {
   return spec.errorMessage?.(e, spec.errorKey) ?? { key: spec.errorKey };
 }
 
-function ConfirmSheet({ intent }: { intent: ConfirmIntent }) {
+function ConfirmSheet({ intent }: { intent: SheetIntent }) {
   const { t } = useTranslation();
   const dismissPrompt = useDeepLinkStore((s) => s.dismissPrompt);
   // The spec is picked by the intent's own route, so the pairing is right by

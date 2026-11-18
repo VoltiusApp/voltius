@@ -1,26 +1,27 @@
 /** Pure mobile navigation state machine — no React/zustand so it's node-testable. */
+import type { NewObjectPlacement } from "@/types";
+import type { SnippetDraft } from "@/stores/snippetStore";
 
 export type MobileTab = "hosts" | "terminal" | "snippets" | "sftp" | "more";
 
-export type MorePage = "keychain" | "port-forwarding" | "known-hosts" | "members" | "logs";
+export type MorePage = "keychain" | "port-forwarding" | "known-hosts" | "members" | "logs" | "sessions";
 
 /** Sub-pages of the vault settings page (each one its own stack entry). */
 export type VaultSettingsPage = "share" | "members" | "roles" | "security";
 
 export type MobileScreen =
-  | { kind: "host-edit"; hostId?: string }
+  | { kind: "host-edit"; hostId?: string; placement?: NewObjectPlacement }
   | { kind: "account" }
-  | { kind: "snippet-edit"; snippetId?: string }
+  | { kind: "snippet-edit"; snippetId?: string; placement?: NewObjectPlacement; draft?: SnippetDraft }
   | { kind: "key-edit"; keyId?: string; mode?: "import" | "generate" }
   | { kind: "identity-edit"; identityId?: string }
   | { kind: "more-page"; page: MorePage }
   /** `vaultId`: a local vault id, or a team id for a team with no local row (as the vault list names it). */
   | { kind: "vault-settings"; vaultId: string; page?: VaultSettingsPage }
+  | { kind: "member"; teamId: string; userId: string }
   | { kind: "panel-sftp"; connectionId: string }
-  | { kind: "panel-docker"; sessionId: string }
-  | { kind: "panel-metrics"; sessionId: string }
-  | { kind: "panel-processes"; sessionId: string }
-  | { kind: "panel-proxmox"; sessionId: string }
+  /** A terminal side panel (`useTerminalPanels` id), for the session it was opened from. */
+  | { kind: "panel"; section: string; sessionId: string }
   | { kind: "panel-docker-logs"; sessionId: string; containerId: string; containerName: string };
 
 export type MobileSheet =

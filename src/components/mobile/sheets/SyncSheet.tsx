@@ -17,11 +17,12 @@ const ACTION_ICONS: Record<SyncProviderAction["kind"], string> = {
   resume: "lucide:play",
   enable: "lucide:puzzle",
   configure: "lucide:settings",
+  showDevices: "lucide:monitor-smartphone",
 };
 
 function SyncSheetSection({ provider, onAction }: { provider: SyncProviderView; onAction: (action: SyncProviderAction) => void }) {
   const { t } = useTranslation();
-  const { syncNow, inactive, status, header } = useSyncProviderPanel(provider);
+  const { syncNow, inactive, status, header, devices } = useSyncProviderPanel(provider);
   const { action, pauseToggle } = provider;
 
   const actionRow = (a: SyncProviderAction, label: string): SheetAction =>
@@ -31,6 +32,7 @@ function SyncSheetSection({ provider, onAction }: { provider: SyncProviderView; 
     rows.push({ icon: "lucide:refresh-cw", label: t("layout.sync.syncNow"), slug: "sync-now", disabled: syncNow.busy, onTap: syncNow.run });
   }
   if (pauseToggle) rows.push(actionRow(pauseToggle, t(`layout.sync.${pauseToggle.kind}`)));
+  if (devices) rows.push(actionRow(devices, t("layout.sync.showDevices")));
   if (action && action.kind !== pauseToggle?.kind) {
     rows.push(actionRow(action, t(inactive ? inactive.actionKey : "layout.sync.signInForSync")));
   }

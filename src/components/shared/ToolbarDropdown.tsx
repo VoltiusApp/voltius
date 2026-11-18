@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon } from "@iconify/react";
+import { ToolbarButton, toolbarChevronClass } from "@/components/shared/ToolbarButton";
 import { useTranslation } from "react-i18next";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { MenuItemList, isInMenuPortal, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { chevronRotateStyle } from "@/utils/icons";
 import { searchMatcher } from "@/utils/search";
+import { usePopoverFade } from "@/hooks/useDelayedUnmount";
 
 export interface DropdownOption<T extends string> {
   value: T;
@@ -14,7 +16,7 @@ export interface DropdownOption<T extends string> {
 
 export type ActionItem =
   | { separator: true; label?: never; icon?: never; onClick?: never }
-  | { separator?: false; label: string; icon?: string; onClick?: () => void; children?: ContextMenuItem[] };
+  | { separator?: false; label: string; icon?: string; onClick?: () => void; children?: ContextMenuItem[]; disabledReason?: string };
 
 interface BaseProps<T extends string> {
   icon: string;
@@ -28,6 +30,9 @@ interface BaseProps<T extends string> {
   disabled?: boolean;
   variant?: "default" | "accent";
   searchable?: boolean;
+  menuNote?: ReactNode;
+  /** Disables only the chevron, with this text as its tooltip; the main action still runs. */
+  menuLocked?: string;
 }
 
 interface SingleSelectProps<T extends string> extends BaseProps<T> {
@@ -50,7 +55,7 @@ type Props<T extends string> = SingleSelectProps<T> | MultiSelectProps<T>;
 
 export function ToolbarDropdown<T extends string>({
   icon, options, items, menuWidth = 160, className = "",
-  label, onAction, align = "right", disabled, variant = "default", searchable,
+  label, onAction, align = "right", disabled, variant = "default", searchable, menuNote, menuLocked,
   ...rest
 }: Props<T>) {
   const { t } = useTranslation();
@@ -85,6 +90,7 @@ export function ToolbarDropdown<T extends string>({
   const filteredOptions = selectOptions.filter((o) => matchesQuery(o.label));
   const hasContent = items ? menuItems.length > 0 : selectOptions.length > 0;
   const selectionCount = isMulti ? multiValue.length : 0;
+  const fade = usePopoverFade(open && hasContent);
 
   function handleOptionClick(opt: DropdownOption<T>) {
     if (isMulti) {
@@ -109,10 +115,10 @@ export function ToolbarDropdown<T extends string>({
     return value === opt.value;
   }
 
-  const menuEl = open && hasContent && (
+  const menuEl = fade.mounted && (
     <div
-      className={`surface-float absolute top-full ${align === "left" ? "left-0" : "right-0"} mt-1 z-50 flex flex-col`}
-      style={{ minWidth: `${(menuWidth / 15).toFixed(3)}rem` }}
+      className={`surface-float absolute top-full ${align === "left" ? "left-0" : "right-0"} mt-1 z-50 flex flex-col ${fade.className}`}
+      style={{ ...fade.style, minWidth: `${(menuWidth / 15).toFixed(3)}rem` }}
     >
       {searchable && (
         <div className="px-1.5 pt-1.5">
@@ -124,7 +130,7 @@ export function ToolbarDropdown<T extends string>({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t("common.placeholder.search")}
-              className="flex-1 text-xs bg-transparent outline-hidden text-(--t-text-primary) placeholder:text-(--t-text-dim)"
+              className="flex-1 text-xs bg-transparent outline-hidden text-(--t-text-primary)"
             />
             {searchQuery && (
               <button type="button" onClick={() => setSearchQuery("")} className="text-(--t-text-dim) hover:text-(--t-text-primary)">
@@ -156,43 +162,32 @@ export function ToolbarDropdown<T extends string>({
             )
         }
       </div>
+      {menuNote && <div className="px-3 pb-2.5 pt-0.5">{menuNote}</div>}
     </div>
   );
 
   if (onAction) {
-    const isAccent = variant === "accent";
-    const actionBg = isAccent ? "var(--t-accent)" : "var(--t-bg-input)";
-    const actionBgHover = isAccent ? "var(--t-accent-hover)" : "var(--t-bg-input-hover)";
-    const actionText = isAccent ? "var(--t-bg-terminal)" : "var(--t-text-primary)";
-    const actionBorder = isAccent ? "var(--t-accent-hover)" : "var(--t-border-hover)";
-    const chevronBg = isAccent ? "var(--t-accent)" : "var(--t-bg-input)";
-    const chevronBgHover = isAccent ? "var(--t-accent-hover)" : "var(--t-bg-input-hover)";
+    const fill = variant === "accent" ? "accent" : "neutral";
 
     return (
       <div className={`relative flex items-center gap-px ${className}`} ref={ref}>
-        <button
-          type="button"
+        <ToolbarButton
+          variant={fill}
+          round={hasContent ? "left" : "all"}
+          icon={icon}
+          label={label ?? ""}
+          compact={!label}
+          className="overflow-hidden"
           onClick={onAction}
           disabled={disabled}
-          className={`flex items-center gap-2 px-3 h-8 text-sm font-bold tracking-wider transition-colors shrink-0 whitespace-nowrap relative overflow-hidden border ${hasContent ? "border-r-0 rounded-tl-[0.533rem] rounded-bl-[0.533rem]" : "rounded-[0.533rem]"}`}
-          style={{
-            background: actionBg, color: actionText, borderColor: actionBorder,
-            opacity: disabled ? 0.4 : 1, cursor: disabled ? "not-allowed" : "pointer",
-          }}
-          onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.background = actionBgHover; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = actionBg; }}
-        >
-          <Icon icon={icon} width={20} />
-          {label}
-        </button>
+        />
         {hasContent && <button
           type="button"
-          onClick={() => setOpen((o) => !o)}
-          className="flex items-center justify-center w-8 h-8 transition-colors relative overflow-hidden border rounded-tr-[0.533rem] rounded-br-[0.533rem]"
-          style={{ background: chevronBg, color: actionText, borderColor: actionBorder }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = chevronBgHover)}
-          onMouseLeave={(e) => (e.currentTarget.style.background = chevronBg)}
-          title={t("common.action.moreOptions")}
+          onClick={() => { if (!menuLocked) setOpen((o) => !o); }}
+          aria-disabled={menuLocked ? true : undefined}
+          aria-label={menuLocked}
+          className={toolbarChevronClass(fill)}
+          title={menuLocked ?? t("common.action.moreOptions")}
         >
           <span className="[&_path]:stroke-3">
             <Icon icon="lucide:chevron-down" width={20} style={chevronRotateStyle(open)} />

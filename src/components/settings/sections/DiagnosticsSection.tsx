@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { Toggle } from "@/components/shared/Toggle";
+import { SETTINGS_SURFACE } from "./shared";
 import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { setVerboseLogging, createBugReport } from "@/services/diagnostics";
 import { getLoggerVerbose } from "@/lib/logger";
@@ -60,7 +61,7 @@ export default function DiagnosticsSection() {
         <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
           {t("settings.diagnostics.troubleshootingTitle")}
         </h3>
-        <div data-settings-card className="rounded-lg px-4 py-3 space-y-3 bg-(--t-bg-elevated) border border-(--t-border)">
+        <div data-settings-card className={`${SETTINGS_SURFACE} px-4 py-3 space-y-3`}>
           <div data-setting-row className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-sm text-(--t-text-primary)">{t("settings.diagnostics.verboseLabel")}</p>
@@ -87,7 +88,7 @@ export default function DiagnosticsSection() {
         <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
           {t("settings.diagnostics.reportTitle")}
         </h3>
-        <div data-settings-card className="rounded-lg px-4 py-3 space-y-3 bg-(--t-bg-elevated) border border-(--t-border)">
+        <div data-settings-card className={`${SETTINGS_SURFACE} px-4 py-3 space-y-3`}>
           <button
             type="button"
             onClick={() => void onCreate()}

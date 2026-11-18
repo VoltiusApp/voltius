@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAuditStore } from "@/stores/auditStore";
 import type { AuditContext } from "@/services/auditContext";
+import { usePopoverFade } from "@/hooks/useDelayedUnmount";
 
 interface Props {
   context: AuditContext;
@@ -11,6 +12,7 @@ interface Props {
 export function AuditExportButton({ context }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const fade = usePopoverFade(open);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const exportLogs = useAuditStore((s) => s.exportLogs);
@@ -60,10 +62,10 @@ export function AuditExportButton({ context }: Props) {
         <Icon icon="lucide:chevron-down" width={12} className="text-(--t-text-dim)" />
       </button>
 
-      {open && (
+      {fade.mounted && (
         <div
-          className="absolute right-0 top-full mt-1 rounded-lg overflow-hidden shadow-lg z-10 min-w-[120px]"
-          style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}
+          className={`absolute right-0 top-full mt-1 rounded-lg overflow-hidden shadow-lg z-10 min-w-[120px] ${fade.className}`}
+          style={{ ...fade.style, background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}
         >
           {(["csv", "json"] as const).map((fmt) => (
             <button

@@ -106,10 +106,11 @@ export function ImageView({ doc, onNotImage }: { doc: EditorDoc; onNotImage: () 
     el.scrollTop = anchoredScroll(el.scrollTop, a.y, a.from, a.to);
   }, [zoom]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = viewport.current;
     if (!el) return;
     // React's onWheel is passive, so Ctrl+wheel could not stop the page zooming.
+    // Layout effect so the listener is live as soon as the viewport is in the DOM.
     const onWheel = (e: WheelEvent) => {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();

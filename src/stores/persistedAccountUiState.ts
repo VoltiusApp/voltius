@@ -43,10 +43,12 @@ export const ACCOUNT_SCOPED_STORAGE_KEYS = [
   "voltius-pending-team-secret-upload",
   // Which identity this account chose per shared host: ids only, never secrets.
   "voltius-identity-picks",
-  // The combined team lock policy, so it applies before the first team fetch.
-  "voltius-org-lock-policy",
+  // The validated, merged team policy layer, so it applies before the first team fetch.
+  "voltius-team-policy",
   // This account's other devices met on the local network, by name.
   "voltius-lan-sync-devices",
+  // Team audit events awaiting delivery; they may only ever be sent with this account's session.
+  "voltius-audit-outbox",
 ];
 
 /**
@@ -84,11 +86,15 @@ export const DEVICE_SCOPED_STORAGE_KEYS = [
   "voltius-sftp-settings",
   "voltius-terminal-settings",
   "voltius-toggle-settings",
+  // Marks which toggle values are admin defaults; it follows voltius-toggle-settings, which is device-scoped.
+  "voltius-admin-defaults",
   "voltius-connectivity-settings",
   "voltius-mcp-contributions",
   // Persists poll intervals only — the statuses it holds stay in memory.
   "voltius-host-ping",
   "voltius-lan-sync",
+  "voltius-enrollment",
+  "voltius-enrolled-team",
   // Persists nothing (`partialize: () => ({})`); the key is an empty husk.
   "voltius-connection-presence",
 ];

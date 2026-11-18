@@ -3,7 +3,8 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { ConnectionFormData, AuthType, JumpHost, EnvVar, ProxyOverride, ConnectionType, PortKnockSettings } from "@/types";
 import { parseWebdavUrl } from "@/utils/connectionType";
-import { KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
+import type { KeepalivePreset } from "@/utils/keepalive";
+import { useKeepaliveSelect } from "@/hooks/useKeepaliveSelect";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import JumpHostsPanel from "./JumpHostsPanel";
@@ -39,7 +40,8 @@ import { NO_CONNECTION, useCredentialPlan } from "@/hooks/useCredentialPlan";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
-import { useToggle } from "@/stores/toggleSettingsStore";
+import { toggleKey, useToggle } from "@/stores/toggleSettingsStore";
+import { usePolicyLock } from "@/stores/policyStore";
 import { HOST_PROXY_MODES, useGlobalKeepalivePreset, useGlobalProxy } from "@/stores/connectivitySettingsStore";
 import { knockSequenceKey, proxyPasswordKey } from "@/services/teamVaultSecretKeys";
 import ProxyFields from "./ProxyFields";
@@ -64,11 +66,12 @@ import {
 } from "@/components/shared/Panel";
 import { YouConnectAsRow } from "./YouConnectAsRow";
 import { FieldError, useReportBlocked, useRequiredField, type MobileEditFormProps } from "@/components/shared/fieldValidation";
-import { SecretInput, TagsAndFolderFields } from "@/components/shared/vaultObjectForm";
+import { SecretInput, TagsAndFolderFields, vaultPickHandler } from "@/components/shared/vaultObjectForm";
 import { normalizeNotes } from "@/components/notes/notesText";
 import {
   AdvancedDisclosure,
   DrillInRow,
+  OverrideRow,
   SettingRow,
   HostCommandFields,
   NotesSection,
@@ -91,7 +94,16 @@ const DEFAULT_PORT: Record<Exclude<Protocol, "webdav">, number> = { ssh: 22, ftp
 const DEFAULT_USERNAME: Record<Protocol, string> = { ssh: "root", ftp: "", webdav: "", web: "" };
 const initialProtocol = (type?: ConnectionType): Protocol => (type === "ftp" || type === "webdav" || type === "web" ? type : "ssh");
 
-const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccessProps>(function ConnectionFormEditor({ initial, onSubmit, onClose, onDuplicate, onConnect, onDelete, vaults, hideChrome, revealErrors, onBlockedChange, onMoveToVault, onCopyToVault, readOnly }, ref) {
+const USER_HOST_RE = /^([^\s@]+)@([^\s@:]+)(?::(\d{1,5}))?$/;
+
+function splitUserHost(value: string): { user: string; host: string; port?: number } | null {
+  const m = USER_HOST_RE.exec(value.trim());
+  if (!m) return null;
+  const port = m[3] ? Number(m[3]) : undefined;
+  return { user: m[1], host: m[2], port: port && port <= 65535 ? port : undefined };
+}
+
+const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccessProps>(function ConnectionFormEditor({ initial, placement, onSubmit, onClose, onDuplicate, onConnect, onDelete, vaults, hideChrome, revealErrors, onBlockedChange, onMoveToVault, onCopyToVault, readOnly }, ref) {
   const { t } = useTranslation();
   const owned = useManagedOwned(initial?.id);
   const locks = (f: OwnedField) => owned.includes(f);
@@ -131,12 +143,14 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   );
   const [globalShellIntegration] = useToggle("shell-integration");
   const [globalKeepalive] = useGlobalKeepalivePreset();
+  const keepalive = useKeepaliveSelect();
   const [globalPersist] = useToggle("persistent-sessions");
+  const shellLock = usePolicyLock(toggleKey("shell-integration"));
+  const persistLock = usePolicyLock(toggleKey("persistent-sessions"));
   const [globalProxy] = useGlobalProxy();
   const [proxyOverride, setProxyOverride] = useState<ProxyOverride | null>(initial?.proxy ?? null);
   const [proxyPassword, setProxyPassword] = useState("");
   const [proxyPasswordSaved, setProxyPasswordSaved] = useState(false);
-  const hostCommands = useHostCommandFields(initial);
   const [keepalivePreset, setKeepalivePreset] = useState<KeepalivePreset | "">(initial?.keepalive_preset ?? "");
   const [persistSession, setPersistSession] = useState<"" | "on" | "off">(
     initial?.persist_session === undefined ? "" : initial.persist_session ? "on" : "off",
@@ -149,8 +163,9 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   const [distroError, setDistroError] = useState("");
   const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.pre_snippet_id || initial?.post_snippet_id || initial?.terminal_encoding || initial?.agent_forwarding || initial?.legacy_algorithms || initial?.ping_disabled || initial?.shell_integration !== undefined || initial?.keepalive_preset || initial?.persist_session !== undefined || initial?.proxy || initial?.port_knock?.enabled);
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
-  const shell = useConnectionFormShell(initial);
+  const shell = useConnectionFormShell(initial, placement);
   const { vaultId, pickVault, folderId, keepSavedOnCancel, isPinned, togglePin } = shell;
+  const hostCommands = useHostCommandFields(initial, vaultId);
   const userEditedRef = useRef(false);
   const prevVaultIdRef = useRef(vaultId);
   const passwordDirty = useRef(false);
@@ -171,6 +186,10 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
       prevVaultIdRef.current = vaultId;
       setIdentityId(null);
       setKeyId(null);
+      setJumpHosts((hops) => hops.filter((hop) => {
+        const target = findAnyConnection(hop.connection_id);
+        return !target || (target.vault_id ?? "personal") === hostCommands.vaultId;
+      }));
     }
   }, [vaultId]);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
@@ -330,6 +349,19 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
 
   const handleClose = () => flushAndClose(onClose);
 
+  const applyHostInput = (value: string) => {
+    const target = protocol === "ssh" ? splitUserHost(value) : null;
+    if (!target) { setHost(value); return; }
+    setHost(target.host);
+    if (!identityId) setUsername(target.user);
+    if (target.port) setPort(target.port);
+  };
+
+  const connectNow = () => {
+    flush();
+    onConnect?.();
+  };
+
   const knockOverride = (): KnockOverride => ({
     settings: portKnock,
     sequence: editedKnockSequence() ?? undefined,
@@ -350,10 +382,10 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
 
   const visibleIcon = icon || distro;
 
-  const keepaliveOptions = useMemo(() => [
-    { value: "", label: t("connections.form.inheritKeepalive", { label: t(KEEPALIVE_PRESETS[globalKeepalive].labelKey) }) },
-    ...(Object.keys(KEEPALIVE_PRESETS) as KeepalivePreset[]).map((p) => ({ value: p, label: t(KEEPALIVE_PRESETS[p].labelKey) })),
-  ], [globalKeepalive, t]);
+  const keepaliveOptions = [
+    { value: "", label: t("connections.form.inheritKeepalive", { label: keepalive.label(globalKeepalive) }) },
+    ...keepalive.options,
+  ];
 
   const shellIntegrationOptions = useMemo(() => [
     { value: "", label: t("connections.form.inheritShellIntegration", { state: globalShellIntegration ? t("connections.common.on") : t("connections.common.off") }) },
@@ -472,8 +504,9 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
     onPasswordChange={(pw) => { markDirty(); proxyPasswordDirty.current = true; setProxyPassword(pw); }}
     disabled={readOnly}
     className="pb-1"
-    renderRow={(select) => (
-      <SettingRow icon="lucide:globe" label={t("connections.form.proxy.label")}>{select}</SettingRow>
+    scope="host"
+    renderRow={(select, locked) => (
+      <SettingRow icon="lucide:globe" label={t("connections.form.proxy.label")} locked={locked}>{select}</SettingRow>
     )}
   />
   );
@@ -485,7 +518,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
         <PanelHeader
           icon={initial ? "lucide:pencil" : "lucide:plus"}
           title={initial ? t("connections.form.titleEdit") : t("connections.form.titleNew")}
-          subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => pickVault(id, markDirty)} disabled={readOnly} />}
+          subtitle={<VaultPicker vaultId={vaultId} onChange={vaultPickHandler({ existing: !!initial, onMoveToVault, flush, pick: (id) => pickVault(id, markDirty) })} disabled={readOnly} />}
           onClose={handleClose}
           saveState={initial ? saveState : undefined}
           actions={initial ? (
@@ -504,47 +537,6 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
           <ManagedBanner id={initial?.id} />
 
           <ReadOnlyFields readOnly={readOnly} className="space-y-3">
-          <FormSection label={t("connections.common.general")}>
-            <div>
-              <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.labelField")}</label>
-              <div ref={iconRowRef} className="relative flex gap-2.5">
-                <IconTileButton
-                  icon={visibleIcon ? getConnectionIcon(visibleIcon) : "lucide:server"}
-                  base={visibleIcon ? getConnectionIconColor(visibleIcon) : undefined}
-                  title={visibleIcon ? t("connections.form.changeIconWithLabel", { label: getConnectionIconLabel(visibleIcon) }) : t("connections.form.changeIcon")}
-                  ariaLabel={t("connections.form.changeIconAriaLabel")}
-                  onClick={() => setShowDistroPicker((v) => !v)}
-                />
-                <input
-                  className={formInputClass}
-                  style={formInputStyle}
-                  value={name}
-                  onChange={(e) => { markDirty(); setName(e.target.value); }}
-                  placeholder={t("connections.form.namePlaceholder")}
-                />
-                <DistroIconPicker
-                  open={showDistroPicker}
-                  onClose={() => setShowDistroPicker(false)}
-                  anchorRef={iconRowRef}
-                  selectedIcon={visibleIcon}
-                  onPick={(id) => { applyIcon(id); }}
-                  detectingDistro={detectingDistro}
-                  distroError={distroError}
-                  onDetectDistro={() => void detectDistroFromForm()}
-                  canDetect={!!(host.trim() && username.trim())}
-                />
-              </div>
-            </div>
-            <TagsAndFolderFields
-              shell={shell}
-              tPrefix="connections.common"
-              folderType="connection"
-              tags={tags}
-              onChangeTags={setTags}
-              markDirty={markDirty}
-            />
-          </FormSection>
-
           <FormSection label={t("connections.form.sectionConnection")}>
             <LockedField label={t("connections.form.protocol")} locked={locks("connection_type")}>
               <FormSelect
@@ -595,8 +587,9 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                     className={formInputClass}
                     style={formInputStyle}
                     value={host}
-                    onChange={(e) => { markDirty(); setHost(e.target.value); }}
+                    onChange={(e) => { markDirty(); applyHostInput(e.target.value); }}
                     placeholder={t("connections.form.hostPlaceholder")}
+                    autoFocus={!initial && !hideChrome}
                     inputMode="url"
                     {...formIdentifierProps}
                     {...hostField.fieldProps}
@@ -658,34 +651,32 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                 >
                   <Toggle checked={legacyAlgorithms} onChange={(v) => { markDirty(); setLegacyAlgorithms(v); }} />
                 </SettingRow>
-                <SettingRow icon="lucide:terminal" label={t("connections.form.shellIntegration")}>
-                  <FormSelect
-                    className="w-36"
-                    value={shellIntegration}
-                    title={t("connections.form.shellIntegration")}
-                    options={shellIntegrationOptions}
-                    onChange={(v) => { markDirty(); setShellIntegration(v as "" | "on" | "off"); }}
-                  />
-                </SettingRow>
-                <SettingRow icon="lucide:heart-pulse" label={t("connections.form.keepalive")}>
-                  <FormSelect
-                    className="w-36"
-                    value={keepalivePreset}
-                    title={t("connections.form.keepalive")}
-                    options={keepaliveOptions}
-                    onChange={(v) => { markDirty(); setKeepalivePreset(v as KeepalivePreset | ""); }}
-                  />
-                </SettingRow>
+                <OverrideRow
+                  icon="lucide:terminal"
+                  label={t("connections.form.shellIntegration")}
+                  locked={shellLock.locked}
+                  value={shellIntegration}
+                  options={shellIntegrationOptions}
+                  onChange={(v) => { markDirty(); setShellIntegration(v as "" | "on" | "off"); }}
+                />
+                <OverrideRow
+                  icon="lucide:heart-pulse"
+                  label={t("connections.form.keepalive")}
+                  locked={keepalive.locked}
+                  note={keepalive.note}
+                  value={keepalive.hostValue(keepalivePreset)}
+                  options={keepaliveOptions}
+                  onChange={(v) => { markDirty(); setKeepalivePreset(v as KeepalivePreset | ""); }}
+                />
                 {proxyFields}
-                <SettingRow icon="lucide:layers" label={t("connections.form.persistentSession")}>
-                  <FormSelect
-                    className="w-36"
-                    value={persistSession}
-                    title={t("connections.form.persistentSession")}
-                    options={persistOptions}
-                    onChange={(v) => { markDirty(); setPersistSession(v as "" | "on" | "off"); }}
-                  />
-                </SettingRow>
+                <OverrideRow
+                  icon="lucide:layers"
+                  label={t("connections.form.persistentSession")}
+                  locked={persistLock.locked}
+                  value={persistSession}
+                  options={persistOptions}
+                  onChange={(v) => { markDirty(); setPersistSession(v as "" | "on" | "off"); }}
+                />
 
             </AdvancedDisclosure>
             </>)}
@@ -768,27 +759,14 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                         <label className={formLabelClass} style={formLabelStyle}>
                           {t("connections.form.passphrase")} <span className="text-(--t-text-dim) font-normal">{t("connections.form.optional")}</span>
                         </label>
-                        <div className="relative">
-                          <input
-                            type={showPassphrase ? "text" : "password"}
-                            className={`${formInputClass} pr-9`}
-                            style={formInputStyle}
-                            value={passphrase}
-                            onChange={(e) => { markDirty(); passphraseDirty.current = true; setPassphrase(e.target.value); }}
-                            placeholder={t("connections.form.keyPassphrasePlaceholder")}
-                            autoComplete="new-password"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassphrase((v) => !v)}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-(--t-text-dim)"
-                            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
-                            tabIndex={-1}
-                          >
-                            <Icon icon={showPassphrase ? "lucide:eye-off" : "lucide:eye"} width={14} />
-                          </button>
-                        </div>
+                        <SecretInput
+                          value={passphrase}
+                          onChange={(v) => { markDirty(); passphraseDirty.current = true; setPassphrase(v); }}
+                          placeholder={t("connections.form.keyPassphrasePlaceholder")}
+                          show={showPassphrase}
+                          onToggleShow={() => setShowPassphrase((v) => !v)}
+                          autoComplete="new-password"
+                        />
                       </div>
                     </>
                   )}
@@ -816,16 +794,73 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
             {initial && !fileOnly && <YouConnectAsRow connection={initial} credential={credential} />}
           </FormSection>
           )}
+
+          <FormSection label={t("connections.common.general")}>
+            <div>
+              <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.labelField")}</label>
+              <div ref={iconRowRef} className="relative flex gap-2.5">
+                <IconTileButton
+                  icon={visibleIcon ? getConnectionIcon(visibleIcon) : "lucide:server"}
+                  base={visibleIcon ? getConnectionIconColor(visibleIcon) : undefined}
+                  title={visibleIcon ? t("connections.form.changeIconWithLabel", { label: getConnectionIconLabel(visibleIcon) }) : t("connections.form.changeIcon")}
+                  ariaLabel={t("connections.form.changeIconAriaLabel")}
+                  onClick={() => setShowDistroPicker((v) => !v)}
+                />
+                <input
+                  className={formInputClass}
+                  style={formInputStyle}
+                  value={name}
+                  onChange={(e) => { markDirty(); setName(e.target.value); }}
+                  placeholder={t("connections.form.namePlaceholder")}
+                />
+                <DistroIconPicker
+                  open={showDistroPicker}
+                  onClose={() => setShowDistroPicker(false)}
+                  anchorRef={iconRowRef}
+                  selectedIcon={visibleIcon}
+                  onPick={(id) => { applyIcon(id); }}
+                  detectingDistro={detectingDistro}
+                  distroError={distroError}
+                  onDetectDistro={() => void detectDistroFromForm()}
+                  canDetect={!!(host.trim() && username.trim())}
+                />
+              </div>
+            </div>
+            <TagsAndFolderFields
+              shell={shell}
+              tPrefix="connections.common"
+              folderType="connection"
+              tags={tags}
+              onChangeTags={setTags}
+              markDirty={markDirty}
+            />
+          </FormSection>
           </ReadOnlyFields>
 
           <NotesSection value={notes} onChange={(v) => { markDirty(); setNotes(v); }} readOnly={readOnly} />
           {initial && <PermissionsSection objectId={initial.id} vaultId={initial.vault_id} type="connection" />}
         </div>
       </div>
+      {!hideChrome && (
+        <div className="shrink-0 px-4 py-3 border-t border-(--t-border)">
+          <button
+            type="button"
+            disabled={!initial || !canConnect || !onConnect}
+            title={initial ? undefined : t("connections.form.connectNeedsHost")}
+            onClick={connectNow}
+            className="btn btn-primary w-full h-9 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+          >
+            <Icon icon="lucide:terminal" width={14} />
+            {t("common.action.connect")}
+          </button>
+        </div>
+      )}
     </PanelShell>
 
       <SlideOver open={showChaining}>
         <JumpHostsPanel
+          vaultId={hostCommands.vaultId}
+          hostId={initial?.id}
           jumpHosts={jumpHosts}
           onChange={(updated) => { markDirty(); setJumpHosts(updated); }}
           onBack={() => setShowChaining(false)}

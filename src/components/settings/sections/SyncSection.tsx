@@ -15,16 +15,21 @@ import { useSyncPrefsStore, SYNC_OBJECT_TYPES, SYNC_SETTING_DOMAINS } from "@/st
 import { setDomainSync, setKeySync } from "@/services/user-data/syncChoice";
 import { heldBackKeys } from "@/services/user-data/syncFilter";
 import { isDeviceScopedDefault } from "@/services/user-data/settingKeys";
-import { SettingsGroup } from "./shared";
+import { ManagedNote, ManagedWhen } from "@/components/shared/ManagedNote";
+import { isEnforcedLock, usePolicyLock, usePolicyRefresh } from "@/stores/policyStore";
+import { SETTINGS_ROW_BUTTON, SettingsGroup } from "./shared";
+import { SyncDevicesGroup } from "./SyncDevicesGroup";
 import { setLocalSyncPaused, useLocalNetworkStatus } from "@/hooks/useLocalNetworkStatus";
 import { openPairDeviceDialog } from "@/stores/pairDeviceDialogStore";
 import { formatTime } from "@/utils/localeFormat";
+import { SettingMark } from "@/components/settings/Setting";
 
 function syncStateLine(t: TFunction, s: { status: SyncStatus; lastSync: Date | null; error: string | null }): string {
   switch (s.status) {
     case "syncing": return t("settings.sync.active.syncing");
     case "error": return t("settings.sync.active.error", { error: s.error ?? "unknown" });
     case "success": return s.lastSync ? t("settings.sync.active.lastSync", { time: formatTime(s.lastSync) }) : "";
+    case "partial": return [syncStateLine(t, { ...s, status: "success" }), s.error ?? t("layout.sync.status.partial")].filter(Boolean).join(" · ");
     case "offline": return s.error ? t("settings.sync.active.offlineDetail", { error: s.error }) : t("settings.sync.active.offline");
     default: return t("settings.sync.active.idle");
   }
@@ -71,7 +76,7 @@ function PluginProviderRow({ provider }: { provider: SyncProviderView }) {
         {action && (
           <button
             onClick={() => runSyncProviderAction(action)}
-            className="text-xs px-2.5 py-1.5 rounded-lg font-medium bg-(--t-bg-input) text-(--t-text-primary) transition-opacity hover:opacity-75"
+            className={SETTINGS_ROW_BUTTON}
           >
             {t(availability === "disabled" ? "layout.sync.enableArrow" : "layout.sync.configureArrow")}
           </button>
@@ -146,9 +151,12 @@ function VoltiusSyncGroup({ provider }: { provider: SyncProviderView }) {
   );
 }
 
-function SyncToggleRow({ domain, label, sub, ariaLabel, checked, onChange }: {
+function SyncToggleRow({ domain, policyKey, settingId, label, sub, ariaLabel, checked, onChange }: {
   /** Stable hook for tests and UI automation; also the handler key for settings rows. */
   domain: string;
+  policyKey?: string;
+  /** Registry entry whose changed dot and reset sit next to the label. */
+  settingId?: string;
   label: string;
   sub: string;
   /** Defaults to "Sync <label>", which is wrong for a row that does not switch a kind of data. */
@@ -157,13 +165,16 @@ function SyncToggleRow({ domain, label, sub, ariaLabel, checked, onChange }: {
   onChange: (v: boolean) => void;
 }) {
   const { t } = useTranslation();
+  const toggle = <Toggle checked={checked} onChange={onChange} aria-label={ariaLabel ?? t("settings.sync.quickToggleLabel", { label })} />;
+  const lock = usePolicyLock(policyKey ?? "");
   return (
     <div data-sync-domain={domain} data-setting-row data-ripple className="relative flex items-center justify-between gap-3 px-4 py-3">
       <div>
-        <p className="text-sm font-medium text-(--t-text-primary)">{label}</p>
+        <p className="text-sm font-medium text-(--t-text-primary)">{settingId ? <SettingMark id={settingId}>{label}</SettingMark> : label}</p>
         <p className="text-xs mt-0.5 text-(--t-text-dim)">{sub}</p>
+        {lock.locked && <ManagedNote className="mt-1" teams={lock.teams} />}
       </div>
-      <Toggle checked={checked} onChange={onChange} aria-label={ariaLabel ?? t("settings.sync.quickToggleLabel", { label })} />
+      <ManagedWhen locked={lock.locked} note={false}>{toggle}</ManagedWhen>
     </div>
   );
 }
@@ -175,6 +186,7 @@ function HeldBackKeys({ domain }: { domain: string }) {
   // back from a settings page while this panel is mounted.
   const overrides = useSyncPrefsStore((s) => s.settingSyncOverrides);
   void useSyncPrefsStore((s) => s.syncSettingDomains);
+  usePolicyRefresh();
   const keys = heldBackKeys(domain);
   if (keys.length === 0) return null;
 
@@ -190,26 +202,33 @@ function HeldBackKeys({ domain }: { domain: string }) {
       </button>
       {open && (
         <ul className="mt-2 space-y-1">
-          {keys.map((k) => (
-            <li key={k.id} className="flex items-center justify-between gap-3">
-              <span className="text-xs text-(--t-text-dim)">
-                {t(k.labelKey)}
-                {" · "}
-                {t(
-                  isDeviceScopedDefault(k.id, overrides ?? {})
-                    ? "settings.sync.heldBack.deviceDefault"
-                    : "settings.sync.heldBack.yourChoice",
+          {keys.map((k) => {
+            const managed = isEnforcedLock(k.id) || isEnforcedLock(`sync.settings.${k.id}`);
+            return (
+              <li key={k.id} data-testid={`held-${k.id}`} className="flex items-center justify-between gap-3">
+                <span className="text-xs text-(--t-text-dim)">
+                  {t(k.labelKey)}
+                  {" · "}
+                  {t(
+                    managed
+                      ? "common.policy.managed"
+                      : isDeviceScopedDefault(k.id, overrides ?? {})
+                        ? "settings.sync.heldBack.deviceDefault"
+                        : "settings.sync.heldBack.yourChoice",
+                  )}
+                </span>
+                {!managed && (
+                  <button
+                    data-testid={`resume-${k.id}`}
+                    onClick={() => setKeySync(k.id, true)}
+                    className="text-xs shrink-0 text-(--t-accent) hover:opacity-75 transition-opacity"
+                  >
+                    {t("settings.sync.heldBack.resume")}
+                  </button>
                 )}
-              </span>
-              <button
-                data-testid={`resume-${k.id}`}
-                onClick={() => setKeySync(k.id, true)}
-                className="text-xs shrink-0 text-(--t-accent) hover:opacity-75 transition-opacity"
-              >
-                {t("settings.sync.heldBack.resume")}
-              </button>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
@@ -232,7 +251,7 @@ function LocalNetworkGroup() {
           {fix && (
             <button
               onClick={fix.onTap}
-              className="text-xs px-2.5 py-1.5 rounded-lg font-medium shrink-0 bg-(--t-bg-input) text-(--t-text-primary) transition-opacity hover:opacity-75"
+              className={SETTINGS_ROW_BUTTON}
             >
               {fix.label}
             </button>
@@ -269,7 +288,8 @@ function LocalNetworkGroup() {
 
 export default function SyncSection() {
   const { t } = useTranslation();
-  const { syncTypes, setSyncType, isDomainSynced } = useSyncPrefsStore();
+  const { setSyncType, isTypeSynced, isDomainSynced } = useSyncPrefsStore();
+  usePolicyRefresh();
 
   const providers = useSyncProviders().providers;
   const voltiusProvider = providers.find((p) => p.id === VOLTIUS_PROVIDER_ID);
@@ -282,6 +302,8 @@ export default function SyncSection() {
       <SettingsGroup title={t("settings.sync.voltiusCloud")} divided>
         {voltiusProvider && <VoltiusSyncGroup provider={voltiusProvider} />}
       </SettingsGroup>
+
+      {(voltiusProvider?.availability === "active" || voltiusProvider?.availability === "paused") && <SyncDevicesGroup />}
 
       <LocalNetworkGroup />
 
@@ -307,9 +329,11 @@ export default function SyncSection() {
             <SyncToggleRow
               key={id}
               domain={id}
+              policyKey={`sync.types.${id}`}
+              settingId={`sync.type.${id}`}
               label={t(`settings.sync.objectType.${id}.label`)}
               sub={t(`settings.sync.objectType.${id}.sub`)}
-              checked={syncTypes[id] ?? true}
+              checked={isTypeSynced(id)}
               onChange={(v) => setSyncType(id, v)}
             />
           ))}
@@ -325,6 +349,8 @@ export default function SyncSection() {
             <div key={id}>
               <SyncToggleRow
                 domain={id}
+                policyKey={`sync.domains.${id}`}
+                settingId={`sync.domain.${id}`}
                 label={t(`settings.sync.settingDomain.${id}.label`)}
                 sub={t(`settings.sync.settingDomain.${id}.sub`)}
                 checked={isDomainSynced(id)}

@@ -93,7 +93,7 @@ export default function FolderSelector({ value, folders, onChange, onCreateFolde
                 if (e.key === "Escape") setCreating(false);
               }}
               placeholder={t("shared.folderSelector.namePlaceholder")}
-              className="flex-1 bg-transparent outline-hidden text-xs text-(--t-text-primary) placeholder:text-(--t-text-dim) min-w-0"
+              className="flex-1 bg-transparent outline-hidden text-xs text-(--t-text-primary) min-w-0"
             />
             <button
               type="button"

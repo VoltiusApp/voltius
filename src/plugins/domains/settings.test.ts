@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { getSetting, listSettings, setSetting, settingConsequence } from "./settings";
 import { useToggleSettingsStore } from "@/stores/toggleSettingsStore";
+import { usePolicyStore } from "@/stores/policyStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { useSecurityStore } from "@/stores/securityStore";
 
 describe("domaine settings", () => {
   beforeEach(() => {
@@ -105,5 +107,51 @@ describe("domaine settings", () => {
     expect(res.ok).toBe(false);
     if (res.ok) return;
     expect(res.error).toContain("read-only");
+  });
+
+  describe("clés verrouillées par la politique", () => {
+    const lock = (policy: Record<string, unknown>) =>
+      usePolicyStore.setState({ machine: { policy, defaults: {} }, server: { policy: {}, defaults: {} } });
+    afterEach(() => lock({}));
+
+    test("une bascule et un type de sync verrouillés sont lisibles mais non écrivables", () => {
+      lock({ "appSettings.toggles.scroll-minimap": false, "sync.types.connection": false });
+      for (const key of ["toggles.scroll-minimap", "sync.type.connection"]) {
+        expect(getSetting(key)).toMatchObject({ locked: true, writable: false });
+        expect(listSettings({ writableOnly: true }).some((v) => v.key === key)).toBe(false);
+        const res = setSetting(key, true);
+        expect(res.ok).toBe(false);
+        if (!res.ok) expect(res.error).toContain("managed by your organization");
+      }
+      expect(getSetting("toggles.scroll-minimap")!.value).toBe(false);
+    });
+
+    test("plugin api reports cursorStyle as locked and refuses the write", () => {
+      useTerminalSettingsStore.setState({ cursorStyle: "underline" });
+      lock({ "appSettings.terminal.cursorStyle": "block" });
+      expect(getSetting("terminal.cursorStyle")).toMatchObject({ locked: true, writable: false, value: "block" });
+      expect(setSetting("terminal.cursorStyle", "bar").ok).toBe(false);
+      expect(useTerminalSettingsStore.getState().cursorStyle).toBe("underline");
+    });
+
+    test("plugin api may store an out-of-range interval", () => {
+      lock({ "appSettings.sftp.autoRefreshIntervalMs": { $range: { min: 5000 } } });
+      const res = setSetting("sftp.autoRefreshIntervalMs", 2000);
+      expect(res).toMatchObject({ ok: true, result: { requested: 2000, effective: 5000, coerced: true } });
+      expect(getSetting("sftp.autoRefreshIntervalMs")!.value).toBe(5000);
+    });
+
+    test("plugin api reports the effective app-lock values under policy", () => {
+      useSecurityStore.setState({ sessionTimeoutMinutes: null, lockAction: "screen" });
+      lock({ "security.lockTimeoutMinutes": { $range: { max: 15 } }, "security.lockAction": "vault" });
+      expect(getSetting("security.sessionTimeoutMinutes")).toMatchObject({ value: 15, locked: false, writable: true });
+      expect(getSetting("security.lockAction")).toMatchObject({ value: "vault", locked: true, writable: false });
+      expect(setSetting("security.lockAction", "screen").ok).toBe(false);
+    });
+
+    test("une clé non verrouillée reste écrivable", () => {
+      lock({ "appSettings.toggles.scroll-minimap": false });
+      expect(getSetting("terminal.scrollbackLines")).toMatchObject({ locked: false, writable: true });
+    });
   });
 });

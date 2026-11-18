@@ -59,11 +59,13 @@ class MainActivity : TauriActivity() {
   override fun onPause() {
     super.onPause()
     VoltiusBiometric.setForeground(this, false)
+    VoltiusManagedConfig.unregister(this)
   }
 
   override fun onResume() {
     super.onResume()
     VoltiusBiometric.setForeground(this, true)
+    VoltiusManagedConfig.register(this)
   }
 
   // Wry has just built the RustWebView: install the native terminal-keyboard overlay (#34),
@@ -82,6 +84,7 @@ class MainActivity : TauriActivity() {
     LauncherShortcuts.install(this, webView)
     ShareSheet.install(this, webView)
     VoltiusUploads.installDrop(this, webView)
+    VoltiusManagedConfig.install(webView)
   }
 
   override fun dispatchTouchEvent(ev: MotionEvent): Boolean {

@@ -30,6 +30,14 @@ export type SeatState =
   | { kind: "unlimited"; used: number }
   | { kind: "unknown" };
 
+/** A team owner's seats as `GET /v1/teams` reports them; a null total is uncapped. */
+export interface OwnerSeats {
+  used: number;
+  total: number | null;
+}
+
+export const UNLIMITED_SEATS_SIGN = "∞";
+
 export function seatState(
   used: number | null | undefined,
   total: number | null | undefined,
@@ -39,23 +47,31 @@ export function seatState(
   return { kind: "known", used, total, available, atLimit: available <= 0 };
 }
 
-// Billed servers fall back to the purchased count (grandfathered accounts show 3, enforce none);
-// unbilled ones sold nothing, so no enforced cap means unlimited.
+// No enforced cap means unlimited for a seat-plan owner or an unbilled server; only a billed
+// non-owner falls back to the purchased count.
 export function seatReadout(
   used: number | null,
   effectiveSeats: number | null,
   totalSeats: number | null,
   billingEnabled: boolean,
+  ownsSeatPlan = false,
 ): SeatState {
-  if (billingEnabled) return seatState(used, effectiveSeats ?? totalSeats);
+  if (billingEnabled && !ownsSeatPlan) return seatState(used, effectiveSeats ?? totalSeats);
   if (effectiveSeats == null && used != null) return { kind: "unlimited", used };
   return seatState(used, effectiveSeats);
+}
+
+/** The seats of the team being invited into; `null` when an older server did not send them. */
+export function teamSeatReadout(ownerSeats: OwnerSeats | null | undefined): SeatState | null {
+  if (!ownerSeats) return null;
+  if (ownerSeats.total == null) return { kind: "unlimited", used: ownerSeats.used };
+  return seatState(ownerSeats.used, ownerSeats.total);
 }
 
 /** The compact "used / total" form for account rows; `null` when there is nothing to show. */
 export function seatsUsedText(t: TFunction, seats: SeatState, usedKey: string): string | null {
   if (seats.kind === "known") return t(usedKey, { used: seats.used, total: seats.total });
-  if (seats.kind === "unlimited") return t("members.invite.seatsUnlimited", { used: seats.used });
+  if (seats.kind === "unlimited") return t(usedKey, { used: seats.used, total: UNLIMITED_SEATS_SIGN });
   return null;
 }
 

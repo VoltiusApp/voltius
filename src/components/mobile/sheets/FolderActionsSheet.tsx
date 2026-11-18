@@ -4,6 +4,10 @@ import BottomSheet from "./BottomSheet";
 import FolderFormSheet, { type FolderEdit } from "./FolderFormSheet";
 import type { Folder } from "@/types";
 import { SheetActionRow, type SheetAction } from "./SheetActionRow";
+import { PermissionsSection } from "@/components/permissions/PermissionsSection";
+import { folderAccessType } from "@/components/folders/useFolderPin";
+import { targetOf } from "@/services/previewGuard";
+import { previewGuarded } from "./previewGuardedActions";
 
 type Mode = "menu" | "edit" | "confirm-delete";
 
@@ -28,7 +32,9 @@ export default function FolderActionsSheet({
         initialAppearance={{ color: folder.color, icon: folder.icon }}
         onSubmit={onSave}
         onClose={onClose}
-      />
+      >
+        <PermissionsSection objectId={folder.id} vaultId={folder.vault_id} type={folderAccessType(folder)} />
+      </FolderFormSheet>
     );
   }
 
@@ -44,10 +50,14 @@ export default function FolderActionsSheet({
     );
   }
 
+  const items = previewGuarded([
+    { slug: "rename", icon: "lucide:pencil", label: t("common.action.edit"), onTap: () => setMode("edit") },
+    { slug: "delete", icon: "lucide:trash-2", label: t("common.action.delete"), danger: true, onTap: () => setMode("confirm-delete") },
+  ], targetOf(folderAccessType(folder))(folder.id), onClose);
+
   return (
     <BottomSheet title={folder.name} onClose={onClose}>
-      <Row slug="rename" icon="lucide:pencil" label={t("common.action.edit")} onTap={() => setMode("edit")} />
-      <Row slug="delete" icon="lucide:trash-2" label={t("common.action.delete")} danger onTap={() => setMode("confirm-delete")} />
+      {items.map((it) => <Row key={it.slug} {...it} />)}
     </BottomSheet>
   );
 }

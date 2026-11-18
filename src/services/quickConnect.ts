@@ -1,11 +1,14 @@
 import type { Connection } from "@/types";
 
-export type QuickConnectIntent =
+export type QuickConnectTarget =
   | { kind: "ssh"; user: string; host: string; port: number }
   | { kind: "web"; host: string; port: number; secure: boolean }
   | { kind: "serial"; port?: string }
-  | { kind: "local"; shell?: string }
-  | null;
+  | { kind: "local"; shell?: string };
+
+export type QuickConnectInvalidPort = { kind: "invalid-port"; port: string };
+
+export type QuickConnectIntent = QuickConnectTarget | QuickConnectInvalidPort | null;
 
 const DEVICE_PATH_RE = /^(\/dev\/tty\S+|\/dev\/cu\.\S+|COM\d+)$/i;
 const BARE_WORD_RE = /^[\w.-]+$/;
@@ -57,13 +60,12 @@ export function parseQuickConnect(raw: string): QuickConnectIntent {
   if (!looksLikeSsh) return null;
 
   const tokens = body.split(/\s+/).filter(Boolean);
-  let flagPort: number | undefined;
+  let flagPort: string | undefined;
   let target: string | undefined;
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i];
-    if (t === "-p" && i + 1 < tokens.length) {
-      const p = parseInt(tokens[i + 1], 10);
-      if (!Number.isNaN(p)) flagPort = p;
+    if (t === "-p") {
+      flagPort = tokens[i + 1] ?? "";
       i++;
       continue;
     }
@@ -80,19 +82,38 @@ export function parseQuickConnect(raw: string): QuickConnectIntent {
 
   const atIdx = target.indexOf("@");
   const user = atIdx >= 0 ? target.slice(0, atIdx) : "";
-  const rest = atIdx >= 0 ? target.slice(atIdx + 1) : target;
-  const colonIdx = rest.indexOf(":");
-  const host = colonIdx >= 0 ? rest.slice(0, colonIdx) : rest;
-  const inlinePort = colonIdx >= 0 ? parseInt(rest.slice(colonIdx + 1), 10) : NaN;
-  if (!host) return null;
+  const address = splitHostPort(atIdx >= 0 ? target.slice(atIdx + 1) : target);
+  if (!address) return null;
 
-  const port = flagPort ?? (Number.isNaN(inlinePort) ? 22 : inlinePort);
-  return { kind: "ssh", user: user || "root", host, port };
+  const given = [address.port, flagPort].filter((p): p is string => p !== undefined);
+  const parsed = given.map(parsePort);
+  const bad = parsed.indexOf(null);
+  if (bad >= 0) return { kind: "invalid-port", port: given[bad] };
+  const port = parsed[parsed.length - 1] ?? 22;
+  return { kind: "ssh", user: user || "root", host: address.host, port };
+}
+
+// A bare literal with several colons is IPv6; only the bracketed form can carry a port.
+function splitHostPort(rest: string): { host: string; port?: string } | null {
+  if (rest.startsWith("[")) {
+    const m = /^\[([^\]]+)\](?::(.*))?$/.exec(rest);
+    return m ? { host: m[1], port: m[2] } : null;
+  }
+  const colons = rest.split(":").length - 1;
+  if (colons > 1) return { host: rest };
+  const [host, port] = colons === 1 ? rest.split(":") : [rest, undefined];
+  return host ? { host, port } : null;
+}
+
+function parsePort(text: string): number | null {
+  if (!/^\d{1,5}$/.test(text)) return null;
+  const port = Number(text);
+  return port >= 1 && port <= 65535 ? port : null;
 }
 
 /** Ephemeral, unsaved Connection for an SSH quick-connect target. */
 export function buildQuickConnectConnection(
-  intent: Extract<QuickConnectIntent, { kind: "ssh" }>,
+  intent: Extract<QuickConnectTarget, { kind: "ssh" }>,
 ): Connection {
   const now = new Date().toISOString();
   return {
@@ -113,7 +134,7 @@ export function buildQuickConnectConnection(
 
 /** Ephemeral, unsaved Connection for a web quick-connect target. */
 export function buildWebQuickConnectConnection(
-  intent: Extract<QuickConnectIntent, { kind: "web" }>,
+  intent: Extract<QuickConnectTarget, { kind: "web" }>,
 ): Connection {
   const now = new Date().toISOString();
   const defaultPort = intent.secure ? 443 : 80;

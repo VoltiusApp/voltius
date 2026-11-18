@@ -15,7 +15,7 @@ import i18n from "@/i18n";
 import { useConnectionStore, connectionToFormData, findAnyConnection } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
-import { localConnect, localSendInput } from "@/services/local";
+import { localSendInput } from "@/services/local";
 import { onSessionOutput, sendSessionInput } from "@/services/sessionInput";
 import { readTerminalSnapshot, readTerminalSelection, getAppCursorMode } from "@/hooks/useTerminal";
 import { usePluginStore } from "@/stores/pluginStore";
@@ -26,7 +26,8 @@ import { useUIContributionStore } from "@/stores/uiContributionStore";
 import { usePluginStateStore } from "@/stores/pluginStateStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import type { NotificationSource } from "@/stores/notificationStore";
-import { useSessionStore } from "@/stores/sessionStore";
+import { catalogIcon } from "@/plugins/catalogIcon";
+import { useSessionStore, addSession, localSessionDraft, settleLocalSpawn, spawnLocalSession } from "@/stores/sessionStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useFolderStore } from "@/stores/folderStore";
@@ -34,9 +35,10 @@ import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { vaultOptionsFrom } from "@/hooks/useVaultOptions";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
+import { useSyncedPluginStore } from "@/stores/syncedPluginStore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
-import { getSyncState, onSyncStateChange, getExcludedObjectIds, getPluginSkippedSyncFiles, writeFilteredSettings, openRemoteBlob, forEachRemoteBlob, mergeBlobPayload, importMergedPayload, serialMerge, blobDeviceId, notifyRemotePayloadMerged, type BlobPayload } from "@/services/sync";
+import { getSyncState, onSyncStateChange, getExcludedObjectIds, getPluginSkippedSyncFiles, writeFilteredSettings, openRemoteBlob, forEachRemoteBlob, mergeBlobPayload, importMergedPayload, serialMerge, blobDeviceId, notifyRemotePayloadMerged, reconcilePluginsAfterMerge, type BlobPayload } from "@/services/sync";
 import { useThemeStore } from "@/stores/themeStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import type {
@@ -98,9 +100,10 @@ import { createCryptoAPI } from "./domains/crypto";
 import { createI18nAPI } from "./domains/i18n";
 import { createProxmoxAPI } from "./domains/proxmox";
 import { createSftpAPI } from "./domains/sftp";
+import { createHostAPI, type HostSessionTarget } from "./domains/host";
 import { createDockerAPI } from "./domains/docker";
 import { createVaultsAPI } from "./domains/vaults";
-import { isTeamVaultId, hydrateVaultObjectStores, vaultPorts } from "@/services/vaultObjectStores";
+import { isTeamVaultId, hydrateVaultObjectStores, storeObjectPorts, vaultPorts } from "@/services/vaultObjectStores";
 import { createFoldersAPI, type FolderPorts } from "./domains/folders";
 import { createObjectsAPI, type ObjectPorts } from "./domains/objects";
 import { createSnippetsAPI, type SnippetPorts } from "./domains/snippets";
@@ -151,6 +154,12 @@ import { assertValidPluginId, isValidPluginId } from "./pluginId";
 import { isRetiredPlugin } from "./retired";
 import { base64ToBytes, bytesToBase64, hexToBytes } from "@/utils/base64";
 import { base64ToByteArray } from "@/services/teamVaultSyncCore";
+import { closeSessionTabs } from "@/services/closeSession";
+import { primaryModifierLabel, primaryOnly } from "@/utils/primaryModifier";
+
+function pluginSource(manifest: PluginManifest): NotificationSource {
+  return { kind: "plugin", id: manifest.id, name: manifest.name.slice(0, 20), icon: catalogIcon(manifest.icon, "lucide:puzzle") };
+}
 
 const STREAM_PERM: Record<StreamKind, string> = {
   metrics: "metrics:read",
@@ -163,9 +172,8 @@ const STREAM_PERM: Record<StreamKind, string> = {
 
 const _exposedApis = new Map<string, unknown>();
 
-// Per-plugin SFTP/FTP handles, so unloading a plugin closes the connections it
-// opened. Without this a disabled plugin's sockets outlive it silently.
-const _sftpDisposers = new Map<string, () => void>();
+// Unloading a plugin closes the file handles it opened and stops the commands it started.
+const _resourceDisposers = new Map<string, () => void>();
 
 // ─── Per-plugin settings-change listeners ─────────────────────────────────
 
@@ -424,7 +432,7 @@ function parseKeybinding(raw: string): Omit<PluginKeybinding, "execute" | "plugi
 
 function formatPluginKeybinding(kb: Omit<PluginKeybinding, "execute" | "pluginId">): string {
   const parts: string[] = [];
-  if (kb.ctrl) parts.push("Ctrl");
+  if (kb.ctrl) parts.push(primaryModifierLabel(kb.key));
   if (kb.meta) parts.push("Meta");
   if (kb.shift) parts.push("Shift");
   parts.push(kb.key === " " ? "Space" : kb.key);
@@ -435,13 +443,11 @@ function ensureKeybindHandler() {
   if (_keybindHandlerInstalled) return;
   _keybindHandlerInstalled = true;
   document.addEventListener("keydown", (e) => {
-    const ctrl = e.ctrlKey;
-    const meta = e.metaKey;
+    const primary = primaryOnly(e);
     for (const kb of _pluginKeybindings.values()) {
-      const ctrlMatch = kb.ctrl ? (ctrl || meta) : (!ctrl && !meta);
-      const metaMatch = !kb.ctrl && kb.meta ? meta : true; // if ctrl already covered
+      const modsMatch = kb.ctrl ? primary : kb.meta ? e.metaKey : !e.ctrlKey && !e.metaKey;
       if (
-        ctrlMatch && metaMatch &&
+        modsMatch &&
         e.shiftKey === kb.shift &&
         (e.key === kb.key || e.key.toUpperCase() === kb.key)
       ) {
@@ -545,73 +551,7 @@ const objectPorts: ObjectPorts = {
     ...useVaultStore.getState().vaults.map((v) => v.id),
     ...useTeamStore.getState().teams.map((t) => t.id),
   ],
-
-  // Reads span the team maps too: both folder stores and every object store keep
-  // team-vault records separately, and a tab that cannot see them reports a
-  // team object as "not found" — or, worse, as an empty folder subtree.
-  connections: () => [...useConnectionStore.getState().connections, ...teamConnectionList()],
-  keys: () => {
-    const s = useKeyStore.getState();
-    return [...s.keys, ...Object.values(s.teamKeys).flat()];
-  },
-  identities: () => {
-    const s = useIdentityStore.getState();
-    return [...s.identities, ...Object.values(s.teamIdentities).flat()];
-  },
-  snippets: () => {
-    const s = useSnippetStore.getState();
-    return [...s.snippets, ...Object.values(s.teamSnippets).flat()];
-  },
-  rules: () => {
-    const s = usePortForwardingStore.getState();
-    return [...s.rules, ...Object.values(s.teamRules).flat()];
-  },
-  folders: () => {
-    const s = useFolderStore.getState();
-    return [...s.folders, ...Object.values(s.teamFolders).flat()];
-  },
-  snippetFolders: () => {
-    const s = useSnippetFolderStore.getState();
-    return [...s.folders, ...Object.values(s.teamSnippetFolders).flat()];
-  },
-
-  saveConnection: (form) => useConnectionStore.getState().saveConnection(form),
-  updateConnection: (id, form) => useConnectionStore.getState().updateConnection(id, form),
-  deleteConnection: (id) => useConnectionStore.getState().deleteConnection(id),
-  loadConnections: () => useConnectionStore.getState().loadConnections(),
-
-  saveKey: (form) => useKeyStore.getState().saveKey(form),
-  updateKey: (id, form) => useKeyStore.getState().updateKey(id, form),
-  deleteKey: (id) => useKeyStore.getState().deleteKey(id),
-  loadKeys: () => useKeyStore.getState().loadKeys(),
-
-  saveIdentity: (form) => useIdentityStore.getState().saveIdentity(form),
-  updateIdentity: (id, form) => useIdentityStore.getState().updateIdentity(id, form),
-  deleteIdentity: (id) => useIdentityStore.getState().deleteIdentity(id),
-  loadIdentities: () => useIdentityStore.getState().loadIdentities(),
-
-  createSnippet: (form) => useSnippetStore.getState().createSnippet(form),
-  updateSnippet: (id, form) => useSnippetStore.getState().updateSnippet(id, form),
-  deleteSnippet: (id) => useSnippetStore.getState().deleteSnippet(id),
-
-  createRule: (form) => usePortForwardingStore.getState().createRule(form),
-  updateRule: (id, form) => usePortForwardingStore.getState().updateRule(id, form),
-  deleteRule: (id) => usePortForwardingStore.getState().deleteRule(id),
-  moveRuleFolder: (id, folderId) => usePortForwardingStore.getState().moveRuleFolder(id, folderId),
-
-  moveObjectsToFolder: (ids, objectType, folderId) =>
-    useFolderStore.getState().moveObjectsToFolder(ids, objectType, folderId),
-  saveFolder: (data) => useFolderStore.getState().saveFolder(data),
-  updateFolder: (id, data) => useFolderStore.getState().updateFolder(id, data),
-  // Cascading: a folder the paste moved out of the tab is empty, and a folder
-  // whose contents the paste did not carry keeps them.
-  deleteFolder: (id) => useFolderStore.getState().deleteFolder(id),
-  moveFolder: (id, parentFolderId) => useFolderStore.getState().moveFolder(id, parentFolderId),
-  saveSnippetFolder: (data) => useSnippetFolderStore.getState().saveFolder(data),
-  updateSnippetFolder: (id, data) => useSnippetFolderStore.getState().updateFolder(id, data),
-  deleteSnippetFolder: (id) => useSnippetFolderStore.getState().deleteFolder(id),
-  moveSnippetFolder: (id, parentFolderId) =>
-    useSnippetFolderStore.getState().moveFolder(id, parentFolderId),
+  ...storeObjectPorts,
 };
 
 // ─── Snippet and port-forwarding ports ────────────────────────────────────
@@ -690,6 +630,7 @@ function toPluginSession(s: TerminalSession): PluginSession {
     type: s.type,
     localShell: s.localShell,
     title: s.title,
+    locked: s.locked,
   };
 }
 
@@ -769,6 +710,7 @@ const RELOADABLE_STORES: Record<string, () => Promise<void>> = {
   keys: () => useKeyStore.getState().loadKeys(),
   snippets: () => useSnippetStore.getState().loadSnippets(),
   folders: () => useFolderStore.getState().loadFolders(),
+  syncedPlugins: () => useSyncedPluginStore.getState().load(),
 };
 
 // ─── Settings schema validation ───────────────────────────────────────────
@@ -928,11 +870,24 @@ const _hostApiIds = new Set<string>();
 /** What a `whileActive` refusal tells a caller that has no empty value to fall back on. */
 const inactiveError = (id: string): string => `Plugin "${id}" is disabled or unloaded`;
 
+function sessionOrThrow(sessionId: string) {
+  const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
+  if (!session) throw new Error(`Session "${sessionId}" not found`);
+  return session;
+}
+
+function hostTargetOf(sessionId: string): HostSessionTarget {
+  const session = sessionOrThrow(sessionId);
+  if (session.type !== "ssh" && session.type !== "local") {
+    throw new Error(`Session "${sessionId}" cannot run commands (${session.type})`);
+  }
+  return { isRemote: session.type === "ssh", localShell: session.localShell ?? null };
+}
+
 /** Resolve a session and write text to its transport. Throws on an unknown id,
  *  so a caller never mistakes "no such session" for a successful write. */
 async function writeSessionBytes(sessionId: string, text: string): Promise<void> {
-  const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
-  if (!session) throw new Error(`Session "${sessionId}" not found`);
+  const session = sessionOrThrow(sessionId);
   if (!hasInputControl(sessionId)) throw new Error(`Session "${sessionId}" is controlled by another participant`);
   await sendSessionInput(sessionId, session.type as "ssh" | "local" | "serial", encodeTerminalInput(text, session.encoding));
 }
@@ -995,7 +950,11 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const i18nApi = createI18nAPI();
   const proxmoxApi = createProxmoxAPI();
   const sftpApi = createSftpAPI(findAnyConnection);
-  _sftpDisposers.set(id, () => sftpApi.dispose());
+  const hostApi = createHostAPI(hostTargetOf);
+  _resourceDisposers.set(id, () => {
+    sftpApi.dispose();
+    hostApi.dispose();
+  });
   const dockerApi = createDockerAPI(streamsApi);
   const vaultsApi = createVaultsAPI(vaultPorts);
   const foldersApi = createFoldersAPI(folderPorts);
@@ -1744,9 +1703,8 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         requirePerm(manifest, "notifications");
         if (!whileActive("notifications.toast")) return;
         const { severity = "info", duration = 2500, action } = opts;
-        const pluginName = manifest.name.slice(0, 20);
         useNotificationStore.getState().addToast({
-          source: { kind: "plugin", id, name: pluginName }, type: "toast",
+          source: pluginSource(manifest), type: "toast",
           message, severity, duration, action,
         });
       },
@@ -1757,11 +1715,10 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           return { update() {}, finish() {}, error() {}, cancel() {} };
         }
         const { indeterminate = true, cancellable = false } = opts;
-        const pluginName = manifest.name.slice(0, 20);
         let onCancel: (() => void) | undefined;
 
         const toastId = useNotificationStore.getState().addToast({
-          source: { kind: "plugin", id, name: pluginName }, type: "progress",
+          source: pluginSource(manifest), type: "progress",
           message: title, severity: "info", duration: 0,
           progress: indeterminate ? undefined : 0,
           cancellable,
@@ -1799,9 +1756,8 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           return { dismiss() {}, update() {} };
         }
         const { severity = "info", actions = [], dismissable = true, flashToast = true } = opts;
-        const pluginName = manifest.name.slice(0, 20);
         const notifStore = useNotificationStore.getState();
-        const source: NotificationSource = { kind: "plugin", id, name: pluginName };
+        const source = pluginSource(manifest);
         const bannerId = notifStore.addBanner({
           source, message, severity, actions, dismissable,
         });
@@ -1870,7 +1826,9 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       async close(sessionId) {
         requirePerm(manifest, "sessions:write");
-        await useSessionStore.getState().disconnect(sessionId);
+        const result = closeSessionTabs([sessionId]);
+        if (result.kept.length > 0) throw new Error(`tab_locked: session "${sessionId}" is locked by the user`);
+        await result.settled;
       },
     },
 
@@ -1889,8 +1847,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       async onOutput(sessionId, cb) {
         requireGated("terminal:stream");
-        const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
-        if (!session) throw new Error(`Session "${sessionId}" not found`);
+        const session = sessionOrThrow(sessionId);
         const decoder = createTextDecoder(session.encoding);
         return onSessionOutput(sessionId, session.type, (data) => cb(decoder.decode(data, { stream: true })));
       },
@@ -2011,6 +1968,17 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       // Ungated: releasing a handle this plugin opened cannot expose or change
       // anything, and a plugin must always be able to let go of its own resources.
       disconnect: (target) => sftpApi.disconnect(target),
+    },
+
+    host: {
+      exec: (sessionId, command, opts) => {
+        requireGated("host:exec");
+        return hostApi.exec(sessionId, command, opts);
+      },
+      stream: (sessionId, command, handlers, opts) => {
+        requireGated("host:exec");
+        return hostApi.stream(sessionId, command, handlers, opts);
+      },
     },
 
     proxmox: {
@@ -2139,36 +2107,13 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           }
 
           const newSessionId = crypto.randomUUID();
-          useSessionStore.setState((s) => ({
-            sessions: [
-              ...s.sessions,
-              {
-                id: newSessionId,
-                connectionId: "local",
-                connectionName: label,
-                status: "connecting" as const,
-                type: "local" as const,
-                localShell: target.localShell ?? undefined,
-              },
-            ],
-            activeSessionId: newSessionId,
-          }));
-          try {
-            await localConnect(newSessionId, 80, 24, target.localShell ?? undefined);
-            await localSendInput(newSessionId, new TextEncoder().encode(`docker exec -it ${containerId} sh\r`));
-            useSessionStore.setState((s) => ({
-              sessions: s.sessions.map((sess) =>
-                sess.id === newSessionId ? { ...sess, status: "connected" as const } : sess,
-              ),
-            }));
-          } catch (e) {
-            useSessionStore.setState((s) => ({
-              sessions: s.sessions.map((sess) =>
-                sess.id === newSessionId ? { ...sess, status: "error" as const } : sess,
-              ),
-            }));
-            throw e;
-          }
+          addSession(useSessionStore.setState, localSessionDraft(newSessionId, target.localShell ?? undefined, label));
+          await settleLocalSpawn(
+            newSessionId,
+            spawnLocalSession(newSessionId, target.localShell ?? undefined).then(() =>
+              localSendInput(newSessionId, new TextEncoder().encode(`docker exec -it ${containerId} sh\r`)),
+            ),
+          );
           return newSessionId;
         },
       },
@@ -2189,7 +2134,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         } else {
           await writeClipboard(result.address);
           useNotificationStore.getState().addToast({
-            source: { kind: "plugin", id, name: manifest.name.slice(0, 20) },
+            source: pluginSource(manifest),
             type: "toast",
             message: i18n.t("portForwarding.reach.copied", { address: result.address }),
             severity: "info",
@@ -2246,7 +2191,8 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         storageGet<string>(id, `__sync__${key}`).then((v) => { lastKnownRaw = v; }).catch(() => {});
 
         const unsub = onSyncStateChange(async () => {
-          if (getSyncState().status !== "success") return;
+          const { status } = getSyncState();
+          if (status !== "success" && status !== "partial") return;
           try {
             const current = await storageGet<string>(id, `__sync__${key}`);
             if (current !== lastKnownRaw) {
@@ -2346,6 +2292,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         for (const reload of Object.values(RELOADABLE_STORES)) {
           await reload();
         }
+        reconcilePluginsAfterMerge();
         return { unreadable: failed.map((f) => f.source.i) };
       },
     },
@@ -2559,8 +2506,8 @@ export function unloadPlugin(pluginId: string): void {
   clearContributions(pluginId);
   removePluginStyle(pluginId);
   _exposedApis.delete(pluginId);
-  _sftpDisposers.get(pluginId)?.();
-  _sftpDisposers.delete(pluginId);
+  _resourceDisposers.get(pluginId)?.();
+  _resourceDisposers.delete(pluginId);
   _contributedIds.delete(pluginId);
   _settingsListeners.delete(pluginId);
   _registry.delete(pluginId);

@@ -20,7 +20,7 @@ import {
 import { Pills } from "@/components/shared/Pills";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { PortInput } from "@/components/shared/PortInput";
-import { TagsAndFolderFields } from "@/components/shared/vaultObjectForm";
+import { TagsAndFolderFields, vaultPickHandler } from "@/components/shared/vaultObjectForm";
 import { Toggle } from "@/components/shared/Toggle";
 import { normalizeNotes } from "@/components/notes/notesText";
 import {
@@ -41,7 +41,7 @@ import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/componen
 const BAUD_RATES = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
 
 const SerialConnectionFormEditor = forwardRef<ConnectionFormHandle, ConnectionFormProps & EditAccessProps>(function SerialConnectionFormEditor(
-  { initial, onSubmit, onClose, onDuplicate, onConnect, onDelete, readOnly },
+  { initial, placement, onSubmit, onClose, onDuplicate, onConnect, onDelete, onMoveToVault, readOnly },
   ref,
 ) {
   const { t } = useTranslation();
@@ -57,7 +57,6 @@ const SerialConnectionFormEditor = forwardRef<ConnectionFormHandle, ConnectionFo
   const [stopBits, setStopBits] = useState<number>(initial?.serial_stop_bits ?? 1);
   const [flowControl, setFlowControl] = useState(initial?.serial_flow_control ?? "none");
   const [autoReconnect, setAutoReconnect] = useState(initial?.serial_auto_reconnect ?? true);
-  const hostCommands = useHostCommandFields(initial);
   const [showAdvanced, setShowAdvanced] = useState(
     !!(
       initial?.pre_command ||
@@ -76,8 +75,9 @@ const SerialConnectionFormEditor = forwardRef<ConnectionFormHandle, ConnectionFo
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [availablePorts, setAvailablePorts] = useState<{ name: string; path: string }[]>([]);
 
-  const shell = useConnectionFormShell(initial);
+  const shell = useConnectionFormShell(initial, placement);
   const { vaultId, pickVault, folderId, keepSavedOnCancel, isPinned, togglePin } = shell;
+  const hostCommands = useHostCommandFields(initial, vaultId);
   const userEditedRef = useRef(false);
 
   useEffect(() => {
@@ -154,7 +154,7 @@ const SerialConnectionFormEditor = forwardRef<ConnectionFormHandle, ConnectionFo
       <PanelHeader
         icon={initial ? "lucide:pencil" : "lucide:ethernet-port"}
         title={initial ? t("connections.serialForm.titleEdit") : t("connections.serialForm.titleNew")}
-        subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => pickVault(id, markDirty)} disabled={readOnly} />}
+        subtitle={<VaultPicker vaultId={vaultId} onChange={vaultPickHandler({ existing: !!initial, onMoveToVault, flush, pick: (id) => pickVault(id, markDirty) })} disabled={readOnly} />}
         onClose={handleClose}
         saveState={initial ? saveState : undefined}
         actions={initial ? (

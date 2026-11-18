@@ -24,7 +24,9 @@
       "pin": "Sabitle",
       "unpin": "Sabitlemeyi kaldır",
       "moreOptions": "Diğer seçenekler",
-      "closePanel": "Paneli kapat"
+      "closePanel": "Paneli kapat",
+      "showPassword": "Parolayı göster",
+      "hidePassword": "Parolayı gizle"
     },
     "entity": {
       "host": "Sunucu",
@@ -60,6 +62,8 @@
       "search": "Ara…"
     },
     "toast": {
+      "invitationWithdrawnAtSignup": "{{team}} davetiniz artık geçerli değil, bu yüzden eklenmediniz. Ekipten yeni bir davet göndermesini isteyin.",
+      "hostAccessRevoked": "{{hosts}} erişiminiz kaldırıldı, bu yüzden açık oturumları kapatıldı.",
       "proSubscriptionEnded": "Pro aboneliğiniz sona erdi — bulut eşitleme duraklatıldı. Cihazlarınız aynı ağda eşitlenmeye devam eder.",
       "proSubscriptionEnded_ios": "Pro aboneliğiniz sona erdi — eşitleme duraklatıldı.",
       "seatEnded": "{{team}} ekibindeki koltuğunuz sona erdi — bulut eşitleme duraklatıldı. Cihazlarınız aynı ağda eşitlenmeye devam eder.",
@@ -80,6 +84,7 @@
       "disableCount": "Yalnızca bu cihazda tut ({{count}})"
     },
     "error": {
+      "invitationWithdrawn": "Bu davet artık geçerli değil. Ekipten yeni bir davet göndermesini isteyin.",
       "identityPickUnavailable": "{{host}} için kimliğiniz kullanılamıyor",
       "failedToListIdentityPicks": "Kimlik seçimleriniz yüklenemedi ({{status}})",
       "failedToSaveIdentityPick": "Kimlik seçiminiz kaydedilemedi ({{status}})",
@@ -101,6 +106,7 @@
       "failedToExportAuditLogs": "Denetim günlükleri dışa aktarılamadı: {{status}}",
       "serverUnreachableTimeout": "Sunucuya ulaşılamıyor (zaman aşımı) — internet bağlantınızı ve sunucu URL'sini kontrol edin",
       "networkError": "Ağ hatası — {{message}}",
+      "accountAlreadyActive": "Bu cihazda bu hesapta zaten oturum açtınız",
       "emailAlreadyRegistered": "Bu e-posta zaten kayıtlı",
       "registrationFailed": "Kayıt başarısız: {{status}}",
       "registrationDisabled": "Bu sunucuda yeni hesap kaydı devre dışı. Hesap için yöneticisine başvurun.",
@@ -231,7 +237,14 @@
       "twoFactorNotEnabled": "İki adımlı doğrulama açık değil.",
       "twoFactorExpired": "Bu oturum açma işlemi çok uzun sürdü. Baştan başlayın.",
       "passkeyIncomplete": "Geçiş anahtarı adımı tamamlanmadı. Yeniden deneyin.",
-      "passkeyLimit": "Bu hesap zaten en fazla sayıda geçiş anahtarına sahip."
+      "passkeyLimit": "Bu hesap zaten en fazla sayıda geçiş anahtarına sahip.",
+      "teamPolicyConflict": "Ekip politikasını başka biri değiştirdi. Gözden geçirip yeniden içe aktarın.",
+      "teamPolicyRefused": "Sunucu bu politikayı reddetti: {{reason}}",
+      "failedToLoadTeamPolicy": "Ekip politikası yüklenemedi: {{status}}",
+      "failedToSaveTeamPolicy": "Ekip politikası kaydedilemedi: {{status}}",
+      "invitationLookupFailed": "Bu davet denetlenemedi (HTTP {{status}}).",
+      "invitationNotFound": "Bu davetin süresi doldu ya da zaten kullanıldı. Yeni bir davet isteyin.",
+      "invitationEmailMismatch": "Bu davet başka bir e-posta adresine gönderildi."
     },
     "clipboard": {
       "cut_one": "{{count}} öğe kesildi",
@@ -290,6 +303,24 @@
       "minutesAgo": "{{count}} dk önce",
       "hoursAgo": "{{count}} sa önce",
       "daysAgo": "{{count}} gün önce"
+    },
+    "cliPending": {
+      "failed_one": "voltius-cli'dan gelen {{count}} değişiklik uygulanamadı.",
+      "failed_other": "voltius-cli'dan gelen {{count}} değişiklik uygulanamadı."
+    },
+    "policy": {
+      "managed": "Kuruluşunuz tarafından yönetiliyor",
+      "managedByTeam": "{{team}} tarafından yönetiliyor",
+      "rangeMax": "Kuruluşunuz en fazla {{value}} değerine izin veriyor",
+      "rangeMin": "Kuruluşunuz {{value}} veya üzerine izin veriyor",
+      "rangeBetween": "Kuruluşunuz {{min}}–{{max}} aralığına izin veriyor",
+      "rangeAllowed": "Kuruluşunuzun izin verdikleri: {{values}}",
+      "serverBlocked": "Bu sunucuya kuruluşunuz izin vermiyor",
+      "accountNotSaved": "Geçerli hesap önce kaydedilemedi, bu yüzden hiçbir şey değiştirilmedi",
+      "fileError": "Kuruluşunuzun Voltius ilkesi okunamadı, bu nedenle hiçbir kısmı uygulanmıyor.",
+      "unprotected": "Kuruluşunuzun Voltius ilke dosyası, standart kullanıcılar tarafından değiştirilebildiği için yok sayıldı. BT ekibinizden dosyayı voltius-cli ile ayarlamasını isteyin.",
+      "issues_one": "Kuruluşunuzun Voltius ilkesinde {{count}} sorun var; geri kalanı uygulanmaya devam ediyor.",
+      "issues_other": "Kuruluşunuzun Voltius ilkesinde {{count}} sorun var; geri kalanı uygulanmaya devam ediyor."
     },
     "history": {
       "movedItems_one": "{{count}} öğe taşındı",

@@ -189,6 +189,41 @@ pub async fn drain_channel<C: MsgSource, W: AsyncWrite + Unpin>(
     token: Option<&CancellationToken>,
 ) -> Result<(Option<i32>, Vec<u8>), String> {
     let mut err = Vec::new();
+    let code = drain_pipes(
+        channel,
+        out,
+        &mut |pipe, data| match pipe {
+            Pipe::Stdout => {
+                if let Some(f) = on_data.as_mut() {
+                    f(data);
+                }
+            }
+            Pipe::Stderr => {
+                err.extend_from_slice(data);
+                let excess = err.len().saturating_sub(STDERR_KEEP);
+                err.drain(..excess);
+            }
+        },
+        token,
+    )
+    .await?;
+    Ok((code, err))
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Pipe {
+    Stdout,
+    Stderr,
+}
+
+/// [`drain_channel`] with stderr handed to `on_chunk` as it arrives instead of collected.
+pub async fn drain_pipes<C: MsgSource, W: AsyncWrite + Unpin>(
+    channel: &mut C,
+    out: &mut W,
+    on_chunk: &mut (dyn FnMut(Pipe, &[u8]) + Send),
+    token: Option<&CancellationToken>,
+) -> Result<Option<i32>, String> {
     let mut code = None;
     loop {
         let msg = match token {
@@ -211,22 +246,16 @@ pub async fn drain_channel<C: MsgSource, W: AsyncWrite + Unpin>(
                     None => write.await,
                 }
                 .map_err(|e| format!("Write error: {e}"))?;
-                if let Some(f) = on_data.as_mut() {
-                    f(&data);
-                }
+                on_chunk(Pipe::Stdout, &data);
             }
-            Some(ChannelMsg::ExtendedData { data, .. }) => {
-                err.extend_from_slice(&data);
-                let excess = err.len().saturating_sub(STDERR_KEEP);
-                err.drain(..excess);
-            }
+            Some(ChannelMsg::ExtendedData { data, .. }) => on_chunk(Pipe::Stderr, &data),
             Some(ChannelMsg::ExitStatus { exit_status }) => code = Some(exit_status as i32),
             Some(ChannelMsg::Close) if code.is_some() => break,
             None => break,
             _ => {}
         }
     }
-    Ok((code, err))
+    Ok(code)
 }
 
 /// The error a non-zero — or missing — exit status deserves, or `Ok` when the

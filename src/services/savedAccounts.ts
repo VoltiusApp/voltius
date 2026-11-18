@@ -8,10 +8,12 @@ import {
   type PersistedAccountUiState,
 } from "@/stores/persistedAccountUiState";
 import { instanceLabel } from "@/utils/serverInstance";
+import { serverAllowed, serverMove } from "./policy/serverPolicy";
+import { AccountAlreadyActiveError, AccountNotSavedError, ServerBlockedError } from "./accountErrors";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 import { clearAccountUiState, dropAccountProfile, lockVault, readLocalSecrets, swapAccountProfile } from "./vault";
 import { deviceScopedSecretKeys } from "./deviceScopedSecrets";
-import { clearSecret, exportSecret, importSecret } from "./vaultSecret";
+import { clearSecret, exportSecret, importSecret, keepsPlainPassword } from "./vaultSecret";
 
 /**
  * The keychain entries that make up an account session. A SavedAccount is a
@@ -61,8 +63,8 @@ async function keychainDelete(key: string): Promise<void> {
  * one value, saving the second account failed, the failure was swallowed, and
  * the account silently never joined the switcher.
  */
-const INDEX_KEY = "voltius.saved_accounts";
-const ENTRY_PREFIX = "voltius.saved_account.";
+export const INDEX_KEY = "voltius.saved_accounts";
+export const ENTRY_PREFIX = "voltius.saved_account.";
 
 const entryKey = (account_id: string) => `${ENTRY_PREFIX}${account_id}`;
 
@@ -151,6 +153,23 @@ async function migrateLegacyList(
   return { ok: true, accounts };
 }
 
+export async function adoptServerMove(): Promise<void> {
+  const movedServerUrl = serverMove();
+  if (!movedServerUrl) return;
+  try {
+    const active = movedServerUrl(await keychainGet("server_url"));
+    if (active) await keychainSet("server_url", active);
+    const { ok, accounts } = await loadSavedAccounts();
+    if (!ok) return;
+    for (const account of accounts) {
+      const server_url = movedServerUrl(account.server_url);
+      if (server_url) await keychainSet(entryKey(account.account_id), JSON.stringify({ ...account, server_url }));
+    }
+  } catch {
+    // A failed move leaves the account blocked, as before; launch goes on.
+  }
+}
+
 export async function getSavedAccounts(): Promise<SavedAccount[]> {
   return (await loadSavedAccounts()).accounts;
 }
@@ -201,25 +220,28 @@ export async function getSwitchTargets(active: ActiveAccount): Promise<SavedAcco
  * Rejects when the keychain does — the caller decides whether that is worth
  * telling the user about. Swallowing it here is what hid the size cap.
  */
-export async function saveCurrentAccount(): Promise<void> {
+export async function saveCurrentAccount(pendingSecret?: string): Promise<boolean> {
   const values = await Promise.all(SESSION_KEYS.map((key) => keychainGet(key)));
   const session = Object.fromEntries(
     SESSION_KEYS.map((key, i) => [key, values[i]]),
   ) as Record<SessionKey, string | null>;
 
-  const secret = await exportSecret();
+  const secret = (await exportSecret()) ?? (pendingSecret ? { kind: "plain" as const, value: pendingSecret } : null);
   const { account_id, mode } = session;
-  if (!account_id || !mode || !secret) return;
+  // Without a remembered password the entry still saves: switching back asks for it.
+  if (!account_id || !mode || (!secret && (await keepsPlainPassword()))) return false;
 
   const entry: SavedAccount = {
     ...session,
     account_id,
     mode,
-    ...(secret.kind === "plain" ? { master_password: secret.value } : { master_password_sealed: secret.value }),
+    ...(secret?.kind === "plain" && { master_password: secret.value }),
+    ...(secret?.kind === "sealed" && { master_password_sealed: secret.value }),
   };
-  if (!isSwitchable(entry)) return;
+  if (!isSwitchable(entry)) return false;
 
   await upsertSavedAccount(entry);
+  return true;
 }
 
 /**
@@ -238,6 +260,7 @@ async function upsertSavedAccount(entry: SavedAccount): Promise<void> {
   // The secret is held in one form at a time; the other form from an older snapshot must not outlive it.
   if (entry.master_password) delete merged.master_password_sealed;
   if (entry.master_password_sealed) delete merged.master_password;
+  if (!(await keepsPlainPassword())) delete merged.master_password;
   await keychainSet(entryKey(entry.account_id), JSON.stringify(merged));
   if (existing) return;
   await keychainSet(
@@ -265,14 +288,23 @@ async function stashUiStateForCurrentAccount(): Promise<string | null> {
   return account_id;
 }
 
-/** Other accounts' passwords stay readable in plain form unless dropped; switching to one then asks for it. */
-export async function forgetOtherPlainPasswords(): Promise<void> {
-  const [{ ok, accounts }, current] = await Promise.all([loadSavedAccounts(), keychainGet("account_id")]);
+async function forgetPlainPasswords(except: string | null): Promise<void> {
+  const { ok, accounts } = await loadSavedAccounts();
   if (!ok) return;
   for (const { master_password, ...rest } of accounts) {
-    if (rest.account_id === current || !master_password) continue;
+    if (rest.account_id === except || !master_password) continue;
     await keychainSet(entryKey(rest.account_id), JSON.stringify(rest));
   }
+}
+
+/** Other accounts' passwords stay readable in plain form unless dropped; switching to one then asks for it. */
+export async function forgetOtherPlainPasswords(): Promise<void> {
+  await forgetPlainPasswords(await keychainGet("account_id"));
+}
+
+/** Every saved account's plain password, for a device that stops remembering them. */
+export async function forgetSavedPlainPasswords(): Promise<void> {
+  await forgetPlainPasswords(null);
 }
 
 export async function removeSavedAccount(account_id: string): Promise<void> {
@@ -298,7 +330,7 @@ const FINAL_PUSH_TIMEOUT_MS = 5000;
  */
 async function flushPendingChanges(): Promise<void> {
   const { push, isSyncPaused } = await import("@/services/sync");
-  if (isSyncPaused()) return;
+  if (isSyncPaused() || !serverAllowed(await keychainGet("server_url").catch(() => null))) return;
   const abort = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<void>((resolve) => {
@@ -376,6 +408,7 @@ let switchInFlight: Promise<void> | null = null;
  * write its keychain entries and UI state, then reload so autoLogin picks it up.
  */
 export function switchToAccount(account: SavedAccount): Promise<void> {
+  if (!serverAllowed(account.server_url)) return Promise.reject(new ServerBlockedError());
   // A second run would park the incoming account's data under the outgoing id.
   switchInFlight ??= runSwitch(account).finally(() => {
     switchInFlight = null;
@@ -388,9 +421,10 @@ export function switchToAccount(account: SavedAccount): Promise<void> {
  * The current account is saved first, so a keychain that refuses it stops the add
  * before anything is torn down.
  */
-export async function addAccount(session: Omit<SavedAccount, "mode">): Promise<void> {
-  await saveCurrentAccount();
-  if ((await keychainGet("account_id")) === session.account_id) return;
+export async function addAccount(session: Omit<SavedAccount, "mode">, pendingSecret?: string): Promise<void> {
+  if ((await keychainGet("account_id")) === session.account_id) throw new AccountAlreadyActiveError();
+  const saved = await saveCurrentAccount(pendingSecret);
+  if (!saved && (await keychainGet("mode")) === "server") throw new AccountNotSavedError();
   const entry: SavedAccount = { ...session, mode: "server" };
   await upsertSavedAccount(entry);
   await switchToAccount(entry);

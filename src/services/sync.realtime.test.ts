@@ -7,11 +7,14 @@ const h = vi.hoisted(() => ({
   invoke: vi.fn(),
   appFetch: vi.fn(),
   connects: [] as AbortSignal[],
+  connectedAt: [] as number[],
   connect: undefined as unknown as Connect,
   events: new Map<string, () => void>(),
   chunk: (() => {}) as (text: string) => void,
   settle: vi.fn(async () => {}),
+  catchUpTeamVaults: vi.fn(),
 }));
+vi.mock("@/services/teamVaultCatchUp", () => ({ catchUpTeamVaults: h.catchUpTeamVaults, cancelTeamVaultCatchUp: vi.fn(), forgetTeamDataSeen: vi.fn() }));
 vi.mock("@/services/account", async (orig) => ({ ...(await orig<object>()), settleVaultOnDek: h.settle }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
@@ -26,6 +29,7 @@ vi.mock("@/services/teamDataManager", () => ({ onTeamLogin: vi.fn(async () => {}
 vi.mock("@/services/nativeSseStream", () => ({
   connectNativeSse: (_url: string, _headers: unknown, signal: AbortSignal, onChunk: (text: string) => void, onOpen: () => void) => {
     h.connects.push(signal);
+    h.connectedAt.push(Date.now());
     h.chunk = onChunk;
     return h.connect(signal, onOpen);
   },
@@ -75,6 +79,8 @@ async function runSync(forcePush = false) {
   await run;
 }
 
+const reconnectGaps = () => h.connectedAt.slice(1).map((t, i) => t - h.connectedAt[i]);
+
 const deviceListFetches = () => h.appFetch.mock.calls.filter(([url]) => String(url).endsWith("/v1/sync/devices")).length;
 
 let syncRuns = 0;
@@ -84,7 +90,9 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.spyOn(Math, "random").mockReturnValue(0.5);
   h.connects.length = 0;
+  h.connectedAt.length = 0;
   h.settle.mockReset().mockResolvedValue(undefined);
+  h.catchUpTeamVaults.mockReset();
   h.connect = unreachable;
   h.events.clear();
   h.invoke.mockReset();
@@ -136,6 +144,20 @@ test("no sync is attempted while the stream cannot open", async () => {
   expect(syncRuns).toBe(0);
 });
 
+test("every stream that opens tells the usage announcer to re-announce", async () => {
+  const { useConnectionPresenceStore } = await import("@/stores/connectionPresenceStore");
+  const before = useConnectionPresenceStore.getState().streamEpoch;
+  h.connect = opensThenDrops;
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(0);
+  await vi.dynamicImportSettled();
+  expect(useConnectionPresenceStore.getState().streamEpoch).toBe(before + 1);
+
+  await vi.advanceTimersByTimeAsync(6_000);
+  await vi.dynamicImportSettled();
+  expect(useConnectionPresenceStore.getState().streamEpoch).toBe(before + 2);
+});
+
 test("an opened stream catches up with a sync", async () => {
   h.connect = staysOpen;
 
@@ -172,9 +194,9 @@ test("a sync the proxy answered for a down server shortens the retries too", asy
   h.appFetch.mockImplementation(async () => new Response("", { status: 504 }));
 
   startRealtimeSync();
-  await vi.advanceTimersByTimeAsync(5_000 + 10_000 + 20_000 + 30_000 + 30_000 + 1_000);
+  await vi.advanceTimersByTimeAsync(10 * 60_000);
 
-  expect(h.connects).toHaveLength(6);
+  expect(Math.max(...reconnectGaps())).toBeLessThanOrEqual(40_000 + 30_000 + 2_000);
 });
 
 test("an edit made while the stream waits to retry tries the server right away", async () => {
@@ -227,6 +249,21 @@ test("a stream that opened and then dropped is retried at the shortest wait", as
   h.connect = unreachable;
   await vi.advanceTimersByTimeAsync(5_500);
   expect(h.connects).toHaveLength(4);
+});
+
+test("every stream that opens reloads my join requests, Pro or not", async () => {
+  const requestFetches = () => h.appFetch.mock.calls.filter(([url]) => String(url).endsWith("/v1/enrollment/requests")).length;
+  useSubscriptionStore.setState({ isPro: false });
+  h.connect = opensThenDrops;
+  serverAnswers();
+
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(requestFetches()).toBe(1);
+
+  await vi.advanceTimersByTimeAsync(6_000);
+  expect(h.connects).toHaveLength(2);
+  expect(requestFetches()).toBe(2);
 });
 
 test("a paused device opens no stream", async () => {
@@ -439,29 +476,50 @@ test("a stream that keeps sending heartbeats is left alone", async () => {
   expect(h.connects[0].aborted).toBe(false);
 });
 
-test("a sync that cannot reach the server drops a stream that still looks open", async () => {
+async function failSyncWhileStreamOpen() {
   h.connect = staysOpen;
   serverAnswers();
   startRealtimeSync();
   await vi.advanceTimersByTimeAsync(1_000);
+  h.appFetch.mockRejectedValue("error sending request");
+  await runSync(true);
+  expect(getSyncState().status).toBe("offline");
+}
+
+test("a sync that cannot reach the server leaves a stream that keeps its heartbeat open (#782)", async () => {
+  await failSyncWhileStreamOpen();
+
+  for (let i = 0; i < 3; i++) {
+    await vi.advanceTimersByTimeAsync(30_000);
+    h.chunk(":heartbeat\n\n");
+  }
+
+  expect(h.connects).toHaveLength(1);
+  expect(h.connects[0].aborted).toBe(false);
+});
+
+test("a sync that cannot reach the server drops a stream that then misses its heartbeat", async () => {
+  await failSyncWhileStreamOpen();
+  h.connect = unreachable;
+
+  await vi.advanceTimersByTimeAsync(37_000);
   expect(h.connects[0].aborted).toBe(false);
 
-  h.appFetch.mockRejectedValue("error sending request");
-  h.connect = unreachable;
-  await runSync(true);
-
+  await vi.advanceTimersByTimeAsync(3_000);
   expect(h.connects[0].aborted).toBe(true);
   expect(getSyncState().status).toBe("offline");
 });
 
-test("a stream whose catch-up sync keeps failing is retried at a growing interval", async () => {
+test("a silent stream whose catch-up sync keeps failing is retried at a growing interval", async () => {
   h.connect = staysOpen;
   h.appFetch.mockRejectedValue("error sending request");
 
   startRealtimeSync();
-  await vi.advanceTimersByTimeAsync(34_000);
+  await vi.advanceTimersByTimeAsync(10 * 60_000);
 
-  expect(h.connects).toHaveLength(3);
+  const gaps = reconnectGaps();
+  expect(gaps.length).toBeGreaterThanOrEqual(3);
+  gaps.slice(1).forEach((gap, i) => expect(gap).toBeGreaterThan(gaps[i]));
 });
 
 test("a login settles the vault before the Pro and teams branching", async () => {
@@ -489,4 +547,152 @@ test("a failing settle does not fail the sync", async () => {
   h.settle.mockRejectedValueOnce(new Error("rekey failed"));
   await expect(syncOnLogin()).resolves.toBeUndefined();
   expect(deviceListFetches()).toBe(1);
+});
+
+const serverFails = () => h.appFetch.mockImplementation(async () => new Response("", { status: 500 }));
+
+test("a sync asked for during one that fails is not lost (#780)", async () => {
+  serverFails();
+  const first = syncNow().catch(() => {});
+  void syncInBackground();
+  await vi.advanceTimersByTimeAsync(1_000);
+  await first;
+  expect(getSyncState().status).toBe("error");
+  expect(syncRuns).toBe(1);
+
+  serverAnswers();
+  await vi.advanceTimersByTimeAsync(6_000);
+
+  expect(syncRuns).toBe(2);
+  expect(getSyncState().status).toBe("success");
+});
+
+test("a failed sync is retried at a growing interval until it succeeds", async () => {
+  serverFails();
+  await runSync();
+  expect(syncRuns).toBe(1);
+
+  await vi.advanceTimersByTimeAsync(5_000);
+  expect(syncRuns).toBe(2);
+  await vi.advanceTimersByTimeAsync(9_000);
+  expect(syncRuns).toBe(2);
+  await vi.advanceTimersByTimeAsync(2_000);
+  expect(syncRuns).toBe(3);
+
+  serverAnswers();
+  await vi.advanceTimersByTimeAsync(21_000);
+  expect(syncRuns).toBe(4);
+  expect(getSyncState().status).toBe("success");
+
+  await vi.advanceTimersByTimeAsync(600_000);
+  expect(syncRuns).toBe(4);
+});
+
+test("an edit whose upload failed is pushed by the retry", async () => {
+  serverFails();
+  await runSync(true);
+  expect(blobPushes()).toBe(0);
+
+  serverAnswers();
+  await vi.advanceTimersByTimeAsync(6_000);
+
+  expect(blobPushes()).toBe(1);
+});
+
+test("a failed sync is not retried while the device is paused", async () => {
+  serverFails();
+  await runSync();
+  setSyncPaused(true);
+
+  await vi.advanceTimersByTimeAsync(60_000);
+
+  expect(syncRuns).toBe(1);
+});
+
+async function keepStreamAliveFor(ms: number) {
+  for (let left = ms; left > 0; left -= 30_000) {
+    await vi.advanceTimersByTimeAsync(Math.min(30_000, left));
+    h.chunk(":heartbeat\n\n");
+  }
+}
+
+test("an open stream that hears nothing checks the server every 10 minutes without uploading", async () => {
+  h.connect = staysOpen;
+  serverAnswers();
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(1_000);
+  expect(deviceListFetches()).toBe(1);
+
+  const pushesAfterCatchUp = blobPushes();
+  await keepStreamAliveFor(9 * 60_000);
+  expect(deviceListFetches()).toBe(1);
+
+  await keepStreamAliveFor(60_000);
+  expect(deviceListFetches()).toBe(2);
+
+  await keepStreamAliveFor(10 * 60_000);
+  expect(deviceListFetches()).toBe(3);
+  expect(blobPushes()).toBe(pushesAfterCatchUp);
+  expect(h.connects).toHaveLength(1);
+});
+
+test("a sync in between postpones the next check", async () => {
+  h.connect = staysOpen;
+  serverAnswers();
+  startRealtimeSync();
+  await keepStreamAliveFor(5 * 60_000);
+
+  await runSync();
+  expect(deviceListFetches()).toBe(2);
+
+  await keepStreamAliveFor(8 * 60_000);
+  expect(deviceListFetches()).toBe(2);
+
+  await keepStreamAliveFor(2 * 60_000);
+  expect(deviceListFetches()).toBe(3);
+});
+
+test("no periodic check runs once the stream is stopped", async () => {
+  h.connect = staysOpen;
+  serverAnswers();
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(1_000);
+
+  stopRealtimeSync();
+  await vi.advanceTimersByTimeAsync(30 * 60_000);
+
+  expect(deviceListFetches()).toBe(1);
+});
+
+test("team vaults catch up when the stream reopens, not when it first opens", async () => {
+  h.connect = opensThenDrops;
+  serverAnswers();
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(1_000);
+  expect(h.catchUpTeamVaults).not.toHaveBeenCalled();
+
+  await vi.advanceTimersByTimeAsync(6_000);
+  expect(h.connects).toHaveLength(2);
+  expect(h.catchUpTeamVaults).toHaveBeenCalledWith({ refetchUnversioned: true });
+});
+
+test("the server's lag fallback catches team vaults up", async () => {
+  h.connect = staysOpen;
+  serverAnswers();
+  startRealtimeSync();
+  await vi.advanceTimersByTimeAsync(1_000);
+
+  h.chunk("data: sync\n\n");
+  await vi.advanceTimersByTimeAsync(0);
+
+  expect(h.catchUpTeamVaults).toHaveBeenCalledWith({ refetchUnversioned: true });
+});
+
+test("the periodic check also catches up team vaults whose version moved", async () => {
+  h.connect = staysOpen;
+  serverAnswers();
+  startRealtimeSync();
+  await keepStreamAliveFor(10 * 60_000);
+
+  expect(h.catchUpTeamVaults).toHaveBeenCalledWith({ refetchUnversioned: false });
 });

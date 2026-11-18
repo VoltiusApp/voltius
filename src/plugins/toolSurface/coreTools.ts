@@ -25,6 +25,7 @@ export interface ToolSurfacePorts {
   text?: {
     descriptions?: Record<string, string>;
     notOwnedError?: string;
+    tabLockedError?: string;
   };
 }
 

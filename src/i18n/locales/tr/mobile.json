@@ -26,11 +26,7 @@
       "panelsAriaLabel": "Paneller"
     },
     "panelItems": {
-      "sftp": "SFTP",
-      "docker": "Docker",
-      "metrics": "Ölçümler",
-      "processes": "İşlemler",
-      "proxmox": "Proxmox"
+      "sftp": "SFTP"
     },
     "morePages": {
       "keychain": "Anahtar zinciri",
@@ -53,7 +49,9 @@
       "seatsUsed": "{{used}} / {{total}} kullanılıyor",
       "upgradeToPro": "Pro'ya yükselt",
       "upgradeToTeams": "Teams'i {{days}} gün ücretsiz dene",
-      "teamsTrialNote": "Kart gerekir · deneme süresince ücret alınmaz",
+      "teamsTrialNote": "Kredi kartı yok · 10 ekip arkadaşına kadar",
+      "activateProTrial": "14 günlük Pro'yu etkinleştir",
+      "upgradeTeamsPlain": "Teams'e geç",
       "manageBilling": "Faturalandırmayı yönet",
       "viewAllPlans": "Tüm planları gör",
       "signInToSync": "Voltius'ta oturum açın",
@@ -137,10 +135,8 @@
       "permissionDenied": "İzin reddedildi",
       "goUp": "Yukarı çık",
       "emptyFolder": "Klasör boş",
-      "selectedCount": "{{count}} seçildi",
       "downloadSelectedAriaLabel": "Seçilenleri indir",
       "deleteSelectedAriaLabel": "Seçilenleri sil",
-      "clearSelectionAriaLabel": "Seçimi temizle",
       "copyToOtherPane": "Diğer bölmeye kopyala",
       "download": "İndir",
       "details": "Ayrıntılar",
@@ -161,10 +157,8 @@
       "newFileOption": "Yeni dosya",
       "folderNamePlaceholder": "Klasör adı",
       "fileNamePlaceholder": "Dosya adı",
-      "selectAll": "Tümünü seç",
       "onePane": "Tek panel",
       "twoPanes": "İki panel",
-      "moreActions": "Diğer işlemler",
       "itemActions": "{{name}} için işlemler"
     },
     "folders": {
@@ -287,6 +281,41 @@
         "delete": "Kasayı ve içindeki her şeyi siler",
         "deleteTeam": "Tüm üyeler için siler",
         "leave": "Bu kasaya erişiminizi kaldırın"
+      }
+    },
+    "viewAs": {
+      "editAccess": "Erişimi düzenle",
+      "accessSubtitle": "Değişiklikler bu panelin arkasında önizlenir. Henüz hiçbir şey kaydedilmedi.",
+      "areas": {
+        "hosts": "Sunucular",
+        "keychain": "Anahtar zinciri",
+        "snippets": "Kod parçacıkları",
+        "portForwarding": "Port yönlendirme",
+        "sessions": "Oturumlar",
+        "members": "Üyeler",
+        "logs": "Denetim günlüğü"
+      }
+    },
+    "selection": {
+      "selectedCount": "{{count}} seçildi",
+      "clearSelectionAriaLabel": "Seçimi temizle",
+      "selectAll": "Tümünü seç",
+      "moreActions": "Diğer işlemler"
+    },
+    "members": {
+      "selectSelf": "Kendinizi seçemezsiniz",
+      "selectOwner": "Bir sahibin rollerini değiştiremez veya onu kaldıramazsınız",
+      "assignRole": "Rol ata",
+      "removeRole": "Rolü kaldır",
+      "pickRole": "Bir rol seçin",
+      "keyHeld": "Kasa anahtarı var",
+      "keyAwaiting": "Kasa anahtarını bekliyor",
+      "alreadyAssigned": "Zaten atanmış",
+      "notAssigned": "Atanmamış",
+      "keyNoAccess": "Kasa anahtarına erişim yok: Bağlan izni yok",
+      "invite": {
+        "resend": "Daveti yeniden gönder",
+        "revoke": "Daveti iptal et"
       }
     }
   }

@@ -24,7 +24,7 @@ export function VaultErrorPanel({
       onClick: () => window.location.reload(),
     },
     ...(onRetry ? [{ label: t("terminal.overlay.vaultError.retry"), variant: "secondary" as const, onClick: onRetry }] : []),
-    ...(onCancel ? [{ label: t("terminal.overlay.vaultError.dismiss"), variant: "ghost" as const, onClick: onCancel }] : []),
+    ...(onCancel ? [{ label: t("terminal.overlay.vaultError.dismiss"), variant: "ghost" as const, dismisses: true, onClick: onCancel }] : []),
   ];
 
   return (

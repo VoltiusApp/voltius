@@ -75,6 +75,7 @@ export function UsernamePromptPanel({
         {
           label: t("common.action.cancel"),
           variant: "ghost",
+          dismisses: true,
           onClick: onCancel,
         },
       ]}

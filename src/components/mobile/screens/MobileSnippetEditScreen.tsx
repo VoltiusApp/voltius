@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import MobileEditScreen from "../MobileEditScreen";
-import { useSnippetStore } from "@/stores/snippetStore";
+import { useSnippetStore, type SnippetDraft } from "@/stores/snippetStore";
 import { useAllSnippets } from "@/hooks/useAllSnippets";
 import { useVaultScope } from "@/hooks/useVaultScope";
 import { useBackInterceptor } from "@/hooks/useBackInterceptor";
@@ -14,20 +14,23 @@ import { StepListEditor } from "@/components/snippets/StepListEditor";
 import { ScriptEditor } from "@/components/snippets/ScriptEditor";
 import { RemotePathPickerPanel } from "@/components/snippets/RemotePathPickerPanel";
 import { ReadOnlyFields, withEditAccess, type EditAccessProps } from "@/components/shared/editAccess";
+import { PermissionsSection } from "@/components/permissions/PermissionsSection";
 import { FieldError, useRequiredField } from "@/components/shared/fieldValidation";
 import { formInputClass, formInputStyle, formLabelClass, formLabelStyle } from "@/components/shared/Panel";
-import type { Snippet, SnippetFormData, SnippetStep } from "@/types";
+import type { NewObjectPlacement, Snippet, SnippetFormData, SnippetStep } from "@/types";
 
-export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: string }) {
+export default function MobileSnippetEditScreen({ snippetId, placement, draft }: { snippetId?: string; placement?: NewObjectPlacement; draft?: SnippetDraft }) {
   const pop = useMobileNavStore((s) => s.pop);
   const snippets = useAllSnippets();
   const editing = snippetId ? snippets.find((s) => s.id === snippetId) ?? null : null;
   useCloseWhenGone(snippetId, editing !== null, pop);
-  return <MobileSnippetEditor editing={editing} />;
+  return <MobileSnippetEditor editing={editing} placement={placement} draft={draft} />;
 }
 
 interface EditorProps {
   editing: Snippet | null;
+  placement?: NewObjectPlacement;
+  draft?: SnippetDraft;
 }
 
 const MobileSnippetEditor = withEditAccess("snippet", (p: EditorProps) => p.editing ?? undefined, MobileSnippetEditorFields);
@@ -40,7 +43,7 @@ const NEW_STEPS: SnippetStep[] = [{ kind: "script", content: "" }];
  * synced half-typed. So it keeps a single Save action, and Back over unsaved changes
  * asks first (Save / Keep editing / Discard).
  */
-function MobileSnippetEditorFields({ editing, readOnly }: EditorProps & EditAccessProps) {
+function MobileSnippetEditorFields({ editing, placement, draft, readOnly }: EditorProps & EditAccessProps) {
   const { t } = useTranslation();
   const pop = useMobileNavStore((s) => s.pop);
   const snippets = useAllSnippets();
@@ -49,8 +52,8 @@ function MobileSnippetEditorFields({ editing, readOnly }: EditorProps & EditAcce
   const deleteSnippet = useSnippetStore((s) => s.deleteSnippet);
   const { createVaultId } = useVaultScope();
 
-  const initialSteps = editing?.steps ?? NEW_STEPS;
-  const [name, setName] = useState(editing?.name ?? "");
+  const initialSteps = editing?.steps ?? draft?.steps ?? NEW_STEPS;
+  const [name, setName] = useState(editing?.name ?? draft?.name ?? "");
   const [steps, setSteps] = useState<SnippetStep[]>(initialSteps);
   const [remotePick, setRemotePick] = useState<{ index: number; field: "from_path" | "to_path"; isDir: boolean } | null>(null);
   const [revealErrors, setRevealErrors] = useState(false);
@@ -81,7 +84,8 @@ function MobileSnippetEditorFields({ editing, readOnly }: EditorProps & EditAcce
         name: name.trim(), steps,
         tags: [], favorite: false,
         only_for_connection_tags: [], only_for_distros: [],
-        vault_id: createVaultId,
+        folder_id: placement?.folderId,
+        vault_id: placement?.vaultId ?? createVaultId,
       };
       await createSnippet(data);
     }
@@ -170,6 +174,11 @@ function MobileSnippetEditorFields({ editing, readOnly }: EditorProps & EditAcce
           </button>
         )}
       </ReadOnlyFields>
+      {editing && (
+        <div className="px-4 pb-4 empty:hidden">
+          <PermissionsSection objectId={editing.id} vaultId={editing.vault_id} type="snippet" />
+        </div>
+      )}
     </MobileEditScreen>
   );
 }

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { getVaultStatus } from "@/services/vault";
+import { invoke } from "@/lib/invoke";
+import { clearAccountUiState, getVaultStatus } from "@/services/vault";
+import { dropAccountUiState } from "@/stores/persistedAccountUiState";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
@@ -8,14 +10,18 @@ import { useFolderStore } from "@/stores/folderStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
-import { autoLogin, getAccountId, getAccountMode, getAppLock, isServerMode, setAppLock } from "@/services/account";
+import { useFavoriteCommandStore } from "@/stores/favoriteCommandStore";
+import { useSyncedPluginStore } from "@/stores/syncedPluginStore";
+import { reconcileSyncedPlugins } from "@/services/pluginSync";
+import { announceWithdrawnInvitations, autoLogin, getAccountId, getAccountMode, getAppLock, isServerMode, setAppLock } from "@/services/account";
 import { lockOnLaunchIfIdle, systemAuthAvailable } from "@/services/appLock";
 import { secretState } from "@/services/vaultSecret";
 import { useAppLockStore } from "@/stores/appLockStore";
 import { useSecurityStore } from "@/stores/securityStore";
-import { saveCurrentAccount } from "@/services/savedAccounts";
+import { adoptServerMove, saveCurrentAccount } from "@/services/savedAccounts";
 import { syncOnLaunch, syncOnLoginReplace } from "@/services/sync";
 import { startLanSyncInBackground, startSessionSync, stopLanSync } from "@/services/lanSync";
+import { startAuditOutbox } from "@/services/auditOutbox";
 import { setLoginSyncPending, resolveLoginSync } from "@/services/loginSyncGate";
 import { loadSeededPlugins } from "@/plugins/seeded";
 import { loadInstalledPlugins, loadPluginMeta, supersedeStaleFirstPartyShadows } from "@/stores/marketplaceStore";
@@ -24,10 +30,17 @@ import { useThemeStore } from "@/stores/themeStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { usePlatform } from "@/utils/platform";
 import { canLockVault } from "@/utils/accountMode";
+import { onPolicyLoaded, usePolicyStore, watchPolicyVisibility } from "@/stores/policyStore";
+import { startEnrolledTeamSync } from "@/services/policy/enrolledTeam";
+import { applyPluginPolicy } from "@/plugins/applyPluginEnabled";
+import { applyCliPending, markCliReady } from "@/services/cliBridge";
+import { applySettingDefaults } from "@/services/policy/adminDefaults";
+import { machineEnrollmentToken, takeEnrollLink } from "@/services/enrollment/machineToken";
+import type { EnrollTarget } from "@/stores/uiStore";
 import AuthPage from "./AuthPage";
 import LogoBadge from "./LogoBadge";
 
-type Phase = "loading" | "auth-first-launch" | "auth-locked" | "auth-unreadable" | "finishing" | "done";
+type Phase = "loading" | "auth-server-blocked" | "auth-first-launch" | "auth-locked" | "auth-unreadable" | "finishing" | "done";
 type StepStatus = "pending" | "running" | "done" | "error";
 
 interface Step { id: string; label: string; status: StepStatus; }
@@ -43,6 +56,25 @@ const KEYCHAIN_HINT_DELAY_MS = 3000;
  */
 function keepSwitcherFresh(): void {
   saveCurrentAccount().catch((e) => console.warn("[splash] could not save this account to the switcher:", e));
+}
+
+function firstLaunchEnrollTarget(): EnrollTarget | undefined {
+  const machine = machineEnrollmentToken();
+  return takeEnrollLink() ?? (machine ? { token: machine, source: "machine" } : undefined);
+}
+
+// `voltius-cli logout` can't reach this webview's storage, so it leaves the account ids for the next launch.
+// Persisted stores hydrated before this ran and would write the old account back: reload, as sign-out does.
+async function finishCliLogout(): Promise<boolean> {
+  const accountIds = await invoke<string[]>("cli_logout_marker_take").catch(() => []);
+  if (accountIds.length === 0) return false;
+  try {
+    await clearAccountUiState();
+    accountIds.forEach((id) => dropAccountUiState(id));
+  } finally {
+    window.location.reload();
+  }
+  return true;
 }
 
 type UnlockPhase = "auth-locked" | "auth-unreadable" | "auth-first-launch";
@@ -62,41 +94,55 @@ export default function SplashScreen({ onReady }: Props) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [exiting, setExiting] = useState(false);
   const [systemAuth, setSystemAuth] = useState(false);
+  const [enrollTarget, setEnrollTarget] = useState<EnrollTarget>();
   const keychainHint = useKeychainPromptHint(steps.find((s) => s.id === "vault")?.status === "running");
 
   const setStep = (id: string, status: StepStatus, label?: string) =>
     setSteps((prev) => prev.map((s) => s.id === id ? { ...s, status, ...(label ? { label } : {}) } : s));
 
+  const enterPhase = (next: Phase) => {
+    if (next === "auth-first-launch") setEnrollTarget(firstLaunchEnrollTarget());
+    setPhase(next);
+  };
+
   const showUnlockPhase = (next: UnlockPhase, lockedLabel: string) => {
     if (next === "auth-unreadable") setStep("vault", "error", t("layout.splash.vaultUnreadable"));
     else setStep("vault", "done", next === "auth-locked" ? lockedLabel : t("layout.splash.firstLaunch"));
-    setPhase(next);
+    enterPhase(next);
   };
 
   useEffect(() => {
     async function init() {
       // The Rust manager outlives a webview reload: stop it until this session starts its own.
       void stopLanSync();
-      setStep("init", "running");
-      await delay(300);
+      watchPolicyVisibility();
+      startEnrolledTeamSync();
+      await usePolicyStore.getState().load();
+      await adoptServerMove();
+      if (await finishCliLogout()) return;
       setStep("init", "done");
-
       setStep("vault", "running");
-      await delay(200);
 
       if (((await getAppLock()) ?? (await lockOnLaunchIfIdle().catch(() => null))) === "vault") {
-        const sealed = (await secretState().catch(() => "none")) === "sealed";
-        setSystemAuth(sealed || (useSecurityStore.getState().systemAuthUnlock && (await systemAuthAvailable())));
+        const state = await secretState().catch(() => "none" as const);
+        // Without a stored copy (remembering is off) the OS prompt has nothing to hand back: ask for the password.
+        setSystemAuth(state === "sealed"
+          || (state === "plain" && useSecurityStore.getState().systemAuthUnlock && (await systemAuthAvailable())));
         try {
           showUnlockPhase(await unlockPhase(), t("layout.splash.vaultLocked"));
         } catch {
           setStep("vault", "error", t("layout.splash.vaultCheckFailed"));
-          setPhase("auth-first-launch");
+          enterPhase("auth-first-launch");
         }
         return;
       }
 
       const outcome = await autoLogin();
+      if (outcome === "server-blocked") {
+        setStep("vault", "done", t("common.policy.managed"));
+        setPhase("auth-server-blocked");
+        return;
+      }
       if (outcome === "sealed") {
         setSystemAuth(true);
         setStep("vault", "done", t("layout.splash.vaultLocked"));
@@ -124,20 +170,19 @@ export default function SplashScreen({ onReady }: Props) {
         showUnlockPhase(await unlockPhase(), t("layout.splash.vaultFound"));
       } catch {
         setStep("vault", "error", t("layout.splash.vaultCheckFailed"));
-        setPhase("auth-first-launch");
+        enterPhase("auth-first-launch");
       }
     }
     init().catch(() => {
       // Last-resort guard: never let an unexpected rejection freeze the splash.
       setStep("vault", "error", t("layout.splash.vaultCheckFailed"));
-      setPhase("auth-first-launch");
+      enterPhase("auth-first-launch");
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
   const finishLoading = async () => {
     setStep("connections", "running");
-    await delay(150);
     try {
       await Promise.all([
         // Populate stores from local cache so tabs paint at boot, before sync lands.
@@ -148,12 +193,15 @@ export default function SplashScreen({ onReady }: Props) {
         useSnippetStore.getState().loadSnippets(),
         useSnippetFolderStore.getState().loadFolders(),
         usePortForwardingStore.getState().loadRules(),
+        useFavoriteCommandStore.getState().load(),
+        useSyncedPluginStore.getState().load(),
       ]);
       setStep("connections", "done");
     } catch {
       setStep("connections", "error", t("layout.splash.connectionsUnavailable"));
     }
     useSubscriptionStore.getState().load().catch(() => {});
+    void announceWithdrawnInvitations();
     isServerMode().then((server) => {
       if (!server) return startLanSyncInBackground();
       const useReplace = sessionStorage.getItem("voltius.replace-sync-on-login") === "1";
@@ -166,6 +214,7 @@ export default function SplashScreen({ onReady }: Props) {
         .catch(() => {})
         .finally(() => resolveLoginSync());
       startSessionSync();
+      startAuditOutbox();
     });
     useThemeStore.getState().loadFromDisk().catch(() => {});
     // Plugin loading must never freeze startup: a single rejected invoke here
@@ -173,15 +222,25 @@ export default function SplashScreen({ onReady }: Props) {
     // splash spinning forever. Swallow and continue to the main UI.
     try {
       await usePluginRegistryStore.getState().load();
+      applySettingDefaults();
+      onPolicyLoaded(applySettingDefaults);
+    } catch (e) {
+      console.warn("[splash] setting defaults failed, continuing to app:", e);
+    }
+    try {
       await loadPluginMeta();
       await supersedeStaleFirstPartyShadows();
       await loadSeededPlugins();
       await loadInstalledPlugins();
+      applyPluginPolicy();
+      void reconcileSyncedPlugins({ boot: true });
+      onPolicyLoaded(applyPluginPolicy);
     } catch (e) {
       console.warn("[splash] plugin loading failed, continuing to app:", e);
     }
+    markCliReady();
+    void applyCliPending();
     await useAppLockStore.getState().hydrate();
-    await delay(400);
     setExiting(true);
     await delay(400);
     onReady();
@@ -194,7 +253,8 @@ export default function SplashScreen({ onReady }: Props) {
     await finishLoading();
   };
 
-  if (phase === "auth-first-launch") return <AuthPage isLocked={false} onReady={handleAuthReady} />;
+  if (phase === "auth-first-launch") return <AuthPage isLocked={false} enrollTarget={enrollTarget} onReady={handleAuthReady} />;
+  if (phase === "auth-server-blocked") return <AuthPage isLocked={false} cloudOnly onReady={handleAuthReady} />;
   if (phase === "auth-locked") return <AuthPage isLocked={true} systemAuth={systemAuth} onReady={handleAuthReady} />;
   if (phase === "auth-unreadable") return <AuthPage isLocked={true} vaultUnreadable onReady={handleAuthReady} />;
 
@@ -205,14 +265,14 @@ export default function SplashScreen({ onReady }: Props) {
       <div className="mb-10 text-center">
         <LogoBadge size={14} className="mb-4" />
         <h1 className="text-xl font-bold tracking-wide text-(--t-text-bright)">Voltius</h1>
-        <p className="text-xs mt-1 text-(--t-text-muted)">{t("layout.splash.sshClient")}</p>
+        <p className="text-xs mt-1 text-(--t-text-secondary)">{t("layout.splash.sshClient")}</p>
       </div>
 
       <div className="w-64 space-y-2.5">
         {steps.map((step) => <StepRow key={step.id} step={step} />)}
       </div>
       {keychainHint && (
-        <p className="w-72 mt-6 text-xs text-center text-(--t-text-muted)">{t("layout.splash.keychainHint")}</p>
+        <p className="w-72 mt-6 text-xs text-center text-(--t-text-secondary)">{t("layout.splash.keychainHint")}</p>
       )}
     </div>
   );

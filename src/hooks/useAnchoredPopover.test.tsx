@@ -1,6 +1,7 @@
 import { test, expect, vi, afterEach } from "vitest";
 import { render, cleanup, fireEvent } from "@testing-library/react";
 import { useRef } from "react";
+import { createPortal } from "react-dom";
 import { useAnchoredPopover } from "./useAnchoredPopover";
 
 afterEach(cleanup);
@@ -79,4 +80,25 @@ test("a text field inside the popover keeps its own Escape", () => {
   const { getByLabelText } = render(<WithField />);
   fireEvent.keyDown(getByLabelText("field"), { key: "Escape" });
   expect(onClose).not.toHaveBeenCalled();
+});
+
+test("a press in a dialog the panel portals out (a confirm) does not close it", () => {
+  const onClose = vi.fn();
+  function WithDialog() {
+    const anchorRef = useRef<HTMLButtonElement>(null);
+    const popover = useAnchoredPopover(true, onClose, anchorRef);
+    return (
+      <>
+        <button ref={anchorRef}>anchor</button>
+        <div ref={popover.panelRef} onMouseDownCapture={popover.onMouseDownCapture}>
+          {createPortal(<button>confirm</button>, document.body)}
+        </div>
+      </>
+    );
+  }
+  const { getByText } = render(<WithDialog />);
+  fireEvent.mouseDown(getByText("confirm"));
+  expect(onClose).not.toHaveBeenCalled();
+  fireEvent.mouseDown(document.body);
+  expect(onClose).toHaveBeenCalledOnce();
 });

@@ -30,7 +30,7 @@ screenshots/
 # Untracked but previously unignored, so a `git add -A` swept 58k files into a commit.
 .cargo-home/
 disco.mjs
-wd.mjs
+/wd.mjs
 dist-plugin-types/
 packages/plugin-types/index.d.ts
 
@@ -41,3 +41,4 @@ package-lock.json
 # by a container running as root, so it is also awkward to clean up by accident.
 packaging/flatpak/build-dir/
 packaging/flatpak/.flatpak-builder/
+src-tauri/binaries/

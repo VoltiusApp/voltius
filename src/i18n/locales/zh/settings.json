@@ -1,6 +1,10 @@
 {
   "settings": {
     "terminal": {
+      "commandHistory": {
+        "title": "命令历史",
+        "desc": "记录在终端中运行的命令。只有终端回显的行才会保存，因此在隐藏输入的提示符处键入的密码永远不会被保存。以空格开头的行不会被保存。关闭后停止记录；已保存的内容会保留，直到你在历史面板中清除。"
+      },
       "heading": "终端行为",
       "preferredShell": {
         "title": "首选 Shell"
@@ -57,9 +61,28 @@
       }
     },
     "appearance": {
+      "marketplace": {
+        "installedLabel": "插件市场",
+        "available": "来自插件市场",
+        "get": "获取",
+        "remove": "移除",
+        "fromSource": "来自 {{source}}",
+        "desktopOnly": "仅限桌面版",
+        "partOfPlugin": "属于 {{plugin}}，请在插件中管理。",
+        "browseAll": "在插件市场中浏览全部",
+        "loading": "正在加载主题…",
+        "unreachable_other": "{{count}} 个插件市场无法访问"
+      },
       "themeActions": "主题操作",
       "interface": "界面",
       "language": { "title": "语言" },
+      "timeFormat": {
+        "title": "时间格式",
+        "desc": "应用中时间的显示方式。",
+        "auto": "自动（跟随语言）",
+        "12h": "12 小时制",
+        "24h": "24 小时制"
+      },
       "groupTabsByHost": {
         "title": "按主机分组标签页",
         "desc": "同一主机上的会话共用一个标签页。将鼠标悬停在上面即可切换。"
@@ -143,7 +166,7 @@
       "title": "设置",
       "close": "关闭设置",
       "back": "返回",
-      "openHint": "Ctrl+, 打开",
+      "openHint": "{{shortcut}} 打开",
       "expandPluginGroup": "展开插件设置",
       "collapsePluginGroup": "折叠插件设置"
     },
@@ -170,6 +193,15 @@
         "unknown": "未知"
       },
       "sessionSecurity": {
+        "rememberPassword": {
+          "toggle": "记住主密码",
+          "desc": "启动时无需输入即可打开保险库。开启期间，密码保存在此设备的系统钥匙串中；在 Linux 和 Windows 上，以您的身份运行的其他程序可以读取它。关闭后每次启动都需要输入。",
+          "enableTitle": "记住主密码",
+          "enableBody": "输入主密码，将其保存到此设备的系统钥匙串中。",
+          "systemAuthNeedsIt": "需要在此设备上开启“记住主密码”。否则 Voltius 会在启动时和保险库锁定后要求输入主密码；只有锁屏可以通过系统身份验证解锁。",
+          "removeFailed": "无法从系统钥匙串中移除已保存的主密码。",
+          "storeFailed": "无法将主密码保存到系统钥匙串中。"
+        },
         "title": "会话安全",
         "autoLockLabel": "闲置后自动锁定",
         "autoLockDesc": "闲置达到此时长后锁定 Voltius，或在你离开应用时立即锁定。",
@@ -180,6 +212,7 @@
           "30min": "30 分钟",
           "1h": "1 小时",
           "4h": "4 小时",
+          "minutes_other": "{{count}} 分钟",
           "immediately": "立即"
         },
         "needsSystemAuth": "开启系统身份验证后，才能锁定没有主密码的账户。",
@@ -187,8 +220,7 @@
         "policy": {
           "timeout": "{{teams}} 的策略：最长 {{duration}}。",
           "timeoutImmediately": "{{teams}} 的策略：离开 Voltius 时立即锁定。",
-          "vault": "{{teams}} 的策略：必须使用“锁定保险库”。",
-          "yourTeam": "你的团队"
+          "vault": "{{teams}} 的策略：必须使用“锁定保险库”。"
         },
         "lockAction": {
           "label": "锁定方式",
@@ -281,6 +313,45 @@
         "done": "完成",
         "changing": "正在更改…",
         "changeBtn": "更改密码"
+      },
+      "sessions": {
+        "title": "已登录的设备",
+        "loading": "正在加载设备…",
+        "empty": "暂无可显示的设备。",
+        "unknownDevice": "未知设备",
+        "thisDevice": "此设备",
+        "cli": "CLI",
+        "signedIn": "登录于 {{date}}",
+        "lastActive": "活跃于 {{ago}}",
+        "signOut": "退出登录",
+        "signOutNamed": "让 {{name}} 退出登录",
+        "signOutOthers": "让其他设备退出登录",
+        "signOutEverywhere": "在所有设备上退出登录",
+        "working": "正在退出登录…",
+        "retry": "重试",
+        "note": "让设备退出登录会终止它对你账户的访问；设备上已有的数据不会被删除。在此次更新前登录的设备，会在下次刷新登录状态后显示在这里。",
+        "offline": "你处于离线状态。",
+        "unsupported": "你的服务器暂不支持此功能。",
+        "unavailable": "设备列表尚未加载。",
+        "ended": "此设备已退出登录。请重新登录以管理你的设备。",
+        "confirm": {
+          "one": {
+            "title": "让 {{name}} 退出登录？",
+            "message": "{{name}} 将失去对你账户的访问权限，需要重新登录。设备上已有的数据不会被删除。"
+          },
+          "this": {
+            "title": "让此设备退出登录？",
+            "message": "在你重新登录前，此设备将停止同步。它的数据会保留在此设备上。"
+          },
+          "others": {
+            "title": "让其他设备退出登录？",
+            "message": "其他所有设备（包括尚未列出的设备）都需要重新登录。此设备保持登录。这些设备上已有的数据不会被删除。"
+          },
+          "all": {
+            "title": "在所有设备上退出登录？",
+            "message": "所有设备（包括此设备）都需要重新登录。设备上已有的数据不会被删除。"
+          }
+        }
       },
       "twoFactor": {
         "label": "双重验证",
@@ -389,23 +460,37 @@
         "seatsUsed": "已使用 {{used}} / {{total}}",
         "upgradeToPro": "升级到 Pro 解锁云同步和更多功能",
         "upgrade": "升级",
-        "upgradeToTeams": "免费试用 Teams {{days}} 天：为团队提供共享保险库和角色。需绑定银行卡。",
-        "teamsButton": "免费试用 →",
+        "upgradeToTeams": "免费试用 Teams {{days}} 天，无需信用卡",
+        "teamsButton": "开始试用",
+        "activateTrial": "激活 14 天 Pro",
+        "activate": "激活",
+        "upgradeToTeamsPlain": "升级到 Teams：为团队提供共享保管库和角色。",
         "viewAllPlans": "查看所有套餐 →",
+        "everythingIn": "{{plan}} 的全部功能，另加：",
+        "nextAdds": "{{plan}} 新增：",
+        "freeForEveryone": "所有人免费：",
         "feature": {
-          "localVault": "本地保险库",
-          "auditLogs": "审计日志",
-          "gistSync": "GitHub Gist 同步",
+          "privateVault": "1 个私有保险库",
           "localSync": "本地网络同步",
           "deviceFiles": "在您的设备之间传输文件",
-          "realtimeSync": "实时云同步",
+          "syncPlugins": "Gist、Cloudflare 和 S3 同步插件",
+          "cli": "命令行 (voltius-cli)",
+          "machinePolicy": "用于批量部署的本机策略",
+          "mdm": "托管配置 (MDM)",
+          "auditLogs": "本地审计日志",
+          "cloudSync": "云同步，即使您的设备从未同时在线",
+          "cloudBackup": "Voltius Cloud 上的加密备份",
+          "crossDeviceSessions": "跨设备会话",
           "unlimitedVaults": "无限私有保险库",
-          "terminalSharing": "终端共享（1 个会话 · 1 名访客）",
-          "teamVaults": "共享团队保险库",
-          "teamSharing": "团队共享（5 个会话 · 10 名访客）",
-          "seats": "席位（按订阅数量）",
-          "lockPolicy": "团队锁定策略（自动锁定上限、锁定保险库）",
-          "granularPermissions": "自定义角色、按成员和按对象的权限"
+          "terminalSharing_other": "终端共享：{{count}} 个会话，每个 {{guests}} 名访客",
+          "teamVaults": "共享团队保险库与邀请",
+          "builtInRoles": "内置角色",
+          "teamAuditLogs": "团队审计日志",
+          "granularPermissions": "自定义角色、按成员和按对象的权限，并可通过“以成员身份查看”预览",
+          "teamPolicy": "团队策略：为所有成员锁定任意设置",
+          "enrolment": "用于批量部署的设备注册令牌",
+          "commercialLicense": "自托管商业许可",
+          "prioritySupport": "优先支持"
         }
       },
       "buySeats": {
@@ -569,7 +654,8 @@
         "key": { "label": "SSH 密钥", "sub": "存储在密钥链中的密钥对" },
         "folder": { "label": "文件夹", "sub": "用于组织对象的文件夹结构" },
         "snippet": { "label": "代码片段", "sub": "保存的命令和脚本" },
-        "port-forwarding-rule": { "label": "端口转发", "sub": "保存的隧道规则" }
+        "port-forwarding-rule": { "label": "端口转发", "sub": "保存的隧道规则" },
+        "plugin": { "label": "插件", "sub": "已安装的插件" }
       },
       "settingsTitle": "设置",
       "settingsFooter": "关闭的项目只保留在此设备上，即使加密后也不会发送到任何地方。重新开启同步会发布此设备的值。",
@@ -596,6 +682,34 @@
         "deviceDefault": "设备默认",
         "yourChoice": "您的选择",
         "resume": "恢复同步"
+      },
+      "devices": {
+        "title": "你的设备",
+        "footer": "每台设备都会上传自己的加密副本。此列表显示本设备能否读取每台设备的最新副本。",
+        "empty": "还没有其他设备同步过。",
+        "unnamed": "设备 {{id}}",
+        "state": {
+          "synced": "已同步",
+          "pending": "等待下次同步",
+          "unavailable": "无法下载",
+          "unavailableStatus": "无法下载（HTTP {{status}}）",
+          "undecryptable": "无法解密：使用了本设备没有的密钥加密",
+          "unreadable": "其副本已损坏，无法读取"
+        },
+        "hint": {
+          "unavailable": "通常是暂时的。Voltius 会在下次同步时重试。",
+          "undecryptable": "该设备可能仍在使用旧的保险库密钥。在该设备上打开 Voltius 以上传新副本；如果不再使用，可以在这里移除。",
+          "unreadable": "在该设备上打开 Voltius 以上传新副本；如果不再使用，可以在这里移除。"
+        },
+        "changed": "更新于 {{time}}",
+        "lastSynced": "读取于 {{time}}",
+        "neverSynced": "从未读取",
+        "retry": "重试",
+        "retryNone": "无需重试",
+        "remove": "移除",
+        "removeTitle": "要将 {{name}} 从云同步中移除吗？",
+        "removeBody": "它的加密副本将从服务器删除。本设备已从中同步的内容会保留。如果你仍在使用该设备，它会在下次同步时上传新副本。",
+        "removeFailed": "无法移除设备：{{error}}"
       }
     },
     "vaults": {
@@ -683,6 +797,22 @@
     },
     "plugins": {
       "categoryLabel": "插件",
+      "sync": {
+        "installedOne": "已从 {{device}} 安装 {{plugin}}",
+        "installedOneUnknown": "已从其他设备安装 {{plugin}}",
+        "installedMany": "已从你的其他设备安装 {{count}} 个插件",
+        "removedOne": "已移除 {{plugin}}（已在 {{device}} 上移除）",
+        "removedOneUnknown": "已移除 {{plugin}}（已在其他设备上移除）",
+        "removedMany": "已移除 {{count}} 个插件（已在你的其他设备上移除）",
+        "notHere": "不在此设备上",
+        "keepHere": "保留在此设备上",
+        "blocked": {
+          "localSource": "通过文件或 URL 安装，其他设备无法获取",
+          "managed": "由您的组织管理",
+          "typeOff": "同步设置中已关闭插件同步",
+          "noChannel": "开启同步或加入本地同步组以同步插件"
+        }
+      },
       "tabs": {
         "installed": "已安装 ({{count}})",
         "browse": "浏览",
@@ -703,6 +833,7 @@
         "sourceLocal": "本地",
         "sourceUrl": "URL",
         "sourceInstalled": "已安装",
+        "sourceOrganization": "组织",
         "unverified": "未验证",
         "update": "更新",
         "updating": "正在更新…",
@@ -722,6 +853,7 @@
         "addSourcePlaceholder": "https://example.com/plugins.json",
         "add": "添加",
         "installedBadge": "已安装",
+        "installsOff": "您的组织已关闭插件安装。",
         "byAuthor": "作者 {{author}} · v{{version}}",
         "noCatalog": "目录中没有插件。",
         "noResults": "没有结果。",
@@ -811,6 +943,7 @@
           },
           "sftpRead": { "label": "读取文件", "description": "浏览并读取已保存的 SSH/FTP 主机以及本机上的文件。" },
           "sftpWrite": { "label": "写入和移动文件", "description": "在已保存的 SSH/FTP 主机和本机上创建、重命名、覆盖和删除文件，并在它们之间复制文件。这可能会永久销毁数据。" },
+          "hostExec": { "label": "在你的主机上运行任意命令", "description": "以你的身份在任何已打开的主机和本机上运行任意命令并读取输出。这是完整的 shell 访问权限：可以读取机密、更改配置并永久删除数据。" },
           "audit": {
             "label": "记录审计事件",
             "description": "在您的审计日志中添加描述其操作的条目。对于团队保险库中的主机，这些条目也会发送到该团队的服务器。"
@@ -1241,6 +1374,9 @@
       }
     },
     "toggleDefs": {
+      "commandHistory": {
+        "label": "命令历史"
+      },
       "cursorBlink": { "label": "光标闪烁" },
       "scrollMinimap": { "label": "滚动小地图" },
       "selectToCopy": { "label": "选择即复制" },
@@ -1312,6 +1448,27 @@
         "panelThemes":    { "label": "主题面板",     "desc": "在右侧面板打开主题" },
         "panelNotes":     { "label": "备注面板", "desc": "在右侧面板中打开主机备注" }
       }
+    },
+    "search": {
+      "placeholder": "搜索设置",
+      "clear": "清除搜索",
+      "changed": "已更改",
+      "changedTitle": "与默认值不同",
+      "results_one": "{{count}} 个结果",
+      "results_other": "{{count}} 个结果",
+      "changedOnly": "仅显示已更改",
+      "open": "打开",
+      "openSection": "打开“{{section}}”",
+      "undo": "撤销",
+      "resetAll": "全部重置",
+      "resetAllConfirm_one": "重置 {{count}} 项设置？团队管理的设置、安全设置和同步设置将保留。",
+      "resetAllConfirm_other": "重置 {{count}} 项设置？团队管理的设置、安全设置和同步设置将保留。",
+      "cancel": "取消",
+      "emptyChanged": "所有设置均为默认值。",
+      "emptyQuery": "没有与“{{query}}”匹配的设置。",
+      "emptyQueryChanged": "没有与“{{query}}”匹配的已更改设置。",
+      "changedSub_one": "{{count}} 项设置与默认值不同",
+      "changedSub_other": "{{count}} 项设置与默认值不同"
     }
   }
 }

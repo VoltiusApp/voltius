@@ -29,6 +29,8 @@
       "color": "Barva",
       "icon": "Ikona",
       "clear": "Vymazat"
-    }
+    },
+    "noPermissionCreate": "Nemáte oprávnění zde vytvářet složky",
+    "empty": "Tato složka je prázdná"
   }
 }

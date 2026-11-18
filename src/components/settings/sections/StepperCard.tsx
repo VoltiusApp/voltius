@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useIsMobile } from "@/utils/platform";
+import { DirtyDot, SETTINGS_SURFACE } from "./shared";
 
 export interface StepperCardProps {
   title: string;
@@ -126,10 +127,13 @@ export default function StepperCard({
   }
 
   return (
-    <div className="rounded-xl px-4 py-3 bg-(--t-bg-card) border border-(--t-border)">
+    <div className={`${SETTINGS_SURFACE} px-4 py-3`}>
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-(--t-text-primary)">{title}</p>
+          <p className="text-sm font-medium text-(--t-text-primary)">
+            {title}
+            {dirty && <span className="ml-2 inline-flex align-middle"><DirtyDot /></span>}
+          </p>
           <p className="text-xs mt-0.5 text-(--t-text-dim)">{desc}</p>
         </div>
         {editing ? (
@@ -140,14 +144,14 @@ export default function StepperCard({
             onChange={(e) => setInputValue(e.target.value)}
             onBlur={commitEdit}
             onKeyDown={handleKeyDown}
-            className="text-xs font-semibold px-2 py-1 rounded-md w-16 text-center bg-(--t-bg-elevated) text-(--t-text-secondary) border border-(--t-accent) outline-hidden"
+            className="text-xs font-semibold px-2 py-1 rounded-md w-16 text-center bg-(--t-bg-input) text-(--t-text-secondary) border border-(--t-accent) outline-hidden"
             min={min}
             max={max}
           />
         ) : (
           <button
             onClick={startEditing}
-            className="text-xs font-semibold px-2 py-1 rounded-md bg-(--t-bg-elevated) text-(--t-text-secondary) border border-(--t-border)"
+            className="text-xs font-semibold px-2 py-1 rounded-md bg-(--t-bg-input) text-(--t-text-secondary) border border-(--t-border)"
             title={labels.clickHint}
             style={{ cursor: "text" }}
           >
@@ -159,7 +163,7 @@ export default function StepperCard({
       <div className="mt-3 flex items-center gap-2.5">
         <button
           onClick={() => onChange(clamp(value - (buttonStep ?? step)))}
-          className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors bg-(--t-bg-elevated) text-(--t-text-muted) border border-(--t-border)"
+          className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors bg-(--t-bg-input) text-(--t-text-muted) border border-(--t-border)"
           title={labels.zoomOut}
         >
           <Icon icon="lucide:minus" width={14} />
@@ -178,7 +182,7 @@ export default function StepperCard({
 
         <button
           onClick={() => onChange(clamp(value + (buttonStep ?? step)))}
-          className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors bg-(--t-bg-elevated) text-(--t-text-muted) border border-(--t-border)"
+          className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors bg-(--t-bg-input) text-(--t-text-muted) border border-(--t-border)"
           title={labels.zoomIn}
         >
           <Icon icon="lucide:plus" width={14} />
@@ -186,7 +190,7 @@ export default function StepperCard({
 
         <button
           onClick={onReset}
-          className="px-2.5 h-8 rounded-lg text-xs transition-colors bg-(--t-bg-elevated) text-(--t-text-muted) border border-(--t-border)"
+          className="px-2.5 h-8 rounded-lg text-xs transition-colors bg-(--t-bg-input) text-(--t-text-muted) border border-(--t-border)"
           title={labels.resetTitle}
         >
           {labels.reset}

@@ -22,17 +22,22 @@ pub struct DeriveKeysResult {
     pub enc_key: Vec<u8>, // raw bytes for Stronghold
 }
 
+impl From<crypto::DerivedKeys> for DeriveKeysResult {
+    fn from(keys: crypto::DerivedKeys) -> Self {
+        DeriveKeysResult {
+            auth_key: STANDARD.encode(keys.auth_key),
+            enc_key: keys.enc_key.to_vec(),
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn derive_keys(password: String, account_id: String) -> Result<DeriveKeysResult, String> {
     let keys =
         tauri::async_runtime::spawn_blocking(move || crypto::derive_keys(&password, &account_id))
             .await
             .map_err(|e| e.to_string())??;
-
-    Ok(DeriveKeysResult {
-        auth_key: base64::Engine::encode(&base64::engine::general_purpose::STANDARD, keys.auth_key),
-        enc_key: keys.enc_key.to_vec(),
-    })
+    Ok(keys.into())
 }
 
 /// Derive an XChaCha20-Poly1305 key for gist-sync using Argon2id + HKDF-SHA256.
@@ -92,17 +97,18 @@ pub struct UnwrappedUserSecrets {
     pub x25519_private: Vec<u8>,
 }
 
+pub(crate) fn unwrap_b64(kek: &[u8], wrapped_b64: &str) -> Result<([u8; 32], [u8; 32]), String> {
+    let kek: &[u8; 32] = kek.try_into().map_err(|_| "kek must be 32 bytes")?;
+    let wrapped = STANDARD.decode(wrapped_b64).map_err(|e| e.to_string())?;
+    voltius_crypto::unwrap_user_secrets(kek, &wrapped)
+}
+
 #[tauri::command]
 pub fn unwrap_user_secrets_cmd(
     kek: Vec<u8>,
     wrapped_b64: String,
 ) -> Result<UnwrappedUserSecrets, String> {
-    let kek: &[u8; 32] = kek
-        .as_slice()
-        .try_into()
-        .map_err(|_| "kek must be 32 bytes")?;
-    let wrapped = STANDARD.decode(&wrapped_b64).map_err(|e| e.to_string())?;
-    let (dek, x25519_private) = voltius_crypto::unwrap_user_secrets(kek, &wrapped)?;
+    let (dek, x25519_private) = unwrap_b64(&kek, &wrapped_b64)?;
     Ok(UnwrappedUserSecrets {
         dek: dek.to_vec(),
         x25519_private: x25519_private.to_vec(),

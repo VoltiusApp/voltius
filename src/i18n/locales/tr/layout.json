@@ -26,7 +26,7 @@
       "getStartedSub_ios": "İşletim sistemi anahtar zinciriyle korunur — parola gerekmez",
       "or": "veya",
       "cloudAccount": "Bulut hesabı",
-      "cloudAccountSub": "Cihazlar otomatik eşlenir · Pro bulut eşitleme ve yedek ekler",
+      "cloudAccountSub": "Ücretsiz · cihazlar otomatik eşlenir. Pro bulut eşitleme ve yedek ekler.",
       "cloudAccountSub_ios": "Cihazlar arasında eşitleyin — oturum açın veya hesap oluşturun",
       "back": "Geri",
       "signupPrompt": "Cihazlarınızın otomatik eşlenmesi için bir hesap oluşturun",
@@ -47,10 +47,27 @@
       "e2eeNotice": "Verileriniz uçtan uca şifrelenir — sunucu bunları okuyamaz.",
       "openSource": "Açık kaynak.",
       "agreeToTerms": "Hesap oluşturarak <terms>Hizmet Şartları</terms>'nı ve <privacy>Gizlilik Politikası</privacy>'nı kabul etmiş olursunuz.",
-      "accountCreatedToast": "Hesap oluşturuldu! Doğrulamak için e-postanızı kontrol edin.",
+      "accountCreatedToast": "Hesap oluşturuldu. Doğrulamak için e-postanızı kontrol edin.",
       "vaultUnreadableBodyNoPassword": "Bu cihazdaki gizli bilgiler dosyası, bu makinede saklanan anahtarla açılamıyor. Hiçbir şey silinmedi. Boş bir kasayla başlamak için dosyayı kenara ayırın veya aşağıdaki yedeklerden birini geri yükleyin.",
       "vaultSetAsideLocal": "Kenara ayır ve sıfırdan başla",
-      "vaultSetAsideLocalSub": "Bu cihazda bir yedek kopya saklanır"
+      "vaultSetAsideLocalSub": "Bu cihazda bir yedek kopya saklanır",
+      "addAccountLater": "Daha sonra hesap oluşturabilir ve sunucularınızı koruyabilirsiniz.",
+      "errorEmailRequired": "E-posta adresinizi girin",
+      "masterPasswordNote": "Bu parola verilerinizi şifreler. Sıfırlanamaz veya kurtarılamaz, bu yüzden güvenli bir yerde saklayın.",
+      "invitation": {
+        "toggle": "Davet bağlantınız var mı?",
+        "placeholder": "Davet bağlantısı",
+        "use": "Kullan",
+        "checking": "Denetleniyor…",
+        "invalid": "Bu bir davet bağlantısı değil. E-postadaki bağlantının tamamını yapıştırın.",
+        "notFound": "{{server}} üzerinde bu bağlantıyla eşleşen bekleyen davet yok. Sunucu adresini denetleyin ya da yeni bir davet isteyin.",
+        "closedHint": "Bu sunucu yalnızca davetle hesap oluşturur. Davet e-postanızdaki bağlantıyı yapıştırın.",
+        "joining": "{{team}} ekibine katıl",
+        "invitedBy": "{{inviter}} sizi {{role}} olarak davet etti",
+        "invitedAs": "{{role}} olarak davet edildiniz",
+        "remove": "Daveti kaldır",
+        "createAndJoin": "Hesap oluştur ve katıl"
+      }
     },
     "cloudAuthModal": {
       "registerTitle": "Bulut hesabı oluştur",
@@ -64,7 +81,6 @@
       "createMasterPasswordPlaceholder": "Ana parola oluşturun",
       "confirmMasterPasswordPlaceholder": "Ana parolayı onaylayın",
       "errorPasswordRequired": "Parola gerekli",
-      "errorMinLength4": "En az 4 karakter",
       "pleaseWait": "Lütfen bekleyin…",
       "reauthTitle": "Yeniden oturum açın",
       "reauthDesc": "Bu cihazdaki oturumunuz sona erdi. Yeniden bağlanmak için ana parolanızı girin."
@@ -118,12 +134,6 @@
       "sectionLocal": "Yerel",
       "noHostsMatch": "\"{{query}}\" ile eşleşen sunucu yok",
       "noHostsYet": "Henüz sunucu yok",
-      "connectTo": "Bağlan: {{user}}@{{host}}",
-      "portSsh": "Port {{port}} · SSH",
-      "openWeb": "{{host}}:{{port}} adresini aç",
-      "portWeb": "{{protocol}} · web sayfası",
-      "serialConnection": "Seri bağlantı",
-      "configurePortBaud": "Port ve baud hızını yapılandır",
       "localShellFallback": "Yerel kabuk"
     },
     "sidebarAccount": {
@@ -276,8 +286,14 @@
         "notConfigured": "Eşitleme yapılandırılmadı",
         "paused": "Eşitleme duraklatıldı",
         "default": "Eşitleme",
-        "unknown": "bilinmiyor"
-      }
+        "unknown": "bilinmiyor",
+        "partial": "Kısmen eşitlendi",
+        "partialAt": "Kısmen eşitlendi · {{time}}",
+        "partialTooltip": "Kısmen eşitlendi: {{error}}",
+        "partialDetail_one": "{{count}} cihaz eşitlenemedi",
+        "partialDetail_other": "{{count}} cihaz eşitlenemedi"
+      },
+      "showDevices": "Cihazları göster →"
     },
     "titleBar": {
       "sftp": "SFTP",
@@ -311,8 +327,8 @@
         "closeAll": "Tümünü kapat ({{count}})",
         "openInSplit": "Bölünmüş görünümde aç",
         "inSplit": "bölünmüş görünümde",
-        "pin": "Oturum listesini sabitle",
-        "unpin": "Oturum listesinin sabitlemesini kaldır",
+        "pin": "Yan panelde göster",
+        "unpin": "Yan paneli gizle",
         "status": {
           "connected": "Bağlı · {{time}}",
           "connecting": "Bağlanıyor…",
@@ -333,10 +349,24 @@
         "closeTab_other": "Sekmeyi kapat ({{count}} oturum)"
       },
       "plan": {
-        "upgradeTrial": "Yükselt · 14 gün ücretsiz deneme",
-        "upgrade": "Yükselt"
+        "upgradeTrial": "14 günlük Pro'yu etkinleştir",
+        "upgrade": "Yükselt",
+        "endingSoon_one": "{{plan}} · {{count}} gün kaldı",
+        "endingSoon_other": "{{plan}} · {{count}} gün kaldı"
       },
-      "splitLabelMore": "{{label}} + {{count}}"
+      "splitLabelMore": "{{label}} + {{count}}",
+      "lock": {
+        "keptToast_one": "{{count}} kilitli sekme korundu",
+        "keptToast_other": "{{count}} kilitli sekme korundu",
+        "closeBlocked": "Kapatmak için sekmenin kilidini açın",
+        "unlockHint": "Kilitli · kilidi açmak için tıklayın",
+        "lockTab": "Sekmeyi kilitle",
+        "unlockTab": "Sekmenin kilidini aç",
+        "lockPane": "Bölmeyi kilitle",
+        "unlockPane": "Bölmenin kilidini aç",
+        "pinTab": "Sekmeyi sabitle",
+        "unpinTab": "Sekmenin sabitlemesini kaldır"
+      }
     },
     "vaultHeader": {
       "members": "Üyeler",
@@ -407,6 +437,73 @@
       "once": "Bir kez izin ver",
       "always": "Her zaman izin ver",
       "sessionToast": "{{name}} dosyalarınızı açtı"
+    },
+    "enroll": {
+      "title": "{{team}} için oturum aç",
+      "subtitle": "{{team}} ekibine katılmak için Voltius hesabı oluşturun veya oturum açın.",
+      "orgServer": "Kuruluşunuzun sunucusu",
+      "domainNote": "{{domains}} e-postanızı kullanın",
+      "approvalNote": "Her isteği bir yönetici onaylar",
+      "domainError": "{{team}} yalnızca {{domains}} e-postalarını kabul ediyor.",
+      "createAndJoin": "Hesap oluştur ve katıl",
+      "signInAndJoin": "Oturum aç ve katıl",
+      "skip": "Şimdilik atla",
+      "continue": "Devam",
+      "currentPasswordPlaceholder": "Mevcut ana parola",
+      "resolving": "Kayıt belirteci denetleniyor…",
+      "confirm": {
+        "title": "{{host}} üzerinde {{team}}",
+        "body": "Yalnızca bu bağlantıyı şirketiniz gönderdiyse devam edin. Voltius oturum açma bilgilerinizi {{host}} adresine gönderecek."
+      },
+      "error": {
+        "title": "Bu kayıt belirteci kullanılamıyor",
+        "gone": "Bu kayıt belirteci iptal edildi veya süresi doldu. Yöneticinizden yenisini isteyin.",
+        "lapsed": "{{team}} planının süresi doldu, bu yüzden kayıt belirteci şu anda çalışmıyor.",
+        "lapsedNoTeam": "Bu ekibin planının süresi doldu, bu yüzden kayıt belirteci şu anda çalışmıyor.",
+        "serverTooOld": "Bu sunucu henüz kayıt belirteçlerini desteklemiyor.",
+        "rateLimited": "Bu ağdan çok fazla deneme yapıldı. Bir dakika sonra tekrar deneyin.",
+        "unreachable": "{{host}} adresine ulaşılamıyor."
+      },
+      "outcome": {
+        "member": {
+          "title": "{{team}} ekibindesiniz",
+          "body": "Ekip kasaları, bir yöneticinin Voltius'u çevrimiçi olduğunda görünür."
+        },
+        "approval": {
+          "title": "İstek gönderildi",
+          "body": "{{team}} yöneticilerinden biri onaylayacak. Bildirim alacaksınız."
+        },
+        "email": {
+          "title": "{{team}} ekibine katılmak için e-postanızı doğrulayın",
+          "body": "{{email}} adresine bir bağlantı gönderdik. Doğrulandığında otomatik olarak katılırsınız.",
+          "resend": "E-postayı yeniden gönder"
+        },
+        "seat": {
+          "title": "{{team}} ekibinde boş koltuk yok",
+          "body": "Bir yöneticiye bildirildi. Bir koltuk boşaldığında katılacaksınız."
+        }
+      },
+      "tokenEntry": {
+        "toggle": "Kayıt belirteciniz mi var?",
+        "placeholder": "vte1.…",
+        "invalid": "Bu bir kayıt belirteci değil."
+      },
+      "localNote": "Bu cihazdaki sunucular yeni hesabın özel kasasına taşınır. {{team}} bunları okuyamaz.",
+      "already": {
+        "title": "Zaten {{team}} içindesiniz",
+        "body": "{{email}} zaten üye."
+      },
+      "join": {
+        "title": "{{team}} ekibine {{email}} olarak katıl",
+        "body": "{{host}} üzerinde oturum açtığınız hesabı kullanır.",
+        "action": "Katıl",
+        "other": "Başka bir hesap kullan"
+      },
+      "replace": {
+        "title": "Bu cihazdaki veriler değiştirilsin mi?",
+        "body": "{{email}} olarak oturum açmak, bu cihazdaki sunucuları, anahtarları ve kod parçacıklarını o hesapta kayıtlı olanlarla değiştirir.",
+        "confirm": "Oturum aç ve değiştir"
+      }
     }
   }
 }

@@ -61,7 +61,7 @@ export function ActiveTunnelsSection() {
           return (
             <div
               key={session.id}
-              className="group overflow-hidden rounded-[1.35rem] border border-(--t-border) bg-(--t-bg-card) transition-all duration-150 hover:border-(--t-border-hover) hover:bg-(--t-bg-card-hover)"
+              className="group overflow-hidden rounded-[1.35rem] border border-(--t-border) bg-(--t-bg-card) transition-all duration-150 hover-edge hover:bg-(--t-bg-card-hover)"
               data-card="true"
             >
               <div
@@ -105,7 +105,7 @@ export function ActiveTunnelsSection() {
                   return (
                     <div
                       key={key}
-                      className="flex items-center gap-2 rounded-xl border border-transparent bg-(--t-bg-elevated)/70 px-2.5 py-2 transition-colors hover:border-(--t-border-hover)"
+                      className="flex items-center gap-2 rounded-xl border border-transparent bg-(--t-bg-elevated)/70 px-2.5 py-2 transition-colors hover-edge"
                     >
                       <TunnelStatusDot
                         status={isError ? "error" : "active"}
@@ -168,7 +168,7 @@ export function ActiveTunnelsSection() {
                   return (
                     <div
                       key={`suppressed-${session.id}-${port}`}
-                      className="flex items-center gap-2 rounded-xl border border-transparent bg-(--t-bg-elevated)/70 px-2.5 py-2 transition-colors hover:border-(--t-border-hover)"
+                      className="flex items-center gap-2 rounded-xl border border-transparent bg-(--t-bg-elevated)/70 px-2.5 py-2 transition-colors hover-edge"
                     >
                       <TunnelStatusDot status="idle" />
                       <div className="min-w-0 flex-1">

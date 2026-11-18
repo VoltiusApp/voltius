@@ -15,6 +15,7 @@ import { RecentHostsGroup } from "@/components/shared/HostPickerTree";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { sessionLabel } from "@/utils/sessionLabel";
 import type { Connection } from "@/types";
+import { refuseWhilePreviewing, snippetTarget } from "@/services/previewGuard";
 
 export default function MobileSnippetTargetSheet(
   { snippetId, mode, preselectSessionId }: { snippetId: string; mode: "insert" | "execute"; preselectSessionId?: string },
@@ -52,6 +53,7 @@ export default function MobileSnippetTargetSheet(
 
   async function go() {
     const sn = snippet!;
+    if (refuseWhilePreviewing(snippetTarget(sn.id))) return;
 
     if (sn.steps.some((s) => s.kind !== "script")) {
       const sessionTargets: RunTarget[] = [...p.selectedSessionIds].flatMap((id) => {

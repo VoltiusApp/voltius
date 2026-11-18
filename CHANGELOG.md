@@ -7,6 +7,228 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.78.0] - 2026-11-18
+
+### Added
+
+- Host environment variables accept a pasted .env file: paste `KEY=value` lines into any key field to add them all at once, or switch the panel to its .env view to edit every variable as text with syntax colouring. Lines that are not valid variables are listed and ignored. "Copy as .env" and "Download .env" export them (#905)
+- .env files opened in the remote file editor use the same colouring: keys, values, comments and invalid lines (#905)
+
+### Fixed
+
+- Host environment variable values no longer show in the terminal, in the remote shell history or in session logs when connecting. They now reach the host through a private temporary file that deletes itself once loaded (#906)
+- The iOS App Store build carries the approved French encryption declaration, so the app can be listed in France (#904)
+
+## [0.77.0] - 2026-11-17
+
+### Added
+
+- Installing or uninstalling a plugin now does the same on your other devices. Each plugin card has a "Keep on this device only" / "Sync to my devices" button, and a toast on the other device lets you skip an install or keep a removed plugin there. Plugins installed by your organisation, from a local file or URL, and plugin updates do not sync (#902)
+- Double-click the handle between split panes to reset that split to the middle (#903)
+
+### Fixed
+
+- On Windows, starting a scan in the Disk Usage plugin no longer crashes the app (#898)
+- On Android, a long-press while the keyboard is open now selects the text you pressed, and the terminal no longer flickers when the keyboard opens or closes (#900)
+- Members page toolbar buttons match the other pages, Invite › People rows no longer wrap, and the role filter chips are readable (#901)
+- Choice chips and cards across the app now show an edge on hover, and Omni search tiles use white icons (#899)
+
+## [0.76.1] - 2026-11-17
+
+### Changed
+
+- The default Voltius dark theme separates surfaces more clearly: pills, chips and secondary buttons stand out from panels, and borders are a soft translucent white (#896)
+
+### Fixed
+
+- In object permissions, the selected subject (Everyone, a role or a member) and the Allow / Inherit / Deny state are now easy to see, and selected role chips, including Member, are clearly marked (#896)
+- Hovering a theme card in Settings › Appearance no longer hides its outline, enabled plugins are outlined more strongly than disabled ones, and Import source choices show an edge on hover (#897)
+
+## [0.76.0] - 2026-11-16
+
+### Added
+
+- View as member and Preview as role, on Business teams. An admin sees a team vault exactly as a member or a role sees it, read-only. Items they cannot see show as faded placeholders, Why explains any item, and access changes can be tried as a draft, then saved or discarded. On desktop it opens from a member's panel, the Members list menu or a role card. On mobile it opens from the member screen or vault settings › Roles. Needs the matching server update (#891, #895)
+- Native Members screens on mobile: a members list with search, a selection mode for changing roles or removing several people at once, an Invite button, and a member screen with roles, permission overrides and the member's vault key. More › Members and vault settings › Members now open the same list (#893)
+- Moving or copying an item to another vault brings what it references with it: a host's jump hosts and startup snippets, a snippet's nested snippets and a rule's hosts (#890)
+- Plugins can run a command on a session's host and read its output, behind a new "Run any command on your hosts" permission (#894)
+
+### Fixed
+
+- When a team vault loses a host or your Connect permission, or you leave the team, open terminals, port forwards and SFTP browsers on that host now close (#888)
+- On Windows, accounts no longer fail to save to the account switcher with a "longer than the platform limit" error (#887)
+- "Linked to" now appears for identities in team vaults, and on keys (#886)
+- A Teams or Business owner with no seat cap now sees unlimited seats in Settings › Account instead of 3 (#889)
+- On mobile, a long-press in the terminal no longer pastes the clipboard, and the Paste button now appears when you long-press an empty cell (#892)
+
+## [0.75.1] - 2026-11-15
+
+### Fixed
+
+- A copied folder keeps its icon and colour, along with those of its subfolders, whether pasted in the same vault or another one (#885)
+
+## [0.75.0] - 2026-11-15
+
+### Added
+
+- Invite screens show the seats of the team you are inviting into, and ∞ when that team has no seat cap. An own Teams or Business plan with no cap now reads as unlimited in Settings › Account. Needs the matching server update (#882)
+
+### Changed
+
+- Permission rows show the effective result in colour, green for allowed and red for denied, including when an explicit Allow or Deny is set. On an object's Everyone and role tabs, "with exceptions" appears when a more specific role or member rule changes the result (#883)
+
+### Fixed
+
+- On mobile, snippets and folders have a Permissions section, as on desktop (#884)
+- A folder copied in one vault can be pasted after switching to another vault. It was reported as gone and skipped, and its nested folders and their contents were dropped (#880)
+
+## [0.74.0] - 2026-11-14
+
+### Changed
+
+- Notifications have a new look. Each one is a slim band in the status bar's style, all the same width, with a badge showing where it comes from: the host's icon and colour as on its tab, or the plugin's icon. The host or plugin name sits beside the message, and the notifications menu uses the same badges (#878)
+
+## [0.73.1] - 2026-11-14
+
+### Fixed
+
+- The app no longer says your subscription has expired when it hasn't. The warning could appear when the app briefly failed to read your session after reconnecting to the server, even on a paid or Business plan. It now shows only once the change is confirmed (#877)
+
+## [0.73.0] - 2026-11-14
+
+### Added
+
+- Your 14-day Pro trial now starts when you choose. A one-time window offers it, and you can also start it from the title-bar badge, from Settings › Account, or when you reach a Pro limit such as a second vault or real-time sync. Accounts that already used their trial get a fresh one. Needs the matching server update (#876)
+- Teams can be tried free for 14 days, with up to 10 teammates and no credit card. Start it from Members, when you share a vault or invite someone, or from Settings › Account (#876)
+- When a trial or subscription ends, a one-time window shows what pauses and what stays free. If a payment fails, it shows how to update the payment method. Team members are told when their team's trial ends (#876)
+- In the last 3 days of a trial, the title-bar badge shows the days left (#876)
+- Nothing changes on self-hosted servers or in the store builds (#876)
+
+### Fixed
+
+- Ctrl+F focuses the settings search even when a page or a terminal had focus (#875)
+
+## [0.72.0] - 2026-11-13
+
+### Added
+
+- Settings has a search field that finds every setting across sections, on desktop and mobile. Results are ranked by how well they match, the UI language and English both match, and one typo is tolerated. `/` or Ctrl/Cmd+F focuses it (#870, #872)
+- A Changed view in Settings lists every setting that differs from its default, with live controls, per-row reset with Undo, and Reset all. Every settings row now shows the changed dot and a reset (#870)
+- OmniSearch finds every setting: each on/off setting is a quick toggle, and any other setting opens Settings filtered to it (#870)
+- Sign-up and Add account have a "Have an invitation link?" field. Paste a team invitation link to register with the invited email, even on a server with registration closed (#871)
+
+### Changed
+
+- Terminal scrollback defaults to 10,000 lines. A saved 50,000 (the old default) moves to 10,000 once; other values are kept (#870)
+
+## [0.71.0] - 2026-11-13
+
+### Added
+
+- Settings › Appearance has a Time format setting: Automatic (follows the app language), 12-hour or 24-hour. It applies to every time the app shows (sync menu, audit logs, SFTP dates, vault backups, theme schedule) and syncs to your other devices (#865)
+
+### Fixed
+
+- On mobile, the two-key buttons in the terminal extra-keys row show their alternate in a bubble above the key when held or swiped up, and send it on release. Holding an arrow sends its alternate instead of repeating (#866)
+
+## [0.70.0] - 2026-11-13
+
+### Added
+
+- Members › Security now shows a Vault key health card: the team key version, whether a new key is due after someone left, how many items still use an older key, and how this device's last try went. Items stuck on an older key are listed with the reason, and an item that can't be decrypted, or is left over from a deleted item, can be removed so the vault can get a new key again. Retry now runs the existing rotation on demand. Available on every team plan (#796)
+- Settings › Account lists the devices signed in to your cloud account, with the platform, when each signed in and when it was last active. You can sign out one device, every other device, or everywhere; a signed-out device loses server access at once and is asked to sign in again, and its local data is kept. `voltius-cli sessions` lists and signs out devices from the command line, and CLI sign-ins are tagged. Needs the matching server update (#794)
+- Cloud sync now reports a partial sync instead of a clean one when another device's copy couldn't be downloaded or read: the sync icon turns amber, the sync menu says how many devices failed, and Settings › Sync lists each of your devices with what went wrong and what to do. Retry downloads a device's copy again, including one that couldn't be decrypted, and Remove deletes a device's copy from the server. `voltius-cli sync status` prints the same results (#795)
+
+## [0.69.1] - 2026-11-12
+
+### Fixed
+
+- Switching between a vault page and a terminal tab, and between vault pages, no longer lags: the History panel mounts its first 50 commands and renders more as you scroll, and the terminal behind a vault page stops resizing to the vault layout and redrawing its minimap (#861)
+
+## [0.69.0] - 2026-11-12
+
+### Added
+
+- Lock a tab to keep it from being closed by accident: its close button becomes a lock, and Ctrl/Cmd+W, middle-click, the tab menu, "Close all" on a host and "Disconnect all" leave it open (the lock wiggles, and bulk closes say how many locked tabs were kept). Click the lock to unlock. In a split, each pane locks on its own. Typing `exit` still closes the tab. Plugins and AI agents get a `tab_locked` error instead of closing it. Lock from the tab menu, the pane menu, the command palette, or a long-press on a terminal chip on mobile (#859)
+- Pin a tab to keep it first in the tab bar as a compact icon. Pinned tabs never join a host group. Lock and pin are kept on this device across restarts and are not synced (#859)
+- "Pin session list" in the tab menu is now "Show in side panel" (#859)
+- Settings › Appearance and the Themes side panel now list marketplace themes you don't have yet, with a Get button that installs and applies one in a click. Installed theme-only plugins can be removed from the same place, and "Browse all in marketplace" opens Plugins on the `theme` tag. Get and Remove are greyed with a reason when a policy, the app version or the platform rules them out (#853)
+- Owners can invite a new teammate directly as Owner, from Members and from a vault's share sheet. Every Owner invite asks for confirmation first; the primary owner and billing do not change. Other roles see the Owner choice greyed out (#847)
+- Team audit events are queued on the device and retried until the server accepts them, so a network drop or server error no longer leaves a gap in the team's audit trail (#852)
+- While the live sync connection is open, Voltius checks the server about every 10 minutes, and refetches only the team vaults that changed (#855, #858)
+
+### Fixed
+
+- Locked tabs: "Disconnect all" now counts only the tabs it will close and says how many locked tabs stay open, or that nothing can be disconnected when every tab is locked. Ctrl/Cmd+W on a locked tab grouped under a host briefly shows a lock on the host's tab. The lock wiggles again on every refused close, and a pin is saved right away. A plugin or AI agent closing a serial session now waits until the port is released, so reopening it straight away no longer fails as busy (#860)
+- Switching tabs and opening the right side panel no longer lag while the History panel holds a long history: rows no longer re-render on every tab switch, and rows out of view skip layout (#857)
+- The terminal minimap no longer redraws in background tabs, and resamples a terminal with streaming output at most five times a second instead of on every frame, cutting idle CPU use (#857)
+- After sleep, a Wi-Fi drop or a reconnect, team vaults now pick up a teammate's edits made in the meantime instead of waiting for an app restart (#856)
+- One failed sync request no longer closes a live sync connection that is still receiving heartbeats (#782)
+- Requests that find the session expired now share one token refresh, so a burst of them no longer trips the sign-in rate limit for that network (#848)
+- Signing up through an invitation that is no longer valid now says you were not added to that team, including after "Add another account" (#849, #850)
+- The share sheet's email invite button names the address it sends to (#851)
+
+## [0.68.0] - 2026-11-11
+
+### Added
+
+- On macOS, Voltius reads a configuration profile pushed by an MDM (Jamf, Intune, Kandji, Mosyle) as machine policy, with the same keys as Android and iOS: `policy`, `server_url`, `server_allow_other` and `enrollment_token`. Only device profiles count. Where the profile and `policy.json` both set a key, the profile wins, and `voltius-cli policy check` warns about the overlap. The Free plan row now reads "Managed configuration (MDM)" (#842)
+- On a machine enrolled through its machine policy, the enrolling team's policy now applies whichever account is active: signed out, offline accounts, accounts on other servers and accounts outside the team. Voltius keeps it on the device, so it also applies at startup without a connection. Rotate and Revoke in the Members share sheet now say what happens to enrolled devices (#845)
+
+### Fixed
+
+- On macOS, Ctrl key combinations now reach the terminal (Ctrl+C, D, Z, R, L, V, K, F, …). App shortcuts moved to Cmd: Cmd+C / Cmd+V copy and paste in the terminal, Cmd+K opens the palette, Cmd+W closes a tab, and Settings shows them as Cmd. Ctrl+Tab, Ctrl+Space and Ctrl+Option+D stay on Ctrl because macOS uses the Cmd versions. On Linux and Windows, holding the Super/Windows key no longer triggers a Ctrl shortcut (#843)
+
+## [0.67.1] - 2026-11-10
+
+### Added
+
+- Machine policy: IT can lock Voltius settings on a computer with a policy file (`/etc/voltius/policy.json` on Linux, `%ProgramData%\Voltius\policy.json` on Windows, `/Library/Application Support/Voltius/policy.json` on macOS), written by hand, by Ansible or with `voltius-cli`. Locked settings show "Managed by your organization" and can't be changed in the app, the command palette or over MCP. The file can also hold defaults, which apply once and stay changeable. Free on every plan (#757)
+- `voltius-cli` ships with the desktop app, and Homebrew and the Windows installers put it on PATH. Besides the policy file, it sets settings (`config get|set|import`), plugins (`plugins list|install|enable|disable|remove`) and the sync server, so a machine can be set up before anyone signs in. A policy can install plugins, force them on or off, or forbid installing more (#757)
+- On Android and iOS, Voltius reads the managed configuration your company's MDM pushes (Android Enterprise managed configurations, Apple Managed App Configuration) as the phone's machine policy, with the keys `enrollment_token`, `server_url`, `server_allow_other` and `policy`. Problems with the configuration are reported back to the MDM console. Free on every plan (#757)
+- Team policy (Business): a team admin imports a policy.json-format document in Members › Security › Device policy, and every member's Voltius applies it while that team account is active. It can only tighten a machine policy, and locked settings show "Managed by" with the team name. The existing lock policy becomes two keys of this document (#757)
+- Enrolment tokens (Business): a team admin creates one company-wide token in a team vault's share sheet › Links › Device enrolment, with allowed email domains, admin approval or both, and approves or denies people waiting in Members › Join requests. IT can run `voltius-cli enroll <token>` on each machine, and people can sign in to their company from the first launch screen, an enrol link or a token pasted into the command palette. Join requests waiting for approval show their status in notifications (#757)
+- `voltius-cli login` signs in to a Voltius account from a terminal, with a two-step or recovery code when the account uses one, so IT can set up a machine without opening the app. `voltius-cli whoami` shows who is signed in (`--json` for scripts) and `voltius-cli logout` signs out and removes this account's data from the device. Accounts that sign in with a passkey finish in the app (#757)
+- On Windows, Voltius only trusts a machine policy file written by `voltius-cli` as Administrator or SYSTEM. A file copied into `%ProgramData%\Voltius` by hand, or a policy folder a standard user could write to, is ignored until you re-import it with `voltius-cli policy import --replace` (#757)
+- A machine policy can now lock every setting it accepts: language, proxy, terminal shell, cursor style, keyword highlight rules, SFTP refresh interval, keepalive, detached session lifetime and theme location. It can also limit a setting to a range instead, such as a session lifetime of at most 24 hours or a choice of English and French. Settings shows "Managed by your organization" or the allowed range, and greys out choices outside it. Admin keyword rules are added above the user's own. `voltius-cli policy set` takes `--min`, `--max` and `--allow` (#757)
+- Remember master password (Settings › Account › Session security), on by default. Turn it off and Voltius never keeps your master password in the system keychain and asks for it at launch (#771)
+- Favorite commands: star a command in the History panel to keep it in a Favorites group above Recent. Favorites have no size limit, survive Clear all, and sync to your devices with your snippets. Click the host name under a command to show only that host's history (#823)
+- First launch now leads to a first connection: with no hosts, the home page shows an address field (`user@host` connects right away, an invite code joins), New Host, and an import of your `~/.ssh/config` hosts when it has any. Account creation shows the password, warns that a master password can't be recovered, and asks for at least 8 characters (#759)
+- Once you have hosts, the top of the home page is one connect field: `user@host[:port]` connects, an invite link or code joins, and anything else opens Ctrl+K search with your text (#763)
+- On phones, the terminal's ⋮ menu now also opens History, Notes and Proxmox (#824)
+- Drag the left edge of the terminal's right side panel to resize it, from 300 to 560 px. Double-click the edge to reset it (#821)
+
+### Changed
+
+- A machine policy can no longer lock `appSettings.plugins.overrides`. Such an entry is now reported as an error and ignored; use `plugins.enabled` and `plugins.disabled` instead. As a default it still works (#757)
+- Command history keeps a line only once the terminal has echoed it back, so what you type at password prompts (`sudo`, `su`, `passwd`, key passphrases) is never saved. Tab-completed, arrow-edited and Ctrl+R lines are no longer recorded either. A new Command history switch in Settings › Terminal turns recording off and deletes what was saved (#769)
+- The Plan card lists only what each plan adds. Free now lists the command line, machine policy and mobile managed configuration (#757)
+- The command palette shows clearly which row Enter will run, and host rows show `user@host`. Ordinary words are no longer taken for invite codes and ranked first; a failed join shows an error (#760)
+- The home page works from the keyboard, host cards share one layout, and the live Team Sessions card shows who is sharing and since when (#762, #774)
+- Secondary text now reaches WCAG AA contrast in every built-in theme; in Nord and Tokyo Night it was close to invisible. In Voltius Light, fields and switched-off toggles stand out from cards, and every placeholder uses the theme's dim text colour (#761, #809)
+- Context menus and dropdowns fade in and out (#829)
+- Tauri 2.12.5: a slow file load no longer freezes every window (#755)
+
+### Fixed
+
+- Settings › Appearance and Settings › Terminal now use the same card background as the other Settings pages. Their cards had a different colour, most visible in light themes
+- Dragging to select text over split tmux panes stays inside the pane you started in, and links wrapped across lines open whole (#835)
+- On iOS and Android, signing out or deleting the account now returns to the welcome screen; the app used to keep showing the old account until restarted (#831)
+- Android: the app now loads on devices with 16 KB memory pages (#833)
+- A sync that fails with a server error now retries on its own (5 s, backing off to 5 min) instead of waiting for the next edit. A server answering with errors is no longer reported as synced (#780)
+- Teammates no longer lose sight of your open team-vault terminal after your connection to the server drops and comes back (#791)
+- AI agent file tools reopen an SFTP connection that died instead of failing until restart, and report it as lost (#766)
+- A server that offers only SHA-1 algorithms now says to turn on Legacy Algorithms for that host, with a button that does it and reconnects, instead of a raw "No common Kex algorithm" error (#764)
+- Quick connect understands IPv6 addresses and rejects invalid ports
+- New hosts, folders and snippets are created in the folder you are browsing, and in that folder's vault. Every page shows the same empty-folder message (#776, #816)
+- Members: inviting with several roles gives every role, not just the first; undoing a bulk role change only touches the members it changed; a partly failed bulk removal says so and keeps undo; a failed invitation email shows a warning
+- A team removed from your account while a removal event was missed is now cleaned up on the next team list refresh, so its secrets don't stay on the device (#785, #790)
+- Windows: uninstalling the NSIS build forgets its install folder, so a later MSI install no longer goes into the old per-user folder
+
+### Security
+
+- russh 0.65.0, pageant 0.2.5 and zip 9.2 for security advisories. Windows updates are now extracted with zip 9.2, and Tauri 2.12.5 binds channel payloads to the window that created them (GHSA-w28w-mhc8-qvjv) (#754, #755)
+
 ## [0.66.0] - 2026-10-31
 
 ### Changed

@@ -7,7 +7,9 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("./MobileRemoteDeviceSessions", () => ({ default: () => null }));
-vi.mock("./MobileHeader", () => ({ default: () => null, MobileLargeTopBar: () => null, MobileLargeTitle: () => null, APPBAR_TONAL: "" }));
+vi.mock("./MobileHeader", () => ({
+  default: ({ onAdd }: { onAdd?: () => void }) => (onAdd ? <button data-mobile-add onClick={onAdd} /> : null),
+  MobileLargeTopBar: () => null, MobileLargeTitle: () => null, APPBAR_TONAL: "" }));
 vi.mock("./MobileActiveTunnels", () => ({ default: () => null }));
 vi.mock("@/services/teamDataManager", () => ({ onVaultSelect: vi.fn(async () => {}) }));
 vi.mock("@/services/teamService", async (importOriginal) => ({
@@ -22,6 +24,7 @@ import MobileHostsScreen from "./screens/MobileHostsScreen";
 import MobileKeychainScreen from "./screens/MobileKeychainScreen";
 import MobilePortForwardingScreen from "./screens/MobilePortForwardingScreen";
 import MobileSnippetList from "./MobileSnippetList";
+import MobileSnippetsScreen from "./screens/MobileSnippetsScreen";
 import VaultSwitcherSheet from "./sheets/VaultSwitcherSheet";
 import { onVaultSelect } from "@/services/teamDataManager";
 import { useTeamStore } from "@/stores/teamStore";
@@ -32,6 +35,7 @@ import { useIdentityStore } from "@/stores/identityStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useFolderStore } from "@/stores/folderStore";
+import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { initialMobileNavState } from "@/stores/mobileNavCore";
 
@@ -48,6 +52,7 @@ beforeEach(() => {
   usePortForwardingStore.setState({ rules: [], teamRules: {} });
   useSnippetStore.setState({ snippets: [], teamSnippets: {} });
   useFolderStore.setState({ folders: [], teamFolders: {} });
+  useSnippetFolderStore.setState({ folders: [], teamSnippetFolders: {} });
   useMobileNavStore.setState({ ...initialMobileNavState, hostSearch: "" });
 });
 afterEach(cleanup);
@@ -125,4 +130,24 @@ test("switching to a team vault loads its data, as the desktop rail does", () =>
   fireEvent.click(document.querySelector('[data-vault-entry="local-v2"]')!);
   expect(useVaultStore.getState().selectedVaultIds).toEqual(["local-v2"]);
   expect(onVaultSelect).toHaveBeenCalledWith("t1");
+});
+
+test("New snippet inside a team folder opens the editor placed in that folder (#815)", async () => {
+  useTeamStore.setState({
+    membersByTeam: { t1: [{ user_id: "me", role_ids: ["editor"] }] as never },
+    rolesByTeam: { t1: [{ id: "editor", name: "editor", permissions: 0x3ffff, is_builtin: true }] as never },
+  });
+  useSnippetFolderStore.setState({
+    teamSnippetFolders: { t1: [{ id: "sf1", name: "Deploy", object_type: "snippet", vault_id: "t1", created_at: "", updated_at: "", clocks: {} }] },
+  } as never);
+  const push = vi.fn();
+  useMobileNavStore.setState({ push } as never);
+  render(<MobileSnippetsScreen />);
+  await act(async () => {});
+
+  fireEvent.click(document.querySelector("[data-mobile-folder] button")!);
+  fireEvent.click(document.querySelector("[data-mobile-add]")!);
+  fireEvent.click(document.querySelector('[data-add-choice="item"]')!);
+
+  expect(push).toHaveBeenCalledWith({ kind: "snippet-edit", placement: { folderId: "sf1", vaultId: "t1" } });
 });

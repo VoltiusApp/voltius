@@ -5,6 +5,7 @@ import { useLayoutStore } from "@/stores/layoutStore";
 import { useDragStore } from "@/stores/dragStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useToggleSettingsStore } from "@/stores/toggleSettingsStore";
+import { useLockNudgeStore } from "@/stores/lockNudgeStore";
 import TitleBar from "./TitleBar";
 
 vi.mock("@tauri-apps/api/window", () => ({
@@ -291,5 +292,38 @@ describe("hover intent", () => {
 
     act(() => { vi.advanceTimersByTime(300); });
     expect(screen.getByTestId("stack-menu")).toBeTruthy();
+  });
+});
+
+describe("refused close on a grouped tab", () => {
+  const cue = () => screen.queryByTestId("stack-lock-cue-web");
+  // jsdom has no AnimationEvent, so React listens for the prefixed name.
+  const animationEnd = (el: Element) => fireEvent(el, new Event("webkitAnimationEnd", { bubbles: true }));
+
+  it("looks the same at rest", () => {
+    useSessionStore.setState({ sessions: [s("w1", "web", { locked: true }), s("w2", "web"), s("d1", "db")] });
+    render(<TitleBar />);
+    expect(cue()).toBeNull();
+    expect(screen.getByText("2").className).not.toContain("invisible");
+  });
+
+  it("swaps the count for a wiggling lock when a member is nudged, then restores it", () => {
+    useSessionStore.setState({ sessions: [s("w1", "web", { locked: true }), s("w2", "web"), s("d1", "db")] });
+    render(<TitleBar />);
+    act(() => { useLockNudgeStore.getState().nudge(["w1"]); });
+    expect(screen.getByText("2").className).toContain("invisible");
+    const wiggle = cue()!.querySelector(".animate-tab-lock-wiggle")!;
+    expect(wiggle).not.toBeNull();
+    animationEnd(wiggle);
+    expect(cue()).not.toBeNull();
+    animationEnd(cue()!);
+    expect(cue()).toBeNull();
+    expect(screen.getByText("2").className).not.toContain("invisible");
+  });
+
+  it("ignores a nudge for a session outside the group", () => {
+    render(<TitleBar />);
+    act(() => { useLockNudgeStore.getState().nudge(["d1"]); });
+    expect(cue()).toBeNull();
   });
 });

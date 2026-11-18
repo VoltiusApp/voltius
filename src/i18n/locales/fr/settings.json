@@ -1,6 +1,10 @@
 {
   "settings": {
     "terminal": {
+      "commandHistory": {
+        "title": "Historique des commandes",
+        "desc": "Mémorise les commandes exécutées dans les terminaux. Une ligne n'est conservée que si le terminal l'affiche en retour : les mots de passe saisis à une invite masquée ne sont jamais enregistrés. Les lignes commençant par une espace ne sont jamais enregistrées. La désactivation arrête l'enregistrement ; ce qui a été enregistré reste jusqu'à ce que vous l'effaciez depuis le panneau Historique."
+      },
       "heading": "Comportement du terminal",
       "preferredShell": {
         "title": "Shell préféré"
@@ -57,10 +61,31 @@
       }
     },
     "appearance": {
+      "marketplace": {
+        "installedLabel": "Marketplace",
+        "available": "Depuis la marketplace",
+        "get": "Obtenir",
+        "remove": "Retirer",
+        "fromSource": "via {{source}}",
+        "desktopOnly": "Ordinateur uniquement",
+        "partOfPlugin": "Fait partie de {{plugin}}. Gérez-le dans Plugins.",
+        "browseAll": "Tout parcourir dans la marketplace",
+        "loading": "Chargement des thèmes…",
+        "unreachable_one": "{{count}} marketplace injoignable",
+        "unreachable_many": "{{count}} marketplaces injoignables",
+        "unreachable_other": "{{count}} marketplaces injoignables"
+      },
       "themeActions": "Actions du thème",
       "interface": "Interface",
       "language": {
         "title": "Langue"
+      },
+      "timeFormat": {
+        "title": "Format de l'heure",
+        "desc": "Affichage des heures dans toute l'application.",
+        "auto": "Automatique (langue)",
+        "12h": "12 heures",
+        "24h": "24 heures"
       },
       "groupTabsByHost": {
         "title": "Regrouper les onglets par hôte",
@@ -273,7 +298,7 @@
       "title": "Paramètres",
       "close": "Fermer les paramètres",
       "back": "Retour",
-      "openHint": "Ctrl+, pour ouvrir",
+      "openHint": "{{shortcut}} pour ouvrir",
       "expandPluginGroup": "Développer les extensions",
       "collapsePluginGroup": "Réduire les extensions"
     },
@@ -300,6 +325,15 @@
         "unknown": "Inconnu"
       },
       "sessionSecurity": {
+        "rememberPassword": {
+          "toggle": "Mémoriser le mot de passe principal",
+          "desc": "Ouvre votre coffre au lancement sans le demander. Tant que l'option est activée, le mot de passe est enregistré dans le trousseau système de cet appareil, où, sous Linux et Windows, d'autres programmes exécutés sous votre compte peuvent le lire. Désactivez-la pour le saisir à chaque lancement.",
+          "enableTitle": "Mémoriser votre mot de passe principal",
+          "enableBody": "Saisissez votre mot de passe principal pour l'enregistrer dans le trousseau système de cet appareil.",
+          "systemAuthNeedsIt": "Nécessite « Mémoriser le mot de passe principal » sur cet appareil. Sinon, Voltius demande votre mot de passe principal au lancement et après le verrouillage du coffre ; seul l'écran de verrouillage s'ouvre avec l'authentification système.",
+          "removeFailed": "Impossible de retirer le mot de passe principal du trousseau système.",
+          "storeFailed": "Impossible d'enregistrer le mot de passe principal dans le trousseau système."
+        },
         "title": "Sécurité de session",
         "autoLockLabel": "Verrouillage automatique après inactivité",
         "autoLockDesc": "Verrouille Voltius après cette durée d'inactivité, ou dès que vous quittez l'application.",
@@ -310,6 +344,9 @@
           "30min": "30 minutes",
           "1h": "1 heure",
           "4h": "4 heures",
+          "minutes_one": "{{count}} minute",
+          "minutes_many": "{{count}} de minutes",
+          "minutes_other": "{{count}} minutes",
           "immediately": "Immédiatement"
         },
         "needsSystemAuth": "Activez l'authentification système pour verrouiller un compte sans mot de passe principal.",
@@ -317,8 +354,7 @@
         "policy": {
           "timeout": "Imposé par {{teams}} : au plus {{duration}}.",
           "timeoutImmediately": "Imposé par {{teams}} : verrouillage dès que vous quittez Voltius.",
-          "vault": "Imposé par {{teams}} : « Verrouiller le coffre » obligatoire.",
-          "yourTeam": "votre équipe"
+          "vault": "Imposé par {{teams}} : « Verrouiller le coffre » obligatoire."
         },
         "lockAction": {
           "label": "Au verrouillage",
@@ -411,6 +447,45 @@
         "done": "Terminé",
         "changing": "Modification…",
         "changeBtn": "Changer le mot de passe"
+      },
+      "sessions": {
+        "title": "Appareils connectés",
+        "loading": "Chargement des appareils…",
+        "empty": "Aucun appareil à afficher pour le moment.",
+        "unknownDevice": "Appareil inconnu",
+        "thisDevice": "Cet appareil",
+        "cli": "CLI",
+        "signedIn": "Connecté le {{date}}",
+        "lastActive": "Actif {{ago}}",
+        "signOut": "Déconnecter",
+        "signOutNamed": "Déconnecter {{name}}",
+        "signOutOthers": "Déconnecter les autres appareils",
+        "signOutEverywhere": "Déconnecter partout",
+        "working": "Déconnexion…",
+        "retry": "Réessayer",
+        "note": "Déconnecter un appareil met fin à son accès à votre compte ; les données déjà présentes dessus ne sont pas effacées. Les appareils connectés avant cette mise à jour apparaissent ici après le prochain renouvellement de leur connexion.",
+        "offline": "Vous êtes hors ligne.",
+        "unsupported": "Votre serveur ne prend pas encore cela en charge.",
+        "unavailable": "La liste des appareils n'est pas chargée.",
+        "ended": "Cet appareil est déconnecté. Reconnectez-vous pour gérer vos appareils.",
+        "confirm": {
+          "one": {
+            "title": "Déconnecter {{name}} ?",
+            "message": "{{name}} perd l'accès à votre compte et devra se reconnecter. Les données déjà présentes dessus ne sont pas effacées."
+          },
+          "this": {
+            "title": "Déconnecter cet appareil ?",
+            "message": "Cet appareil arrête de se synchroniser jusqu'à ce que vous vous reconnectiez. Ses données restent ici."
+          },
+          "others": {
+            "title": "Déconnecter les autres appareils ?",
+            "message": "Tous les autres appareils devront se reconnecter, y compris ceux qui ne sont pas encore listés. Cet appareil reste connecté. Les données déjà présentes dessus ne sont pas effacées."
+          },
+          "all": {
+            "title": "Déconnecter partout ?",
+            "message": "Tous les appareils, y compris celui-ci, devront se reconnecter. Les données déjà présentes dessus ne sont pas effacées."
+          }
+        }
       },
       "twoFactor": {
         "label": "Authentification à deux facteurs",
@@ -519,23 +594,39 @@
         "seatsUsed": "{{used}} / {{total}} utilisés",
         "upgradeToPro": "Passez à Pro pour débloquer la synchronisation cloud et plus encore",
         "upgrade": "Mettre à niveau",
-        "upgradeToTeams": "Essayez Teams gratuitement pendant {{days}} jours : coffres-forts partagés et rôles pour votre équipe. Carte bancaire requise.",
-        "teamsButton": "Essai gratuit →",
+        "upgradeToTeams": "Essayez Teams gratuitement pendant {{days}} jours — sans carte bancaire",
+        "teamsButton": "Démarrer l'essai",
+        "activateTrial": "Activer 14 jours de Pro",
+        "activate": "Activer",
+        "upgradeToTeamsPlain": "Passez à Teams : coffres partagés et rôles pour votre équipe.",
         "viewAllPlans": "Voir tous les abonnements →",
+        "everythingIn": "Tout {{plan}}, plus :",
+        "nextAdds": "{{plan}} ajoute :",
+        "freeForEveryone": "Gratuit pour tous :",
         "feature": {
-          "localVault": "Coffre-fort local",
-          "auditLogs": "Journaux d'audit",
-          "gistSync": "Synchronisation GitHub Gist",
+          "privateVault": "1 coffre-fort privé",
           "localSync": "Synchronisation sur le réseau local",
           "deviceFiles": "Transfert de fichiers entre vos appareils",
-          "realtimeSync": "Synchronisation cloud en temps réel",
+          "syncPlugins": "Plugins de synchronisation Gist, Cloudflare et S3",
+          "cli": "Ligne de commande (voltius-cli)",
+          "machinePolicy": "Règle machine pour les déploiements de parc",
+          "mdm": "Configuration gérée (MDM)",
+          "auditLogs": "Journaux d'audit locaux",
+          "cloudSync": "Synchronisation cloud, même si vos appareils ne sont jamais en ligne en même temps",
+          "cloudBackup": "Sauvegarde chiffrée sur Voltius Cloud",
+          "crossDeviceSessions": "Sessions partagées entre vos appareils",
           "unlimitedVaults": "Coffres-forts privés illimités",
-          "terminalSharing": "Partage de terminal (1 session · 1 invité)",
-          "teamVaults": "Coffres-forts d'équipe partagés",
-          "teamSharing": "Partage d'équipe (5 sessions · 10 invités)",
-          "seats": "Sièges (selon l'abonnement)",
-          "lockPolicy": "Règle de verrouillage d'équipe (délai maximal, verrouillage du coffre)",
-          "granularPermissions": "Rôles personnalisés, permissions par membre et par objet"
+          "terminalSharing_one": "Partage de terminal : 1 session, 1 invité",
+          "terminalSharing_many": "Partage de terminal : {{count}} sessions, {{guests}} invités chacune",
+          "terminalSharing_other": "Partage de terminal : {{count}} sessions, {{guests}} invités chacune",
+          "teamVaults": "Coffres-forts d'équipe partagés et invitations",
+          "builtInRoles": "Rôles intégrés",
+          "teamAuditLogs": "Journaux d'audit d'équipe",
+          "granularPermissions": "Rôles personnalisés, permissions par membre et par objet, avec l'aperçu Voir en tant que",
+          "teamPolicy": "Règle d'équipe : imposer n'importe quel réglage à tous les membres",
+          "enrolment": "Jetons d'enrôlement d'appareils pour les déploiements de parc",
+          "commercialLicense": "Licence commerciale pour l'auto-hébergement",
+          "prioritySupport": "Support prioritaire"
         }
       },
       "buySeats": {
@@ -720,6 +811,10 @@
         "port-forwarding-rule": {
           "label": "Transfert de ports",
           "sub": "Règles de tunnel enregistrées"
+        },
+        "plugin": {
+          "label": "Plugins",
+          "sub": "Plugins installés"
         }
       },
       "settingsTitle": "Paramètres",
@@ -747,6 +842,34 @@
         "deviceDefault": "par défaut sur l'appareil",
         "yourChoice": "votre choix",
         "resume": "Reprendre la synchronisation"
+      },
+      "devices": {
+        "title": "Vos appareils",
+        "footer": "Chaque appareil envoie sa propre copie chiffrée. Cette liste indique si cet appareil a pu lire la dernière copie de chacun.",
+        "empty": "Aucun autre appareil n'a encore synchronisé.",
+        "unnamed": "Appareil {{id}}",
+        "state": {
+          "synced": "Synchronisé",
+          "pending": "En attente de la prochaine synchronisation",
+          "unavailable": "Téléchargement impossible",
+          "unavailableStatus": "Téléchargement impossible (HTTP {{status}})",
+          "undecryptable": "Déchiffrement impossible : chiffré avec une clé que cet appareil n'a pas",
+          "unreadable": "Sa copie est endommagée et illisible"
+        },
+        "hint": {
+          "unavailable": "En général temporaire. Voltius réessaie à la prochaine synchronisation.",
+          "undecryptable": "Cet appareil utilise peut-être encore une ancienne clé de coffre. Ouvrez Voltius dessus pour qu'il envoie une nouvelle copie, ou retirez-le ici si vous ne l'utilisez plus.",
+          "unreadable": "Ouvrez Voltius sur cet appareil pour qu'il envoie une nouvelle copie, ou retirez-le ici si vous ne l'utilisez plus."
+        },
+        "changed": "Modifié {{time}}",
+        "lastSynced": "Lu {{time}}",
+        "neverSynced": "Jamais lu",
+        "retry": "Réessayer",
+        "retryNone": "Rien à réessayer",
+        "remove": "Retirer",
+        "removeTitle": "Retirer {{name}} de la synchronisation cloud ?",
+        "removeBody": "Sa copie chiffrée est supprimée du serveur. Ce que cet appareil en a déjà synchronisé est conservé. Si vous utilisez encore cet appareil, il enverra une nouvelle copie à sa prochaine synchronisation.",
+        "removeFailed": "Impossible de retirer l'appareil : {{error}}"
       }
     },
     "vaults": {
@@ -836,6 +959,22 @@
     },
     "plugins": {
       "categoryLabel": "Extension",
+      "sync": {
+        "installedOne": "{{plugin}} installé depuis {{device}}",
+        "installedOneUnknown": "{{plugin}} installé depuis un autre appareil",
+        "installedMany": "{{count}} extensions installées depuis vos autres appareils",
+        "removedOne": "{{plugin}} supprimé (supprimé sur {{device}})",
+        "removedOneUnknown": "{{plugin}} supprimé (supprimé sur un autre appareil)",
+        "removedMany": "{{count}} extensions supprimées (supprimées sur vos autres appareils)",
+        "notHere": "Pas sur cet appareil",
+        "keepHere": "Garder sur cet appareil",
+        "blocked": {
+          "localSource": "Installé depuis un fichier ou une URL : les autres appareils ne peuvent pas le récupérer",
+          "managed": "Géré par votre organisation",
+          "typeOff": "La synchronisation des plugins est désactivée dans les paramètres de synchronisation",
+          "noChannel": "Activez la synchronisation ou rejoignez un groupe de synchronisation local pour synchroniser les plugins"
+        }
+      },
       "tabs": {
         "installed": "Installées ({{count}})",
         "browse": "Parcourir",
@@ -857,6 +996,7 @@
         "sourceLocal": "Locale",
         "sourceUrl": "URL",
         "sourceInstalled": "Installée",
+        "sourceOrganization": "Organisation",
         "unverified": "Non vérifié",
         "update": "Mettre à jour",
         "updating": "Mise à jour…",
@@ -876,6 +1016,7 @@
         "addSourcePlaceholder": "https://example.com/plugins.json",
         "add": "Ajouter",
         "installedBadge": "Installée",
+        "installsOff": "Votre organisation a désactivé l'installation de plugins.",
         "byAuthor": "par {{author}} · v{{version}}",
         "noCatalog": "Aucune extension dans le catalogue.",
         "noResults": "Aucun résultat.",
@@ -929,6 +1070,7 @@
           "proxmoxManage": { "label": "Gérer Proxmox", "description": "Lister et contrôler les conteneurs LXC, y compris créer, supprimer et restaurer des snapshots. Cela peut détruire définitivement des données." },
           "sftpRead": { "label": "Lire les fichiers", "description": "Parcourir et lire les fichiers de vos hôtes SSH/FTP enregistrés et de cet ordinateur." },
           "sftpWrite": { "label": "Écrire et déplacer des fichiers", "description": "Créer, renommer, écraser et supprimer des fichiers sur vos hôtes SSH/FTP enregistrés et sur cet ordinateur, et les copier entre eux. Cela peut détruire définitivement des données." },
+          "hostExec": { "label": "Exécuter n'importe quelle commande sur vos hôtes", "description": "Exécuter n'importe quelle commande, en votre nom, sur tout hôte ouvert et sur cet ordinateur, et lire sa sortie. C'est un accès shell complet : il peut lire des secrets, modifier la configuration et détruire définitivement des données." },
           "audit": { "label": "Enregistrer des événements d'audit", "description": "Ajouter à votre journal d'audit des entrées décrivant ses actions. Pour un hôte d'un coffre d'équipe, ces entrées sont également envoyées au serveur de cette équipe." },
           "auditRead": { "label": "Lire le journal d'activité", "description": "Lire le journal d'activité de cet appareil, y compris les hôtes contactés, les fichiers touchés et les actions des autres plugins. Lorsqu'une équipe est nommée, cela lit aussi le journal côté serveur de cette équipe — l'activité de chacun de ses membres." },
           "mcpContribute": { "label": "Exposer des outils aux agents IA externes", "description": "Permet à ce plugin d'ajouter ses propres commandes au serveur MCP de Voltius, afin que tout agent IA externe connecté puisse les exécuter — avec les autorisations de ce plugin." },
@@ -1213,6 +1355,9 @@
       }
     },
     "toggleDefs": {
+      "commandHistory": {
+        "label": "Historique des commandes"
+      },
       "cursorBlink": {
         "label": "Clignotement du curseur"
       },
@@ -1391,6 +1536,30 @@
           "desc": "Ouvrir les notes de l'hôte dans le panneau latéral"
         }
       }
+    },
+    "search": {
+      "placeholder": "Rechercher dans les paramètres",
+      "clear": "Effacer la recherche",
+      "changed": "Modifiés",
+      "changedTitle": "Modifiés par rapport aux valeurs par défaut",
+      "results_one": "{{count}} résultat",
+      "results_many": "{{count}} résultats",
+      "results_other": "{{count}} résultats",
+      "changedOnly": "Modifiés uniquement",
+      "open": "Ouvrir",
+      "openSection": "Ouvrir {{section}}",
+      "undo": "Annuler",
+      "resetAll": "Tout réinitialiser",
+      "resetAllConfirm_one": "Réinitialiser {{count}} paramètre ? Les paramètres gérés par l’équipe, de sécurité et de synchronisation sont conservés.",
+      "resetAllConfirm_many": "Réinitialiser {{count}} paramètres ? Les paramètres gérés par l’équipe, de sécurité et de synchronisation sont conservés.",
+      "resetAllConfirm_other": "Réinitialiser {{count}} paramètres ? Les paramètres gérés par l’équipe, de sécurité et de synchronisation sont conservés.",
+      "cancel": "Annuler",
+      "emptyChanged": "Tous les paramètres sont à leur valeur par défaut.",
+      "emptyQuery": "Aucun paramètre ne correspond à « {{query}} ».",
+      "emptyQueryChanged": "Aucun paramètre modifié ne correspond à « {{query}} ».",
+      "changedSub_one": "{{count}} paramètre diffère de sa valeur par défaut",
+      "changedSub_many": "{{count}} paramètres diffèrent de leur valeur par défaut",
+      "changedSub_other": "{{count}} paramètres diffèrent de leur valeur par défaut"
     }
   }
 }

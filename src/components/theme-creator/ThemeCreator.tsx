@@ -26,6 +26,7 @@ import {
   PickerTrigger,
 } from "@/components/shared/pickerParts";
 import { formInputClass, formInputStyle } from "@/components/shared/Panel";
+import { choiceHover } from "@/components/shared/selectableChip";
 import { searchMatcher } from "@/utils/search";
 
 // ── CSS variable inspector ────────────────────────────────────────────────────
@@ -330,6 +331,7 @@ function RowIconButton({ icon, title, active = false, onClick }: {
     <button
       onClick={onClick}
       title={title}
+      className={choiceHover(!!active)}
       style={{
         display: "flex", alignItems: "center", justifyContent: "center",
         width: 18, height: 18, borderRadius: 4, border: "1px solid",

@@ -57,6 +57,7 @@ vi.mock("@/services/syncProviderAction", () => ({ runSyncProviderAction: runActi
 
 import { scheduleSync, setSyncPaused } from "@/services/sync";
 import { useLanSyncStore } from "@/stores/lanSyncStore";
+import { usePolicyStore } from "@/stores/policyStore";
 import SyncSection from "./SyncSection";
 
 const toggleFor = (c: HTMLElement, domain: string) =>
@@ -134,6 +135,19 @@ describe("held-back settings summary", () => {
     fireEvent.click(el(container, "held-back-appSettings")!);
     fireEvent.click(el(container, "resume-appSettings.locale")!);
     expect(useSyncPrefsStore.getState().isSettingSynced("appSettings.locale")).toBe(true);
+  });
+
+  test("lists a locked toggle as managed, with no resume", () => {
+    const KEY = "appSettings.toggles.cursor-blink";
+    usePolicyStore.setState({ machine: { policy: { [KEY]: true }, defaults: {} } });
+    try {
+      const { container } = render(<SyncSection />);
+      fireEvent.click(el(container, "held-back-appSettings")!);
+      expect(el(container, `held-${KEY}`)?.textContent).toContain("common.policy.managed");
+      expect(el(container, `resume-${KEY}`)).toBeNull();
+    } finally {
+      usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+    }
   });
 
   test("shows nothing for a domain with no held-back keys", () => {

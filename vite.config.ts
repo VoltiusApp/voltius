@@ -27,7 +27,7 @@ export default defineConfig(async () => ({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          if (["@xterm/xterm", "@xterm/addon-fit", "@xterm/addon-webgl", "@xterm/addon-search", "@xterm/addon-web-links"].some((pkg) => id.includes(`/node_modules/${pkg}/`))) return "xterm";
+          if (["@xterm/xterm", "@xterm/addon-fit", "@xterm/addon-webgl", "@xterm/addon-search"].some((pkg) => id.includes(`/node_modules/${pkg}/`))) return "xterm";
           if (["react", "react-dom"].some((pkg) => id.includes(`/node_modules/${pkg}/`))) return "react";
           const locale = /\/src\/i18n\/locales\/([a-z]+)\//.exec(id)?.[1];
           if (locale && locale !== "en") return `locale-${locale}`;

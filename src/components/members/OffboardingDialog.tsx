@@ -27,6 +27,8 @@ export function OffboardingDialog({ members, teamId, mode, onClose, onDone }: Of
     setBusy(true);
     try {
       await departMembers(teamId, members, { mode, onDone });
+    } catch {
+      // runTeamAction's toast already reports the failure.
     } finally {
       setBusy(false);
       onClose();

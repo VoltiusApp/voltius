@@ -23,6 +23,7 @@ function createSettledBlobs() {
     },
     has: (blob: BlobVersion) => settled.get(blob.device_id) === blob.updated_at,
     add: (blob: BlobVersion) => void settled.set(blob.device_id, blob.updated_at),
+    forget: (deviceId: string) => void settled.delete(deviceId),
     clear: () => settled.clear(),
   };
 }

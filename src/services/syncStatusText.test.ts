@@ -22,6 +22,11 @@ describe("syncStatusLabel", () => {
     expect(syncStatusLabel(t, "error", null)).toBe("layout.sync.status.error");
     expect(syncStatusLabel(t, "offline", null)).toBe("layout.sync.status.offline");
     expect(syncStatusLabel(t, "idle", null)).toBe("layout.sync.status.idle");
+    expect(syncStatusLabel(t, "partial", null)).toBe("layout.sync.status.partial");
+  });
+
+  test("a partial sync carries its time like a full one", () => {
+    expect(syncStatusLabel(t, "partial", new Date())).toBe('layout.sync.status.partialAt {"time":"hour-minute"}');
   });
 
   test("a finished sync carries its time, to the minute", () => {
@@ -36,6 +41,10 @@ describe("syncFailureReason", () => {
     expect(syncFailureReason("success", "stale")).toBeNull();
     expect(syncFailureReason("syncing", "stale")).toBeNull();
     expect(syncFailureReason("offline", null)).toBeNull();
+  });
+
+  test("a partial sync says which devices it skipped", () => {
+    expect(syncFailureReason("partial", "1 device couldn't be synced")).toBe("1 device couldn't be synced");
   });
 });
 
@@ -55,6 +64,10 @@ describe("syncStatusTooltip", () => {
   test("an unreachable server carries the reason when there is one", () => {
     expect(syncStatusTooltip(t, effective({ error: "refused" }), "offline")).toBe('layout.sync.status.offlineDetail {"error":"refused"}');
     expect(syncStatusTooltip(t, effective({}), "offline")).toBe("layout.sync.status.offline");
+  });
+
+  test("a partial sync carries what it skipped", () => {
+    expect(syncStatusTooltip(t, effective({ error: "1 device" }), "partial")).toBe('layout.sync.status.partialTooltip {"error":"1 device"}');
   });
 
   test("a finished sync carries its time, to the second", () => {

@@ -135,3 +135,24 @@ test("a link raised with no visible bell paints once one mounts", () => {
     restore();
   }
 });
+
+test("an inbox action that opens the enrol modal closes the popover first", async () => {
+  const token = { serverUrl: "https://srv.example", id: "a".repeat(32), secret: "s".repeat(43) };
+  useNotificationStore.setState({
+    inbox: [{
+      id: "enroll-invite:a",
+      kind: "enrollInvite",
+      message: "join Acme",
+      actions: [{ label: "sign in", run: async () => useUIStore.getState().openEnroll(token, "machine") }],
+      source: { kind: "app" },
+      state: "pending",
+      createdAt: Date.now(),
+    }],
+  });
+  render(<NotificationBell />);
+  act(() => useUIStore.getState().openNotificationCenter(null));
+  await act(async () => fireEvent.click(screen.getByText("sign in")));
+  expect(useUIStore.getState().notificationCenterOpen).toBe(false);
+  expect(useUIStore.getState().enrollTarget).toEqual({ token, source: "machine" });
+  act(() => useUIStore.getState().closeEnroll());
+});

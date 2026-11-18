@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useLocaleStore, SUPPORTED_LOCALES, systemLocale } from "./localeStore";
+import { useLocaleStore, SUPPORTED_LOCALES, systemLocale, localeSetting } from "./localeStore";
+import { usePolicyStore } from "./policyStore";
 import { useAppSettingsTimestampStore } from "./appSettingsTimestampStore";
 import { useSyncPrefsStore } from "./syncPrefsStore";
 
@@ -51,5 +52,14 @@ describe("localeStore", () => {
       expect(useLocaleStore.getState().locale).toBe(value);
       expect(label.trim()).not.toBe("");
     }
+  });
+
+  it("setter is a no-op under a lock", () => {
+    const empty = { policy: {}, defaults: {} };
+    usePolicyStore.setState({ machine: { policy: { "appSettings.locale": "fr" }, defaults: {} }, server: empty });
+    useLocaleStore.getState().setLocale("cs");
+    expect(useLocaleStore.getState().locale).toBe("en");
+    expect(localeSetting.get()).toBe("fr");
+    usePolicyStore.setState({ machine: empty, server: empty });
   });
 });

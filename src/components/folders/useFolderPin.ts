@@ -8,12 +8,17 @@ import {
   useEffectivePinSource,
   nextPersonalPinValue,
 } from "@/hooks/useEffectivePinned";
+import { targetOf, whenWritableOn } from "@/services/previewGuard";
 import type { Folder } from "@/types";
+
+export function folderAccessType(folder: Folder): "folder" | "snippet_folder" {
+  return folder.object_type === "snippet" || folder.object_type === "snippet_folder" ? "snippet_folder" : "folder";
+}
 
 export function useFolderPin(folder: Folder, canEdit?: boolean) {
   const { t } = useTranslation();
-  const isSnippetFolder = folder.object_type === "snippet" || folder.object_type === "snippet_folder";
-  const folderType: "folder" | "snippet_folder" = isSnippetFolder ? "snippet_folder" : "folder";
+  const folderType = folderAccessType(folder);
+  const isSnippetFolder = folderType === "snippet_folder";
   const pinFolder = useFolderStore((s) => s.pinFolder);
   const pinFolderForTeam = useFolderStore((s) => s.pinFolderForTeam);
   const pinSnippetFolder = useSnippetFolderStore((s) => s.pinSnippetFolder);
@@ -29,13 +34,10 @@ export function useFolderPin(folder: Folder, canEdit?: boolean) {
     if (isSnippetFolder) pinSnippetFolderForTeam(folder.id, pinned).catch(() => {});
     else pinFolderForTeam(folder.id, pinned).catch(() => {});
   };
-  const togglePin = () => {
-    if (!isTeamVault) {
-      pinPersonal(!effPinned);
-    } else {
-      pinPersonal(nextPersonalPinValue(pinSource));
-    }
-  };
+  const target = targetOf(folderType)(folder.id);
+  const togglePin = whenWritableOn(target, () => {
+    pinPersonal(isTeamVault ? nextPersonalPinValue(pinSource) : !effPinned);
+  });
   const pinColor =
     pinSource === "personal" || pinSource === "team+personal"
       ? "var(--t-accent)"
@@ -64,7 +66,7 @@ export function useFolderPin(folder: Folder, canEdit?: boolean) {
     ? {
       label: folder.pinned ? t("folders.card.unpinForTeam") : t("folders.card.pinForTeam"),
       icon: "lucide:users",
-      onClick: () => pinTeam(!folder.pinned),
+      onClick: whenWritableOn(target, () => pinTeam(!folder.pinned)),
     }
     : null;
 

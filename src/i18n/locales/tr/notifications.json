@@ -87,6 +87,18 @@
         "message": "~/.ssh/config sunucularınız artık otomatik olarak eşitlenmiyor. Artık sizindir: değişiklikleriniz korunur.",
         "turnOnSync": "Sürekli eşitlemeyi aç",
         "dismiss": "Tamam"
+      },
+      "enroll": {
+        "invite": "Kuruluşunuz Voltius'ta {{team}} kullanıyor",
+        "signIn": "Oturum aç",
+        "pending": {
+          "approval": "{{team}} ekibinin bir yöneticisinin isteğinizi onaylaması bekleniyor",
+          "email_unverified": "{{team}} ekibine katılmak için e-postanızı doğrulayın",
+          "seat_limit": "{{team}} ekibinde boş koltuk yok. Bir yönetici bilgilendirildi."
+        },
+        "declined": "{{team}} isteğinizi reddetti",
+        "askAgain": "Tekrar iste",
+        "joined": "{{team}} ekibine katıldınız"
       }
     },
     "sshConfigOffer": {

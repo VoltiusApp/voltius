@@ -1,3 +1,4 @@
+import type { BackendErrorCode } from "@/services/backendErrors";
 import type { Step, StepConfig, StepStatus } from "./types";
 
 export function isPassphraseError(msg?: string): boolean {
@@ -41,6 +42,12 @@ export function activateStep(
     if (step.id === id) return { ...step, status: "active", detail };
     return step;
   });
+}
+
+/** The step a failure belongs to when the backend reports it before announcing that step. */
+export function failedStepFor(code: BackendErrorCode | undefined, stepConfigs: readonly StepConfig[]): string | null {
+  const isNegotiation = code === "ssh-legacy-algorithms-required" || code === "ssh-no-common-algorithm";
+  return isNegotiation && stepConfigs.some((step) => step.id === "handshake") ? "handshake" : null;
 }
 
 export function markErrorStep(currentSteps: Step[], lastActivatedId: string | null): Step[] {

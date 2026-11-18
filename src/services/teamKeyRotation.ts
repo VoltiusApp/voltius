@@ -23,31 +23,77 @@ function epochOf(kv: number | undefined): number {
   return kv ?? 1;
 }
 
+export type StaleRowKind = "object" | "secret" | "blob";
+
+export interface RowFailure {
+  kind: StaleRowKind;
+  id: string;
+  stage: "local" | "upload";
+}
+
+export interface RotationPass {
+  at: number;
+  action: "none" | "rotated" | "drained";
+  error?: "status" | "rotate" | "drain";
+  failures: RowFailure[];
+  skipped: number;
+}
+
+const _lastPass = new Map<string, RotationPass>();
+const _passListeners = new Set<() => void>();
+
+export function getLastRotationPass(teamId: string): RotationPass | undefined {
+  return _lastPass.get(teamId);
+}
+
+export function subscribeRotationPasses(listener: () => void): () => void {
+  _passListeners.add(listener);
+  return () => _passListeners.delete(listener);
+}
+
+function recordPass(teamId: string, pass: RotationPass): RotationPass {
+  _lastPass.set(teamId, pass);
+  _passListeners.forEach((l) => l());
+  return pass;
+}
+
 /**
  * Runs `mapFn` over `items` in `batchSize` chunks, settling each chunk rather
  * than aborting it on the first rejection: a single poisoned row (a 404 on a
  * historical key, a malformed payload) would otherwise abort the whole batch,
  * and since this work is recomputed fresh every pass, that same row would
  * fail identically forever, permanently blocking every other row behind it.
- * Failed rows are logged and dropped; `onBatch` only runs when a chunk has at
- * least one surviving item.
+ * Failed rows are logged and recorded in `failures`; `onBatch` only runs when
+ * a chunk has at least one surviving item.
  */
 async function settleInBatches<T, R>(
   items: T[],
-  batchSize: number,
+  row: { kind: StaleRowKind; idOf: (item: T) => string; failures: RowFailure[] },
   mapFn: (item: T) => Promise<R>,
   logContext: string,
   onBatch: (settled: R[]) => Promise<void>,
 ): Promise<void> {
-  for (let i = 0; i < items.length; i += batchSize) {
-    const slice = items.slice(i, i + batchSize);
+  const fail = (stage: RowFailure["stage"]) => (item: T) => row.failures.push({ kind: row.kind, id: row.idOf(item), stage });
+  for (let i = 0; i < items.length; i += BATCH_SIZE) {
+    const slice = items.slice(i, i + BATCH_SIZE);
     const results = await Promise.allSettled(slice.map(mapFn));
-    const settled = results.flatMap((r) => {
-      if (r.status === "fulfilled") return [r.value];
+    const kept: T[] = [];
+    const settled: R[] = [];
+    results.forEach((r, j) => {
+      if (r.status === "fulfilled") {
+        kept.push(slice[j]);
+        settled.push(r.value);
+        return;
+      }
       logFailure(logContext)(r.reason);
-      return [];
+      fail("local")(slice[j]);
     });
-    if (settled.length > 0) await onBatch(settled).catch(logFailure(`${logContext}: batch write`));
+    if (settled.length > 0) {
+      await onBatch(settled).catch((e) => {
+        logFailure(`${logContext}: batch write`)(e);
+        kept.forEach(fail("upload"));
+      });
+    }
   }
 }
 
@@ -62,24 +108,40 @@ async function settleInBatches<T, R>(
  * on the existing removal flow (member + key rows already deleted) for its
  * own cutoff, not a second epoch.
  */
-const _rotationPassInFlight = new Map<string, Promise<void>>();
+const _rotationPassInFlight = new Map<string, Promise<RotationPass>>();
 
-export function checkAndRotateTeamKey(teamId: string, options: { force?: boolean } = {}): Promise<void> {
+export function checkAndRotateTeamKey(teamId: string, options: { force?: boolean } = {}): Promise<RotationPass> {
   const existing = _rotationPassInFlight.get(teamId);
   if (existing) return existing;
 
-  const run = _checkAndRotateTeamKey(teamId, options);
+  const run = _checkAndRotateTeamKey(teamId, options).then((pass) => recordPass(teamId, pass));
   _rotationPassInFlight.set(teamId, run);
   run.finally(() => _rotationPassInFlight.delete(teamId)).catch(logFailure(`teamKeyRotation: pass team=${teamId}`));
   return run;
 }
 
-async function _checkAndRotateTeamKey(teamId: string, options: { force?: boolean }): Promise<void> {
+async function _checkAndRotateTeamKey(teamId: string, options: { force?: boolean }): Promise<RotationPass> {
+  const pass: RotationPass = { at: Date.now(), action: "none", failures: [], skipped: 0 };
+  const step = async (phase: "rotate" | "drain", run: () => Promise<void>): Promise<boolean> => {
+    try {
+      await run();
+      if (pass.action === "none") pass.action = phase === "rotate" ? "rotated" : "drained";
+      return true;
+    } catch (e) {
+      logFailure(`teamKeyRotation: ${phase} team=${teamId}`)(e);
+      pass.error = phase;
+      return false;
+    }
+  };
+  const rotateThenDrain = async () => {
+    if (await step("rotate", () => _rotateTeamKey(teamId))) await step("drain", () => _drainTeamKeyRotation(teamId, pass));
+  };
+
   // Skips rotation-status: it only tracks epoch coverage, not whether a
   // present wrap actually decrypts (key_mismatch self-heal needs this).
   if (options.force) {
-    await _rotateTeamKey(teamId).catch(logFailure(`teamKeyRotation: forced rotate team=${teamId}`));
-    return;
+    await rotateThenDrain();
+    return pass;
   }
 
   let status;
@@ -87,17 +149,12 @@ async function _checkAndRotateTeamKey(teamId: string, options: { force?: boolean
     status = await getRotationStatus(teamId);
   } catch (e) {
     logFailure(`teamKeyRotation: getRotationStatus team=${teamId}`)(e);
-    return; // offline, forbidden (no VIEW_SECRETS/COPY_SECRETS), etc. — try again next event
+    return { ...pass, error: "status" }; // offline, forbidden (no VIEW_SECRETS/COPY_SECRETS), etc. — try again next event
   }
 
-  if (status.draining) {
-    await _drainTeamKeyRotation(teamId).catch(logFailure(`teamKeyRotation: drain team=${teamId}`));
-    return;
-  }
-
-  if (status.stale) {
-    await _rotateTeamKey(teamId).catch(logFailure(`teamKeyRotation: rotate team=${teamId}`));
-  }
+  if (status.draining) await step("drain", () => _drainTeamKeyRotation(teamId, pass));
+  else if (status.stale) await rotateThenDrain();
+  return pass;
 }
 
 async function _rotateTeamKey(teamId: string): Promise<void> {
@@ -114,7 +171,7 @@ async function _rotateTeamKey(teamId: string): Promise<void> {
   // initTeamVaultKey's own pattern in teamVaultSync.ts.
   const myPublicKey = await publishMyPublicKey();
   const myUserId = await getMyUserId();
-  if (!myUserId) return; // not authenticated — try again next event
+  if (!myUserId) throw new Error("not signed in"); // try again next event
 
   const members = await listMembers(teamId);
   const keys = await Promise.all(
@@ -128,10 +185,9 @@ async function _rotateTeamKey(teamId: string): Promise<void> {
   keys.push({ user_id: myUserId, wrapped_key: await wrapSessionKeyForUser(rawKeyBytes, myPublicKey) });
 
   await rotateVaultKey(teamId, keys);
-  await _drainTeamKeyRotation(teamId).catch(logFailure(`teamKeyRotation: drain team=${teamId}`));
 }
 
-async function _drainTeamKeyRotation(teamId: string): Promise<void> {
+async function _drainTeamKeyRotation(teamId: string, pass: RotationPass): Promise<void> {
   // The cache is not trustworthy as "current epoch" on its own: it can be
   // stale right after this client's own rotation (until evicted) or when a
   // different client rotated and this one is draining only because
@@ -140,15 +196,17 @@ async function _drainTeamKeyRotation(teamId: string): Promise<void> {
   deleteTeamKey(teamId);
   const currentKey = await getTeamVaultKey(teamId); // forces a fresh network fetch, primes both caches
   const currentVersion = getCachedTeamKeyVersion(teamId);
-  if (currentVersion === undefined) return; // couldn't fetch (offline/forbidden) — try again next event
+  if (currentVersion === undefined) throw new Error("current team key unavailable"); // offline/forbidden — try again next event
 
   // Step 4 of the spec's reencrypt pass: the legacy whole-blob some older
   // teams still carry. Independent of the object/secret loops below (already
   // .catch'd so its failure can't fail this Promise.all), so all three run
   // concurrently instead of paying its round-trip serially first.
   const [, objects, secrets] = await Promise.all([
-    reencryptLegacyBlobIfStale(teamId, currentVersion, currentKey)
-      .catch(logFailure(`teamKeyRotation: reencrypt legacy blob team=${teamId}`)),
+    reencryptLegacyBlobIfStale(teamId, currentVersion, currentKey).catch((e) => {
+      logFailure(`teamKeyRotation: reencrypt legacy blob team=${teamId}`)(e);
+      pass.failures.push({ kind: "blob", id: teamId, stage: "local" });
+    }),
     listTeamObjects(teamId),
     listTeamSecrets(teamId),
   ]);
@@ -159,22 +217,24 @@ async function _drainTeamKeyRotation(teamId: string): Promise<void> {
   // Strictly behind current, never equal-or-ahead: a row already on or ahead
   // of this client's freshly-resolved "current" must never be rewritten
   // backward onto an older key.
-  const staleObjects = objects.filter((o) => {
+  const behind = objects.filter((o) => {
     if (o.deleted_at) return false;
-    if (!isEncryptedEnvelope(o.metadata)) return false; // #229's own migration pass handles these
-    const kv = (o.metadata as { kv?: number }).kv;
-    return epochOf(kv) < currentVersion && canEditObjectType(snapshot, teamId, o.object_type, o.my_permissions);
+    return epochOf((o.metadata as { kv?: number } | null)?.kv) < currentVersion;
   });
+  const staleObjects = behind.filter((o) =>
+    isEncryptedEnvelope(o.metadata) // #229's own migration pass handles plaintext rows
+    && canEditObjectType(snapshot, teamId, o.object_type, o.my_permissions));
 
-  const staleSecrets = secrets.filter((s) => {
-    if (epochOf(s.key_version) >= currentVersion) return false;
+  const behindSecrets = secrets.filter((s) => epochOf(s.key_version) < currentVersion);
+  const staleSecrets = behindSecrets.filter((s) => {
     const owner = rowById.get(s.object_id);
     return owner !== undefined && canEditObjectType(snapshot, teamId, owner.object_type, owner.my_permissions);
   });
+  pass.skipped += behind.length - staleObjects.length + behindSecrets.length - staleSecrets.length;
 
   await settleInBatches(
     staleObjects,
-    BATCH_SIZE,
+    { kind: "object", idOf: (o) => o.object_id, failures: pass.failures },
     async (o) => ({
       object_id: o.object_id,
       // Must decode under the OLD (per-row) key before re-encoding under the
@@ -195,7 +255,7 @@ async function _drainTeamKeyRotation(teamId: string): Promise<void> {
   // third bespoke pairing.
   await settleInBatches(
     staleSecrets,
-    BATCH_SIZE,
+    { kind: "secret", idOf: (s) => s.secret_id, failures: pass.failures },
     async (s) => {
       const oldKey = await getTeamVaultKeyAtVersion(teamId, epochOf(s.key_version));
       const decrypted = await invoke<{ secrets: Record<string, string> }>("backup_decrypt", {

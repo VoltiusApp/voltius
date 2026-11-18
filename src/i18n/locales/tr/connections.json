@@ -103,7 +103,8 @@
       "connectAsYours": "{{username}} · sizin, yalnızca siz",
       "connectAsTeam": "{{username}} · ekip kimliği",
       "connectAsAsk": "Bağlanırken sorulacak",
-      "connectAsUnavailable": "Seçtiğiniz kimlik kullanılamıyor"
+      "connectAsUnavailable": "Seçtiğiniz kimlik kullanılamıyor",
+      "connectNeedsHost": "Bağlanmak için bir sunucu girin"
     },
     "distroIconPicker": {
       "title": "Simge",
@@ -168,7 +169,15 @@
       "keyPlaceholder": "ANAHTAR",
       "valuePlaceholder": "değer",
       "removeAriaLabel": "Değişkeni kaldır",
-      "addButton": "Değişken ekle"
+      "addButton": "Değişken ekle",
+      "modeLabel": "Düzenleme modu",
+      "modeList": "Liste",
+      "pasteTip": "Birden çok değişkeni tek seferde eklemek için bir .env dosyasını anahtar alanına yapıştırın",
+      "rawHint": "Satır başına bir ANAHTAR=değer. Yorumlar, tırnaklar ve export önekleri kabul edilir.",
+      "skippedLines": "Yok sayılan satırlar: {{count}}",
+      "copyButton": ".env olarak kopyala",
+      "downloadButton": ".env indir",
+      "copied": "Kopyalandı"
     },
     "serialConfigOverlay": {
       "title": "Seri bağlantı",

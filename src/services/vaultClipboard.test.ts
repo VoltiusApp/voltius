@@ -40,7 +40,7 @@ test("cut paste moves items into the target folder", async () => {
 test("copy paste duplicates and selects the new ids", async () => {
   const a = adapter();
   const r = await pasteFromClipboard({ ...cut, mode: "copy" }, a);
-  expect(a.duplicateItems).toHaveBeenCalledWith(["c1"], "dest");
+  expect(a.duplicateItems).toHaveBeenCalledWith(["c1"], "dest", "personal");
   expect(a.setSelection).toHaveBeenCalledWith(["c1-copy"]);
   expect(r).toMatchObject({ moved: 0, created: 1 });
 });
@@ -89,7 +89,7 @@ test("copy paste of a folder clones the subtree", async () => {
     { tab: "hosts", mode: "copy", items: [], folderIds: ["f1"], sourceVaultIds: ["personal"] },
     a,
   );
-  expect(a.duplicateFolder).toHaveBeenCalledWith("f1", "dest");
+  expect(a.duplicateFolder).toHaveBeenCalledWith("f1", "dest", "personal");
   expect(r.created).toBe(1);
 });
 
@@ -197,7 +197,7 @@ test("a second undo after a redo deletes what the redo created", async () => {
   round = 1;
   await useHistoryStore.getState().redo();
   expect(a.duplicateItems).toHaveBeenCalledTimes(2);
-  expect(a.duplicateFolder).toHaveBeenLastCalledWith("f1", "dest");
+  expect(a.duplicateFolder).toHaveBeenLastCalledWith("f1", "dest", "personal");
 
   await useHistoryStore.getState().undo();
   expect(a.deleteItems).toHaveBeenLastCalledWith(["c1-copy1"]);

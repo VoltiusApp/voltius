@@ -10,6 +10,7 @@ import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { useDragStore } from "@/stores/dragStore";
 import { useUIStore } from "@/stores/uiStore";
 import { sessionLabel } from "@/utils/sessionLabel";
+import { TabCloseControl } from "@/components/shared/TabCloseControl";
 
 export function sessionTabIcon(
   session: TerminalSession,
@@ -89,6 +90,8 @@ export function buildSessionTabHandlers(deps: SessionTabHandlerDeps) {
     renameAriaLabel: deps.t("layout.titleBar.renameTab"),
     onRenameCommit: (name: string) => deps.commitRename(session.id, name),
     onRenameCancel: () => deps.cancelRename(session.id),
+    sessionIds: [session.id],
+    closeTitle: deps.t("layout.titleBar.closeTab"),
   });
 }
 
@@ -114,6 +117,9 @@ export function TitlebarTab({
   onMouseEnter,
   onMouseLeave,
   buttonRef,
+  sessionIds = [],
+  closeTitle = "",
+  compact = false,
 }: {
   itemKey: string;
   active: boolean;
@@ -136,6 +142,9 @@ export function TitlebarTab({
   onMouseEnter?: (e: React.MouseEvent) => void;
   onMouseLeave?: (e: React.MouseEvent) => void;
   buttonRef?: React.Ref<HTMLButtonElement>;
+  sessionIds?: string[];
+  closeTitle?: string;
+  compact?: boolean;
 }) {
   const tabFontSize = useUIStore((s) => s.tabFontSize);
   const fontSize = tabFontSize ? { fontSize: tabFontSize } : undefined;
@@ -169,8 +178,8 @@ export function TitlebarTab({
       onContextMenu={onContextMenu}
       onDoubleClick={onDoubleClick}
       onPointerDown={onPointerDown}
-      className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all overflow-hidden"
-      title={tooltip}
+      className={`group relative flex items-center h-9 rounded-xl text-base font-medium-bold shrink-0 transition-all ${compact ? "w-10 justify-center" : "gap-2 px-2 overflow-hidden"}`}
+      title={compact ? [renameValue, title].filter(Boolean).join("\n") : tooltip}
       style={{ ...tabSurfaceStyle(active), ...fontSize }}
       onMouseEnter={(e) => {
         if (!active) {
@@ -188,22 +197,25 @@ export function TitlebarTab({
       }}
     >
       {mcpBar}
-      {icon}
-      <span className="max-w-[140px] truncate" onClick={onLabelClick}>
-        {label}
-      </span>
-      {trailing}
-      {onClose && <span
-        onClick={onClose}
-        className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded-sm p-0.5"
-        style={{ color: active ? "var(--t-tab-active-text)" : "var(--t-text-muted)" }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; (e.currentTarget as HTMLElement).style.color = "var(--t-status-error)"; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = active ? "var(--t-tab-active-text)" : "var(--t-text-muted)"; }}
-      >
-        <span className="[&_path]:stroke-[2.1]">
-          <Icon icon="lucide:x" width={20} />
+      {compact ? (
+        <span className="relative inline-flex">
+          {icon}
+          <TabCloseControl variant="badge" sessionIds={sessionIds} active={active} closeTitle={closeTitle} onClose={() => {}} />
         </span>
+      ) : icon}
+      {!compact && <span className="max-w-[140px] truncate" onClick={onLabelClick}>
+        {label}
       </span>}
+      {!compact && trailing}
+      {!compact && onClose && (
+        <TabCloseControl
+          variant="tab"
+          sessionIds={sessionIds}
+          active={active}
+          closeTitle={closeTitle}
+          onClose={onClose}
+        />
+      )}
     </button>
   );
 }

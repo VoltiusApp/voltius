@@ -26,11 +26,7 @@
       "panelsAriaLabel": "Панели"
     },
     "panelItems": {
-      "sftp": "SFTP",
-      "docker": "Docker",
-      "metrics": "Метрики",
-      "processes": "Процессы",
-      "proxmox": "Proxmox"
+      "sftp": "SFTP"
     },
     "morePages": {
       "keychain": "Связка ключей",
@@ -53,7 +49,9 @@
       "seatsUsed": "Использовано {{used}} / {{total}}",
       "upgradeToPro": "Перейти на Pro",
       "upgradeToTeams": "Попробовать Teams бесплатно — {{days}} дн.",
-      "teamsTrialNote": "Нужна карта · во время пробного периода списаний нет",
+      "teamsTrialNote": "Без банковской карты · до 10 участников",
+      "activateProTrial": "Активировать 14 дней Pro",
+      "upgradeTeamsPlain": "Перейти на Teams",
       "manageBilling": "Управление оплатой",
       "viewAllPlans": "Посмотреть все тарифы",
       "signInToSync": "Войти в Voltius",
@@ -137,10 +135,8 @@
       "permissionDenied": "Доступ запрещён",
       "goUp": "Вверх",
       "emptyFolder": "Пустая папка",
-      "selectedCount": "Выбрано: {{count}}",
       "downloadSelectedAriaLabel": "Скачать выбранное",
       "deleteSelectedAriaLabel": "Удалить выбранное",
-      "clearSelectionAriaLabel": "Очистить выбор",
       "copyToOtherPane": "Копировать в другую панель",
       "download": "Скачать",
       "details": "Подробности",
@@ -163,10 +159,8 @@
       "newFileOption": "Новый файл",
       "folderNamePlaceholder": "Название папки",
       "fileNamePlaceholder": "Название файла",
-      "selectAll": "Выбрать все",
       "onePane": "Одна панель",
       "twoPanes": "Две панели",
-      "moreActions": "Другие действия",
       "itemActions": "Действия для {{name}}"
     },
     "folders": {
@@ -295,6 +289,41 @@
         "delete": "Удаляет хранилище и всё его содержимое",
         "deleteTeam": "Удаляет его для всех участников",
         "leave": "Отказаться от доступа к этому хранилищу"
+      }
+    },
+    "viewAs": {
+      "editAccess": "Изменить доступ",
+      "accessSubtitle": "Изменения отображаются за этой панелью. Пока ничего не сохранено.",
+      "areas": {
+        "hosts": "Хосты",
+        "keychain": "Связка ключей",
+        "snippets": "Сниппеты",
+        "portForwarding": "Проброс портов",
+        "sessions": "Сессии",
+        "members": "Участники",
+        "logs": "Журнал аудита"
+      }
+    },
+    "selection": {
+      "selectedCount": "Выбрано: {{count}}",
+      "clearSelectionAriaLabel": "Очистить выбор",
+      "selectAll": "Выбрать все",
+      "moreActions": "Другие действия"
+    },
+    "members": {
+      "selectSelf": "Нельзя выбрать себя",
+      "selectOwner": "Нельзя изменить роли владельца или удалить его",
+      "assignRole": "Назначить роль",
+      "removeRole": "Удалить роль",
+      "pickRole": "Выберите роль",
+      "keyHeld": "Есть ключ хранилища",
+      "keyAwaiting": "Ожидает ключ хранилища",
+      "alreadyAssigned": "Уже назначена",
+      "notAssigned": "Не назначена",
+      "keyNoAccess": "Нет доступа к ключу хранилища: нет разрешения «Подключение»",
+      "invite": {
+        "resend": "Отправить приглашение ещё раз",
+        "revoke": "Отозвать приглашение"
       }
     }
   }

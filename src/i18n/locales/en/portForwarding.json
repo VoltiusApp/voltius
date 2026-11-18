@@ -13,7 +13,6 @@
       "folders": "Folders",
       "new": "New",
       "noRulesMatchSearch": "No rules match your search.",
-      "folderEmpty": "This folder is empty.",
       "noRulesYet": "No rules yet. Create one to get started.",
       "addRule": "Add Rule",
       "ejectMoveTo": "Move to {{name}}",
@@ -35,10 +34,6 @@
         "message_one": "This will delete the folder, its subfolders, and the {{count}} rule inside. This cannot be undone.",
         "message_other": "This will delete the folder, its subfolders, and the {{count}} rules inside. This cannot be undone.",
         "messageEmpty": "This will delete the folder and everything inside it. This cannot be undone."
-      },
-      "vaultCascade": {
-        "moveDescription": "Moving \"{{folderName}}\" will also move the following rules to {{targetVaultName}}:",
-        "copyDescription": "Copying \"{{folderName}}\" will also copy the following rules to {{targetVaultName}}:"
       },
       "bulk": {
         "duplicateRules": "Duplicate {{count}} rules",

@@ -11,7 +11,8 @@
       "importFrom": "Importovat z",
       "newHost": "Nový host",
       "newSerialHost": "Nový sériový host",
-      "newFolder": "Nová složka"
+      "newFolder": "Nová složka",
+      "systemShell": "Výchozí systémový shell"
     },
     "card": {
       "pin": "Připnout",
@@ -52,21 +53,17 @@
       "folders": "Složky",
       "new": "Nový",
       "pinned": "Připnuté",
-      "folderEmpty": "Tato složka je prázdná",
-      "addHost": "Přidat host",
       "noSearchResults": "Výrazu „{{search}}“ neodpovídá žádný host",
       "ejectMoveTo": "Přesunout do {{name}}",
       "ejectRemoveFromFolder": "Odebrat ze složky",
       "emptyState": {
         "title": "Zatím žádné hosty",
-        "subtitle": "Začněte přidáním prvního SSH hostu"
+        "subtitle": "Přidejte server a připojujte se k němu jedním kliknutím.",
+        "import": "Importovat hosty",
+        "quickConnect": "Připojit bez uložení"
       },
       "draft": {
         "unsaved": "Neuloženo"
-      },
-      "vaultCascade": {
-        "moveDescription": "Přesunutím složky „{{folderName}}“ se do trezoru „{{targetVaultName}}“ přesunou také tyto položky:",
-        "copyDescription": "Zkopírováním složky „{{folderName}}“ se do trezoru „{{targetVaultName}}“ zkopírují také tyto položky:"
       },
       "bulk": {
         "executeSnippetOn_one": "Spustit úryvek na {{count}} hostu",
@@ -128,8 +125,9 @@
     "teamSessions": {
       "title": "Týmové relace",
       "joinByCode": "Připojit se pomocí kódu",
-      "emptyHint": "Zde se zobrazí terminály, které sdílejí vaši kolegové. Máte kód pozvánky? Vložte ho do vyhledávání a připojte se.",
+      "emptyHint": "Zde se zobrazí terminály, které sdílejí vaši kolegové. Máte odkaz nebo kód pozvánky? Použijte „Připojit se pomocí kódu“.",
       "live": "ŽIVĚ",
+      "sharedBy": "Sdílí {{name}}",
       "pasteInviteCode": "Vložte odkaz nebo kód pozvánky a připojte se k soukromé relaci:",
       "inviteCodePlaceholder": "voltius://join?… nebo sessionId:token",
       "join": "Připojit se",

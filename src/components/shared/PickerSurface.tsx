@@ -83,6 +83,7 @@ export function PickerSurface({
   return createPortal(
     <div
       ref={popover.panelRef}
+      onMouseDownCapture={popover.onMouseDownCapture}
       className={`${glass ? "surface-glass-solid rounded-[var(--r-md)]" : "surface-float"} ${popover.className} fixed p-1.5 z-9999 flex flex-col overflow-y-auto`}
       style={{
         ...popover.style,

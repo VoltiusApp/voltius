@@ -19,6 +19,10 @@ vi.mock("@/stores/teamSessionStore", async () => {
   const { makeMpState, asStoreHook } = await import("./ShareMenu.testHarness");
   return { useTeamSessionStore: asStoreHook(makeMpState()) };
 });
+vi.mock("@/services/serverCapabilities", async () => ({
+  ...(await vi.importActual<typeof import("@/services/serverCapabilities")>("@/services/serverCapabilities")),
+  useServerBillingEnabled: () => true,
+}));
 vi.mock("@/utils/clipboard", () => ({ writeClipboard: vi.fn(async (_text: string) => {}) }));
 
 import { useTeamStore } from "@/stores/teamStore";

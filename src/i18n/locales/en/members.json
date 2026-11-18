@@ -17,6 +17,11 @@
         "bodyBilling": "{{name}}'s own Teams or Business subscription pays for this team from now on, and only they can delete it. Your subscription stays as it is: lower your seats or cancel it yourself.",
         "bodySelfHosted": "Only {{name}} will be able to delete this team. You stay an Owner and can leave afterwards."
       },
+      "invite": {
+        "title": "Invite {{name}} as an Owner?",
+        "body": "Owners hold every permission, including adding and removing other Owners. The primary owner and billing stay as they are.",
+        "confirm": "Send Owner invite"
+      },
       "grant": {
         "title": "Make {{name}} an Owner?",
         "body": "Owners hold every permission, including adding and removing other Owners.",
@@ -75,11 +80,14 @@
       "ADMINISTRATOR": "Administrator"
     },
     "permissions": {
+      "youLack": "You don't have permission to do this",
+      "youCannotEdit": "You don't have permission to edit this",
       "title": "Permissions",
       "inheritedFrom": "From {{roles}}",
       "notGranted": "No role grants this",
       "effectiveAllowed": "allowed",
       "effectiveDenied": "denied",
+      "withExceptions": "with exceptions",
       "state": { "deny": "Deny", "inherit": "Inherit", "allow": "Allow" },
       "readOnlyNoManage": "You need the Manage members permission",
       "readOnlyOwner": "An owner's permissions cannot be overridden",
@@ -125,6 +133,7 @@
       "nameHint": "Leave empty to show their handle."
     },
     "invite": {
+      "ownerOnlyOwners": "Only Owners can invite someone as Owner",
       "nameLabel": "Name in this team",
       "namePlaceholder": "e.g. Jan Novák",
       "nameHint": "Teammates see this instead of their handle. Only admins can change it.",
@@ -146,7 +155,7 @@
       "inviteArrow": "Invite →",
       "handleRule": "Only custom handles match on part of a name. For a generated handle like rapid-violet-8884, type it in full or use their email.",
       "seatsUnknown": "Seat count unavailable — check your connection to the sync server",
-      "seatsUnlimited": "{{used}} used · unlimited",
+      "seatsUnlimited": "{{used}} / ∞ seats used",
       "inviteAction": "Invite",
       "joinsAs": "They join as",
       "selectRoleHint": "Select at least one role before inviting",
@@ -158,6 +167,7 @@
       "expiredOn": "Expired {{date}}"
     },
     "roleBlurb": {
+      "owner": "Owners hold every permission, including adding and removing other Owners.",
       "manager": "Managers can invite people, change roles and manage links.",
       "editor": "Editors can add and change hosts, keys and snippets in this vault.",
       "member": "Members can use everything in this vault but not change it.",
@@ -179,6 +189,7 @@
       "userAdded": "{{name}} added",
       "invitingEmail": "Inviting {{email}}...",
       "invitationSentToEmail": "Invitation sent to {{email}}",
+      "invitationEmailNotSent": "Invitation saved, but the email to {{email}} could not be sent. They join the team when they sign up with this address.",
       "invitingToSession": "Inviting {{name}} to session...",
       "invitedToSession": "Invited {{name}} to session",
       "convertingVault": "Turning {{vault}} into a team vault...",
@@ -199,6 +210,8 @@
       "convertFailed": "Could not turn {{vault}} into a team vault — {{reason}}",
       "serverUnreachable": "the sync server could not be reached",
       "removeFailed": "Couldn't remove {{name}} — {{reason}}",
+      "removePartial": "{{removed}} removed. Couldn't remove {{failed}} — {{reason}}",
+      "undoRolesNotRestorable": "Undo can't restore the exact roles of {{name}}. Invite them again and set their roles by hand.",
       "revokeFailed": "Couldn't revoke the invitation for {{name}} — {{reason}}",
       "grantKeyFailed": "Couldn't grant vault access to {{name}} — {{reason}}",
       "memberHasNoPublicKey": "They haven't published a key yet — ask them to sign in once.",
@@ -246,8 +259,9 @@
       "ownPlanTitle": "Converting a vault into a team needs your own Teams plan",
       "upgradeDesc": "Invite members, assign roles, and share credentials securely with your team.",
       "upgradeBtn": "Try Teams free for {{days}} days →",
+      "upgradePlainBtn": "Upgrade to Teams →",
       "ownPlanBtn": "Get your own Teams plan →",
-      "trialNote": "Card required · no charge during the trial"
+      "trialNote": "No credit card · up to 10 teammates"
     },
     "joinLinks": {
       "explainer": "Anyone with the link joins this vault in the role you pick. The link never carries the vault's key — that arrives separately, once someone who already has it is online.",
@@ -308,6 +322,77 @@
       "newLink": "New link",
       "cancel": "Cancel"
     },
+    "enrollment": {
+      "title": "Device enrolment",
+      "explainer": "One company-wide token for deploying Voltius with Ansible or MDM. People who use it ask to join {{team}}.",
+      "domainsLabel": "Allowed email domains",
+      "domainPlaceholder": "Add a domain",
+      "removeDomain": "Remove {{domain}}",
+      "invalidDomain": "{{domain}} is not a domain name, like example.com.",
+      "approve": "An admin approves each join",
+      "noEmail": "This server cannot send email, so an admin must approve each join.",
+      "expiresLabel": "Expires",
+      "expiry": {
+        "never": "Never",
+        "day30": "30 days",
+        "day90": "90 days",
+        "year1": "1 year"
+      },
+      "create": "Create token",
+      "guardHint": "Each join needs a matching email domain, an admin's approval, or both.",
+      "copyNow": "Copy it now; it is not shown again.",
+      "example": "Example",
+      "tokenLabel": "Enrolment token",
+      "approvalOn": "admin approves",
+      "approvalOff": "no approval",
+      "expiresOn": "expires {{date}}",
+      "neverExpires": "never expires",
+      "expiredOn": "Expired {{date}}",
+      "expiredHint": "Rotate to issue a working token.",
+      "createdBy": "Created by {{name}} · {{date}}",
+      "createdOn": "Created {{date}}",
+      "lastUsed": "Last used {{when}}",
+      "neverUsed": "Never used",
+      "counts": "{{joined}} joined · {{waiting}} waiting",
+      "notShownAgain": "The token is not shown again. Rotate to get a new one.",
+      "rotate": "Rotate",
+      "rotateTitle": "Rotate the enrolment token?",
+      "rotateMessage": "The current token stops working for new enrolments. Devices already enrolled with it keep getting the team's policy.",
+      "rotateConfirm": "Rotate token",
+      "revoke": "Revoke",
+      "revokeTitle": "Revoke the enrolment token?",
+      "revokeMessage": "Devices can no longer enrol with it, and those enrolled with it stop getting the team's policy. People who already joined stay members.",
+      "revokeConfirm": "Revoke token",
+      "lapsed": "Device enrolment needs the team's Business plan.",
+      "loadFailed": "Couldn't load the enrolment token — {{reason}}",
+      "toast": {
+        "create": {
+          "pending": "Creating token…",
+          "done": "Enrolment token created",
+          "failed": "Couldn't create the token — {{reason}}"
+        },
+        "rotate": {
+          "pending": "Rotating token…",
+          "done": "Enrolment token rotated",
+          "failed": "Couldn't rotate the token — {{reason}}"
+        },
+        "revoke": {
+          "pending": "Revoking token…",
+          "done": "Enrolment token revoked",
+          "failed": "Couldn't revoke the token — {{reason}}"
+        }
+      },
+      "error": {
+        "gone": "This enrolment token was revoked or has expired.",
+        "needsGuard": "Add an email domain or require approval.",
+        "needsApproval": "This server cannot send email, so each join needs an admin's approval.",
+        "domainMismatch": "Their email domain is not on the token's list.",
+        "invalid": "The server refused these settings.",
+        "forbidden": "You don't have permission to manage device enrolment."
+      },
+      "copyLink": "Copy link",
+      "copyLinkTitle": "Copy a link that opens Voltius on this enrolment"
+    },
     "offboarding": {
       "removeTitle_one": "Remove {{names}} from this team?",
       "removeTitle_other": "Remove {{count}} people from this team?",
@@ -340,12 +425,272 @@
       "forceVault": "Require Lock vault",
       "forceVaultDesc": "Members can't pick Lock screen, so locking always removes the vault key from memory.",
       "immediateVaultWarning": "With Immediately and Lock vault, members' open sessions close every time they leave Voltius, even briefly.",
-      "appliesToAll": "Applies to every member, you included. Older Voltius versions don't enforce it.",
+      "appliesToAll": "Applies to every member, you included.",
       "lockBody": "Lock policies need the team's Business plan.",
       "lapsed": "Business plan lapsed: this policy stays enforced. You can remove it.",
       "remove": "Remove policy",
       "saving": "Saving lock policy…",
       "saved": "Lock policy saved"
+    },
+    "keyHealth": {
+      "title": "Vault key health",
+      "state": {
+        "upToDate": "Up to date",
+        "rotationPending": "New key due",
+        "reencryptPending": "Re-encrypting",
+        "attention": "Needs attention",
+        "unavailable": "Unavailable"
+      },
+      "version": "Key version {{version}} · changed {{time}}",
+      "versionNever": "Key version {{version}} · never changed",
+      "uncovered_one": "{{count}} member is missing the current key.",
+      "uncovered_other": "{{count}} members are missing the current key.",
+      "requested": "A member left {{time}}, so a new key is due.",
+      "remaining_one": "{{count}} item still uses an older key.",
+      "remaining_other": "{{count}} items still use an older key.",
+      "remainingUnknown": "Some items still use an older key.",
+      "blocked": "No new key can be made until they are re-encrypted.",
+      "fromServer": "Reported by the server.",
+      "device": {
+        "never": "This device hasn't tried yet.",
+        "finished": "This device finished its last try {{time}}.",
+        "failed_one": "This device tried {{time}}: {{count}} item failed.",
+        "failed_other": "This device tried {{time}}: {{count}} items failed.",
+        "stopped": "This device tried {{time}} and stopped: {{reason}}",
+        "skipped_one": "{{count}} item needs someone who can edit it.",
+        "skipped_other": "{{count}} items need someone who can edit them."
+      },
+      "step": {
+        "status": "it couldn't reach the server.",
+        "rotate": "the server refused the new key.",
+        "drain": "it couldn't re-encrypt the vault."
+      },
+      "loadFailed": "Couldn't read the key status. Check your connection, then refresh.",
+      "retry": "Retry now",
+      "retrying": "Retrying…",
+      "refresh": "Refresh",
+      "retryDenied": "Making a new key needs the View passwords and Copy passwords permissions.",
+      "stuck": {
+        "title": "Items on an older key",
+        "truncated": "Showing the first {{count}}.",
+        "hidden_one": "{{count}} more item is hidden from you. Someone who can see it needs to retry.",
+        "hidden_other": "{{count}} more items are hidden from you. Someone who can see them needs to retry."
+      },
+      "reason": {
+        "orphan": "Left over from a deleted item",
+        "undecryptable": "Can't be decrypted",
+        "uploadFailed": "Couldn't be saved. Retry.",
+        "needsEditor": "Needs someone who can edit it",
+        "waiting": "Waiting for the next try"
+      },
+      "kind": {
+        "secret": "Password or key of {{name}}",
+        "deleted": "a deleted item",
+        "blob": "Older vault data"
+      },
+      "unnamed": "Unnamed {{type}}",
+      "type": {
+        "connection": "host",
+        "identity": "identity",
+        "key": "SSH key",
+        "folder": "folder",
+        "snippet": "snippet",
+        "snippet_folder": "snippet folder",
+        "port_forwarding_rule": "port forwarding rule"
+      },
+      "remove": "Remove",
+      "removeTitle": "Remove {{name}}?",
+      "removeBody": "It can't be decrypted, so it stops this vault from getting a new key. Removing it deletes it for every member and can't be undone.",
+      "removeOrphanBody": "It belongs to an item that no longer exists. Removing it lets this vault get a new key again.",
+      "removing": "Removing…",
+      "removed": "Removed",
+      "note": "A new key protects what is saved from now on. It can't take back anything a former member already copied."
+    },
+    "devicePolicy": {
+      "title": "Device policy",
+      "empty": "Lock settings on every member's Voltius. Uses the same format as policy.json.",
+      "locked_one": "{{count}} locked",
+      "locked_other": "{{count}} locked",
+      "limited_one": "{{count}} limited",
+      "limited_other": "{{count}} limited",
+      "updatedBy": "Updated by {{name}}, {{time}}",
+      "updated": "Updated {{time}}",
+      "show_one": "Show {{count}} setting",
+      "show_other": "Show {{count}} settings",
+      "hide": "Hide settings",
+      "import": "Import",
+      "export": "Export",
+      "clear": "Clear",
+      "lapsed": "Importing a policy needs Business.",
+      "olderVersions": "Older Voltius versions only apply the app-lock settings.",
+      "loadFailed": "Couldn't load the device policy.",
+      "rangeMin": "min {{value}}",
+      "rangeMax": "max {{value}}",
+      "rangeBetween": "{{min}}–{{max}}",
+      "previewTitle": "Import team policy",
+      "fixErrors_one": "Fix {{count}} error in the file and import it again. Warnings do not block saving.",
+      "fixErrors_other": "Fix {{count}} errors in the file and import it again. Warnings do not block saving.",
+      "warningsOnly": "Warnings do not block saving.",
+      "replaces": "Saving replaces the team policy on every member's Voltius.",
+      "save": "Save policy",
+      "saving": "Saving team policy…",
+      "saved": "Team policy saved",
+      "clearTitle": "Clear the team policy?",
+      "clearMessage": "Every member's Voltius goes back to its own settings. This also removes the app-lock limits above.",
+      "clearConfirm": "Clear policy",
+      "clearing": "Clearing team policy…",
+      "cleared": "Team policy cleared",
+      "issue": {
+        "machineOnly": "can only be set in machine policy",
+        "defaults": "Defaults belong in machine policy, not team policy",
+        "unknownKey": "is unknown to this version; newer apps may use it",
+        "type": "has a value this setting doesn't accept",
+        "range": "has a range this setting doesn't accept",
+        "newerVersion": "This file needs a newer version of Voltius",
+        "file": "This file isn't a valid policy.json",
+        "plainTimeout": "only applies on newer Voltius versions. Older ones need a maximum: {{example}}"
+      }
+    },
+    "joinRequests": {
+      "title": "Join requests",
+      "via": "via device enrolment",
+      "reason": {
+        "approval": "Waiting for approval",
+        "email_unverified": "Waiting for email verification",
+        "seat_limit": "No seat left"
+      },
+      "approve": "Approve",
+      "deny": "Deny",
+      "noSeatToast": "No seat left. Add seats, then approve again.",
+      "emailUnverifiedToast": "They still need to verify their email address. Approve again once they have.",
+      "gone": "This request was already handled.",
+      "toast": {
+        "approve": {
+          "pending": "Approving join request…",
+          "done": "Join request approved",
+          "failed": "Couldn't approve the request — {{reason}}"
+        },
+        "deny": {
+          "pending": "Denying join request…",
+          "done": "Join request denied",
+          "failed": "Couldn't deny the request — {{reason}}"
+        }
+      }
+    },
+    "viewAs": {
+      "loading": "Checking access…",
+      "discardDraft": {
+        "title": "Discard unsaved changes?",
+        "body": "Leaving the preview drops your unsaved changes to {{name}}'s access.",
+        "confirm": "Discard and exit"
+      },
+      "reason": {
+        "needsBusiness": "View as is part of Business",
+        "needsManage": "You need the Manage members or Manage roles permission to use View as",
+        "self": "You can't use View as on yourself",
+        "serverTooOld": "Update your server to use View as",
+        "previewing": "Exit the current preview first"
+      },
+      "noPermission": "You don't have permission to preview this",
+      "ended": "The preview ended: this member or role is no longer available",
+      "failed": "Could not load the preview",
+      "readOnly": "Read-only preview",
+      "lacksPermission": "This member's role does not allow this",
+      "locked": {
+        "auditLog": "Audit log locked for this member",
+        "sessions": "Terminal sessions locked for this member"
+      },
+      "viewingAs": "Viewing as {{name}}",
+      "viewingAsReadOnly": "Viewing as {{name}} · read-only",
+      "unsaved_one": "{{count}} unsaved change",
+      "unsaved_other": "{{count}} unsaved changes",
+      "discard": "Discard",
+      "save": "Save",
+      "saveConfirm": "Save…",
+      "exit": "Exit",
+      "changesAccess_one": "Changes access for {{count}} member",
+      "changesAccess_other": "Changes access for {{count}} members",
+      "roleTitle": "Role {{name}}",
+      "manageRolesRequired": "You need the Manage roles permission",
+      "builtinReadOnly": "Built-in roles can't be edited",
+      "affects_one": "Affects {{count}} member",
+      "affects_other": "Affects {{count}} members",
+      "roleKeyLoss": {
+        "title": "Remove vault key access?",
+        "body": "{{names}} will lose the vault key. The key is rotated for everyone else.",
+        "confirm": "Save and rotate key"
+      },
+      "hiddenFrom": "Hidden from {{name}}",
+      "hiddenNoKey": "{{name}} has no vault key",
+      "cannotEdit": "This member's role does not allow editing",
+      "draftBadge": "Draft",
+      "draftTag": "(draft)",
+      "draftChange": "Draft: {{from}} → {{to}}",
+      "ownerElsewhere": "Owner changes are made elsewhere",
+      "keyLoss": "On save, {{name}} loses the vault key and the key is rotated for the other members.",
+      "saveFailed": "{{failed}} of {{total}} changes did not apply",
+      "access": {
+        "title": "{{name}}'s access",
+        "subtitle": "Edits preview on the left. Nothing is saved yet.",
+        "can": "{{name}} can",
+        "allPermissions": "All permissions…"
+      },
+      "step": {
+        "overrides": "Permission overrides",
+        "addRole": "Add {{role}}",
+        "removeRole": "Remove {{role}}"
+      },
+      "level": {
+        "hidden": "Hidden",
+        "view": "View only",
+        "connect": "Can connect",
+        "edit": "Can edit"
+      },
+      "secrets": {
+        "yes": "Secrets visible",
+        "no": "Secrets hidden"
+      },
+      "why": {
+        "noVaultKey": "{{name}} has no vault key, so nothing in this vault can be opened",
+        "as": "As {{name}}",
+        "gets": "What {{name}} gets here",
+        "addsUp": "How it adds up",
+        "order": "Applied in order: everyone, then {{name}}'s roles, then {{name}}. At each step an allow can undo the deny before it; {{name}}'s own team-wide deny always wins.",
+        "decidedByServer": "Decided by the server",
+        "notGranted": "None of {{name}}'s roles allow it",
+        "someRole": "One of their roles",
+        "thisItem": "this item",
+        "editRules": "Edit rules on {{folder}}",
+        "editRulesLocked": "You need Manage roles on {{folder}} to edit its rules",
+        "editRulesUnavailable": "Rules on {{folder}} can't be edited here",
+        "editAccess": "Edit {{name}}'s access",
+        "step": {
+          "roles_one": "Allowed by the role {{roles}}",
+          "roles_other": "Allowed by the roles {{roles}}",
+          "teamAllow": "{{name}} is allowed it team-wide",
+          "teamDeny": "{{name}} is denied it team-wide",
+          "administrator": "{{name}} has Administrator",
+          "everyoneDeny": "Everyone is denied on {{folder}}",
+          "everyoneAllow": "Everyone is allowed on {{folder}}",
+          "rolesDeny_one": "{{roles}} is denied on {{folder}}",
+          "rolesDeny_other": "{{roles}} are denied on {{folder}}",
+          "rolesAllow_one": "{{roles}} is allowed on {{folder}}",
+          "rolesAllow_other": "{{roles}} are allowed on {{folder}}",
+          "memberDeny": "{{name}} is denied on {{folder}}",
+          "memberAllow": "{{name}} is allowed on {{folder}}",
+          "teamDenyLast": "{{name}}'s own team-wide deny wins over {{folder}}",
+          "noView": "Hidden from {{name}}, so nothing else applies",
+          "needsConnect": "Secrets need Connect, which {{name}} doesn't have here",
+          "ruleNotShown": "Decided by a rule on {{folder}}"
+        }
+      },
+      "viewAs": "View as",
+      "previewAsRole": "Preview as role",
+      "menuItem": "View as {{name}}",
+      "summary": {
+        "title": "See what {{name}} can access",
+        "counts": "{{hosts}} hosts · {{snippets}} snippets · {{keys}} keys · {{hidden}} hidden"
+      }
     }
   }
 }

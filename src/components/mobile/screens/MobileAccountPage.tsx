@@ -10,8 +10,9 @@ import { useSyncProviders } from "@/hooks/useSyncProviders";
 import { SYNC_NEARBY_COLOR, SYNC_NEARBY_ICON, SYNC_PAUSED_ICON, syncStatusIcon, syncStatusColor } from "@/services/syncStatus";
 import { isNearbyOnly } from "@/services/syncProviders";
 import { effectiveSyncLabel } from "@/services/syncStatusText";
-import { getCurrentUserEmail, logout } from "@/services/account";
-import { openBillingCheckout } from "@/services/billingCheckout";
+import { getCurrentUserEmail } from "@/services/account";
+import { useSignOutConfirm } from "@/hooks/useSignOutConfirm";
+import { startTrialOrCheckout } from "@/services/promos";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 import { openPortal } from "@/utils/billing";
 import { AvailableWithPlan } from "@/components/shared/AvailableWithPlan";
@@ -39,6 +40,7 @@ export default function MobileAccountPage() {
   const [confirming, setConfirming] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const { requestSignOut, signOutConfirm } = useSignOutConfirm();
 
   useEffect(() => { void getCurrentUserEmail().then(setEmail); }, []);
 
@@ -49,7 +51,7 @@ export default function MobileAccountPage() {
   const checkout = async (plan: "pro" | "teams") => {
     if (checkoutBusy) return;
     setCheckoutBusy(true);
-    try { await openBillingCheckout(plan); } finally { setCheckoutBusy(false); }
+    try { await startTrialOrCheckout(plan, "mobile_account"); } finally { setCheckoutBusy(false); }
   };
 
   const Row = ({ icon, label, value, valueColor, sub, onTap }: { icon: string; label: string; value: string; valueColor?: string; sub?: string | null; onTap?: () => void }) => {
@@ -121,11 +123,11 @@ export default function MobileAccountPage() {
                 className="w-full h-11 rounded-xl text-sm font-semibold disabled:opacity-60"
                 style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}
               >
-                {t("mobile.account.upgradeToPro")}
+                {t(plan.trialOffer ? "mobile.account.activateProTrial" : "mobile.account.upgradeToPro")}
               </button>
             )}
 
-            {plan.upgradeTo === "teams" && (
+            {(plan.upgradeTo === "teams" || plan.teamsTrialOffer) && (
               <>
                 <button
                   data-account-upgrade-teams
@@ -134,9 +136,9 @@ export default function MobileAccountPage() {
                   className="w-full h-11 rounded-xl text-sm font-semibold text-(--t-text-primary) disabled:opacity-60"
                   style={{ border: "1px solid var(--t-border)" }}
                 >
-                  {t("mobile.account.upgradeToTeams", { days: TEAMS_TRIAL_DAYS })}
+                  {plan.teamsTrialOffer ? t("mobile.account.upgradeToTeams", { days: TEAMS_TRIAL_DAYS }) : t("mobile.account.upgradeTeamsPlain")}
                 </button>
-                <p className="-mt-1 text-center text-xs text-(--t-text-dim)">{t("mobile.account.teamsTrialNote")}</p>
+                {plan.teamsTrialOffer && <p className="-mt-1 text-center text-xs text-(--t-text-dim)">{t("mobile.account.teamsTrialNote")}</p>}
               </>
             )}
 
@@ -169,7 +171,7 @@ export default function MobileAccountPage() {
               <p className="text-sm text-(--t-text-dim)">{t("mobile.account.signOutConfirm")}</p>
               <button
                 data-account-signout-confirm
-                onClick={() => { void logout(); pop(); }}
+                onClick={requestSignOut}
                 className="w-full h-11 rounded-xl text-sm font-semibold"
                 style={{ background: "var(--t-danger, #e5484d)", color: "#fff" }}
               >
@@ -202,8 +204,9 @@ export default function MobileAccountPage() {
             </button>
           )}
         </div>
+        {signOutConfirm}
         {deletingAccount && (
-          <DeleteAccountModal onCancel={() => setDeletingAccount(false)} onDeleted={() => { setDeletingAccount(false); pop(); }} />
+          <DeleteAccountModal onCancel={() => setDeletingAccount(false)} onDeleted={() => window.location.reload()} />
         )}
       </div>
     </div>

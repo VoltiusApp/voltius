@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import type { NavItem } from "@/stores/uiStore";
 import { isNavPageVisible } from "@/utils/navPageVisible";
 import { requestRename } from "@/hooks/useInlineRename";
+import { refuseWhilePreviewing } from "@/services/previewGuard";
 
 interface Options {
   navItem: NavItem;
@@ -36,7 +37,7 @@ export function usePageBulkActions({ navItem, filteredIds, selectedIdSet, setSel
       const { onDelete: cb, selectedIdSet: sel } = ref.current;
       if (!cb) return;
       const ids = [...sel];
-      if (ids.length > 0) cb(ids);
+      if (ids.length > 0 && !refuseWhilePreviewing()) cb(ids);
     };
     window.addEventListener("voltius:delete", handleDelete);
     return () => window.removeEventListener("voltius:delete", handleDelete);
@@ -46,7 +47,7 @@ export function usePageBulkActions({ navItem, filteredIds, selectedIdSet, setSel
     const handleRename = () => {
       if (!isNavPageVisible(navItem)) return;
       const sel = ref.current.selectedIdSet;
-      if (sel.size === 1) requestRename([...sel][0]);
+      if (sel.size === 1 && !refuseWhilePreviewing()) requestRename([...sel][0]);
     };
     window.addEventListener("voltius:rename", handleRename);
     return () => window.removeEventListener("voltius:rename", handleRename);

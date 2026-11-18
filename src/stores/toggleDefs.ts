@@ -6,6 +6,7 @@
 // so a store mock can never break them.
 
 import type { SettingsSection } from "./uiStore";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 
 export interface ToggleDef {
   /** i18n key resolving to the display label, translated at render time */
@@ -71,6 +72,13 @@ export const TOGGLE_DEFS = {
     keywords: ["paste", "bracketed", "clipboard", "terminal", "sudo", "garbage", "200~"],
     default: false,
   },
+  "command-history": {
+    labelKey: "settings.toggleDefs.commandHistory.label",
+    icon: "lucide:history",
+    section: "terminal",
+    keywords: ["history", "command", "record", "remember", "typed", "password", "privacy", "terminal"],
+    default: true,
+  },
   "paste-image-as-path": {
     labelKey: "settings.toggleDefs.pasteImageAsPath.label",
     icon: "lucide:image-up",
@@ -95,7 +103,7 @@ export const TOGGLE_DEFS = {
   },
   "auto-forward": {
     labelKey: "settings.toggleDefs.autoForward.label",
-    icon: "lucide:arrow-left-right",
+    icon: PORT_FORWARDING_ICON,
     section: "portForwarding",
     keywords: ["forward", "port", "tunnel", "auto", "detect", "ssh"],
     default: true,

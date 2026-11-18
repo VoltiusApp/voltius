@@ -1,12 +1,10 @@
-import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Icon } from "@iconify/react";
 import { ToolbarViewControls, type LayoutMode, type SortMode } from "@/components/shared/ToolbarViewControls";
 import { useToolbarResize } from "@/hooks/useToolbarResize";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { useRipple } from "@/hooks/useRipple";
-import { PickerSurface } from "@/components/shared/PickerSurface";
-import { chevronRotateStyle } from "@/utils/icons";
+import { SplitMenuChevron } from "@/components/shared/SplitMenuChevron";
+import { ToolbarButton } from "@/components/shared/ToolbarButton";
 
 interface KeychainToolbarProps {
   search: string;
@@ -19,6 +17,7 @@ interface KeychainToolbarProps {
   onGenerateKey?: () => void;
   onNewIdentity?: () => void;
   onNewFolder: () => void;
+  newFolderBlocked?: string;
   availableTags?: string[];
   tagFilter?: string[];
   onTagFilterChange?: (tags: string[]) => void;
@@ -35,6 +34,7 @@ export function KeychainToolbar({
   onGenerateKey,
   onNewIdentity,
   onNewFolder,
+  newFolderBlocked,
   availableTags,
   tagFilter,
   onTagFilterChange,
@@ -64,70 +64,31 @@ export function KeychainToolbar({
         </div>
 
         <div ref={rightRef} className="ml-auto flex items-center gap-px shrink-0">
-          <button
+          <ToolbarButton
+            variant="accent"
+            round="left"
+            icon="lucide:key-round"
+            iconSize={18}
+            label={t("keychain.toolbar.newKey")}
+            compact={compact}
+            className="overflow-hidden"
             onClick={onImportKey}
             onPointerDown={rippleKey}
             disabled={!onImportKey}
-            title={compact ? t("keychain.toolbar.newKey") : undefined}
-            className="flex items-center gap-2 px-3 h-8 text-sm font-bold tracking-wider transition-colors shrink-0 whitespace-nowrap relative overflow-hidden rounded-tl-[0.533rem] rounded-bl-[0.533rem]"
-            style={{ background: "var(--t-accent)", color: "var(--t-on-accent)", opacity: !onImportKey ? 0.4 : 1, cursor: !onImportKey ? "default" : undefined }}
-            onMouseEnter={(e) => { if (onImportKey) e.currentTarget.style.background = "var(--t-accent-hover)"; }}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-accent)")}
-            type="button"
           >
             {ripplesKey}
-            <Icon icon="lucide:key-round" width={18} />
-            {!compact && t("keychain.toolbar.newKey")}
-          </button>
-          <NewKeyChevron onImport={onImportKey} onGenerate={onGenerateKey} onNewIdentity={onNewIdentity} onNewFolder={onNewFolder} accent />
+          </ToolbarButton>
+          <SplitMenuChevron label={t("keychain.toolbar.newKeyOptionsAriaLabel")}>
+            {(close) => (
+              <>
+                {onGenerateKey && <DropdownMenuItem icon="lucide:key-round" label={t("keychain.toolbar.generateKeyPair")} onClick={() => { close(); onGenerateKey(); }} />}
+                {onNewIdentity && <DropdownMenuItem icon="lucide:user-plus" label={t("keychain.toolbar.newIdentity")} onClick={() => { close(); onNewIdentity(); }} />}
+                <DropdownMenuItem icon="lucide:folder-plus" label={t("keychain.toolbar.newFolder")} disabled={!!newFolderBlocked} title={newFolderBlocked} onClick={() => { close(); onNewFolder(); }} />
+              </>
+            )}
+          </SplitMenuChevron>
         </div>
       </div>
     </>
   );
 }
-
-// ─────────────────────────────────────────────────────────────────
-// Split chevron for "NEW KEY" button
-// ─────────────────────────────────────────────────────────────────
-
-function NewKeyChevron({ onGenerate, onNewIdentity, onNewFolder, accent }: { onImport?: () => void; onGenerate?: () => void; onNewIdentity?: () => void; onNewFolder: () => void; accent?: boolean }) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const { createRipple, rippleEls } = useRipple();
-
-  return (
-    <div>
-      <button
-        ref={buttonRef}
-        onClick={() => setOpen((o) => !o)}
-        onPointerDown={createRipple}
-        className="flex items-center justify-center w-8 h-8 transition-colors relative overflow-hidden rounded-tr-[0.533rem] rounded-br-[0.533rem]"
-        style={{ background: accent ? "var(--t-accent)" : "var(--t-bg-input)" }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = accent ? "var(--t-accent-hover)" : "var(--t-bg-input-hover)")}
-        onMouseLeave={(e) => (e.currentTarget.style.background = accent ? "var(--t-accent)" : "var(--t-bg-input)")}
-        type="button"
-        aria-label={t("keychain.toolbar.newKeyOptionsAriaLabel")}
-      >
-        {rippleEls}
-        <span className="[&_path]:stroke-3">
-          <Icon icon="lucide:chevron-down" width={20} color="var(--t-bg-terminal)" style={chevronRotateStyle(open)} />
-        </span>
-      </button>
-
-      <PickerSurface
-        open={open}
-        onClose={() => setOpen(false)}
-        anchorRef={buttonRef}
-        title={t("keychain.toolbar.newKeyOptionsAriaLabel")}
-        width="content"
-        align="right"
-      >
-        {onGenerate && <DropdownMenuItem icon="lucide:key-round" label={t("keychain.toolbar.generateKeyPair")} onClick={() => { setOpen(false); onGenerate(); }} />}
-        {onNewIdentity && <DropdownMenuItem icon="lucide:user-plus" label={t("keychain.toolbar.newIdentity")} onClick={() => { setOpen(false); onNewIdentity(); }} />}
-        <DropdownMenuItem icon="lucide:folder-plus" label={t("keychain.toolbar.newFolder")} onClick={() => { setOpen(false); onNewFolder(); }} />
-      </PickerSurface>
-    </div>
-  );
-}
-

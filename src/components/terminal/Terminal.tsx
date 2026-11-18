@@ -41,7 +41,7 @@ export default function TerminalView({ sessionId, sessionType, onClosed, active,
       </div>
       {showMinimap && (
         <div className="absolute right-1 top-1 bottom-1 w-24 rounded-xs overflow-hidden opacity-80 hover:opacity-100 transition-opacity">
-          <TerminalMinimap sessionId={sessionId} />
+          <TerminalMinimap sessionId={sessionId} visible={visible} />
         </div>
       )}
     </div>

@@ -173,6 +173,9 @@ export function buildSessionTools(ports: ToolSurfacePorts): Tool[] {
         if (!mayAct(ports, String(raw.sessionId))) {
           return notOwned(ports);
         }
+        if (ports.api.sessions.list().some((s) => s.id === String(raw.sessionId) && s.locked)) {
+          return refusal(ports.text?.tabLockedError ?? "tab_locked: the user locked this tab; ask them to unlock it first");
+        }
         const g = await gate("close_session", raw);
         if (!g.ok) return g.result;
         const sessionId = String(g.args.sessionId);

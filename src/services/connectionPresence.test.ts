@@ -23,7 +23,7 @@ test("notifyConnectionUsage: no server URL → does not call fetchWithAuth", asy
 });
 
 test("notifyConnectionUsage: posts correct url, method, headers, body (inUse=true)", async () => {
-  h.fetchWithAuth.mockResolvedValue({} as Response);
+  h.fetchWithAuth.mockResolvedValue({ ok: true, status: 204 } as Response);
   await notifyConnectionUsage("c1", true);
   expect(h.fetchWithAuth).toHaveBeenCalledTimes(1);
   const [url, init] = h.fetchWithAuth.mock.calls[0];
@@ -34,14 +34,24 @@ test("notifyConnectionUsage: posts correct url, method, headers, body (inUse=tru
 });
 
 test("notifyConnectionUsage: in_use=false serialized correctly", async () => {
-  h.fetchWithAuth.mockResolvedValue({} as Response);
+  h.fetchWithAuth.mockResolvedValue({ ok: true, status: 204 } as Response);
   await notifyConnectionUsage("c1", false);
   const [, init] = h.fetchWithAuth.mock.calls[0];
   expect(JSON.parse(init.body)).toEqual({ connection_id: "c1", in_use: false });
 });
 
-test("notifyConnectionUsage: fetch rejection is swallowed", async () => {
+test("notifyConnectionUsage: a network error is reported so the caller can retry", async () => {
   h.fetchWithAuth.mockRejectedValue(new Error("net"));
+  await expect(notifyConnectionUsage("c1", true)).rejects.toThrow("net");
+});
+
+test.each([500, 503, 429])("notifyConnectionUsage: HTTP %i is reported so the caller can retry", async (status) => {
+  h.fetchWithAuth.mockResolvedValue({ ok: false, status } as Response);
+  await expect(notifyConnectionUsage("c1", true)).rejects.toThrow(String(status));
+});
+
+test.each([403, 404])("notifyConnectionUsage: HTTP %i is final, a retry would get the same answer", async (status) => {
+  h.fetchWithAuth.mockResolvedValue({ ok: false, status } as Response);
   await expect(notifyConnectionUsage("c1", true)).resolves.toBeUndefined();
 });
 

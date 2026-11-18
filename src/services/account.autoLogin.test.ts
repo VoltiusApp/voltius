@@ -42,7 +42,9 @@ vi.mock("@/stores/vaultKeysStore", () => ({
   },
 }));
 
-import { autoLogin } from "./account";
+import { ServerBlockedError } from "@/services/accountErrors";
+import { usePolicyStore } from "@/stores/policyStore";
+import { autoLogin, login } from "./account";
 import { VaultUnreadableError } from "./vaultErrors";
 
 /** What vault.ts raises for a key that does not decrypt the file. */
@@ -338,4 +340,125 @@ test("autoLogin reports a sealed secret without prompting", async () => {
   h.store.master_password_sealed = "S:pw";
   expect(await autoLogin()).toBe("sealed");
   expect(h.invoke).not.toHaveBeenCalledWith("vault_secret_get", expect.anything());
+});
+
+// ─── server policy ───────────────────────────────────────────────────────────
+
+const pinServer = (allowOther: boolean) =>
+  usePolicyStore.setState({
+    machine: { policy: { "server.url": "https://corp.example", "server.allowOther": allowOther }, defaults: {} },
+  });
+
+function serverSession(serverUrl: string) {
+  h.store.master_password = "pw";
+  h.store.mode = "server";
+  h.store.account_id = "acc";
+  h.store.server_url = serverUrl;
+}
+
+test("autoLogin declines a server account on a disallowed server and touches nothing", async () => {
+  serverSession("https://other.example");
+  pinServer(false);
+  const before = { ...h.store };
+  try {
+    expect(await autoLogin()).toBe("server-blocked");
+  } finally {
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+  }
+  expect(h.setVaultKey).not.toHaveBeenCalled();
+  expect(h.store).toEqual(before);
+});
+
+test("autoLogin reports a sealed secret on a disallowed server as blocked, before any biometric prompt", async () => {
+  serverSession("https://other.example");
+  delete h.store.master_password;
+  h.store.master_password_sealed = "S:pw";
+  pinServer(false);
+  try {
+    expect(await autoLogin()).toBe("server-blocked");
+  } finally {
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+  }
+  expect(h.invoke).not.toHaveBeenCalledWith("vault_secret_get", expect.anything());
+});
+
+test("autoLogin still opens an allowed server account under the policy", async () => {
+  serverSession("https://corp.example");
+  pinServer(false);
+  try {
+    expect(await autoLogin()).toBe("ok");
+  } finally {
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+  }
+  expect(h.setVaultKey).toHaveBeenCalled();
+});
+
+function lockedBlockedSession() {
+  serverSession("https://other.example");
+  delete h.store.master_password;
+  pinServer(false);
+}
+
+async function blockedLogin(password: string) {
+  try {
+    return await login(password).then(() => null, (e: unknown) => e);
+  } finally {
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+  }
+}
+
+const incorrectPassword = expect.objectContaining({ message: "common.error.incorrectPassword" });
+
+test("a wrong password on a disallowed-server lock screen gets the normal error and changes nothing", async () => {
+  lockedBlockedSession();
+  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
+  h.verifyVaultKey.mockRejectedValue(wrongKey());
+  const before = { ...h.store };
+  expect(await blockedLogin("nope")).toEqual(incorrectPassword);
+  expect(h.setVaultKey).not.toHaveBeenCalled();
+  expect(h.store).toEqual(before);
+});
+
+test("the right password on a disallowed-server lock screen hands the secret over in memory only", async () => {
+  lockedBlockedSession();
+  h.store.wrapped_user_secrets = "W";
+  h.store.vault_key_pending = "P";
+  h.getVaultStatus.mockResolvedValue({ exists: true, path: "p" });
+  const before = { ...h.store };
+  const e = await blockedLogin("pw");
+  expect(e).toBeInstanceOf(ServerBlockedError);
+  expect((e as ServerBlockedError).pendingSecret).toBe("pw");
+  expect(h.verifyVaultKey).toHaveBeenCalled();
+  expect(h.setVaultKey).not.toHaveBeenCalled();
+  expect(h.keysSet).not.toHaveBeenCalled();
+  expect(h.store).toEqual(before);
+  expect(h.store.master_password).toBeUndefined();
+});
+
+test("with no vault, the cached wrapped secrets unwrapping proves the password", async () => {
+  lockedBlockedSession();
+  h.store.wrapped_user_secrets = "W";
+  const before = { ...h.store };
+  const e = await blockedLogin("pw");
+  expect((e as ServerBlockedError).pendingSecret).toBe("pw");
+  expect(h.invoke).toHaveBeenCalledWith("unwrap_user_secrets_cmd", { kek: DERIVE_KEK, wrappedB64: "W" });
+  expect(h.store).toEqual(before);
+});
+
+test("with no vault, wrapped secrets that do not unwrap refuse the password and write nothing", async () => {
+  lockedBlockedSession();
+  h.store.wrapped_user_secrets = "W";
+  h.unwrapThrows = true;
+  const before = { ...h.store };
+  expect(await blockedLogin("nope")).toEqual(incorrectPassword);
+  expect(h.setVaultKey).not.toHaveBeenCalled();
+  expect(h.store).toEqual(before);
+});
+
+test("with no vault and no wrapped secrets nothing can prove the password, so it is refused", async () => {
+  lockedBlockedSession();
+  const before = { ...h.store };
+  expect(await blockedLogin("anything")).toEqual(incorrectPassword);
+  expect(h.setVaultKey).not.toHaveBeenCalled();
+  expect(h.store).toEqual(before);
 });

@@ -18,6 +18,13 @@ export class PluginInstallInProgressError extends Error {
   }
 }
 
+export class PluginInstallManagedError extends Error {
+  constructor(public readonly id: string) {
+    super(`Installing plugin "${id}" is managed by your organization and cannot be changed`);
+    this.name = "PluginInstallManagedError";
+  }
+}
+
 /**
  * The user-facing message for a failed plugin install, matched on the error's
  * type rather than its text. A hash mismatch is the user's only tamper signal,
@@ -27,6 +34,7 @@ export class PluginInstallInProgressError extends Error {
 export function pluginInstallErrorMessage(e: unknown, fallbackKey: string): TranslatableMessage {
   if (e instanceof PluginHashMismatchError) return { key: "settings.plugins.install.integrityFailed" };
   if (e instanceof PluginInstallInProgressError) return { key: "settings.plugins.install.alreadyInstalling" };
+  if (e instanceof PluginInstallManagedError) return { key: "common.policy.managed" };
   if (e instanceof MinAppVersionError)
     return { key: "settings.plugins.install.versionUnsupported", params: { version: e.required } };
   return { key: fallbackKey };

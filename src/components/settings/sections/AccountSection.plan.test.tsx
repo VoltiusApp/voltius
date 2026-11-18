@@ -2,20 +2,25 @@ import { test, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
+  useTranslation: () => ({
+    t: (k: string, o?: { used?: unknown; total?: unknown }) => (k.endsWith(".seatsUsed") && o ? `${k}:${o.used}/${o.total}` : k),
+  }),
   initReactI18next: { type: "3rdParty", init: () => {} },
   Trans: () => null,
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => null) }));
 vi.mock("@/utils/billing", () => ({ openPortal: vi.fn() }));
-vi.mock("@/services/billingCheckout", () => ({ openBillingCheckout: vi.fn(async () => {}) }));
+const startTrialOrCheckout = vi.hoisted(() => vi.fn(async () => true));
+vi.mock("@/services/promos", () => ({ startTrialOrCheckout }));
 vi.mock("@/services/serverCapabilities", () => ({ useServerBillingEnabled: () => true }));
 
 await import("@/i18n");
 const { PlansSection } = await import("./AccountSection");
 const { useSubscriptionStore } = await import("@/stores/subscriptionStore");
 const { deriveTierFlags } = await import("@/stores/subscriptionTier");
+const { usePromoStore } = await import("@/stores/promoStore");
+const { fireEvent } = await import("@testing-library/react");
 const { acme, forgetTeams, nameSeatTeam } = await import("@/services/planDisplay.testHarness");
 
 const initial = useSubscriptionStore.getState();
@@ -23,7 +28,14 @@ afterEach(() => {
   cleanup();
   useSubscriptionStore.setState(initial, true);
   forgetTeams();
+  usePromoStore.setState({ state: null, current: null });
+  startTrialOrCheckout.mockClear();
 });
+
+const offers = (proTrialAvailable: boolean, teamsTrialAvailable: boolean) =>
+  usePromoStore.setState({
+    state: { proTrialAvailable, teamsTrialAvailable, emailVerified: true, seen: [], planEnded: null, teamEnded: null, paymentIssue: null },
+  });
 
 const seed = (input: Parameters<typeof deriveTierFlags>[0]) => {
   nameSeatTeam();
@@ -61,10 +73,36 @@ test("a seat member never sees the seat count of a plan they do not own", () => 
 
 test("own Pro keeps billing and the Teams offer", () => {
   seed({ tier: "pro" });
+  offers(false, true);
   const { container } = render(<PlansSection />);
   expect(container.querySelector("[data-plan-line]")!.textContent).toBe("Pro");
   expect(screen.getByText("settings.account.plan.manageBilling")).toBeTruthy();
   expect(screen.getByText("settings.account.plan.teamsButton")).toBeTruthy();
+});
+
+test("the Teams strip is a plain upgrade when no trial is on offer", () => {
+  seed({ tier: "pro" });
+  offers(false, false);
+  render(<PlansSection />);
+  expect(screen.getByText("settings.account.plan.upgradeToTeamsPlain")).toBeTruthy();
+  expect(screen.queryByText("settings.account.plan.teamsButton")).toBeNull();
+});
+
+test("free with a Pro trial on offer activates it through the trial-or-checkout paywall", () => {
+  seed({ tier: "free" });
+  offers(true, false);
+  render(<PlansSection />);
+  expect(screen.getByText("settings.account.plan.activateTrial")).toBeTruthy();
+  fireEvent.click(screen.getByText("settings.account.plan.activate"));
+  expect(startTrialOrCheckout).toHaveBeenCalledWith("pro", "account");
+});
+
+test("the Teams trial button goes through the trial-or-checkout paywall", () => {
+  seed({ tier: "pro" });
+  offers(false, true);
+  render(<PlansSection />);
+  fireEvent.click(screen.getByText("settings.account.plan.teamsButton"));
+  expect(startTrialOrCheckout).toHaveBeenCalledWith("teams", "account");
 });
 
 test("free is offered Pro", () => {
@@ -72,4 +110,59 @@ test("free is offered Pro", () => {
   render(<PlansSection />);
   expect(screen.getByText("settings.account.plan.upgrade")).toBeTruthy();
   expect(screen.queryByText("settings.account.plan.manageBilling")).toBeNull();
+});
+
+const groupText = (container: HTMLElement, group: string) =>
+  container.querySelector(`[data-plan-group="${group}"]`)?.textContent ?? null;
+const F = "settings.account.plan.feature.";
+
+test("Business lists only what it adds, with free features on their own line", () => {
+  seed({ tier: "business" });
+  const { container } = render(<PlansSection />);
+  const included = groupText(container, "included")!;
+  expect(included).toContain("settings.account.plan.everythingIn");
+  expect(included).toContain(`${F}teamPolicy`);
+  expect(included).not.toContain(`${F}syncPlugins`);
+  expect(included).not.toContain(`${F}localSync`);
+  expect(groupText(container, "next")).toBeNull();
+  expect(container.querySelector("[data-free-features]")!.textContent).toContain(`${F}syncPlugins`);
+  expect(container.querySelector("[data-free-features]")!.textContent).toContain(`${F}cli`);
+});
+
+test("Pro shows what Teams adds, greyed", () => {
+  seed({ tier: "pro" });
+  const { container } = render(<PlansSection />);
+  expect(groupText(container, "included")).toContain(`${F}cloudSync`);
+  expect(groupText(container, "next")).toContain(`${F}teamVaults`);
+});
+
+test("Free lists its own features and no separate free line", () => {
+  seed({ tier: "free" });
+  const { container } = render(<PlansSection />);
+  expect(groupText(container, "included")).toContain(`${F}privateVault`);
+  expect(groupText(container, "included")).not.toContain("settings.account.plan.everythingIn");
+  expect(groupText(container, "next")).toContain(`${F}cloudSync`);
+  expect(container.querySelector("[data-free-features]")).toBeNull();
+});
+
+test("account_shows_teams_trial_strip_for_free_account", () => {
+  seed({ tier: "free" });
+  offers(false, true);
+  render(<PlansSection />);
+  fireEvent.click(screen.getByText("settings.account.plan.teamsButton"));
+  expect(startTrialOrCheckout).toHaveBeenCalledWith("teams", "account");
+});
+
+test("an own Teams plan with no seat cap on a billed server reads as unlimited, not unknown", () => {
+  seed({ tier: "teams" });
+  useSubscriptionStore.setState({ usedSeats: 4, totalSeats: null, effectiveSeats: null });
+  render(<PlansSection />);
+  expect(screen.getByText("settings.account.plan.seatsUsed:4/∞")).toBeTruthy();
+});
+
+test("an own Teams plan with a cap keeps its used / total", () => {
+  seed({ tier: "teams" });
+  useSubscriptionStore.setState({ usedSeats: 2, totalSeats: 5, effectiveSeats: 5 });
+  render(<PlansSection />);
+  expect(screen.getByText("settings.account.plan.seatsUsed:2/5")).toBeTruthy();
 });

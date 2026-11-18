@@ -26,5 +26,12 @@ for (const i of infos.data) {
   for (const l of locs.data) console.log(`  loc ${l.id} ${l.attributes.locale} name=${l.attributes.name} subtitle=${l.attributes.subtitle} privacy=${l.attributes.privacyPolicyUrl}`);
 }
 
+const decls = await get(`/v1/appEncryptionDeclarations?filter[app]=${a.id}&limit=10`);
+console.log(`\nencryption declarations (${decls.data.length}):`);
+for (const d of decls.data) {
+  const at = d.attributes;
+  console.log(`  ${d.id} state=${at.appEncryptionDeclarationState} code=${at.codeValue ?? "-"} created=${at.createdDate} exempt=${at.exempt} french=${at.availableOnFrenchStore}`);
+}
+
 const groups = await get(`/v1/apps/${a.id}/betaGroups`);
 console.log(`\nbeta groups: ${groups.data.map((g) => `${g.attributes.name}(internal=${g.attributes.isInternalGroup})`).join(", ") || "none"}`);

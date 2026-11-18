@@ -26,11 +26,7 @@
       "panelsAriaLabel": "Painéis"
     },
     "panelItems": {
-      "sftp": "SFTP",
-      "docker": "Docker",
-      "metrics": "Métricas",
-      "processes": "Processos",
-      "proxmox": "Proxmox"
+      "sftp": "SFTP"
     },
     "morePages": {
       "keychain": "Keychain",
@@ -53,7 +49,9 @@
       "seatsUsed": "{{used}} / {{total}} usadas",
       "upgradeToPro": "Atualizar para Pro",
       "upgradeToTeams": "Experimente Teams gratuitamente por {{days}} dias",
-      "teamsTrialNote": "Cartão necessário · sem cobrança durante a avaliação",
+      "teamsTrialNote": "Sem cartão de crédito · até 10 colegas",
+      "activateProTrial": "Ativar 14 dias de Pro",
+      "upgradeTeamsPlain": "Fazer upgrade para o Teams",
       "manageBilling": "Gerenciar cobrança",
       "viewAllPlans": "Ver todos os planos",
       "signInToSync": "Entrar no Voltius",
@@ -137,10 +135,8 @@
       "permissionDenied": "Permissão negada",
       "goUp": "Subir",
       "emptyFolder": "Pasta vazia",
-      "selectedCount": "{{count}} selecionado",
       "downloadSelectedAriaLabel": "Baixar selecionados",
       "deleteSelectedAriaLabel": "Excluir selecionados",
-      "clearSelectionAriaLabel": "Limpar seleção",
       "copyToOtherPane": "Copiar para outro painel",
       "download": "Baixar",
       "details": "Detalhes",
@@ -162,10 +158,8 @@
       "newFileOption": "Novo arquivo",
       "folderNamePlaceholder": "Nome da pasta",
       "fileNamePlaceholder": "Nome do arquivo",
-      "selectAll": "Selecionar tudo",
       "onePane": "Um painel",
       "twoPanes": "Dois painéis",
-      "moreActions": "Mais ações",
       "itemActions": "Ações para {{name}}"
     },
     "folders": {
@@ -291,6 +285,41 @@
         "delete": "Exclui o cofre e tudo dentro dele",
         "deleteTeam": "Exclui para todos os membros",
         "leave": "Remove seu acesso a este cofre"
+      }
+    },
+    "viewAs": {
+      "editAccess": "Editar acesso",
+      "accessSubtitle": "As alterações aparecem atrás deste painel. Nada foi salvo ainda.",
+      "areas": {
+        "hosts": "Hosts",
+        "keychain": "Keychain",
+        "snippets": "Snippets",
+        "portForwarding": "Encaminhamento de Porta",
+        "sessions": "Sessões",
+        "members": "Membros",
+        "logs": "Log de auditoria"
+      }
+    },
+    "selection": {
+      "selectedCount": "{{count}} selecionado",
+      "clearSelectionAriaLabel": "Limpar seleção",
+      "selectAll": "Selecionar tudo",
+      "moreActions": "Mais ações"
+    },
+    "members": {
+      "selectSelf": "Você não pode selecionar a si mesmo",
+      "selectOwner": "Você não pode alterar as funções de um proprietário nem removê-lo",
+      "assignRole": "Atribuir função",
+      "removeRole": "Remover função",
+      "pickRole": "Escolha uma função",
+      "keyHeld": "Tem a chave do cofre",
+      "keyAwaiting": "Aguardando a chave do cofre",
+      "alreadyAssigned": "Já atribuída",
+      "notAssigned": "Não atribuída",
+      "keyNoAccess": "Sem acesso à chave do cofre: sem a permissão Conectar",
+      "invite": {
+        "resend": "Reenviar convite",
+        "revoke": "Revogar convite"
       }
     }
   }

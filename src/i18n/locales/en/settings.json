@@ -1,6 +1,10 @@
 {
   "settings": {
     "terminal": {
+      "commandHistory": {
+        "title": "Command history",
+        "desc": "Remember the commands you run in terminals. A line is kept only when the terminal shows it back, so passwords typed at hidden prompts are never saved. Lines starting with a space are never saved. Turning this off stops recording; what was saved stays until you clear it from the History panel."
+      },
       "heading": "Terminal behavior",
       "preferredShell": {
         "title": "Preferred shell"
@@ -57,10 +61,30 @@
       }
     },
     "appearance": {
+      "marketplace": {
+        "installedLabel": "Marketplace",
+        "available": "From the marketplace",
+        "get": "Get",
+        "remove": "Remove",
+        "fromSource": "from {{source}}",
+        "desktopOnly": "Desktop only",
+        "partOfPlugin": "Part of {{plugin}}. Manage it in Plugins.",
+        "browseAll": "Browse all in marketplace",
+        "loading": "Loading themes…",
+        "unreachable_one": "{{count}} marketplace unreachable",
+        "unreachable_other": "{{count}} marketplaces unreachable"
+      },
       "themeActions": "Theme actions",
       "interface": "Interface",
       "language": {
         "title": "Language"
+      },
+      "timeFormat": {
+        "title": "Time format",
+        "desc": "How times of day are shown across the app.",
+        "auto": "Automatic (language)",
+        "12h": "12-hour",
+        "24h": "24-hour"
       },
       "groupTabsByHost": {
         "title": "Group tabs by host",
@@ -273,7 +297,7 @@
       "title": "Settings",
       "close": "Close settings",
       "back": "Back",
-      "openHint": "Ctrl+, to open",
+      "openHint": "{{shortcut}} to open",
       "expandPluginGroup": "Expand plugin settings",
       "collapsePluginGroup": "Collapse plugin settings"
     },
@@ -300,6 +324,15 @@
         "unknown": "Unknown"
       },
       "sessionSecurity": {
+        "rememberPassword": {
+          "toggle": "Remember master password",
+          "desc": "Opens your vault at launch without asking for it. While this is on, the password is stored in this device's system keychain, where on Linux and Windows other programs running as you can read it. Turn it off to type it at every launch.",
+          "enableTitle": "Remember your master password",
+          "enableBody": "Enter your master password to store it in this device's system keychain.",
+          "systemAuthNeedsIt": "Needs Remember master password on this device. Without it, Voltius asks for your master password at launch and after the vault locks; only the lock screen opens with system authentication.",
+          "removeFailed": "The stored master password could not be removed from the system keychain.",
+          "storeFailed": "The master password could not be stored in the system keychain."
+        },
         "title": "Session Security",
         "autoLockLabel": "Auto-lock after inactivity",
         "autoLockDesc": "Locks Voltius after this much inactivity, or as soon as you leave the app.",
@@ -310,6 +343,8 @@
           "30min": "30 minutes",
           "1h": "1 hour",
           "4h": "4 hours",
+          "minutes_one": "{{count}} minute",
+          "minutes_other": "{{count}} minutes",
           "immediately": "Immediately"
         },
         "lockAction": {
@@ -348,8 +383,7 @@
         "policy": {
           "timeout": "Set by {{teams}}: at most {{duration}}.",
           "timeoutImmediately": "Set by {{teams}}: lock as soon as you leave Voltius.",
-          "vault": "Set by {{teams}}: Lock vault is required.",
-          "yourTeam": "your team"
+          "vault": "Set by {{teams}}: Lock vault is required."
         }
       },
       "email": "Email",
@@ -411,6 +445,45 @@
         "done": "Done",
         "changing": "Changing…",
         "changeBtn": "Change password"
+      },
+      "sessions": {
+        "title": "Signed-in devices",
+        "loading": "Loading devices…",
+        "empty": "No devices to show yet.",
+        "unknownDevice": "Unknown device",
+        "thisDevice": "This device",
+        "cli": "CLI",
+        "signedIn": "Signed in {{date}}",
+        "lastActive": "Active {{ago}}",
+        "signOut": "Sign out",
+        "signOutNamed": "Sign out {{name}}",
+        "signOutOthers": "Sign out other devices",
+        "signOutEverywhere": "Sign out everywhere",
+        "working": "Signing out…",
+        "retry": "Retry",
+        "note": "Signing a device out ends its access to your account; data already on it is not erased. Devices signed in before this update appear here after they next refresh their sign-in.",
+        "offline": "You're offline.",
+        "unsupported": "Your server doesn't support this yet.",
+        "unavailable": "The device list hasn't loaded.",
+        "ended": "This device is signed out. Sign in again to manage your devices.",
+        "confirm": {
+          "one": {
+            "title": "Sign out {{name}}?",
+            "message": "{{name}} loses access to your account and must sign in again. Data already on it is not erased."
+          },
+          "this": {
+            "title": "Sign out this device?",
+            "message": "This device stops syncing until you sign in again. Its data stays here."
+          },
+          "others": {
+            "title": "Sign out other devices?",
+            "message": "Every other device must sign in again, including ones not listed yet. This device stays signed in. Data already on them is not erased."
+          },
+          "all": {
+            "title": "Sign out everywhere?",
+            "message": "Every device, this one included, must sign in again. Data already on them is not erased."
+          }
+        }
       },
       "twoFactor": {
         "label": "Two-factor authentication",
@@ -519,23 +592,38 @@
         "seatsUsed": "{{used}} / {{total}} used",
         "upgradeToPro": "Upgrade to unlock cloud sync and more",
         "upgrade": "Upgrade",
-        "upgradeToTeams": "Try Teams free for {{days}} days: shared vaults and roles for your team. Card required.",
-        "teamsButton": "Try free →",
+        "upgradeToTeams": "Try Teams free for {{days}} days — no credit card",
+        "teamsButton": "Start trial",
+        "activateTrial": "Activate 14 days of Pro",
+        "activate": "Activate",
+        "upgradeToTeamsPlain": "Upgrade to Teams: shared vaults and roles for your team.",
         "viewAllPlans": "View all plans →",
+        "everythingIn": "Everything in {{plan}}, plus:",
+        "nextAdds": "{{plan}} adds:",
+        "freeForEveryone": "Free for everyone:",
         "feature": {
-          "localVault": "Local vault",
-          "auditLogs": "Audit logs",
-          "gistSync": "GitHub Gist sync",
+          "privateVault": "1 private vault",
           "localSync": "Local network sync",
           "deviceFiles": "File transfer between your devices",
-          "realtimeSync": "Real-time cloud sync",
+          "syncPlugins": "Gist, Cloudflare and S3 sync plugins",
+          "cli": "Command line (voltius-cli)",
+          "machinePolicy": "Machine policy for fleet rollouts",
+          "mdm": "Managed configuration (MDM)",
+          "auditLogs": "Local audit logs",
+          "cloudSync": "Cloud sync, even when your devices are never online together",
+          "cloudBackup": "Encrypted backup on Voltius Cloud",
+          "crossDeviceSessions": "Cross-device sessions",
           "unlimitedVaults": "Unlimited private vaults",
-          "terminalSharing": "Terminal sharing (1 session · 1 guest)",
-          "teamVaults": "Shared team vaults",
-          "teamSharing": "Team sharing (5 sessions · 10 guests)",
-          "seats": "Seats (as purchased)",
-          "lockPolicy": "Team lock policy (auto-lock limit, Lock vault)",
-          "granularPermissions": "Custom roles, per-member & per-object permissions"
+          "terminalSharing_one": "Terminal sharing: 1 session, 1 guest",
+          "terminalSharing_other": "Terminal sharing: {{count}} sessions, {{guests}} guests each",
+          "teamVaults": "Shared team vaults & invites",
+          "builtInRoles": "Built-in roles",
+          "teamAuditLogs": "Team audit logs",
+          "granularPermissions": "Custom roles, per-member & per-object permissions, with View as preview",
+          "teamPolicy": "Team policy: lock any setting for every member",
+          "enrolment": "Device enrolment tokens for fleet rollouts",
+          "commercialLicense": "Commercial license for self-hosting",
+          "prioritySupport": "Priority support"
         }
       },
       "buySeats": {
@@ -717,6 +805,10 @@
         "port-forwarding-rule": {
           "label": "Port Forwarding",
           "sub": "Saved tunnel rules"
+        },
+        "plugin": {
+          "label": "Plugins",
+          "sub": "Installed plugins"
         }
       },
       "settingsTitle": "Settings",
@@ -744,6 +836,34 @@
         "deviceDefault": "device default",
         "yourChoice": "your choice",
         "resume": "Resume syncing"
+      },
+      "devices": {
+        "title": "Your devices",
+        "footer": "Each device uploads its own encrypted copy. This list shows whether this device could read the latest copy from each one.",
+        "empty": "No other device has synced yet.",
+        "unnamed": "Device {{id}}",
+        "state": {
+          "synced": "Synced",
+          "pending": "Waiting for the next sync",
+          "unavailable": "Couldn't download",
+          "unavailableStatus": "Couldn't download (HTTP {{status}})",
+          "undecryptable": "Can't decrypt: encrypted with a key this device doesn't have",
+          "unreadable": "Its copy is damaged and can't be read"
+        },
+        "hint": {
+          "unavailable": "Usually temporary. Voltius tries again on the next sync.",
+          "undecryptable": "That device may still use an older vault key. Open Voltius on it so it uploads a new copy, or remove it here if you no longer use it.",
+          "unreadable": "Open Voltius on that device so it uploads a new copy, or remove it here if you no longer use it."
+        },
+        "changed": "Changed {{time}}",
+        "lastSynced": "Last read {{time}}",
+        "neverSynced": "Never read",
+        "retry": "Retry",
+        "retryNone": "Nothing to retry",
+        "remove": "Remove",
+        "removeTitle": "Remove {{name}} from cloud sync?",
+        "removeBody": "Its encrypted copy is deleted from the server. What this device already synced from it stays. If you still use that device, it uploads a new copy the next time it syncs.",
+        "removeFailed": "Couldn't remove the device: {{error}}"
       }
     },
     "vaults": {
@@ -831,6 +951,22 @@
     },
     "plugins": {
       "categoryLabel": "Plugin",
+      "sync": {
+        "installedOne": "Installed {{plugin}} from {{device}}",
+        "installedOneUnknown": "Installed {{plugin}} from another device",
+        "installedMany": "Installed {{count}} plugins from your other devices",
+        "removedOne": "Removed {{plugin}} (removed on {{device}})",
+        "removedOneUnknown": "Removed {{plugin}} (removed on another device)",
+        "removedMany": "Removed {{count}} plugins (removed on your other devices)",
+        "notHere": "Not on this device",
+        "keepHere": "Keep on this device",
+        "blocked": {
+          "localSource": "Installed from a file or URL, so other devices can't fetch it",
+          "managed": "Managed by your organisation",
+          "typeOff": "Plugin sync is off in Sync settings",
+          "noChannel": "Turn on sync or join a local sync group to sync plugins"
+        }
+      },
       "tabs": {
         "installed": "Installed ({{count}})",
         "browse": "Browse",
@@ -851,6 +987,7 @@
         "sourceLocal": "Local",
         "sourceUrl": "URL",
         "sourceInstalled": "Installed",
+        "sourceOrganization": "Organization",
         "unverified": "Unverified",
         "update": "Update",
         "updating": "Updating…",
@@ -870,6 +1007,7 @@
         "addSourcePlaceholder": "https://example.com/plugins.json",
         "add": "Add",
         "installedBadge": "Installed",
+        "installsOff": "Your organization has turned off installing plugins.",
         "byAuthor": "by {{author}} · v{{version}}",
         "noCatalog": "No plugins in catalog.",
         "noResults": "No results.",
@@ -923,6 +1061,7 @@
           "proxmoxManage": { "label": "Manage Proxmox", "description": "List and control LXC containers, including creating, deleting and rolling back snapshots. This can permanently destroy data." },
           "sftpRead": { "label": "Read files", "description": "Browse and read files on your saved SSH/FTP hosts and on this computer." },
           "sftpWrite": { "label": "Write and move files", "description": "Create, rename, overwrite and delete files on your saved SSH/FTP hosts and on this computer, and copy files between them. This can permanently destroy data." },
+          "hostExec": { "label": "Run any command on your hosts", "description": "Run any command, as you, on any host you have open and on this computer, and read its output. This is full shell access: it can read secrets, change configuration and permanently destroy data." },
           "audit": { "label": "Record audit events", "description": "Add entries to your audit log describing what it did. For a host in a team vault, these entries are also sent to that team's server." },
           "auditRead": { "label": "Read the activity log", "description": "Read this device's activity log, including which hosts were reached, which files were touched and what other plugins did. When a team is named, it also reads that team's server-side log — every member's activity." },
           "mcpContribute": { "label": "Expose tools to external AI agents", "description": "Lets this plugin add its own commands to the Voltius MCP server, so any external AI agent you have connected can run them — using this plugin's own permissions." },
@@ -1204,74 +1343,77 @@
       }
     },
     "toggleDefs": {
+      "commandHistory": {
+        "label": "Command history"
+      },
       "cursorBlink": {
-        "label": "Cursor Blink"
+        "label": "Cursor blink"
       },
       "scrollMinimap": {
-        "label": "Scroll Minimap"
+        "label": "Scroll minimap"
       },
       "selectToCopy": {
-        "label": "Select to Copy"
+        "label": "Select to copy"
       },
       "dragSelectsText": {
-        "label": "Drag Selects Text"
+        "label": "Drag selects text"
       },
       "groupTabsByHost": {
-        "label": "Group Tabs by Host"
+        "label": "Group tabs by host"
       },
       "ignoreBracketedPaste": {
-        "label": "Plain Paste (No Bracketed Paste)"
+        "label": "Plain paste (no bracketed paste)"
       },
       "pasteImageAsPath": {
-        "label": "Paste Images as a File Path"
+        "label": "Paste images as a file path"
       },
       "volumeDownCtrl": {
         "label": "Use Volume Down as Ctrl"
       },
       "keywordHighlight": {
-        "label": "Keyword Highlighting"
+        "label": "Keyword highlighting"
       },
       "autoForward": {
-        "label": "Automatic Port Forwarding"
+        "label": "Automatic port forwarding"
       },
       "forwardingNotifications": {
-        "label": "Port Forwarding Notifications"
+        "label": "Port forwarding notifications"
       },
       "sftpTar": {
-        "label": "SFTP Tar Acceleration"
+        "label": "SFTP tar acceleration"
       },
       "sftpAutoRefresh": {
-        "label": "SFTP Auto-Refresh"
+        "label": "SFTP auto-refresh"
       },
       "reachability": {
-        "label": "Reachability Check"
+        "label": "Reachability check"
       },
       "teamPresence": {
-        "label": "Team Presence"
+        "label": "Team presence"
       },
       "shellIntegration": {
-        "label": "Shell Integration"
+        "label": "Shell integration"
       },
       "persistentSessions": {
-        "label": "Persistent Sessions"
+        "label": "Persistent sessions"
       },
       "detachedSessionTtl": {
-        "label": "Close Idle Detached Sessions"
+        "label": "Close idle detached sessions"
       },
       "restoreWorkspace": {
-        "label": "Restore Workspace on Launch"
+        "label": "Restore workspace on launch"
       },
       "crossDeviceSessions": {
-        "label": "Cross-Device Sessions"
+        "label": "Cross-device sessions"
       },
       "changelogPopup": {
-        "label": "Show What's New After Updates"
+        "label": "Show what's new after updates"
       },
       "pluginInstallReview": {
         "label": "Review permissions before installing plugins"
       },
       "mcpServer": {
-        "label": "MCP Server"
+        "label": "MCP server"
       }
     },
     "shortcuts": {
@@ -1381,6 +1523,27 @@
           "desc": "Open host notes in right panel"
         }
       }
+    },
+    "search": {
+      "placeholder": "Search settings",
+      "clear": "Clear search",
+      "changed": "Changed",
+      "changedTitle": "Changed from default",
+      "results_one": "{{count}} result",
+      "results_other": "{{count}} results",
+      "changedOnly": "Changed only",
+      "open": "Open",
+      "openSection": "Open {{section}}",
+      "undo": "Undo",
+      "resetAll": "Reset all",
+      "resetAllConfirm_one": "Reset {{count}} setting? Team-managed, security and sync settings stay.",
+      "resetAllConfirm_other": "Reset {{count}} settings? Team-managed, security and sync settings stay.",
+      "cancel": "Cancel",
+      "emptyChanged": "Every setting is at its default.",
+      "emptyQuery": "No setting matches “{{query}}”.",
+      "emptyQueryChanged": "No changed setting matches “{{query}}”.",
+      "changedSub_one": "{{count}} setting differs from default",
+      "changedSub_other": "{{count}} settings differ from default"
     }
   }
 }

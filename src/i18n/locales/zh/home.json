@@ -5,25 +5,13 @@
       "afternoon": "下午好",
       "evening": "晚上好"
     },
-    "search": {
-      "placeholder": "搜索主机、会话、代码片段…"
-    },
-    "stat": {
-      "vaults_other": "保险库",
-      "hosts_other": "主机",
-      "activeSessions_other": "活跃会话",
-      "portForwards_other": "端口转发"
-    },
     "quickActions": {
       "export": "导出",
       "import": "导入"
     },
     "recentHosts": {
       "title": "最近的主机",
-      "seeAll": "查看全部",
-      "prevPage": "上一页",
-      "nextPage": "下一页",
-      "pageNumber": "第 {{number}} 页"
+      "seeAll": "查看全部"
     },
     "allHosts": {
       "back": "返回",
@@ -34,7 +22,15 @@
       "pin": "置顶",
       "unpin": "取消置顶",
       "serial": "串口",
-      "baud": "{{rate}} 波特"
+      "baud": "{{rate}} 波特",
+      "pinHost": "置顶 {{name}}",
+      "unpinHost": "取消置顶 {{name}}",
+      "status": {
+        "up": "可访问",
+        "down": "无法访问",
+        "unknown": "状态未知",
+        "knock": "端口敲门前关闭"
+      }
     },
     "serialFallback": "串口",
     "vaultCard": {
@@ -42,6 +38,24 @@
       "hostCount_other": "{{count}} 台主机",
       "empty": "暂无主机",
       "more": "+{{count}} 更多"
+    },
+    "firstRun": {
+      "title": "连接到你的第一台服务器",
+      "body": "输入地址即可立即打开终端，或将其添加为主机以便保存。",
+      "addressPlaceholder": "user@host 或 user@host:2222",
+      "addressLabel": "服务器地址",
+      "addressHint": "请使用 user@host 格式，端口不是 22 时加上 :端口。也可以粘贴会话邀请码。",
+      "join": "加入",
+      "importOther": "从其他应用导入",
+      "localTerminal": "打开本地终端",
+      "importSshConfig_one": "从 ~/.ssh/config 导入 {{count}} 台主机",
+      "importSshConfig_other": "从 ~/.ssh/config 导入 {{count}} 台主机"
+    },
+    "connect": {
+      "label": "连接到服务器",
+      "placeholder": "user@host、主机名或邀请码",
+      "search": "搜索",
+      "searchEverything": "全局搜索"
     }
   }
 }

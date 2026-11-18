@@ -1,11 +1,12 @@
 import i18n from "@/i18n";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamRole } from "@/stores/teamStore";
-import { inviteByEmail, revokePendingInvitation } from "@/services/teamService";
+import { inviteByEmail, revokePendingInvitation, type EmailInviteResult } from "@/services/teamService";
 import { buildDeepLink } from "@/services/deepLinkUrl";
 import { runTeamAction } from "@/services/teamActionFeedback";
-import { leastPrivilegedRole } from "@/components/vault-share/vaultShareModel";
+import { invitationRoleName } from "@/components/vault-share/vaultShareModel";
 import { userFacingReason } from "@/services/errorReason";
+import { assertNotPreviewing } from "@/services/previewGuard";
 
 /** Invite-side name for the shared URL-stripping reason. */
 export const inviteFailureReason = userFacingReason;
@@ -25,9 +26,10 @@ export async function inviteUserById(args: {
   handle: string;
   roleName: string;
   roleId?: string;
+  roleIds?: string[];
   memberName?: string;
 }): Promise<{ status: "pending" | "already_member" }> {
-  const { teamId, userId, handle, roleName, roleId, memberName } = args;
+  const { teamId, userId, handle, roleName, roleId, roleIds, memberName } = args;
   const { addMemberById, assignMemberRole } = useTeamStore.getState();
 
   const result = await runTeamAction({
@@ -37,7 +39,7 @@ export async function inviteUserById(args: {
         ? i18n.t("members.toast.invitationSentToUser", { name: handle })
         : i18n.t("members.toast.userAdded", { name: handle }),
     error: (e: Error) => i18n.t("members.error.inviteFailed", { name: handle, reason: inviteFailureReason(e) }),
-    run: () => addMemberById(teamId, userId, roleName, memberName),
+    run: () => addMemberById(teamId, userId, roleName, memberName, roleIds),
   });
 
   if (result.status === "already_member" && roleId) {
@@ -47,16 +49,8 @@ export async function inviteUserById(args: {
 }
 
 /**
- * Invite a known user with a set of chosen roles — the one shape every invite
- * surface uses.
- *
- * Only the first role can travel on the invitation, so the rest are assigned
- * afterwards and only for someone who is already a member; for a pending
- * invitee there is no `team_members` row to assign them to.
- *
- * With nothing chosen the fallback is the least-privileged assignable role,
- * never "member": callers disable their invite actions without a selection, so
- * reaching here at all means the choice was lost rather than made.
+ * Invite a known user with a set of chosen roles. Every role travels on the invitation; an
+ * already-member gets the rest assigned here. Nothing chosen falls back to the least-privileged builtin.
  */
 export async function inviteUserWithRoles(args: {
   teamId: string;
@@ -68,14 +62,16 @@ export async function inviteUserWithRoles(args: {
 }): Promise<{ status: "pending" | "already_member" }> {
   const { teamId, userId, handle, roleIds, roles, memberName } = args;
   const chosen = roleIds.map((id) => roles.find((r) => r.id === id)).filter((r): r is TeamRole => !!r);
-  const [first, ...rest] = chosen.length > 0 ? chosen : [leastPrivilegedRole(roles)].filter((r): r is TeamRole => !!r);
+  const roleName = invitationRoleName(roles, roleIds);
+  const [first, ...rest] = chosen.length > 0 ? chosen : roles.filter((r) => r.is_builtin && r.name === roleName);
 
   const result = await inviteUserById({
     teamId,
     userId,
     handle,
-    roleName: first?.name ?? "connect-only",
+    roleName,
     roleId: first?.id,
+    roleIds: chosen.map((r) => r.id),
     memberName,
   });
 
@@ -90,18 +86,25 @@ export async function inviteUserWithRoles(args: {
   return result;
 }
 
+export function emailNotSentWarning(result: EmailInviteResult, email: string): string | null {
+  return result.email_sent === false ? i18n.t("members.toast.invitationEmailNotSent", { email }) : null;
+}
+
 export async function inviteByEmailAddress(args: {
   teamId: string;
   email: string;
   roleName: string;
+  roleIds?: string[];
   memberName?: string;
-}): Promise<{ status: "added" | "invited" }> {
-  const { teamId, email, roleName, memberName } = args;
+}): Promise<EmailInviteResult> {
+  const { teamId, email, roleName, roleIds, memberName } = args;
+  assertNotPreviewing();
   return runTeamAction({
     pending: i18n.t("members.toast.invitingUser", { name: email }),
     success: i18n.t("members.toast.invitationSentToUser", { name: email }),
+    warning: (result) => emailNotSentWarning(result, email),
     error: (e: Error) => i18n.t("members.error.inviteFailed", { name: email, reason: inviteFailureReason(e) }),
-    run: () => inviteByEmail(teamId, email, roleName, memberName),
+    run: () => inviteByEmail(teamId, email, roleName, memberName, roleIds),
   });
 }
 
@@ -125,6 +128,7 @@ export async function revokeInvitation(args: {
   name: string;
 }): Promise<void> {
   const { teamId, invitationId, name } = args;
+  assertNotPreviewing();
   await runTeamAction({
     pending: i18n.t("members.toast.revokingInvitation", { name }),
     success: i18n.t("members.toast.invitationRevoked", { name }),
@@ -142,6 +146,7 @@ export async function grantVaultKeyToMember(args: {
   publicKey: string;
 }): Promise<void> {
   const { teamId, userId, label, publicKey } = args;
+  assertNotPreviewing();
   await runTeamAction({
     pending: i18n.t("members.toast.grantingKey", { name: label }),
     success: i18n.t("members.toast.keyGranted", { name: label }),

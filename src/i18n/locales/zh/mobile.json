@@ -26,11 +26,7 @@
       "panelsAriaLabel": "面板"
     },
     "panelItems": {
-      "sftp": "SFTP",
-      "docker": "Docker",
-      "metrics": "指标",
-      "processes": "进程",
-      "proxmox": "Proxmox"
+      "sftp": "SFTP"
     },
     "morePages": {
       "keychain": "密钥链",
@@ -53,7 +49,9 @@
       "seatsUsed": "已使用 {{used}} / {{total}}",
       "upgradeToPro": "升级到 Pro",
       "upgradeToTeams": "免费试用 Teams {{days}} 天",
-      "teamsTrialNote": "需绑定银行卡 · 试用期内不扣费",
+      "teamsTrialNote": "无需信用卡 · 最多 10 位队友",
+      "activateProTrial": "激活 14 天 Pro",
+      "upgradeTeamsPlain": "升级到 Teams",
       "manageBilling": "管理账单",
       "viewAllPlans": "查看所有套餐",
       "signInToSync": "登录 Voltius",
@@ -137,10 +135,8 @@
       "permissionDenied": "权限被拒绝",
       "goUp": "向上",
       "emptyFolder": "空文件夹",
-      "selectedCount": "已选择 {{count}} 项",
       "downloadSelectedAriaLabel": "下载所选",
       "deleteSelectedAriaLabel": "删除所选",
-      "clearSelectionAriaLabel": "清除选择",
       "copyToOtherPane": "复制到另一侧",
       "download": "下载",
       "details": "详情",
@@ -161,10 +157,8 @@
       "newFileOption": "新建文件",
       "folderNamePlaceholder": "文件夹名称",
       "fileNamePlaceholder": "文件名称",
-      "selectAll": "全选",
       "onePane": "单窗格",
       "twoPanes": "双窗格",
-      "moreActions": "更多操作",
       "itemActions": "{{name}} 的操作"
     },
     "folders": {
@@ -286,6 +280,41 @@
         "delete": "删除保管库及其全部内容",
         "deleteTeam": "为所有成员删除",
         "leave": "移除你对此保管库的访问权限"
+      }
+    },
+    "viewAs": {
+      "editAccess": "编辑访问权限",
+      "accessSubtitle": "此面板后方预览你的修改。尚未保存任何内容。",
+      "areas": {
+        "hosts": "主机",
+        "keychain": "密钥链",
+        "snippets": "代码片段",
+        "portForwarding": "端口转发",
+        "sessions": "会话",
+        "members": "成员",
+        "logs": "审计日志"
+      }
+    },
+    "selection": {
+      "selectedCount": "已选择 {{count}} 项",
+      "clearSelectionAriaLabel": "清除选择",
+      "selectAll": "全选",
+      "moreActions": "更多操作"
+    },
+    "members": {
+      "selectSelf": "不能选择自己",
+      "selectOwner": "无法更改所有者的角色或将其移除",
+      "assignRole": "分配角色",
+      "removeRole": "移除角色",
+      "pickRole": "选择角色",
+      "keyHeld": "已持有保险库密钥",
+      "keyAwaiting": "正在等待保险库密钥",
+      "alreadyAssigned": "已分配",
+      "notAssigned": "未分配",
+      "keyNoAccess": "无保险库密钥访问权限：没有“连接”权限",
+      "invite": {
+        "resend": "重新发送邀请",
+        "revoke": "撤销邀请"
       }
     }
   }

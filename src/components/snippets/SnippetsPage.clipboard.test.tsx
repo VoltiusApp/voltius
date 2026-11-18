@@ -36,6 +36,11 @@ const h = vi.hoisted(() => ({
   confirmCrossVault: vi.fn(async () => true),
 }));
 
+vi.mock("@/services/vaultObjectStores", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/vaultObjectStores")>()),
+  storeObjectPorts: (await import("@/test/objectPortsFrom")).objectPortsFrom(h),
+  hydrateVaultObjectStores: async () => {},
+}));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
   initReactI18next: { type: "3rdParty", init: () => {} },
@@ -448,7 +453,7 @@ test("a cut-paste leaves the refresh to updateSnippet instead of reloading again
 
 // Caller and callee are both snippets, so both sides are EDIT_SNIPPETS — the
 // refusal cannot be a permission. `can` stays fully permissive throughout.
-test("a cut is refused when a snippet-call step would point outside the destination vault", async () => {
+test("a cut carries the snippet a step calls into the destination", async () => {
   h.folders = [folder("tf", { vault_id: "team-1" })];
   h.snippets = [
     snippet("caller", { steps: [{ kind: "snippet", snippet_id: "callee" }] }),
@@ -461,7 +466,8 @@ test("a cut is refused when a snippet-call step would point outside the destinat
   await dispatch("voltius:clipboard-cut");
   await dispatch("voltius:clipboard-paste");
 
-  expect(h.updateSnippet).not.toHaveBeenCalled();
+  expect(h.updateSnippet).toHaveBeenCalledWith("callee", expect.objectContaining({ vault_id: "team-1", folder_id: undefined }));
+  expect(h.updateSnippet).toHaveBeenCalledWith("caller", expect.objectContaining({ vault_id: "team-1", folder_id: "tf" }));
 });
 
 // Cutting both together resolves the reference inside the destination, so the
@@ -510,4 +516,26 @@ test("a root cut migrates into the one vault the view is scoped to", async () =>
   await dispatch("voltius:clipboard-paste");
 
   expect(h.updateSnippet).toHaveBeenCalledWith("s1", expect.objectContaining({ vault_id: "team-1" }));
+});
+
+// The clipboard outlives a change of the vault filter: a folder copied in one
+// vault is off screen once the view switches to another, but it still exists.
+test("a folder copied before switching vaults pastes with its nested folders and contents", async () => {
+  h.folders = [folder("f1", { name: "Prod" }), folder("f2", { name: "Inner", parent_folder_id: "f1" })];
+  h.snippets = [snippet("s1", { name: "nested", folder_id: "f2" })];
+  h.selected = ["f1"];
+  h.accessibleVaultIds = ["personal"];
+  h.scopedVaultId = "personal";
+  const { rerender } = render(<SnippetsPage />);
+  await dispatch("voltius:clipboard-copy");
+
+  h.selected = [];
+  h.accessibleVaultIds = ["team-1"];
+  h.scopedVaultId = "team-1";
+  rerender(<SnippetsPage />);
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.saveFolder).toHaveBeenCalledWith(expect.objectContaining({ name: "Prod", vault_id: "team-1" }));
+  expect(h.saveFolder).toHaveBeenCalledWith(expect.objectContaining({ name: "Inner", vault_id: "team-1" }));
+  expect(h.createSnippet).toHaveBeenCalledWith(expect.objectContaining({ name: "nested", vault_id: "team-1" }));
 });

@@ -58,6 +58,9 @@ error_codes! {
     PortInUse,
     BindAddressUnavailable,
     RemoteForwardDenied,
+    // SSH key exchange. Params: `offered`, the server's list for the failed kind.
+    SshLegacyAlgorithmsRequired,
+    SshNoCommonAlgorithm,
     // SSH authentication. Params: `prompt` / `methods` / `seconds`.
     SshKeyRejected,
     SshPasswordRejected,
@@ -151,7 +154,23 @@ impl Classify for russh::Error {
             russh::Error::HUP | russh::Error::Disconnect | russh::Error::KeepaliveTimeout => {
                 Some(ErrorCode::ConnectionLost)
             }
+            russh::Error::NoCommonAlgo { kind, theirs, .. } => Some(
+                if crate::ssh::client::legacy_algorithms_match(kind, theirs) {
+                    ErrorCode::SshLegacyAlgorithmsRequired
+                } else {
+                    ErrorCode::SshNoCommonAlgorithm
+                },
+            ),
             _ => None,
+        }
+    }
+
+    fn error_params(&self) -> Vec<(&'static str, String)> {
+        match self {
+            russh::Error::NoCommonAlgo { theirs, .. } => {
+                vec![("offered", crate::ssh::client::offered_algorithms(theirs))]
+            }
+            _ => Vec::new(),
         }
     }
 }
@@ -219,7 +238,8 @@ impl Classify for crate::ssh::client::HopError {
         match self {
             H::AfterKnock(e) => e.error_params(),
             H::Proxy(e) => e.error_params(),
-            H::Knock(_) | H::Ssh(_) | H::HostKey(_) => Vec::new(),
+            H::Ssh(e) => e.error_params(),
+            H::Knock(_) | H::HostKey(_) => Vec::new(),
         }
     }
 }

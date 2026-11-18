@@ -7,7 +7,7 @@ export interface ExtraKey {
   key: SpecialKey;
   label?: string;
   icon?: string;
-  /** Sent by a swipe up on the key (Termux extra-keys popup), shown as a small superscript. */
+  /** Sent by a hold or swipe up on the key, previewed in a bubble above it while armed. */
   alt?: SpecialKey;
   altLabel?: string;
 }
@@ -32,16 +32,18 @@ export const EXTRA_KEYS: readonly ExtraKey[] = [
 export const KEY_TAP_SLOP_PX = 10;
 /** How far up (and more up than sideways) a finger must travel to send the alternate. */
 export const KEY_ALT_SWIPE_PX = 16;
+/** Holding a key this long arms its alternate (sent on release) or locks Ctrl/Alt. */
+export const KEY_HOLD_MS = 450;
 /** Two taps on Ctrl/Alt within this window lock the modifier (Termux / Gboard shift). */
 export const MOD_DOUBLE_TAP_MS = 300;
 
 export type KeyGesture = "tap" | "alt" | "none";
 
-/** What a finished touch on a key means, from its total travel (dy < 0 = up). A sideways
- *  drag is the row scrolling, so it sends nothing. */
-export function keyGesture(dx: number, dy: number): KeyGesture {
-  if (Math.hypot(dx, dy) < KEY_TAP_SLOP_PX) return "tap";
-  if (-dy >= KEY_ALT_SWIPE_PX && -dy > Math.abs(dx)) return "alt";
+/** What a touch on a key means, from its total travel (dy < 0 = up) and whether it was held
+ *  past KEY_HOLD_MS. A sideways drag is the row scrolling, so it sends nothing. */
+export function keyGesture(dx: number, dy: number, held = false): KeyGesture {
+  if (Math.hypot(dx, dy) < KEY_TAP_SLOP_PX) return held ? "alt" : "tap";
+  if (-dy > Math.abs(dx) && (held || -dy >= KEY_ALT_SWIPE_PX)) return "alt";
   return "none";
 }
 

@@ -26,7 +26,7 @@
       "getStartedSub_ios": "Sécurisé par le trousseau du système — aucun mot de passe requis",
       "or": "ou",
       "cloudAccount": "Compte cloud",
-      "cloudAccountSub": "Appareils associés automatiquement · Pro ajoute le cloud et la sauvegarde",
+      "cloudAccountSub": "Gratuit · appareils associés automatiquement. Pro ajoute le cloud et la sauvegarde.",
       "cloudAccountSub_ios": "Synchronisez sur tous vos appareils — connectez-vous ou créez un compte",
       "back": "Retour",
       "signupPrompt": "Créez un compte pour associer vos appareils automatiquement",
@@ -47,10 +47,27 @@
       "e2eeNotice": "Vos données sont chiffrées de bout en bout — le serveur ne peut pas les lire.",
       "openSource": "Open source.",
       "agreeToTerms": "En créant un compte, vous acceptez nos <terms>conditions d'utilisation</terms> et notre <privacy>politique de confidentialité</privacy>.",
-      "accountCreatedToast": "Compte créé ! Vérifiez votre e-mail pour le confirmer.",
+      "accountCreatedToast": "Compte créé. Vérifiez votre e-mail pour le confirmer.",
       "vaultUnreadableBodyNoPassword": "Le fichier de secrets de cet appareil ne peut pas être ouvert avec la clé enregistrée sur cette machine. Rien n'a été supprimé. Mettez-le de côté pour repartir d'un coffre vide, ou restaurez une des sauvegardes ci-dessous.",
       "vaultSetAsideLocal": "Mettre de côté et repartir à zéro",
-      "vaultSetAsideLocalSub": "Conserve une copie de sauvegarde sur cet appareil"
+      "vaultSetAsideLocalSub": "Conserve une copie de sauvegarde sur cet appareil",
+      "addAccountLater": "Vous pourrez créer un compte plus tard en conservant vos hôtes.",
+      "errorEmailRequired": "Saisissez votre e-mail",
+      "masterPasswordNote": "Ce mot de passe chiffre vos données. Il ne peut être ni réinitialisé ni récupéré : conservez-le en lieu sûr.",
+      "invitation": {
+        "toggle": "Vous avez un lien d'invitation ?",
+        "placeholder": "Lien d'invitation",
+        "use": "Utiliser",
+        "checking": "Vérification…",
+        "invalid": "Ce n'est pas un lien d'invitation. Collez le lien complet de l'e-mail.",
+        "notFound": "Aucune invitation en attente sur {{server}} ne correspond à ce lien. Vérifiez l'adresse du serveur ou demandez une nouvelle invitation.",
+        "closedHint": "Ce serveur ne crée de comptes que sur invitation. Collez le lien de votre e-mail d'invitation.",
+        "joining": "Rejoindre {{team}}",
+        "invitedBy": "{{inviter}} vous a invité en tant que {{role}}",
+        "invitedAs": "Invité en tant que {{role}}",
+        "remove": "Retirer l'invitation",
+        "createAndJoin": "Créer le compte et rejoindre"
+      }
     },
     "cloudAuthModal": {
       "registerTitle": "Créer un compte cloud",
@@ -64,7 +81,6 @@
       "createMasterPasswordPlaceholder": "Créer un mot de passe principal",
       "confirmMasterPasswordPlaceholder": "Confirmer le mot de passe principal",
       "errorPasswordRequired": "Mot de passe requis",
-      "errorMinLength4": "Au moins 4 caractères",
       "pleaseWait": "Veuillez patienter…",
       "reauthTitle": "Se reconnecter",
       "reauthDesc": "Votre session sur cet appareil a pris fin. Saisissez votre mot de passe principal pour vous reconnecter."
@@ -118,12 +134,6 @@
       "sectionLocal": "Local",
       "noHostsMatch": "Aucun hôte ne correspond à \"{{query}}\"",
       "noHostsYet": "Aucun hôte pour le moment",
-      "connectTo": "Se connecter à {{user}}@{{host}}",
-      "portSsh": "Port {{port}} · SSH",
-      "openWeb": "Ouvrir {{host}}:{{port}}",
-      "portWeb": "{{protocol}} · page Web",
-      "serialConnection": "Connexion série",
-      "configurePortBaud": "Configurer le port et le débit",
       "localShellFallback": "Shell local"
     },
     "sidebarAccount": {
@@ -280,8 +290,15 @@
         "notConfigured": "Synchronisation non configurée",
         "paused": "Synchronisation en pause",
         "default": "Synchronisation",
-        "unknown": "inconnu"
-      }
+        "unknown": "inconnu",
+        "partial": "Synchronisation partielle",
+        "partialAt": "Synchronisation partielle · {{time}}",
+        "partialTooltip": "Synchronisation partielle : {{error}}",
+        "partialDetail_one": "{{count}} appareil n'a pas pu être synchronisé",
+        "partialDetail_many": "{{count}} appareils n'ont pas pu être synchronisés",
+        "partialDetail_other": "{{count}} appareils n'ont pas pu être synchronisés"
+      },
+      "showDevices": "Voir les appareils →"
     },
     "titleBar": {
       "sftp": "SFTP",
@@ -318,8 +335,8 @@
         "closeAll": "Tout fermer ({{count}})",
         "openInSplit": "Ouvrir en vue scindée",
         "inSplit": "en vue scindée",
-        "pin": "Épingler la liste des sessions",
-        "unpin": "Détacher la liste des sessions",
+        "pin": "Afficher dans le panneau latéral",
+        "unpin": "Masquer le panneau latéral",
         "status": {
           "connected": "Connecté · {{time}}",
           "connecting": "Connexion…",
@@ -341,10 +358,26 @@
         "closeTab_other": "Fermer l'onglet ({{count}} sessions)"
       },
       "plan": {
-        "upgradeTrial": "Mettre à niveau · Essai gratuit de 14j",
-        "upgrade": "Mettre à niveau"
+        "upgradeTrial": "Activer 14 jours de Pro",
+        "upgrade": "Mettre à niveau",
+        "endingSoon_one": "{{plan}} · {{count}} jour restant",
+        "endingSoon_many": "{{plan}} · {{count}} de jours restants",
+        "endingSoon_other": "{{plan}} · {{count}} jours restants"
       },
-      "splitLabelMore": "{{label}} + {{count}}"
+      "splitLabelMore": "{{label}} + {{count}}",
+      "lock": {
+        "keptToast_one": "{{count}} onglet verrouillé conservé",
+        "keptToast_many": "{{count}} onglets verrouillés conservés",
+        "keptToast_other": "{{count}} onglets verrouillés conservés",
+        "closeBlocked": "Déverrouillez l'onglet pour le fermer",
+        "unlockHint": "Verrouillé · cliquez pour déverrouiller",
+        "lockTab": "Verrouiller l'onglet",
+        "unlockTab": "Déverrouiller l'onglet",
+        "lockPane": "Verrouiller le panneau",
+        "unlockPane": "Déverrouiller le panneau",
+        "pinTab": "Épingler l'onglet",
+        "unpinTab": "Désépingler l'onglet"
+      }
     },
     "vaultHeader": {
       "members": "Membres",
@@ -415,6 +448,73 @@
       "once": "Autoriser une fois",
       "always": "Toujours autoriser",
       "sessionToast": "{{name}} a ouvert vos fichiers"
+    },
+    "enroll": {
+      "title": "Se connecter à {{team}}",
+      "subtitle": "Créez votre compte Voltius ou connectez-vous pour rejoindre {{team}}.",
+      "orgServer": "Le serveur de votre organisation",
+      "domainNote": "Utilisez votre e-mail {{domains}}",
+      "approvalNote": "Un administrateur approuve chaque demande",
+      "domainError": "{{team}} n'accepte que les e-mails {{domains}}.",
+      "createAndJoin": "Créer un compte et rejoindre",
+      "signInAndJoin": "Se connecter et rejoindre",
+      "skip": "Passer pour l'instant",
+      "continue": "Continuer",
+      "currentPasswordPlaceholder": "Mot de passe principal actuel",
+      "resolving": "Vérification du jeton d'enrôlement…",
+      "confirm": {
+        "title": "{{team}} sur {{host}}",
+        "body": "Ne continuez que si votre entreprise vous a envoyé ce lien. Voltius enverra votre connexion à {{host}}."
+      },
+      "error": {
+        "title": "Impossible d'utiliser ce jeton d'enrôlement",
+        "gone": "Ce jeton d'enrôlement a été révoqué ou a expiré. Demandez-en un nouveau à votre administrateur.",
+        "lapsed": "L'abonnement de {{team}} a expiré, son jeton d'enrôlement ne fonctionne donc pas pour le moment.",
+        "lapsedNoTeam": "L'abonnement de cette équipe a expiré, son jeton d'enrôlement ne fonctionne donc pas pour le moment.",
+        "serverTooOld": "Ce serveur ne prend pas encore en charge les jetons d'enrôlement.",
+        "rateLimited": "Trop de tentatives depuis ce réseau. Réessayez dans une minute.",
+        "unreachable": "Impossible de joindre {{host}}."
+      },
+      "outcome": {
+        "member": {
+          "title": "Vous avez rejoint {{team}}",
+          "body": "Les coffres de l'équipe apparaîtront dès que le Voltius d'un administrateur sera en ligne."
+        },
+        "approval": {
+          "title": "Demande envoyée",
+          "body": "Un administrateur de {{team}} doit l'approuver. Vous recevrez une notification."
+        },
+        "email": {
+          "title": "Vérifiez votre e-mail pour rejoindre {{team}}",
+          "body": "Nous avons envoyé un lien à {{email}}. Vous rejoindrez l'équipe automatiquement une fois l'adresse vérifiée.",
+          "resend": "Renvoyer l'e-mail"
+        },
+        "seat": {
+          "title": "{{team}} n'a plus de place libre",
+          "body": "Un administrateur a été prévenu. Vous rejoindrez l'équipe dès qu'une place se libérera."
+        }
+      },
+      "tokenEntry": {
+        "toggle": "Vous avez un jeton d'enrôlement ?",
+        "placeholder": "vte1.…",
+        "invalid": "Ce n'est pas un jeton d'enrôlement."
+      },
+      "localNote": "Les hôtes de cet appareil passent dans le coffre privé du nouveau compte. {{team}} ne peut pas les lire.",
+      "already": {
+        "title": "Vous êtes déjà dans {{team}}",
+        "body": "{{email}} est déjà membre."
+      },
+      "join": {
+        "title": "Rejoindre {{team}} en tant que {{email}}",
+        "body": "Utilise le compte avec lequel vous êtes connecté sur {{host}}.",
+        "action": "Rejoindre",
+        "other": "Utiliser un autre compte"
+      },
+      "replace": {
+        "title": "Remplacer les données de cet appareil ?",
+        "body": "Se connecter en tant que {{email}} remplace les hôtes, clés et snippets de cet appareil par ceux enregistrés dans ce compte.",
+        "confirm": "Se connecter et remplacer"
+      }
     }
   }
 }

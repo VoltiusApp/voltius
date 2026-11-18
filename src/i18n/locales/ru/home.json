@@ -5,37 +5,13 @@
       "afternoon": "Добрый день",
       "evening": "Добрый вечер"
     },
-    "search": {
-      "placeholder": "Поиск хостов, сессий, сниппетов…"
-    },
-    "stat": {
-      "vaults_one": "хранилище",
-      "vaults_few": "хранилища",
-      "vaults_many": "хранилищ",
-      "vaults_other": "хранилищ",
-      "hosts_one": "хост",
-      "hosts_few": "хоста",
-      "hosts_many": "хостов",
-      "hosts_other": "хостов",
-      "activeSessions_one": "активная сессия",
-      "activeSessions_few": "активные сессии",
-      "activeSessions_many": "активных сессий",
-      "activeSessions_other": "активных сессий",
-      "portForwards_one": "проброс портов",
-      "portForwards_few": "проброса портов",
-      "portForwards_many": "пробросов портов",
-      "portForwards_other": "пробросов портов"
-    },
     "quickActions": {
       "export": "Экспорт",
       "import": "Импорт"
     },
     "recentHosts": {
       "title": "Недавние хосты",
-      "seeAll": "Смотреть все",
-      "prevPage": "Предыдущая страница",
-      "nextPage": "Следующая страница",
-      "pageNumber": "Страница {{number}}"
+      "seeAll": "Смотреть все"
     },
     "allHosts": {
       "back": "Назад",
@@ -46,7 +22,15 @@
       "pin": "Закрепить",
       "unpin": "Открепить",
       "serial": "последовательный",
-      "baud": "{{rate}} бод"
+      "baud": "{{rate}} бод",
+      "pinHost": "Закрепить {{name}}",
+      "unpinHost": "Открепить {{name}}",
+      "status": {
+        "up": "Доступен",
+        "down": "Недоступен",
+        "unknown": "Статус неизвестен",
+        "knock": "Закрыт до port knocking"
+      }
     },
     "serialFallback": "Последовательный",
     "vaultCard": {
@@ -56,6 +40,26 @@
       "hostCount_other": "{{count}} хостов",
       "empty": "Пока нет хостов",
       "more": "+{{count}} ещё"
+    },
+    "firstRun": {
+      "title": "Подключитесь к первому серверу",
+      "body": "Введите адрес, чтобы сразу открыть терминал, или добавьте его как хост, чтобы сохранить.",
+      "addressPlaceholder": "пользователь@хост или пользователь@хост:2222",
+      "addressLabel": "Адрес сервера",
+      "addressHint": "Используйте пользователь@хост, с :порт, если это не 22. Коды приглашения в сеанс тоже подходят.",
+      "join": "Присоединиться",
+      "importOther": "Импортировать из другого приложения",
+      "localTerminal": "Открыть локальный терминал",
+      "importSshConfig_one": "Импортировать {{count}} хост из ~/.ssh/config",
+      "importSshConfig_few": "Импортировать {{count}} хоста из ~/.ssh/config",
+      "importSshConfig_many": "Импортировать {{count}} хостов из ~/.ssh/config",
+      "importSshConfig_other": "Импортировать {{count}} хостов из ~/.ssh/config"
+    },
+    "connect": {
+      "label": "Подключиться к серверу",
+      "placeholder": "user@host, имя хоста или код приглашения",
+      "search": "Найти",
+      "searchEverything": "Искать везде"
     }
   }
 }

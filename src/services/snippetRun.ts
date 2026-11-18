@@ -7,6 +7,7 @@ import { parseVariables } from "@/services/snippetParser";
 import { snippetScriptText } from "@/services/snippetSteps";
 import { readClipboard } from "@/utils/clipboard";
 import type { Snippet, TerminalSession } from "@/types";
+import { refuseWhilePreviewing, snippetTarget } from "@/services/previewGuard";
 
 /** A session a snippet can run into: connected and not a multiplayer mirror.
  *  Shared so the mobile target-picker gate and sheet stay in lockstep with the
@@ -37,6 +38,7 @@ export interface RunOpts {
 export async function runSnippetIntoSessions(
   snippet: Snippet, sessionIds: string[], execute: boolean, opts: RunOpts,
 ): Promise<boolean> {
+  if (refuseWhilePreviewing(snippetTarget(snippet.id))) return false;
   const all = useSessionStore.getState().sessions;
   const targets = sessionIds
     .map((id) => all.find((s) => s.id === id))
@@ -74,6 +76,7 @@ export async function runSnippetIntoSessions(
  * GLOBAL pending-inject modal (mounted in App.tsx).
  */
 export function runSnippetIntoActiveSession(snippet: Snippet, sessionId?: string): boolean {
+  if (refuseWhilePreviewing(snippetTarget(snippet.id))) return false;
   const sessions = useSessionStore.getState().sessions;
   const active = sessionId
     ? sessions.find((s) => s.id === sessionId && isRunnableSession(s))

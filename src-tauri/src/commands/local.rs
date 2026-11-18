@@ -9,6 +9,12 @@ pub struct ShellOption {
     pub path: String,
 }
 
+impl ShellOption {
+    pub fn matches(&self, entry: &str) -> bool {
+        self.path == entry || self.name.eq_ignore_ascii_case(entry)
+    }
+}
+
 #[cfg(windows)]
 fn find_in_path(name: &str) -> Option<String> {
     let separator = if cfg!(windows) { ';' } else { ':' };
@@ -56,6 +62,10 @@ fn push_shell(shells: &mut Vec<ShellOption>, name: &str, path: Option<String>) {
 
 #[tauri::command]
 pub async fn local_list_shells() -> Vec<ShellOption> {
+    detected_shells().await
+}
+
+pub async fn detected_shells() -> Vec<ShellOption> {
     let mut shells: Vec<ShellOption> = Vec::new();
 
     #[cfg(windows)]

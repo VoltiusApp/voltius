@@ -3,20 +3,28 @@ import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/re
 import type { TeamRole } from "@/stores/teamStore";
 
 const h = vi.hoisted(() => ({
+  multiOwner: false,
+  viewerIsOwner: true,
   inviteUserById: vi.fn(),
   inviteByEmailAddress: vi.fn(),
   results: [] as unknown[],
+  query: "bob",
 }));
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("@/stores/teamStore", () => ({ useTeamStore: (sel: (s: object) => unknown) => sel({ membersByTeam: {} }) }));
+vi.mock("@/hooks/useMyUserId", () => ({ useMyUserId: () => "me" }));
+vi.mock("@/hooks/useOwnershipContext", () => ({
+  useOwnershipContext: () => ({ multiOwner: h.multiOwner, viewerIsOwner: h.viewerIsOwner }),
+}));
 vi.mock("@/services/vaultShare", () => ({
   inviteUserById: h.inviteUserById,
   inviteByEmailAddress: h.inviteByEmailAddress,
 }));
 vi.mock("@/hooks/useUserSearch", () => ({
   useUserSearch: () => ({
-    query: "bob", setQuery: vi.fn(), results: h.results, searching: false,
+    query: h.query, setQuery: vi.fn(), results: h.results, searching: false,
     open: true, setOpen: vi.fn(), inputRef: { current: null }, dropdownRef: { current: null },
     reset: vi.fn(),
   }),
@@ -31,10 +39,10 @@ const roles = [
   { id: "r-editor", name: "editor", position: 2, is_builtin: true },
 ] as unknown as TeamRole[];
 
-beforeEach(() => { h.inviteUserById.mockReset(); h.results = []; });
+beforeEach(() => { h.inviteUserById.mockReset(); h.results = []; h.query = "bob"; h.multiOwner = false; h.viewerIsOwner = true; });
 afterEach(cleanup);
 
-test("owner is never offered as an assignable role", () => {
+test("owner is not offered by a server without multiple owners", () => {
   render(<InviteControl teamId="t1" roles={roles} existingIds={new Set()} seats={seatState(1, 10)} onInvited={vi.fn()} />);
   expect(screen.queryByText("members.roleName.owner")).toBeNull();
   expect(screen.getByText("members.roleName.manager")).toBeTruthy();
@@ -70,4 +78,39 @@ test("choosing a role and a person invites with that role", async () => {
   await waitFor(() => expect(h.inviteUserById).toHaveBeenCalledWith(
     expect.objectContaining({ teamId: "t1", userId: "u1", roleName: "editor", roleId: "r-editor" }),
   ));
+});
+
+test("a non-Owner sees Owner greyed out with the reason", () => {
+  h.multiOwner = true;
+  h.viewerIsOwner = false;
+  render(<InviteControl teamId="t1" roles={roles} existingIds={new Set()} seats={seatState(1, 10)} onInvited={vi.fn()} />);
+  const chip = screen.getByText("members.roleName.owner").closest("button")!;
+  expect(chip.disabled).toBe(true);
+  expect(chip.title).toBe("members.invite.ownerOnlyOwners");
+});
+
+test("an Owner invite is sent only after the confirmation", async () => {
+  h.multiOwner = true;
+  h.results = [{ user_id: "u1", handle: "bob-builder", display_name: "bob-builder", is_teammate: false }];
+  h.inviteUserById.mockResolvedValue({ status: "pending" });
+  render(<InviteControl teamId="t1" roles={roles} existingIds={new Set()} seats={seatState(1, 10)} onInvited={vi.fn()} />);
+  fireEvent.click(screen.getByText("members.roleName.owner"));
+  fireEvent.click(screen.getByText("members.invite.inviteAction"));
+  expect(h.inviteUserById).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByText("members.ownership.invite.confirm"));
+  await waitFor(() => expect(h.inviteUserById).toHaveBeenCalledWith(
+    expect.objectContaining({ userId: "u1", roleName: "owner", roleId: "r-owner" }),
+  ));
+});
+
+test("the email invite button names the address it sends to", () => {
+  h.query = "dave@acme.test";
+  render(<InviteControl teamId="t1" roles={roles} existingIds={new Set()} seats={seatState(1, 10)} onInvited={vi.fn()} />);
+  expect(screen.getByRole("button", { name: "members.invite.sendInviteLabel dave@acme.test" })).toBeTruthy();
+});
+
+test("role choices show the translated role name with no case transform", () => {
+  const { container } = render(<InviteControl teamId="t1" roles={roles} existingIds={new Set()} seats={seatState(1, 10)} onInvited={vi.fn()} />);
+  expect(container.querySelector("[aria-pressed]")).not.toBeNull();
+  expect(container.querySelector(".capitalize")).toBeNull();
 });

@@ -1,0 +1,702 @@
+[
+  {
+    "id": "server.url",
+    "type": "string",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "enrollment.token",
+    "type": "string",
+    "lock": "only",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "server.allowOther",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "server.previousUrls",
+    "type": "stringList",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "plugins.enabled",
+    "type": "stringList",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "plugins.disabled",
+    "type": "stringList",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "plugins.install",
+    "type": "stringList",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "plugins.allowInstall",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sshConfig.import",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "security.lockTimeoutMinutes",
+    "type": "number",
+    "domain": {
+      "values": [
+        0,
+        5,
+        15,
+        30,
+        60,
+        240
+      ]
+    },
+    "range": [
+      "allowed",
+      "min",
+      "max"
+    ],
+    "nullIsUnbounded": true,
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "security.lockAction",
+    "type": "string",
+    "domain": {
+      "values": [
+        "screen",
+        "vault"
+      ]
+    },
+    "range": [
+      "allowed"
+    ],
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.domains.themes",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.domains.uiPreferences",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.domains.shortcuts",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.domains.appSettings",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.domains.recentPeople",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.types.connection",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.types.identity",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.types.key",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.types.folder",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.types.snippet",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.types.port-forwarding-rule",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.types.plugin",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.terminal.preferredShell",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.terminal.cursorStyle",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.terminal.keywordRules",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.sftp.autoRefreshIntervalMs",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.plugins.overrides",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.keepalivePreset",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.detachedTtlHours",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.locale",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.timeFormat",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.proxy",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.themes.location",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.cursor-blink",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.scroll-minimap",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.select-to-copy",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.drag-selects-text",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.group-tabs-by-host",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.ignore-bracketed-paste",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.command-history",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.paste-image-as-path",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.volume-down-ctrl",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.keyword-highlight",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.auto-forward",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.forwarding-notifications",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.sftp-tar",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.sftp-autorefresh",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.reachability",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.team-presence",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.shell-integration",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.persistent-sessions",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.detached-session-ttl",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.restore-workspace",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.cross-device-sessions",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.changelog-popup",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.plugin-install-review",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "sync.settings.appSettings.toggles.mcp-server",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
+    "id": "appSettings.terminal.preferredShell",
+    "type": "string",
+    "domain": {
+      "shape": "shell"
+    },
+    "range": [
+      "allowed"
+    ],
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.terminal.cursorStyle",
+    "type": "string",
+    "domain": {
+      "values": [
+        "bar",
+        "block",
+        "underline"
+      ]
+    },
+    "range": [
+      "allowed"
+    ],
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.terminal.keywordRules",
+    "type": "json",
+    "domain": {
+      "shape": "keywordRules",
+      "colors": [
+        "black",
+        "red",
+        "green",
+        "yellow",
+        "blue",
+        "magenta",
+        "cyan",
+        "white",
+        "brightBlack",
+        "brightRed",
+        "brightGreen",
+        "brightYellow",
+        "brightBlue",
+        "brightMagenta",
+        "brightCyan",
+        "brightWhite"
+      ],
+      "maxRules": 20,
+      "maxWords": 50,
+      "maxLength": 64
+    },
+    "lock": "add",
+    "implies": "appSettings.toggles.keyword-highlight",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.sftp.autoRefreshIntervalMs",
+    "type": "number",
+    "domain": {
+      "min": 500
+    },
+    "range": [
+      "min",
+      "max"
+    ],
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.plugins.overrides",
+    "type": "json",
+    "lock": "never",
+    "enforced": false,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.keepalivePreset",
+    "type": "string",
+    "domain": {
+      "values": [
+        "fast",
+        "balanced",
+        "tolerant",
+        "off"
+      ]
+    },
+    "range": [
+      "allowed"
+    ],
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.detachedTtlHours",
+    "type": "number",
+    "domain": {
+      "values": [
+        1,
+        6,
+        12,
+        24,
+        72,
+        168
+      ]
+    },
+    "range": [
+      "allowed",
+      "min",
+      "max"
+    ],
+    "implies": "appSettings.toggles.detached-session-ttl",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.locale",
+    "type": "string",
+    "domain": {
+      "values": [
+        "en",
+        "fr",
+        "ru",
+        "zh",
+        "tr",
+        "cs",
+        "pt",
+        "pt-BR",
+        "pt-PT"
+      ]
+    },
+    "range": [
+      "allowed"
+    ],
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.timeFormat",
+    "type": "string",
+    "domain": {
+      "values": [
+        "auto",
+        "12h",
+        "24h"
+      ]
+    },
+    "range": [
+      "allowed"
+    ],
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.proxy",
+    "type": "json",
+    "domain": {
+      "shape": "proxy",
+      "values": [
+        "none",
+        "system",
+        "socks5",
+        "http",
+        "https"
+      ]
+    },
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "themes.location",
+    "type": "json",
+    "domain": {
+      "shape": "location"
+    },
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.cursor-blink",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.scroll-minimap",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.select-to-copy",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.drag-selects-text",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.group-tabs-by-host",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.ignore-bracketed-paste",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.command-history",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.paste-image-as-path",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.volume-down-ctrl",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.keyword-highlight",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.auto-forward",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.forwarding-notifications",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.sftp-tar",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.sftp-autorefresh",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.reachability",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.team-presence",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.shell-integration",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.persistent-sessions",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.detached-session-ttl",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.restore-workspace",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.cross-device-sessions",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.changelog-popup",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.plugin-install-review",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.mcp-server",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  }
+]

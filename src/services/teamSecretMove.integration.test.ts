@@ -41,7 +41,7 @@ vi.mock("@/services/teamVaultSecrets", async (orig) => ({
 vi.mock("@/services/teamObjectReencrypt", () => ({ runReencryptionPass: vi.fn(async () => {}) }));
 
 import { fetchTeamData } from "./teamVaultSync";
-import { moveConnectionToVault } from "./connectionDuplicate";
+import { vaultObjectWrites, type VaultObjectPorts } from "./vaultObjectWrites";
 import { getSecret, setVaultKey, storeSecret } from "./vault";
 import { teamSecretCache } from "./teamSecretCache";
 import { useConnectionStore } from "@/stores/connectionStore";
@@ -56,6 +56,11 @@ const teamRow = (metadata: object) => ({
   object_id: "c1", object_type: "connection", metadata, updated_by: "u1",
   updated_at: new Date().toISOString(), deleted_at: null,
 });
+
+const moveHostToTeam = (keepLocalRow = false) =>
+  vaultObjectWrites({
+    updateConnection: (_id: string, data: ConnectionFormData) => moveToTeamVault(HOST, data, keepLocalRow),
+  } as unknown as VaultObjectPorts).moveToVault("connection", { ...HOST, vault_id: "personal" }, { vaultId: "v-team", links: {} });
 
 async function moveToTeamVault(conn: Connection, data: ConnectionFormData, keepLocalRow = false) {
   const moved = { ...conn, ...data } as Connection;
@@ -83,8 +88,7 @@ test("a failed upload survives an offline load and is uploaded by the next good 
   h.disk.set("password:c1", "pw");
   h.uploadError = new Error("429");
 
-  await moveConnectionToVault({ ...HOST, vault_id: "personal" }, "v-team", async (_id, data) =>
-    moveToTeamVault(HOST, data));
+  await moveHostToTeam();
 
   expect(usePendingTeamSecretUploadStore.getState().keysByTeamId.t1).toEqual(["password:c1"]);
   expect(h.disk.get("password:c1")).toBe("pw");
@@ -124,8 +128,7 @@ test("a foreground offline load keeps the pending queue and the local copy", asy
 test("the owner still reads and edits a moved host's secret while its local row stays behind", async () => {
   h.disk.set("password:c1", "pw");
 
-  await moveConnectionToVault({ ...HOST, vault_id: "personal" }, "v-team", async (_id, data) =>
-    moveToTeamVault(HOST, data, true));
+  await moveHostToTeam(true);
 
   expect(useConnectionStore.getState().connections[0].vault_id).toBe("v-team");
   expect(h.uploaded.get("password:c1")).toBe("pw");
@@ -141,8 +144,7 @@ test("the sweep uploads a queued secret of a moved host whose local row stays be
   h.disk.set("password:c1", "pw");
   h.uploadError = new Error("429");
 
-  await moveConnectionToVault({ ...HOST, vault_id: "personal" }, "v-team", async (_id, data) =>
-    moveToTeamVault(HOST, data, true));
+  await moveHostToTeam(true);
   expect(usePendingTeamSecretUploadStore.getState().keysByTeamId.t1).toEqual(["password:c1"]);
 
   h.uploadError = null;

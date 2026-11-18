@@ -1,4 +1,4 @@
-import { test, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 
 vi.mock("react-i18next", () => ({
@@ -25,6 +25,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import type { Team } from "@/services/teamService";
+import { startPreview, stopPreview } from "@/test/preview";
 
 const team = (id: string, name: string): Team =>
   ({ id, name, owner_id: "", owner_tier: "teams", created_at: "", role_ids: [] });
@@ -41,7 +42,7 @@ beforeEach(() => {
   useUIStore.setState({ activeNav: "hosts", homeView: true, membersPanelPending: null, vaultSharePending: false });
   useSubscriptionStore.setState({ accountMode: "server" });
 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); stopPreview(); });
 
 test("the vault name is a menu trigger", () => {
   render(<VaultHeader />);
@@ -106,4 +107,31 @@ test("a pending vault-share flag opens the share sheet and clears itself", () =>
   render(<VaultHeader />);
   expect(screen.getByText("share-sheet")).toBeTruthy();
   expect(useUIStore.getState().vaultSharePending).toBe(false);
+});
+
+describe("while previewing", () => {
+  beforeEach(startPreview);
+
+  test.each(["layout.vaultMenu.rename", "layout.vaultMenu.delete"])("%s opens no dialog", (item) => {
+    render(<VaultHeader />);
+    fireEvent.click(screen.getByRole("button", { name: "layout.vaultMenu.openMenu" }));
+    fireEvent.click(screen.getByText(item));
+    expect(screen.queryByTestId("dialog")).toBeNull();
+  });
+
+  test("the share trigger opens no share sheet", () => {
+    render(<VaultHeader />);
+    fireEvent.click(screen.getByTitle("members.share.title"));
+    fireEvent.mouseEnter(screen.getByTitle("members.share.title"));
+    expect(screen.queryByText("share-sheet")).toBeNull();
+  });
+
+  test("Members still navigates", () => {
+    useVaultStore.setState({ vaults: [{ id: "v1", name: "Ops Vault", teamId: "team1" }] });
+    useTeamStore.setState({ teams: [team("team1", "Team One")], membersByTeam: { team1: [] }, rolesByTeam: { team1: [] } });
+    render(<VaultHeader />);
+    fireEvent.click(screen.getByRole("button", { name: "layout.vaultMenu.openMenu" }));
+    fireEvent.click(screen.getByText("layout.vaultMenu.members"));
+    expect(useUIStore.getState().activeNav).toBe("members");
+  });
 });

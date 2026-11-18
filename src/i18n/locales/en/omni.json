@@ -1,12 +1,12 @@
 {
   "omni": {
-    "searchPlaceholder": "Search hosts, keys, identities & commands...",
+    "searchPlaceholder": "Search hosts, commands and settings, or type user@host",
     "categoryBadges": {
       "all": "All",
-      "join": "join> Sessions",
-      "snippets": "> Snippets",
-      "marketplace": "m> Marketplace",
-      "settings": "@ Settings"
+      "join": "Team sessions",
+      "snippets": "Snippets",
+      "marketplace": "Plugins",
+      "settings": "Settings"
     },
     "sections": {
       "quickConnect": "Quick Connect",
@@ -22,19 +22,18 @@
       "settings": "Settings",
       "joinByInviteCode": "Join by invite code",
       "importExport": "Import / Export",
-      "availablePlugins": "Available plugins"
+      "availablePlugins": "Available plugins",
+      "enrollmentToken": "Enrolment token"
     },
-    "settingsDescription": "Settings",
     "pluginSettingsDescription": "Plugin Settings",
     "pluginNotInstalled": "Not installed",
     "editHost": "Edit host",
-    "deleteHost": "Delete host",
     "resume": "Resume",
     "join": "Join",
     "participantCount_one": "{{count}} person",
     "participantCount_other": "{{count}} people",
     "joinCodePrompt": {
-      "title": "Join by invite code...",
+      "title": "Join by invite code…",
       "subtitle": "Paste your invite code here to join a private session"
     },
     "joinCodeEntered": {
@@ -49,7 +48,10 @@
       "configurePortAndBaud": "Configure port & baud",
       "localShellNamed": "Local shell ({{shell}})",
       "localShell": "Local shell",
-      "openLocalTerminal": "Open a local terminal"
+      "openLocalTerminal": "Open a local terminal",
+      "connectToHost": "Connect to {{host}}",
+      "invalidPort": "Invalid port",
+      "portRange": "Ports run from 1 to 65535"
     },
     "localShellDefault": "Local shell",
     "emptyState": {
@@ -118,7 +120,38 @@
       "exportSnippets": "Export snippets…",
       "exportPortForwarding": "Export port forwarding rules…",
       "exportThemes": "Export custom themes…",
-      "importThemes": "Import themes…"
+      "importThemes": "Import themes…",
+      "disconnectAllNone": "No open sessions to disconnect",
+      "disconnectAllConfirm_one": "Disconnect {{count}} session? Press Enter again to confirm",
+      "disconnectAllConfirm_other": "Disconnect {{count}} sessions? Press Enter again to confirm",
+      "disconnectAllConfirmKept_one": "Disconnect {{count}} session? {{kept}} Press Enter again to confirm",
+      "disconnectAllConfirmKept_other": "Disconnect {{count}} sessions? {{kept}} Press Enter again to confirm",
+      "disconnectAllKept_one": "{{count}} locked tab stays open.",
+      "disconnectAllKept_other": "{{count}} locked tabs stay open.",
+      "disconnectAllLocked_one": "The only open session is locked. Unlock it to disconnect",
+      "disconnectAllLocked_other": "All {{count}} open sessions are locked. Unlock them to disconnect",
+      "lockTab": "Lock Tab",
+      "unlockTab": "Unlock Tab",
+      "pinTab": "Pin Tab",
+      "unpinTab": "Unpin Tab",
+      "noActiveTab": "No terminal tab is active"
+    },
+    "dialogLabel": "Command palette",
+    "resultCount_one": "{{count}} result",
+    "resultCount_other": "{{count}} results",
+    "snippetNeedsSession": "Open a terminal first, then run the snippet from here",
+    "joinFailed": "Couldn't join the session: {{reason}}",
+    "hints": {
+      "move": "Move",
+      "open": "Open",
+      "edit": "Edit host",
+      "scope": "Scope",
+      "close": "Close"
+    },
+    "enrollToken": {
+      "title": "Join {{team}} with this enrolment token",
+      "titleUnknown": "Join a company with this enrolment token",
+      "detailApproval": "{{host}} · An admin approves each request"
     }
   }
 }

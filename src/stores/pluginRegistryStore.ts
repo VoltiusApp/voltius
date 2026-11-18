@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "@/lib/invoke";
 import { touchAppSetting } from "./appSettingsTimestampStore";
+import { adminDefault, lockedBool, lockedList, usePolicyRefresh } from "./policyStore";
 
 type Overrides = Record<string, boolean>;
 
@@ -12,6 +13,36 @@ interface PluginRegistryStore {
   setEnabled(id: string, enabled: boolean): Promise<void>;
   /** Retourne l'état enabled, en appliquant l'override ou le defaultEnabled du manifest. */
   isEnabled(id: string, defaultEnabled: boolean): boolean;
+}
+
+export const PLUGIN_LIST_KEYS = ["plugins.disabled", "plugins.enabled"] as const;
+
+const listed = (key: (typeof PLUGIN_LIST_KEYS)[number] | "plugins.install", id: string): boolean =>
+  !!lockedList(key)?.includes(id);
+
+export const installLocked = (id: string): boolean => listed("plugins.install", id);
+
+export const stringList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+
+export const policyInstallList = (): string[] => [
+  ...stringList(lockedList("plugins.install")),
+  ...stringList(adminDefault("plugins.install")),
+];
+
+export const installsBlocked = (): boolean => lockedBool("plugins.allowInstall") === false;
+
+export function installAllowed(id: string, alreadyInstalled = false): boolean {
+  return !installsBlocked() || alreadyInstalled || policyInstallList().includes(id);
+}
+
+export function useInstallPolicy(): typeof installAllowed {
+  usePolicyRefresh();
+  return installAllowed;
+}
+
+export function pluginLock(id: string): boolean | null {
+  if (listed("plugins.disabled", id)) return false;
+  return listed("plugins.enabled", id) ? true : null;
 }
 
 export const usePluginRegistryStore = create<PluginRegistryStore>((set, get) => ({
@@ -27,11 +58,12 @@ export const usePluginRegistryStore = create<PluginRegistryStore>((set, get) => 
   },
 
   setEnabled: async (id, enabled) => {
+    if (pluginLock(id) !== null) return;
     const overrides = { ...get().overrides, [id]: enabled };
     set({ overrides });
     touchAppSetting("appSettings.plugins.overrides");
     await invoke("plugin_registry_save", { overrides }).catch(() => {});
   },
 
-  isEnabled: (id, defaultEnabled) => get().overrides[id] ?? defaultEnabled,
+  isEnabled: (id, defaultEnabled) => pluginLock(id) ?? get().overrides[id] ?? defaultEnabled,
 }));

@@ -26,6 +26,7 @@ const h = vi.hoisted(() => ({
   scopedVaultId: null as string | null,
   createRule: vi.fn(),
   updateRule: vi.fn(async () => {}),
+  updateConnection: vi.fn(async () => {}),
   deleteRule: vi.fn(async () => {}),
   duplicateRule: vi.fn(async () => {}),
   loadRules: vi.fn(async () => {}),
@@ -39,6 +40,16 @@ const h = vi.hoisted(() => ({
   confirmCrossVault: vi.fn(async () => true),
 }));
 
+vi.mock("@/services/vaultObjectSecrets", () => ({
+  moveWithSecrets: vi.fn(async (_k: string, _o: unknown, _t: string, update: () => Promise<unknown>) => {
+    await update();
+  }),
+}));
+vi.mock("@/services/vaultObjectStores", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/vaultObjectStores")>()),
+  storeObjectPorts: (await import("@/test/objectPortsFrom")).objectPortsFrom(h),
+  hydrateVaultObjectStores: async () => {},
+}));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
   initReactI18next: { type: "3rdParty", init: () => {} },
@@ -116,9 +127,6 @@ vi.mock("@/hooks/useDragToFolder", () => ({
     folderDropProps: () => ({}),
     ejectDropProps: () => ({}),
   }),
-}));
-vi.mock("@/hooks/useVaultCascade", () => ({
-  useVaultCascade: () => ({ pending: null, request: vi.fn(), confirm: vi.fn(), cancel: vi.fn() }),
 }));
 vi.mock("@/hooks/useSyncedFormKey", () => ({ useSyncedFormKey: () => 0 }));
 vi.mock("@/hooks/useRuleTunnels", () => ({
@@ -440,10 +448,10 @@ test("a cut-paste leaves the refresh to moveRuleFolder instead of reloading agai
 // A rule and the hosts it tunnels through share EDIT_CONNECTIONS, so this refusal
 // cannot come from a permission the way it does on Hosts and Keychain — `can` is
 // left fully permissive to prove the dangling reference is what stops it.
-test("a cut is refused when a rule's connection would stay in another vault", async () => {
+test("a cut carries the rule's host into the destination", async () => {
   h.folders = [folder("tf", { vault_id: "team-1" })];
   h.rules = [rule("r1", { connection_ids: ["c1"] })];
-  h.connections = [{ id: "c1", vault_id: "personal" }];
+  h.connections = [{ id: "c1", host: "h", vault_id: "personal" }];
   h.selected = ["r1"];
   h.activeFolderId = "tf";
   render(<PortForwardingPage />);
@@ -451,8 +459,8 @@ test("a cut is refused when a rule's connection would stay in another vault", as
   await dispatch("voltius:clipboard-cut");
   await dispatch("voltius:clipboard-paste");
 
-  expect(h.updateRule).not.toHaveBeenCalled();
-  expect(h.moveRuleFolder).not.toHaveBeenCalled();
+  expect(h.updateConnection).toHaveBeenCalledWith("c1", expect.objectContaining({ vault_id: "team-1" }));
+  expect(h.updateRule).toHaveBeenCalledWith("r1", expect.objectContaining({ vault_id: "team-1", connection_ids: ["c1"] }));
 });
 
 test("a cut is allowed when the rule's connection already lives in the destination vault", async () => {
@@ -470,10 +478,10 @@ test("a cut is allowed when the rule's connection already lives in the destinati
 });
 
 // The whole subtree is checked, not just directly-selected rules.
-test("a folder cut is refused when a nested rule's connection would stay behind", async () => {
+test("a folder cut carries a nested rule's host along", async () => {
   h.folders = [folder("f1"), folder("tf", { vault_id: "team-1" })];
   h.rules = [rule("r1", { folder_id: "f1", connection_ids: ["c1"] })];
-  h.connections = [{ id: "c1", vault_id: "personal" }];
+  h.connections = [{ id: "c1", host: "h", vault_id: "personal" }];
   h.selected = ["f1"];
   h.activeFolderId = "tf";
   render(<PortForwardingPage />);
@@ -481,8 +489,8 @@ test("a folder cut is refused when a nested rule's connection would stay behind"
   await dispatch("voltius:clipboard-cut");
   await dispatch("voltius:clipboard-paste");
 
-  expect(h.updateFolder).not.toHaveBeenCalled();
-  expect(h.moveFolder).not.toHaveBeenCalled();
+  expect(h.updateConnection).toHaveBeenCalledWith("c1", expect.objectContaining({ vault_id: "team-1" }));
+  expect(h.updateFolder).toHaveBeenCalledWith("f1", expect.objectContaining({ vault_id: "team-1" }));
 });
 
 // The root of a view scoped to one vault IS that vault's root, so a paste there
@@ -499,4 +507,26 @@ test("a root cut migrates into the one vault the view is scoped to", async () =>
   await dispatch("voltius:clipboard-paste");
 
   expect(h.updateRule).toHaveBeenCalledWith("r1", expect.objectContaining({ vault_id: "team-1" }));
+});
+
+// The clipboard outlives a change of the vault filter: a folder copied in one
+// vault is off screen once the view switches to another, but it still exists.
+test("a folder copied before switching vaults pastes with its nested folders and contents", async () => {
+  h.folders = [folder("f1", { name: "Prod" }), folder("f2", { name: "Inner", parent_folder_id: "f1" })];
+  h.rules = [rule("r1", { name: "nested", folder_id: "f2" })];
+  h.selected = ["f1"];
+  h.accessibleVaultIds = ["personal"];
+  h.scopedVaultId = "personal";
+  const { rerender } = render(<PortForwardingPage />);
+  await dispatch("voltius:clipboard-copy");
+
+  h.selected = [];
+  h.accessibleVaultIds = ["team-1"];
+  h.scopedVaultId = "team-1";
+  rerender(<PortForwardingPage />);
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.saveFolder).toHaveBeenCalledWith(expect.objectContaining({ name: "Prod", vault_id: "team-1" }));
+  expect(h.saveFolder).toHaveBeenCalledWith(expect.objectContaining({ name: "Inner", vault_id: "team-1" }));
+  expect(h.createRule).toHaveBeenCalledWith(expect.objectContaining({ name: "nested", vault_id: "team-1" }));
 });

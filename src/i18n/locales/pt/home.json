@@ -5,33 +5,13 @@
       "afternoon": "Boa tarde",
       "evening": "Boa noite"
     },
-    "search": {
-      "placeholder": "Pesquisar hosts, sessões, snippets…"
-    },
-    "stat": {
-      "vaults_one": "cofre",
-      "vaults_other": "cofres",
-      "vaults_many": "cofres",
-      "hosts_one": "host",
-      "hosts_other": "hosts",
-      "hosts_many": "hosts",
-      "activeSessions_one": "sessão ativa",
-      "activeSessions_other": "sessões ativas",
-      "activeSessions_many": "sessões ativas",
-      "portForwards_one": "encaminhamento de porta",
-      "portForwards_other": "encaminhamentos de porta",
-      "portForwards_many": "encaminhamentos de porta"
-    },
     "quickActions": {
       "export": "Exportar",
       "import": "Importar"
     },
     "recentHosts": {
       "title": "Hosts Recentes",
-      "seeAll": "Ver todos",
-      "prevPage": "Página anterior",
-      "nextPage": "Próxima página",
-      "pageNumber": "Página {{number}}"
+      "seeAll": "Ver todos"
     },
     "allHosts": {
       "back": "Voltar",
@@ -42,7 +22,15 @@
       "pin": "Fixar",
       "unpin": "Desfixar",
       "serial": "serial",
-      "baud": "{{rate}} baud"
+      "baud": "{{rate}} baud",
+      "pinHost": "Fixar {{name}}",
+      "unpinHost": "Desfixar {{name}}",
+      "status": {
+        "up": "Acessível",
+        "down": "Inacessível",
+        "unknown": "Estado desconhecido",
+        "knock": "Fechado até o port knocking"
+      }
     },
     "serialFallback": "Serial",
     "vaultCard": {
@@ -51,6 +39,25 @@
       "hostCount_many": "{{count}} hosts",
       "empty": "Nenhum host ainda",
       "more": "+{{count}} mais"
+    },
+    "firstRun": {
+      "title": "Conecte-se ao seu primeiro servidor",
+      "body": "Digite um endereço para abrir um terminal agora, ou adicione-o como host para mantê-lo.",
+      "addressPlaceholder": "usuario@host ou usuario@host:2222",
+      "addressLabel": "Endereço do servidor",
+      "addressHint": "Use usuario@host, com :porta se não for a 22. Códigos de convite de sessão também funcionam aqui.",
+      "join": "Entrar",
+      "importOther": "Importar de outro aplicativo",
+      "localTerminal": "Abrir terminal local",
+      "importSshConfig_one": "Importar {{count}} host do ~/.ssh/config",
+      "importSshConfig_many": "Importar {{count}} hosts do ~/.ssh/config",
+      "importSshConfig_other": "Importar {{count}} hosts do ~/.ssh/config"
+    },
+    "connect": {
+      "label": "Conectar a um servidor",
+      "placeholder": "user@host, nome do host ou código de convite",
+      "search": "Pesquisar",
+      "searchEverything": "Pesquisar tudo"
     }
   }
 }

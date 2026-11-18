@@ -1,6 +1,8 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { openBillingCheckout } from "@/services/billingCheckout";
+import { startTrialOrCheckout } from "@/services/promos";
+import { whenWritable } from "@/services/previewGuard";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 import { CAN_OPEN_CHECKOUT } from "@/services/distribution";
 import { AvailableWithPlan } from "@/components/shared/AvailableWithPlan";
@@ -32,10 +34,10 @@ export function SignInToCloudCTA({ onSignIn }: { onSignIn: () => void }) {
 
 export function UpgradeToTeamsCTA({ compact = false }: { compact?: boolean }) {
   const { t } = useTranslation();
-  const { seat } = usePlanDisplay();
-  const openCheckout = async () => {
-    await openBillingCheckout("teams");
-  };
+  const { seat, teamsTrialOffer } = usePlanDisplay();
+  const openCheckout = whenWritable(async () => {
+    await startTrialOrCheckout("teams", "teams_gate", "team");
+  });
 
   return (
     <div className={`flex flex-col items-center justify-center ${compact ? "gap-3 py-2" : "h-full min-h-[320px] gap-5"}`}>
@@ -52,7 +54,7 @@ export function UpgradeToTeamsCTA({ compact = false }: { compact?: boolean }) {
       </div>
       {seat ? CAN_OPEN_CHECKOUT && (
       <button
-        onClick={() => void openCheckout()}
+        onClick={whenWritable(() => void openBillingCheckout("teams"))}
         className="text-xs font-medium text-(--t-accent) hover:opacity-80 transition-opacity"
       >
         {t("members.cta.ownPlanBtn")}
@@ -63,9 +65,9 @@ export function UpgradeToTeamsCTA({ compact = false }: { compact?: boolean }) {
         className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
         style={{ background: "var(--t-accent)" }}
       >
-        {t("members.cta.upgradeBtn", { days: TEAMS_TRIAL_DAYS })}
+        {teamsTrialOffer ? t("members.cta.upgradeBtn", { days: TEAMS_TRIAL_DAYS }) : t("members.cta.upgradePlainBtn")}
       </button>
-      <p className="-mt-3 text-xs text-(--t-text-dim)">{t("members.cta.trialNote")}</p>
+      {teamsTrialOffer && <p className="-mt-3 text-xs text-(--t-text-dim)">{t("members.cta.trialNote")}</p>}
       </>)}
     </div>
   );

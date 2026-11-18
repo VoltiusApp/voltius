@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { resolveKnownHostConflict } from "@/services/knownHosts";
+import type { BackendErrorCode } from "@/services/backendErrors";
 import type {
   HostKeyConflictAction,
   HostKeyConflictEvent,
@@ -8,14 +9,16 @@ import type {
   StepConfig,
   StepEvent,
 } from "./types";
-import { activateStep, createSteps, markErrorStep } from "./utils";
+import { activateStep, createSteps, failedStepFor, markErrorStep } from "./utils";
 
 export function useConnectionSteps({
   status,
+  errorCode,
   stepConfigs,
   stepEventName,
 }: {
   status: "connecting" | "connected" | "error" | "disconnected";
+  errorCode?: BackendErrorCode;
   stepConfigs: readonly StepConfig[];
   stepEventName: string;
 }): { steps: Step[]; visible: boolean } {
@@ -55,9 +58,12 @@ export function useConnectionSteps({
       return () => clearTimeout(timer);
     }
     if (status === "error") {
-      setSteps((currentSteps) => markErrorStep(currentSteps, lastActivatedRef.current));
+      const failed = failedStepFor(errorCode, stepConfigs);
+      setSteps((currentSteps) => failed
+        ? markErrorStep(activateStep(currentSteps, stepConfigs, failed), failed)
+        : markErrorStep(currentSteps, lastActivatedRef.current));
     }
-  }, [status, stepConfigs]);
+  }, [status, errorCode, stepConfigs]);
 
   return { steps, visible };
 }

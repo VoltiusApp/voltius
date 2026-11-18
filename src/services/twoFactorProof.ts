@@ -30,6 +30,19 @@ export class TwoFactorRequiredError<T = unknown> extends Error {
   }
 }
 
+/** `work` then `then`, also when `work` stops for a second factor and resumes later. */
+export async function afterSecondFactor<T, R>(work: () => Promise<T>, then: (result: T) => Promise<R>): Promise<R> {
+  let result: T;
+  try {
+    result = await work();
+  } catch (e) {
+    if (!(e instanceof TwoFactorRequiredError)) throw e;
+    const step = e as TwoFactorRequiredError<T>;
+    throw new TwoFactorRequiredError(step.methods, (proof) => afterSecondFactor(() => step.complete(proof), then), step.openPasskey);
+  }
+  return then(result);
+}
+
 const MESSAGE_KEYS: Record<string, string> = {
   TWO_FACTOR_REQUIRED: "common.error.twoFactorRequired",
   TWO_FACTOR_INVALID: "common.error.twoFactorInvalid",
@@ -40,14 +53,13 @@ const MESSAGE_KEYS: Record<string, string> = {
   PASSKEY_LIMIT: "common.error.passkeyLimit",
 };
 
-export async function twoFactorCode(res: Response): Promise<string | null> {
-  const body = await res.json().catch(() => null);
-  const code = body && typeof body === "object" ? (body as { error?: unknown }).error : null;
-  return typeof code === "string" && code in MESSAGE_KEYS ? code : null;
+/** The translated refusal for a server's two-factor error code, else null. */
+export function twoFactorCodeError(code: unknown): Error | null {
+  return typeof code === "string" && code in MESSAGE_KEYS ? new Error(i18n.t(MESSAGE_KEYS[code])) : null;
 }
 
 /** The translated refusal when a failed response carries a two-factor code, else null. Reads the body. */
 export async function twoFactorError(res: Response): Promise<Error | null> {
-  const code = await twoFactorCode(res);
-  return code ? new Error(i18n.t(MESSAGE_KEYS[code])) : null;
+  const body = await res.json().catch(() => null);
+  return twoFactorCodeError(body && typeof body === "object" ? (body as { error?: unknown }).error : null);
 }

@@ -17,6 +17,11 @@
         "bodyBilling": "从现在起，此团队由 {{name}} 自己的 Teams 或 Business 订阅付费，且只有其可以删除团队。你的订阅保持不变：请自行减少席位或取消订阅。",
         "bodySelfHosted": "只有 {{name}} 可以删除此团队。你仍是所有者，之后可以离开。"
       },
+      "invite": {
+        "title": "邀请 {{name}} 成为所有者？",
+        "body": "所有者拥有全部权限，包括添加和移除其他所有者。主所有者和账单保持不变。",
+        "confirm": "发送所有者邀请"
+      },
       "grant": {
         "title": "将 {{name}} 设为所有者？",
         "body": "所有者拥有全部权限，包括添加和移除其他所有者。",
@@ -75,11 +80,14 @@
       "ADMINISTRATOR": "管理员"
     },
     "permissions": {
+      "youLack": "你没有执行此操作的权限",
+      "youCannotEdit": "你没有编辑此项的权限",
       "title": "权限",
       "inheritedFrom": "来自 {{roles}}",
       "notGranted": "没有角色授予此权限",
       "effectiveAllowed": "已允许",
       "effectiveDenied": "已拒绝",
+      "withExceptions": "有例外",
       "state": { "deny": "拒绝", "inherit": "继承", "allow": "允许" },
       "readOnlyNoManage": "需要「管理成员」权限",
       "readOnlyOwner": "无法覆盖所有者的权限",
@@ -125,6 +133,7 @@
       "nameHint": "留空则显示其用户名。"
     },
     "invite": {
+      "ownerOnlyOwners": "只有所有者才能邀请他人成为所有者",
       "nameLabel": "在此团队中的名称",
       "namePlaceholder": "例如 Jan Novák",
       "nameHint": "团队成员将看到此名称而不是其用户名。只有管理员可以更改。",
@@ -146,7 +155,7 @@
       "inviteArrow": "邀请 →",
       "handleRule": "只有自定义用户名支持按部分名称匹配。对于自动生成的用户名（如 rapid-violet-8884），请完整输入，或改用对方的邮箱邀请。",
       "seatsUnknown": "座位数量暂不可用 — 请检查与同步服务器的连接",
-      "seatsUnlimited": "已使用 {{used}} · 不限",
+      "seatsUnlimited": "已使用 {{used}} / ∞ 个座位",
       "inviteAction": "邀请",
       "joinsAs": "他们将以此身份加入",
       "selectRoleHint": "邀请前请至少选择一个角色",
@@ -158,6 +167,7 @@
       "resendTitle": "重新发送此邀请"
     },
     "roleBlurb": {
+      "owner": "所有者拥有全部权限，包括添加和移除其他所有者。",
       "manager": "管理员可以邀请他人、更改角色并管理链接。",
       "editor": "编辑者可以在此保险库中添加和更改主机、密钥和代码片段。",
       "member": "成员可以使用此保险库中的所有内容，但无法更改。",
@@ -179,6 +189,7 @@
       "userAdded": "已添加 {{name}}",
       "invitingEmail": "正在邀请 {{email}}…",
       "invitationSentToEmail": "已发送邀请给 {{email}}",
+      "invitationEmailNotSent": "邀请已保存，但无法向 {{email}} 发送邮件。对方使用此地址注册后即会加入团队。",
       "invitingToSession": "正在邀请 {{name}} 加入会话…",
       "invitedToSession": "已邀请 {{name}} 加入会话",
       "convertingVault": "正在将 {{vault}} 转换为团队保险库…",
@@ -199,6 +210,8 @@
       "convertFailed": "无法将 {{vault}} 转换为团队保险库 — {{reason}}",
       "serverUnreachable": "无法连接到同步服务器",
       "removeFailed": "无法移除 {{name}} — {{reason}}",
+      "removePartial": "已移除 {{removed}}。无法移除 {{failed}} — {{reason}}",
+      "undoRolesNotRestorable": "无法准确恢复 {{name}} 的角色。请重新邀请并手动设置角色。",
       "revokeFailed": "无法撤销 {{name}} 的邀请 — {{reason}}",
       "grantKeyFailed": "无法为 {{name}} 授予保险库访问权 — {{reason}}",
       "memberHasNoPublicKey": "对方尚未发布密钥 — 请让他们先登录一次。",
@@ -246,8 +259,9 @@
       "ownPlanTitle": "将保险库转换为团队需要您自己的 Teams 套餐",
       "upgradeDesc": "邀请成员、分配角色并与团队安全共享凭据。",
       "upgradeBtn": "免费试用 Teams {{days}} 天 →",
+      "upgradePlainBtn": "升级到 Teams →",
       "ownPlanBtn": "购买您自己的 Teams 套餐 →",
-      "trialNote": "需绑定银行卡 · 试用期内不扣费"
+      "trialNote": "无需信用卡 · 最多 10 位队友"
     },
     "joinLinks": {
       "explainer": "任何拥有此链接的人都会以您选定的角色加入此保险库。链接永远不会携带保险库密钥 — 密钥会在已持有它的人上线时单独送达。",
@@ -308,6 +322,77 @@
       "newLink": "新建链接",
       "cancel": "取消"
     },
+    "enrollment": {
+      "title": "设备注册",
+      "explainer": "一个全公司通用的令牌,用于通过 Ansible 或 MDM 部署 Voltius。使用它的人会申请加入 {{team}}。",
+      "domainsLabel": "允许的邮箱域名",
+      "domainPlaceholder": "添加域名",
+      "removeDomain": "移除 {{domain}}",
+      "invalidDomain": "{{domain}} 不是域名(例如 example.com)。",
+      "approve": "每次加入都由管理员批准",
+      "noEmail": "此服务器无法发送电子邮件,因此每次加入都必须由管理员批准。",
+      "expiresLabel": "有效期",
+      "expiry": {
+        "never": "永不过期",
+        "day30": "30 天",
+        "day90": "90 天",
+        "year1": "1 年"
+      },
+      "create": "创建令牌",
+      "guardHint": "每次加入都需要匹配的邮箱域名、管理员批准,或两者兼备。",
+      "copyNow": "请立即复制;之后不会再次显示。",
+      "example": "示例",
+      "tokenLabel": "注册令牌",
+      "approvalOn": "管理员批准",
+      "approvalOff": "无需批准",
+      "expiresOn": "{{date}} 到期",
+      "neverExpires": "永不过期",
+      "expiredOn": "已于 {{date}} 过期",
+      "expiredHint": "请轮换以获取可用的令牌。",
+      "createdBy": "创建者 {{name}} · {{date}}",
+      "createdOn": "创建于 {{date}}",
+      "lastUsed": "上次使用 {{when}}",
+      "neverUsed": "从未使用",
+      "counts": "已加入 {{joined}} · 等待中 {{waiting}}",
+      "notShownAgain": "令牌不会再次显示。请轮换以获取新令牌。",
+      "rotate": "轮换",
+      "rotateTitle": "轮换注册令牌?",
+      "rotateMessage": "当前令牌将不能再用于新的注册。已使用它注册的设备会继续获得团队策略。",
+      "rotateConfirm": "轮换令牌",
+      "revoke": "撤销",
+      "revokeTitle": "撤销注册令牌?",
+      "revokeMessage": "设备将无法再使用它注册,已使用它注册的设备将不再获得团队策略。已加入的人仍是成员。",
+      "revokeConfirm": "撤销令牌",
+      "lapsed": "设备注册需要团队的 Business 方案。",
+      "loadFailed": "无法加载注册令牌 — {{reason}}",
+      "toast": {
+        "create": {
+          "pending": "正在创建令牌…",
+          "done": "注册令牌已创建",
+          "failed": "无法创建令牌 — {{reason}}"
+        },
+        "rotate": {
+          "pending": "正在轮换令牌…",
+          "done": "注册令牌已轮换",
+          "failed": "无法轮换令牌 — {{reason}}"
+        },
+        "revoke": {
+          "pending": "正在撤销令牌…",
+          "done": "注册令牌已撤销",
+          "failed": "无法撤销令牌 — {{reason}}"
+        }
+      },
+      "error": {
+        "gone": "此注册令牌已被撤销或已过期。",
+        "needsGuard": "请添加邮箱域名或要求批准。",
+        "needsApproval": "此服务器无法发送电子邮件,因此每次加入都需要管理员批准。",
+        "domainMismatch": "其邮箱域名不在令牌的列表中。",
+        "invalid": "服务器拒绝了这些设置。",
+        "forbidden": "你没有管理设备注册的权限。"
+      },
+      "copyLink": "复制链接",
+      "copyLinkTitle": "复制可在此注册上打开 Voltius 的链接"
+    },
     "leaveTeam": "退出团队",
     "offboarding": {
       "removeTitle_one": "将 {{names}} 移出此团队？",
@@ -340,12 +425,272 @@
       "forceVault": "要求“锁定保险库”",
       "forceVaultDesc": "成员无法选择锁定屏幕，因此锁定时总会从内存中移除保险库密钥。",
       "immediateVaultWarning": "同时选择“立即”和“锁定保险库”时，成员每次离开 Voltius（即使很短暂）都会关闭已打开的会话。",
-      "appliesToAll": "适用于所有成员，包括你。旧版 Voltius 不会执行此策略。",
+      "appliesToAll": "适用于所有成员，包括你。",
       "lockBody": "锁定策略需要团队的 Business 方案。",
       "lapsed": "Business 方案已失效：此策略仍然生效，你可以将其移除。",
       "remove": "移除策略",
       "saving": "正在保存锁定策略…",
       "saved": "锁定策略已保存"
+    },
+    "keyHealth": {
+      "title": "保险库密钥状态",
+      "state": {
+        "upToDate": "最新",
+        "rotationPending": "待更换密钥",
+        "reencryptPending": "正在重新加密",
+        "attention": "需要处理",
+        "unavailable": "不可用"
+      },
+      "version": "密钥版本 {{version}} · {{time}}更换",
+      "versionNever": "密钥版本 {{version}} · 从未更换",
+      "uncovered_one": "{{count}} 位成员缺少当前密钥。",
+      "uncovered_other": "{{count}} 位成员缺少当前密钥。",
+      "requested": "有成员于{{time}}离开，需要更换新密钥。",
+      "remaining_one": "{{count}} 个项目仍在使用旧密钥。",
+      "remaining_other": "{{count}} 个项目仍在使用旧密钥。",
+      "remainingUnknown": "部分项目仍在使用旧密钥。",
+      "blocked": "在它们重新加密之前，无法生成新密钥。",
+      "fromServer": "由服务器报告。",
+      "device": {
+        "never": "此设备尚未尝试。",
+        "finished": "此设备于{{time}}完成了上次尝试。",
+        "failed_one": "此设备于{{time}}尝试：{{count}} 个项目失败。",
+        "failed_other": "此设备于{{time}}尝试：{{count}} 个项目失败。",
+        "stopped": "此设备于{{time}}尝试后停止：{{reason}}",
+        "skipped_one": "{{count}} 个项目需要有编辑权限的人处理。",
+        "skipped_other": "{{count}} 个项目需要有编辑权限的人处理。"
+      },
+      "step": {
+        "status": "无法连接服务器。",
+        "rotate": "服务器拒绝了新密钥。",
+        "drain": "无法重新加密保险库。"
+      },
+      "loadFailed": "无法读取密钥状态。请检查网络连接后刷新。",
+      "retry": "立即重试",
+      "retrying": "正在重试…",
+      "refresh": "刷新",
+      "retryDenied": "生成新密钥需要“查看密码”和“复制密码”权限。",
+      "stuck": {
+        "title": "仍使用旧密钥的项目",
+        "truncated": "仅显示前 {{count}} 个。",
+        "hidden_one": "还有 {{count}} 个项目对你隐藏。需要能看到它的人重试。",
+        "hidden_other": "还有 {{count}} 个项目对你隐藏。需要能看到它们的人重试。"
+      },
+      "reason": {
+        "orphan": "已删除项目的残留",
+        "undecryptable": "无法解密",
+        "uploadFailed": "无法保存，请重试。",
+        "needsEditor": "需要有编辑权限的人处理",
+        "waiting": "等待下次尝试"
+      },
+      "kind": {
+        "secret": "{{name}} 的密码或密钥",
+        "deleted": "已删除的项目",
+        "blob": "旧版保险库数据"
+      },
+      "unnamed": "未命名{{type}}",
+      "type": {
+        "connection": "主机",
+        "identity": "身份",
+        "key": "SSH 密钥",
+        "folder": "文件夹",
+        "snippet": "代码片段",
+        "snippet_folder": "代码片段文件夹",
+        "port_forwarding_rule": "端口转发规则"
+      },
+      "remove": "移除",
+      "removeTitle": "移除 {{name}}？",
+      "removeBody": "它无法解密，导致此保险库无法更换新密钥。移除后将对所有成员删除，且无法撤销。",
+      "removeOrphanBody": "它属于一个已不存在的项目。移除后，此保险库可以再次更换新密钥。",
+      "removing": "正在移除…",
+      "removed": "已移除",
+      "note": "新密钥保护从现在起保存的内容，无法收回前成员已经复制的任何内容。"
+    },
+    "devicePolicy": {
+      "title": "设备策略",
+      "empty": "在每位成员的 Voltius 上锁定设置。格式与 policy.json 相同。",
+      "locked_one": "{{count}} 项锁定",
+      "locked_other": "{{count}} 项锁定",
+      "limited_one": "{{count}} 项受限",
+      "limited_other": "{{count}} 项受限",
+      "updatedBy": "由 {{name}} 更新，{{time}}",
+      "updated": "更新于 {{time}}",
+      "show_one": "显示 {{count}} 项设置",
+      "show_other": "显示 {{count}} 项设置",
+      "hide": "隐藏设置",
+      "import": "导入",
+      "export": "导出",
+      "clear": "清除",
+      "lapsed": "导入策略需要 Business 方案。",
+      "olderVersions": "旧版 Voltius 只会应用应用锁设置。",
+      "loadFailed": "无法加载设备策略。",
+      "rangeMin": "最小 {{value}}",
+      "rangeMax": "最大 {{value}}",
+      "rangeBetween": "{{min}}–{{max}}",
+      "previewTitle": "导入团队策略",
+      "fixErrors_one": "请修正文件中的 {{count}} 个错误后重新导入。警告不会阻止保存。",
+      "fixErrors_other": "请修正文件中的 {{count}} 个错误后重新导入。警告不会阻止保存。",
+      "warningsOnly": "警告不会阻止保存。",
+      "replaces": "保存后将替换每位成员 Voltius 上的团队策略。",
+      "save": "保存策略",
+      "saving": "正在保存团队策略…",
+      "saved": "团队策略已保存",
+      "clearTitle": "清除团队策略？",
+      "clearMessage": "每位成员的 Voltius 将恢复为自己的设置。这也会移除上方的应用锁限制。",
+      "clearConfirm": "清除策略",
+      "clearing": "正在清除团队策略…",
+      "cleared": "团队策略已清除",
+      "issue": {
+        "machineOnly": "只能在本机策略中设置",
+        "defaults": "默认值应放在本机策略中，而不是团队策略",
+        "unknownKey": "此版本无法识别；较新版本可能会使用",
+        "type": "的值不被此设置接受",
+        "range": "的范围不被此设置接受",
+        "newerVersion": "此文件需要更新版本的 Voltius",
+        "file": "此文件不是有效的 policy.json",
+        "plainTimeout": "仅在较新版本的 Voltius 中生效。旧版本需要写成最大值：{{example}}"
+      }
+    },
+    "joinRequests": {
+      "title": "加入请求",
+      "via": "通过设备注册",
+      "reason": {
+        "approval": "等待批准",
+        "email_unverified": "等待邮箱验证",
+        "seat_limit": "没有可用席位"
+      },
+      "approve": "批准",
+      "deny": "拒绝",
+      "noSeatToast": "没有可用席位。请添加席位后再次批准。",
+      "emailUnverifiedToast": "对方仍需验证邮箱地址。验证后请再次批准。",
+      "gone": "该请求已被处理。",
+      "toast": {
+        "approve": {
+          "pending": "正在批准请求…",
+          "done": "请求已批准",
+          "failed": "无法批准请求 — {{reason}}"
+        },
+        "deny": {
+          "pending": "正在拒绝请求…",
+          "done": "请求已拒绝",
+          "failed": "无法拒绝请求 — {{reason}}"
+        }
+      }
+    },
+    "viewAs": {
+      "loading": "正在检查访问权限…",
+      "discardDraft": {
+        "title": "放弃未保存的更改？",
+        "body": "退出预览将丢弃你对 {{name}} 访问权限的未保存更改。",
+        "confirm": "放弃并退出"
+      },
+      "reason": {
+        "needsBusiness": "“以成员身份查看”是 Business 套餐的功能",
+        "needsManage": "使用“以成员身份查看”需要“管理成员”或“管理角色”权限",
+        "self": "无法对自己使用“以成员身份查看”",
+        "serverTooOld": "请更新服务器以使用“以成员身份查看”",
+        "previewing": "请先退出当前预览"
+      },
+      "noPermission": "你没有预览此内容的权限",
+      "ended": "预览已结束：该成员或角色已不可用",
+      "failed": "无法加载预览",
+      "readOnly": "只读预览",
+      "lacksPermission": "该成员的角色不允许此操作",
+      "locked": {
+        "auditLog": "审计日志对该成员已锁定",
+        "sessions": "终端会话对该成员已锁定"
+      },
+      "viewingAs": "正在以 {{name}} 的身份查看",
+      "viewingAsReadOnly": "正在以 {{name}} 的身份查看 · 只读",
+      "unsaved_one": "{{count}} 项未保存的更改",
+      "unsaved_other": "{{count}} 项未保存的更改",
+      "discard": "放弃",
+      "save": "保存",
+      "saveConfirm": "保存…",
+      "exit": "退出",
+      "changesAccess_one": "将更改 {{count}} 位成员的访问权限",
+      "changesAccess_other": "将更改 {{count}} 位成员的访问权限",
+      "roleTitle": "角色 {{name}}",
+      "manageRolesRequired": "需要「管理角色」权限",
+      "builtinReadOnly": "内置角色无法编辑",
+      "affects_one": "影响 {{count}} 位成员",
+      "affects_other": "影响 {{count}} 位成员",
+      "roleKeyLoss": {
+        "title": "移除保险库密钥访问权限？",
+        "body": "{{names}} 将失去保险库密钥。密钥将为其他所有人轮换。",
+        "confirm": "保存并轮换密钥"
+      },
+      "hiddenFrom": "对 {{name}} 隐藏",
+      "hiddenNoKey": "{{name}} 没有保险库密钥",
+      "cannotEdit": "该成员的角色不允许编辑",
+      "draftBadge": "草稿",
+      "draftTag": "（草稿）",
+      "draftChange": "草稿：{{from}} → {{to}}",
+      "ownerElsewhere": "所有者变更需在别处进行",
+      "keyLoss": "保存后，{{name}}将失去保险库密钥，并为其他成员轮换密钥。",
+      "saveFailed": "{{total}} 项更改中有 {{failed}} 项未能应用",
+      "access": {
+        "title": "{{name}}的访问权限",
+        "subtitle": "左侧预览你的修改。尚未保存任何内容。",
+        "can": "{{name}}可以",
+        "allPermissions": "所有权限…"
+      },
+      "step": {
+        "overrides": "权限覆盖",
+        "addRole": "添加{{role}}",
+        "removeRole": "移除{{role}}"
+      },
+      "level": {
+        "hidden": "已隐藏",
+        "view": "仅查看",
+        "connect": "可连接",
+        "edit": "可编辑"
+      },
+      "secrets": {
+        "yes": "可见密钥",
+        "no": "密钥已隐藏"
+      },
+      "why": {
+        "noVaultKey": "{{name}} 没有保险库密钥，因此无法打开此保险库中的任何内容",
+        "as": "以 {{name}} 身份",
+        "gets": "{{name}} 在此获得的权限",
+        "addsUp": "如何叠加",
+        "order": "按顺序应用：所有人，然后是 {{name}} 的角色，然后是 {{name}}。每一步中，允许可以撤销之前的拒绝；{{name}} 自己的全团队拒绝始终优先。",
+        "decidedByServer": "由服务器决定",
+        "notGranted": "{{name}} 的角色均不允许",
+        "someRole": "其某个角色",
+        "thisItem": "此项目",
+        "editRules": "编辑 {{folder}} 的规则",
+        "editRulesLocked": "需要 {{folder}} 的“管理角色”权限才能编辑其规则",
+        "editRulesUnavailable": "无法在此编辑 {{folder}} 的规则",
+        "editAccess": "编辑 {{name}} 的访问权限",
+        "step": {
+          "roles_one": "由角色 {{roles}} 允许",
+          "roles_other": "由角色 {{roles}} 允许",
+          "teamAllow": "{{name}} 在全团队范围内被允许",
+          "teamDeny": "{{name}} 在全团队范围内被拒绝",
+          "administrator": "{{name}} 拥有管理员权限",
+          "everyoneDeny": "所有人在 {{folder}} 上被拒绝",
+          "everyoneAllow": "所有人在 {{folder}} 上被允许",
+          "rolesDeny_one": "{{roles}} 在 {{folder}} 上被拒绝",
+          "rolesDeny_other": "{{roles}} 在 {{folder}} 上被拒绝",
+          "rolesAllow_one": "{{roles}} 在 {{folder}} 上被允许",
+          "rolesAllow_other": "{{roles}} 在 {{folder}} 上被允许",
+          "memberDeny": "{{name}} 在 {{folder}} 上被拒绝",
+          "memberAllow": "{{name}} 在 {{folder}} 上被允许",
+          "teamDenyLast": "{{name}} 自己的全团队拒绝优先于 {{folder}}",
+          "noView": "对 {{name}} 隐藏，因此其他规则均不适用",
+          "needsConnect": "密钥需要“连接”权限，而 {{name}} 在此没有",
+          "ruleNotShown": "由 {{folder}} 上的规则决定"
+        }
+      },
+      "viewAs": "以成员身份查看",
+      "previewAsRole": "以角色身份预览",
+      "menuItem": "以 {{name}} 的身份查看",
+      "summary": {
+        "title": "查看 {{name}} 可以访问的内容",
+        "counts": "{{hosts}} 个主机 · {{snippets}} 个片段 · {{keys}} 个密钥 · {{hidden}} 个已隐藏"
+      }
     }
   }
 }

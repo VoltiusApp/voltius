@@ -22,6 +22,7 @@ vi.mock("@/services/teamJoinGrants", async (importOriginal) => ({
 vi.mock("@/services/teamActionFeedback", () => ({
   runTeamAction: ({ run }: { run: () => Promise<unknown> }) => run(),
 }));
+vi.mock("./EnrolmentSection", () => ({ EnrolmentSection: () => null }));
 vi.mock("@/utils/clipboard", () => ({ writeClipboard: h.writeClipboard }));
 
 import { JoinLinksTab } from "./JoinLinksTab";

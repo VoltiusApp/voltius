@@ -1,3 +1,5 @@
+import { usePreviewActive } from "@/hooks/previewScope";
+import { ruleTarget, whenWritable, whenWritableOn } from "@/services/previewGuard";
 import { useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
@@ -16,6 +18,8 @@ import FolderFormSheet, { type FolderEdit } from "@/components/mobile/sheets/Fol
 import FolderActionsSheet from "@/components/mobile/sheets/FolderActionsSheet";
 import MobileFolderBreadcrumb from "@/components/mobile/folders/MobileFolderBreadcrumb";
 import MobileFolderRow from "@/components/mobile/folders/MobileFolderRow";
+import { GhostOr } from "@/components/preview/GhostCard";
+import { PreviewSubtitle } from "@/components/preview/PreviewHint";
 import FolderBackTrap from "@/components/mobile/folders/FolderBackTrap";
 import MobileRuleEditScreen from "./MobileRuleEditScreen";
 import { tunnelTypeChoices } from "@/components/port_forwarding/tunnelTypeChoices";
@@ -24,6 +28,7 @@ import { folderItemCounter } from "@/utils/folderTree";
 import type { PortForwardingRule, Folder, TunnelType } from "@/types";
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 
 type FormRule = PortForwardingRule | TunnelType | null | undefined;
 type AddMode = null | "menu" | "new-folder";
@@ -35,6 +40,7 @@ export default function MobilePortForwardingScreen() {
   const everyRule = useAllPortForwardingRules();
   const allRules = useMemo(() => everyRule.filter(inScope), [everyRule, inScope]);
   const folderCount = useMemo(() => folderItemCounter(allRules, pfFolders), [allRules, pfFolders]);
+  const previewing = usePreviewActive() !== null;
   const { statusFor, startRule, stopRule } = useRuleTunnels();
   const saveFolder = useFolderStore((s) => s.saveFolder);
   const updateFolder = useFolderStore((s) => s.updateFolder);
@@ -68,7 +74,7 @@ export default function MobilePortForwardingScreen() {
       <MobilePanelHeader
         title={t("mobile.morePages.portForwarding")}
         right={canCreateRule || canCreateFolder ? (
-          <button data-pf-add onClick={() => setAddMode("menu")} className="vt-icon-btn text-(--t-text-primary)">
+          <button data-pf-add onClick={whenWritable(() => setAddMode("menu"))} className="vt-icon-btn text-(--t-text-primary)">
             <Icon icon="lucide:plus" width={22} />
           </button>
         ) : undefined}
@@ -78,7 +84,7 @@ export default function MobilePortForwardingScreen() {
       <div className="px-4 py-1 text-xs text-(--t-text-dim)">{t("mobile.portForwardingScreen.summary", { total: allRules.length, active: allRules.filter((r) => statusFor(r).status === "active").length })}</div>
 
       <div ref={axisRef} data-mobile-folder-level className="flex-1 overflow-y-auto pb-4">
-        {!search && nav.folderPath.length === 0 && <MobileActiveTunnels />}
+        {!search && nav.folderPath.length === 0 && !previewing && <MobileActiveTunnels />}
         {!search && subfolders.map((f) => (
           <MobileFolderRow key={f.id} folder={f} count={folderCount(f.id)} onOpen={() => nav.navigateInto(f)} onActions={canEditFolder(f) ? () => setFolderSheet(f) : undefined} />
         ))}
@@ -86,26 +92,30 @@ export default function MobilePortForwardingScreen() {
         {rules.map((rule) => {
           const st = statusFor(rule);
           return (
-            <div key={rule.id} data-pf-rule className="w-full flex items-center gap-3 px-4 py-2.5">
-              <AvatarTile icon="lucide:arrow-left-right" className="w-9 h-9 rounded-lg" iconSize={18} />
+            <GhostOr key={rule.id} type="port_forwarding_rule" id={rule.id} icon={PORT_FORWARDING_ICON} name={rule.name} layout="row">
+            <div data-pf-rule className="w-full flex items-center gap-3 px-4 py-2.5">
+              <AvatarTile icon={PORT_FORWARDING_ICON} className="w-9 h-9 rounded-lg" iconSize={18} />
               <button className="flex-1 min-w-0 text-left" onClick={() => setSheetRule(rule)}>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-(--t-text-primary) truncate">{rule.name}</span>
                   <span lang="en" className="shrink-0 rounded-sm px-1 py-0.5 text-[9px] font-medium uppercase tracking-wide text-(--t-text-dim)" style={{ background: "var(--t-bg-card)" }}>{rule.tunnel_type}</span>
                 </div>
                 <div className={`text-[11px] truncate ${st.status === "error" ? "text-red-400" : "text-(--t-text-dim)"}`}>{st.statusLabel}</div>
-                <div className="text-[11px] font-mono text-(--t-text-dim) truncate">{rule.local_port} &rarr; {rule.remote_host}:{rule.remote_port}</div>
+                <PreviewSubtitle type="port_forwarding_rule" id={rule.id}>
+                  <div className="text-[11px] font-mono text-(--t-text-dim) truncate">{rule.local_port} &rarr; {rule.remote_host}:{rule.remote_port}</div>
+                </PreviewSubtitle>
               </button>
-              <button data-pf-toggle className="shrink-0 p-2 text-(--t-text-primary)" onClick={(e) => { e.stopPropagation(); if (st.status === "active") void stopRule(rule); else void startRule(rule); }}>
+              <button data-pf-toggle className="shrink-0 p-2 text-(--t-text-primary)" onClick={(e) => { e.stopPropagation(); whenWritableOn(ruleTarget(rule.id), () => { if (st.status === "active") void stopRule(rule); else void startRule(rule); })(); }}>
                 <Icon icon={st.isBusy ? "lucide:loader-circle" : st.status === "active" ? "lucide:pause" : "lucide:play"} width={18} className={st.isBusy ? "animate-spin" : undefined} />
               </button>
             </div>
+            </GhostOr>
           );
         })}
 
         {subfolders.length === 0 && rules.length === 0 && (
           <div className="flex flex-col items-center justify-center px-8 py-16 text-center text-(--t-text-dim)">
-            <Icon icon="lucide:arrow-left-right" width={28} className="mb-2 opacity-60" />
+            <Icon icon={PORT_FORWARDING_ICON} width={28} className="mb-2 opacity-60" />
             <p className="text-sm">{search.trim() ? t("mobile.portForwardingScreen.noSearchMatches") : t("mobile.portForwardingScreen.empty")}</p>
           </div>
         )}

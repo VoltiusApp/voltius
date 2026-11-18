@@ -7,14 +7,28 @@
       "noActiveSession": "No active session"
     },
     "historyPanel": {
+      "historyOff": "Command history is off.\nTurn it on in Settings › Terminal.",
       "removeFromHistory": "Remove from history",
       "searchPlaceholder": "Search history…",
-      "showCurrentOnly": "Showing current connection only",
       "showAllConnections": "Show all connections",
       "clearAllTitle": "Clear all history",
       "noCommandsMatch": "No commands match",
       "noHistoryForConnection": "No history for this connection yet",
-      "noHistoryYet": "No command history yet.\nCommands you type will appear here."
+      "noHistoryYet": "No command history yet.\nCommands you type will appear here.",
+      "favorites": "Favorites",
+      "recent": "Recent",
+      "addFavorite": "Add to favorites",
+      "addFavoriteTeam": "Add to favorites. Favorites are saved to your account and synced, and stay even if you leave the team.",
+      "removeFavorite": "Remove from favorites",
+      "saveAsSnippet": "Save as snippet…",
+      "showOnlyHost": "Show only {{host}}",
+      "clearHostFilter": "Clear host filter",
+      "showCurrentHost": "Show only the current host",
+      "clearConfirm_one": "Clear {{count}} command?",
+      "clearConfirm_other": "Clear {{count}} commands?",
+      "favoritesStay_one": "Your favorite stays.",
+      "favoritesStay_other": "Your {{count}} favorites stay.",
+      "clear": "Clear"
     },
     "multiplayerBar": {
       "ended": "Ended",
@@ -99,6 +113,7 @@
       "themeCustom": "custom",
       "createNewTheme": "Create New Theme",
       "closePanelTitle": "Close panel",
+      "resizeHandle": "Drag to resize, double-click to reset",
       "sections": {
         "history": "History",
         "sftp": "SFTP",
@@ -249,6 +264,7 @@
       "connectionError": {
         "title": "Connection failed",
         "retry": "Retry",
+        "enableLegacyAndRetry": "Turn on Legacy Algorithms and retry",
         "dismiss": "Dismiss"
       },
       "hostKeyConflict": {

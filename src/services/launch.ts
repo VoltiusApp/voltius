@@ -1,6 +1,7 @@
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
-import { buildQuickConnectConnection, buildWebQuickConnectConnection, type QuickConnectIntent } from "@/services/quickConnect";
+import { buildQuickConnectConnection, buildWebQuickConnectConnection, type QuickConnectTarget } from "@/services/quickConnect";
+import { connectionTarget, refuseWhilePreviewing } from "@/services/previewGuard";
 
 /** Bring the terminal view forward, closing the panels that would cover it. */
 export function goToTerminal(): void {
@@ -12,12 +13,14 @@ export function goToTerminal(): void {
 
 /** Connect to a saved host by id, then switch to the terminal view. */
 export function launchHost(connectionId: string): void {
+  if (refuseWhilePreviewing(connectionTarget(connectionId))) return;
   useSessionStore.getState().connect(connectionId).catch(() => {});
   goToTerminal();
 }
 
 /** Launch an SSH/web/serial/local quick-connect intent, then switch to the terminal view. */
-export function launchQuickConnect(intent: Exclude<QuickConnectIntent, null>): void {
+export function launchQuickConnect(intent: QuickConnectTarget): void {
+  if (refuseWhilePreviewing()) return;
   const s = useSessionStore.getState();
   if (intent.kind === "ssh") {
     s.connectDirect(buildQuickConnectConnection(intent)).catch(() => {});
@@ -34,6 +37,7 @@ export function launchQuickConnect(intent: Exclude<QuickConnectIntent, null>): v
 
 /** Open a plain local shell, then switch to the terminal view. */
 export function launchLocal(): void {
+  if (refuseWhilePreviewing()) return;
   useSessionStore.getState().connectLocal().catch(() => {});
   goToTerminal();
 }
@@ -43,6 +47,7 @@ export function launchLocal(): void {
  * to the preferred/default shell when no path is given.
  */
 export function launchLocalShell(shellPath?: string): void {
+  if (refuseWhilePreviewing()) return;
   const s = useSessionStore.getState();
   if (shellPath) s.beginLocalSession(shellPath);
   else s.connectLocal().catch(() => {});

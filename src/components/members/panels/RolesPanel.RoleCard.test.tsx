@@ -16,7 +16,7 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
-vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("@iconify/react", () => ({ Icon: ({ icon }: { icon: string }) => <i data-icon={icon} /> }));
 vi.mock("@/components/theme-creator/ColorPicker", () => ({ ColorPicker: () => null }));
 
 import { TeamRolesPanel } from "@/components/members/panels/RolesPanel";
@@ -36,7 +36,7 @@ beforeEach(() => {
   Object.values(api).forEach((f) => (f as ReturnType<typeof vi.fn>).mockReset?.());
   api.updateRole.mockResolvedValue(undefined);
   api.deleteRole.mockResolvedValue(undefined);
-  api.getMyUserId.mockResolvedValue("");
+  api.getMyUserId.mockResolvedValue("me");
   useTeamStore.setState({
     teams: [], membersByTeam: {}, rolesByTeam: {},
     pendingInvitationsByTeam: {}, myPendingInvitations: [], activeTeamId: null, loading: false,
@@ -48,7 +48,7 @@ afterEach(() => cleanup());
 test("delete is two-step: first click confirms (no service call), second click deletes", async () => {
   api.listRoles.mockResolvedValue([managerRole, role("custom1", 0, 100)]);
   api.listMembers.mockResolvedValue([member("me", ["mgr"])]);
-  render(<TeamRolesPanel teamId="t1" myUserId="me" />);
+  render(<TeamRolesPanel teamId="t1" />);
 
   const del = await screen.findByTitle("settings.vaults.rolesPanel.deleteRoleTitle");
   fireEvent.click(del);
@@ -63,7 +63,7 @@ test("delete failure surfaces error and does not remove the role", async () => {
   api.listRoles.mockResolvedValue([managerRole, role("custom1", 0, 100)]);
   api.listMembers.mockResolvedValue([member("me", ["mgr"])]);
   api.deleteRole.mockRejectedValue(new Error("del-boom"));
-  render(<TeamRolesPanel teamId="t1" myUserId="me" />);
+  render(<TeamRolesPanel teamId="t1" />);
 
   fireEvent.click(await screen.findByTitle("settings.vaults.rolesPanel.deleteRoleTitle"));
   fireEvent.click(await screen.findByTitle("settings.vaults.rolesPanel.clickToConfirm"));
@@ -75,21 +75,24 @@ test("delete failure surfaces error and does not remove the role", async () => {
 test("edit button opens the RoleModal editor", async () => {
   api.listRoles.mockResolvedValue([managerRole, role("custom1", 0, 100)]);
   api.listMembers.mockResolvedValue([member("me", ["mgr"])]);
-  render(<TeamRolesPanel teamId="t1" myUserId="me" />);
+  render(<TeamRolesPanel teamId="t1" />);
 
   fireEvent.click(await screen.findByTitle("settings.vaults.rolesPanel.editRole"));
   expect(await screen.findByText("settings.vaults.rolesPanel.saveChanges")).toBeTruthy();
 });
 
-test("canEdit=false (no MANAGE_ROLES): edit/delete controls hidden on custom role", async () => {
+test("canEdit=false (no MANAGE_ROLES): edit/delete controls greyed on custom role", async () => {
   api.listRoles.mockResolvedValue([role("viewer", PERM_BITS.VIEW_SECRETS, 0, true), role("custom1", 0, 100)]);
   api.listMembers.mockResolvedValue([member("me", ["viewer"])]);
-  render(<TeamRolesPanel teamId="t1" myUserId="me" />);
+  render(<TeamRolesPanel teamId="t1" />);
 
   // custom role list renders (business), but no edit/delete affordances
   await waitFor(() => expect(useTeamStore.getState().rolesByTeam.t1).toBeTruthy());
-  expect(screen.queryByTitle("settings.vaults.rolesPanel.editRole")).toBeNull();
-  expect(screen.queryByTitle("settings.vaults.rolesPanel.deleteRoleTitle")).toBeNull();
+  for (const icon of ["lucide:pencil", "lucide:trash-2"]) {
+    const button = document.querySelector<HTMLButtonElement>(`button[title="members.permissions.youLack"]:has([data-icon="${icon}"])`);
+    expect(button, icon).not.toBeNull();
+    expect(button!.disabled, icon).toBe(true);
+  }
 });
 
 test("built-in roles render as read-only builtin cards, never as editable custom cards", async () => {
@@ -98,7 +101,7 @@ test("built-in roles render as read-only builtin cards, never as editable custom
     role("admin", PERM_BITS.MANAGE_ROLES, 0, true),
   ]);
   api.listMembers.mockResolvedValue([member("me", ["mgr"])]);
-  render(<TeamRolesPanel teamId="t1" myUserId="me" />);
+  render(<TeamRolesPanel teamId="t1" />);
 
   expect((await screen.findAllByText("settings.vaults.rolesPanel.builtinBadge")).length).toBe(2);
   // No custom roles exist → empty custom state, and no delete control for the builtin
@@ -113,7 +116,7 @@ test("drag-reorder rewrites positions via updateRole for moved custom roles", as
     role("b", 0, 200),
   ]);
   api.listMembers.mockResolvedValue([member("me", ["mgr"])]);
-  render(<TeamRolesPanel teamId="t1" myUserId="me" />);
+  render(<TeamRolesPanel teamId="t1" />);
 
   const grips = await screen.findAllByTitle("settings.vaults.rolesPanel.dragToReorder");
   expect(grips.length).toBe(2);
@@ -126,4 +129,27 @@ test("drag-reorder rewrites positions via updateRole for moved custom roles", as
   // Reordered [b,a]: b→pos100 (was 200), a→pos200 (was 100); both differ → both persisted
   await waitFor(() => expect(api.updateRole).toHaveBeenCalledWith("t1", "b", { position: 100 }));
   expect(api.updateRole).toHaveBeenCalledWith("t1", "a", { position: 200 });
+});
+
+test("the header Preview as role is an icon that never shrinks, and the expanded card shows it labelled", async () => {
+  api.listRoles.mockResolvedValue([managerRole, role("Contractor", 0, 100)]);
+  api.listMembers.mockResolvedValue([member("me", ["mgr"])]);
+  render(<TeamRolesPanel teamId="t1" />);
+
+  for (const name of [await screen.findByText("Contractor"), screen.getByText("mgr")]) {
+    expect(name.className).toContain("min-w-0");
+    expect(name.className).toContain("truncate");
+    expect(name.closest("button")!.className).toContain("min-w-0");
+  }
+  const headers = screen.getAllByRole("button", { name: "members.viewAs.previewAsRole" });
+  expect(headers).toHaveLength(2);
+  for (const button of headers) {
+    expect(button.getAttribute("aria-label")).toBe("members.viewAs.previewAsRole");
+    expect(button.textContent).toBe("");
+    expect(button.className).toContain("shrink-0");
+  }
+  expect(screen.queryByText("members.viewAs.previewAsRole")).toBeNull();
+
+  fireEvent.click(screen.getByText("Contractor"));
+  expect(screen.getByText("members.viewAs.previewAsRole").closest("button")!.getAttribute("aria-label")).toBeNull();
 });

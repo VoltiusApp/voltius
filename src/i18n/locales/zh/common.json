@@ -24,7 +24,9 @@
       "pin": "置顶",
       "unpin": "取消置顶",
       "moreOptions": "更多选项",
-      "closePanel": "关闭面板"
+      "closePanel": "关闭面板",
+      "showPassword": "显示密码",
+      "hidePassword": "隐藏密码"
     },
     "entity": {
       "host": "主机",
@@ -60,6 +62,8 @@
       "search": "搜索…"
     },
     "toast": {
+      "invitationWithdrawnAtSignup": "你加入 {{team}} 的邀请已失效，因此未将你加入。请让团队重新发送邀请。",
+      "hostAccessRevoked": "你对 {{hosts}} 的访问权限已被撤销，因此已关闭其打开的会话。",
       "proSubscriptionEnded": "您的 Pro 订阅已结束——云同步已暂停。您的设备在同一网络中仍会同步。",
       "proSubscriptionEnded_ios": "您的 Pro 订阅已结束——同步已暂停。",
       "seatEnded": "您在 {{team}} 的席位已结束——云同步已暂停。您的设备在同一网络中仍会同步。",
@@ -80,6 +84,7 @@
       "disableCount": "仅保留在本设备 ({{count}})"
     },
     "error": {
+      "invitationWithdrawn": "此邀请已失效。请让团队重新发送。",
       "identityPickUnavailable": "你在 {{host}} 的身份不可用",
       "failedToListIdentityPicks": "无法加载你的身份选择（{{status}}）",
       "failedToSaveIdentityPick": "无法保存你的身份选择（{{status}}）",
@@ -101,6 +106,7 @@
       "failedToExportAuditLogs": "导出审计日志失败：{{status}}",
       "serverUnreachableTimeout": "服务器无法访问（超时）——请检查网络连接和服务器地址",
       "networkError": "网络错误——{{message}}",
+      "accountAlreadyActive": "您已在此设备上登录此账户",
       "emailAlreadyRegistered": "邮箱已被注册",
       "registrationFailed": "注册失败：{{status}}",
       "registrationDisabled": "此服务器已停用新账户注册。请向其管理员申请账户。",
@@ -231,7 +237,14 @@
       "twoFactorNotEnabled": "双重验证未开启。",
       "twoFactorExpired": "本次登录耗时过长。请重新开始。",
       "passkeyIncomplete": "通行密钥步骤未完成。请重试。",
-      "passkeyLimit": "此账户的通行密钥数量已达上限。"
+      "passkeyLimit": "此账户的通行密钥数量已达上限。",
+      "teamPolicyConflict": "其他人修改了团队策略。请查看后重新导入。",
+      "teamPolicyRefused": "服务器拒绝了此策略：{{reason}}",
+      "failedToLoadTeamPolicy": "加载团队策略失败：{{status}}",
+      "failedToSaveTeamPolicy": "保存团队策略失败：{{status}}",
+      "invitationLookupFailed": "无法检查此邀请（HTTP {{status}}）。",
+      "invitationNotFound": "此邀请已过期或已被使用。请请求新的邀请。",
+      "invitationEmailMismatch": "此邀请发送到了另一个电子邮件地址。"
     },
     "clipboard": {
       "cut_one": "已剪切 {{count}} 个项目",
@@ -247,12 +260,12 @@
       "crossVaultMoveDescription_other": "{{count}} 个项目将离开当前保险库并移动到 {{targetVaultName}}。",
       "crossVaultCopyDescription_one": "{{count}} 个项目将被复制到 {{targetVaultName}}。",
       "crossVaultCopyDescription_other": "{{count}} 个项目将被复制到 {{targetVaultName}}。",
-      "cascadeMoved_one": "其{{names}}将一并移动。",
-      "cascadeMoved_other": "其{{names}}将一并移动。",
+      "cascadeMoved_one": "{{names}}也将一并移动。",
+      "cascadeMoved_other": "{{names}}也将一并移动。",
       "cascadeCopied_one": "{{names}}将被复制而非移动，因为留在原处的对象仍在使用它。",
       "cascadeCopied_other": "{{names}}将被复制而非移动，因为留在原处的对象仍在使用它们。",
-      "cascadeAlsoCopied_one": "其{{names}}也会一并复制。",
-      "cascadeAlsoCopied_other": "其{{names}}也会一并复制。",
+      "cascadeAlsoCopied_one": "{{names}}也会一并复制。",
+      "cascadeAlsoCopied_other": "{{names}}也会一并复制。",
       "pasteRootCrossVault": "同时显示多个保险库时，在顶层粘贴无法在保险库之间移动项目——请选择单个保险库，或在目标保险库中打开一个文件夹。",
       "pasteFailed": "粘贴失败：{{error}}",
       "pasteBlocked": "未粘贴任何内容：你在相关保险库中缺少“{{permissions}}”权限。",
@@ -285,6 +298,23 @@
       "minutesAgo": "{{count}} 分钟前",
       "hoursAgo": "{{count}} 小时前",
       "daysAgo": "{{count}} 天前"
+    },
+    "cliPending": {
+      "failed_one": "来自 voltius-cli 的 {{count}} 项更改无法应用。",
+      "failed_other": "来自 voltius-cli 的 {{count}} 项更改无法应用。"
+    },
+    "policy": {
+      "managed": "由您的组织管理",
+      "managedByTeam": "由 {{team}} 管理",
+      "rangeMax": "您的组织最多允许 {{value}}",
+      "rangeMin": "您的组织允许 {{value}} 或以上",
+      "rangeBetween": "您的组织允许 {{min}}–{{max}}",
+      "rangeAllowed": "您的组织允许：{{values}}",
+      "serverBlocked": "您的组织不允许使用此服务器",
+      "accountNotSaved": "无法先保存当前账户，因此未做任何更改",
+      "fileError": "无法读取您的组织的 Voltius 策略，因此其中的任何设置均不生效。",
+      "unprotected": "您的组织的 Voltius 策略文件已被忽略，因为标准用户可以修改它。请让您的 IT 团队使用 voltius-cli 进行设置。",
+      "issues_other": "贵组织的 Voltius 策略存在 {{count}} 个问题；其余部分仍然生效。"
     },
     "history": {
       "movedItems_other": "已移动 {{count}} 个项目",

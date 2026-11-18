@@ -1,11 +1,11 @@
 import { create } from "zustand";
 import i18n from "@/i18n";
-import type { Connection, ConnectRetryOverride, IdentitySaveAs, TerminalSession, SerialConnectParams, SerialLine } from "@/types";
+import type { Connection, ConnectionFormData, ConnectRetryOverride, IdentitySaveAs, TerminalSession, SerialConnectParams, SerialLine } from "@/types";
 import { sshConnect, sshDisconnect, sshDisconnectForReconnect, sshDetectDistro, sshSendInput } from "@/services/ssh";
 import { resolveKeepalive } from "@/utils/keepalive";
 import { normalizeTabTitle } from "@/utils/sessionLabel";
-import { getGlobalKeepalivePreset, resolveDetachedTtlSecs, resolvePersistSession } from "@/stores/connectivitySettingsStore";
-import { localConnect, localDisconnect } from "@/services/local";
+import { resolveHostKeepalive, resolveDetachedTtlSecs, resolvePersistSession } from "@/stores/connectivitySettingsStore";
+import { localConnect, localDisconnect, policyShell } from "@/services/local";
 import { serialConnect, serialDisconnect, serialSetLine } from "@/services/serial";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
 import { identityCredentials, type ResolvedCredentials } from "@/services/credentialLogic";
@@ -24,8 +24,8 @@ import { reportAuditClientEvent, type ClientAuditAction } from "@/services/audit
 import { useConnectionStore, connectionToFormData } from "./connectionStore";
 import { findSavedHostMatch } from "./savedHostMatch";
 import { useUIStore } from "./uiStore";
-import { useTerminalSettingsStore } from "./terminalSettingsStore";
-import { getToggle } from "./toggleSettingsStore";
+import { preferredShellSetting } from "./terminalSettingsStore";
+import { getToggle, hostToggle } from "./toggleSettingsStore";
 import { useLayoutStore } from "./layoutStore";
 import { useTerminalCwdStore } from "./terminalCwdStore";
 import { usePanelSftpStore } from "./panelSftpStore";
@@ -37,6 +37,9 @@ import { runHostCommand } from "@/services/hostCommandRun";
 import { notifyError } from "@/utils/notifyError";
 import { isFileOnlyProtocol, isWebProtocol, webUrl } from "@/utils/connectionType";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
+import { onConnectionsRevoked } from "@/services/connectionRevocations";
+import { appToast } from "@/services/appToast";
+import { connectionTarget, refuseOrThrow, refuseWhilePreviewing } from "@/services/previewGuard";
 
 /** `background: true` opens the session without taking the user's active tab. */
 export type OpenOptions = { background?: boolean };
@@ -62,7 +65,8 @@ interface SessionStore {
   closeSerialPort: (sessionId: string) => Promise<void>;
   setSerialAutoReconnect: (sessionId: string, enabled: boolean) => Promise<void>;
   setSerialLine: (sessionId: string, line: SerialLine, level: boolean) => Promise<void>;
-  disconnect: (sessionId: string) => Promise<void>;
+  /** `detach`: leave a persistent session running on the host instead of killing it. */
+  disconnect: (sessionId: string, options?: { detach?: boolean }) => Promise<void>;
   setActive: (sessionId: string) => void;
   markDisconnected: (sessionId: string) => void;
   markConnecting: (sessionId: string) => void;
@@ -75,12 +79,15 @@ interface SessionStore {
   reconnectAttempt: (sessionId: string, options?: { restore?: boolean }) => Promise<ReconnectAttemptResult>;
   reconnectWithPassphrase: (sessionId: string, passphrase: string, save: boolean) => Promise<void>;
   retryConnect: (sessionId: string, override: ConnectRetryOverride, save: boolean) => Promise<void>;
+  /** Saves Legacy Algorithms on the session's host, then reconnects. */
+  enableLegacyAlgorithms: (sessionId: string) => Promise<void>;
   restoreSessions: (sessions: TerminalSession[], activeSessionId: string | null) => void;
   markConnected: (sessionId: string) => void;
   markError: (sessionId: string, message: string, code?: BackendErrorCode, identityPick?: IdentityPickIssue) => void;
   /** Name a tab. A blank name clears it, so the tab falls back to the connection. */
   renameSession: (sessionId: string, title: string | null) => void;
   setWebIcon: (sessionId: string, icon: string) => void;
+  setSessionsLocked: (sessionIds: string[], locked: boolean) => void;
 }
 
 type SessionSetter = (fn: (s: { sessions: TerminalSession[]; activeSessionId: string | null }) => Partial<SessionStore>) => void;
@@ -109,6 +116,14 @@ function findConnection(connectionId: string): Connection | undefined {
 /** The saved, team or ephemeral connection a session was opened from. */
 export function connectionForSession(session: TerminalSession): Connection | undefined {
   return session.connectionId ? findConnection(session.connectionId) : undefined;
+}
+
+async function patchConnection(connection: Connection, patch: Partial<ConnectionFormData>): Promise<void> {
+  if (ephemeralConnections.has(connection.id)) {
+    ephemeralConnections.set(connection.id, { ...connection, ...patch });
+    return;
+  }
+  await useConnectionStore.getState().updateConnection(connection.id, { ...connectionToFormData(connection), ...patch });
 }
 
 function reportConnectionAudit(connection: Connection, action: ClientAuditAction, creds?: ResolvedCredentials): void {
@@ -147,7 +162,7 @@ async function buildSshConnectOptions(
 }> {
   const [jumpHosts, route] = await Promise.all([resolveJumpHosts(connection), resolveFirstHop(connection)]);
   const envVars = connection.env_vars?.map((e): [string, string] => [e.key, e.value]) ?? [];
-  const { intervalSecs, max } = resolveKeepalive(connection.keepalive_preset ?? getGlobalKeepalivePreset());
+  const { intervalSecs, max } = resolveKeepalive(resolveHostKeepalive(connection.keepalive_preset));
 
   let dims: { cols: number; rows: number } | Record<string, never> = {};
   try {
@@ -164,7 +179,7 @@ async function buildSshConnectOptions(
     legacyAlgorithms: connection.legacy_algorithms ?? false,
     preCommand: inlineCommandForBackend(connection, "pre"),
     autoForward: getToggle("auto-forward"),
-    shellIntegration: connection.shell_integration ?? getToggle("shell-integration"),
+    shellIntegration: hostToggle("shell-integration", connection.shell_integration),
     keepaliveIntervalSecs: intervalSecs,
     keepaliveMax: max,
     persist: resolvePersistSession(connection.persist_session),
@@ -179,13 +194,48 @@ async function buildSshConnectOptions(
  * the tab the user is working in, so it leaves both the active session and the
  * split view untouched — unless there is no active session to preserve.
  */
-function addSession(set: SessionSetter, session: TerminalSession, options: OpenOptions = {}) {
+export function addSession(set: SessionSetter, session: TerminalSession, options: OpenOptions = {}) {
   const focus = !options.background || useSessionStore.getState().activeSessionId === null;
   set((s) => ({
     sessions: [...s.sessions, session],
     activeSessionId: focus ? session.id : s.activeSessionId,
   }));
   if (focus) useLayoutStore.getState().setSplitTabActive(false);
+}
+
+export function localSessionDraft(id: string, shell: string | undefined, connectionName = formatLocalShellTitle(shell ?? null)): TerminalSession {
+  return { id, connectionId: "local", connectionName, status: "connecting", type: "local", localShell: shell };
+}
+
+export async function spawnLocalSession(sessionId: string, shell: string | undefined, cwd?: string, shellIntegration?: boolean): Promise<void> {
+  const spawned = await localConnect(sessionId, 80, 24, shell, cwd, shellIntegration);
+  const sess = useSessionStore.getState().sessions.find((x) => x.id === sessionId);
+  if (!sess || sess.localShell === spawned) return;
+  const derivedName = sess.connectionName === formatLocalShellTitle(sess.localShell ?? null);
+  patchSession(useSessionStore.setState as SessionSetter, sessionId, {
+    localShell: spawned,
+    ...(derivedName && { connectionName: formatLocalShellTitle(spawned ?? null) }),
+  });
+}
+
+export async function settleLocalSpawn(sessionId: string, spawn: Promise<unknown>): Promise<void> {
+  try {
+    await spawn;
+  } catch (err) {
+    markSessionError(useSessionStore.setState as SessionSetter, sessionId, err);
+    throw err;
+  }
+  useSessionStore.getState().markConnected(sessionId);
+}
+
+async function startLocalSession(set: SessionSetter, cwd?: string): Promise<void> {
+  if (refuseWhilePreviewing()) return;
+  const sessionId = crypto.randomUUID();
+  const shell = await policyShell(preferredShellSetting.get() ?? undefined);
+  addSession(set, localSessionDraft(sessionId, shell));
+  await settleLocalSpawn(sessionId, spawnLocalSession(sessionId, shell, cwd, getToggle("shell-integration")));
+  useUIStore.getState().setActiveNav("terminal");
+  useUIStore.getState().setSidebarOpen(false);
 }
 
 async function startSession(
@@ -374,18 +424,17 @@ function markSessionError(
   const msg = describeError(err, i18n.t);
   const errorCode = code ?? backendErrorCode(err) ?? undefined;
   const pick = identityPick ?? identityPickIssueOf(err);
-  set((s) => ({
-    sessions: s.sessions.map((sess) =>
-      sess.id === sessionId && (!onlyIfConnecting || sess.status === "connecting")
-        ? { ...sess, status: "error" as const, errorMessage: msg, errorCode, identityPick: pick }
-        : sess,
-    ),
-  }));
+  patchSession(
+    set,
+    sessionId,
+    { status: "error", errorMessage: msg, errorCode, identityPick: pick },
+    (sess) => !onlyIfConnecting || sess.status === "connecting",
+  );
 }
 
-function patchSession(set: SessionSetter, sessionId: string, patch: Partial<TerminalSession>) {
+function patchSession(set: SessionSetter, sessionId: string, patch: Partial<TerminalSession>, onlyIf?: (sess: TerminalSession) => boolean) {
   set((s) => ({
-    sessions: s.sessions.map((sess) => (sess.id === sessionId ? { ...sess, ...patch } : sess)),
+    sessions: s.sessions.map((sess) => (sess.id === sessionId && (!onlyIf || onlyIf(sess)) ? { ...sess, ...patch } : sess)),
   }));
 }
 
@@ -649,12 +698,17 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   activeSessionId: null,
 
   connect: async (connectionId, options) => {
+    refuseOrThrow(connectionTarget(connectionId));
     return connectConnection(set as SessionSetter, connectionId, options);
   },
 
-  beginSession: (connectionId, initialCwd) => beginConnection(set as SessionSetter, connectionId, initialCwd),
+  beginSession: (connectionId, initialCwd) => {
+    refuseOrThrow(connectionTarget(connectionId));
+    return beginConnection(set as SessionSetter, connectionId, initialCwd);
+  },
 
   connectMany: async (connectionIds) => {
+    refuseOrThrow();
     const uniqueIds = [...new Set(connectionIds)];
     const sessionIds = uniqueIds.map((id) => beginConnection(set as SessionSetter, id));
     if (sessionIds.length === 0) throw new Error(i18n.t("common.error.noConnectionsSelected"));
@@ -662,6 +716,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   connectDirect: async (connection) => {
+    if (refuseWhilePreviewing()) return;
     const sessionId = crypto.randomUUID();
     ephemeralConnections.set(connection.id, connection);
     if (isWebProtocol(connection)) {
@@ -671,92 +726,20 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     await startSession(set as SessionSetter, connection, sessionId);
   },
 
-  connectLocal: async () => {
-    const sessionId = crypto.randomUUID();
-    const preferredShell = useTerminalSettingsStore.getState().preferredShell;
-    const session: TerminalSession = {
-      id: sessionId,
-      connectionId: "local",
-      connectionName: formatLocalShellTitle(preferredShell),
-      status: "connecting",
-      type: "local",
-      localShell: preferredShell ?? undefined,
-    };
-    addSession(set as SessionSetter, session);
-    try {
-      await localConnect(sessionId, 80, 24, preferredShell ?? undefined, undefined, getToggle("shell-integration"));
-      set((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
-        ),
-      }));
-      useUIStore.getState().setActiveNav("terminal");
-      useUIStore.getState().setSidebarOpen(false);
-    } catch (err) {
-      set((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "error" as const } : sess,
-        ),
-      }));
-      throw err;
-    }
-  },
+  connectLocal: () => startLocalSession(set as SessionSetter),
 
-  connectLocalAt: async (cwd: string) => {
-    const sessionId = crypto.randomUUID();
-    const preferredShell = useTerminalSettingsStore.getState().preferredShell;
-    const session: TerminalSession = {
-      id: sessionId,
-      connectionId: "local",
-      connectionName: formatLocalShellTitle(preferredShell),
-      status: "connecting",
-      type: "local",
-      localShell: preferredShell ?? undefined,
-    };
-    addSession(set as SessionSetter, session);
-    try {
-      await localConnect(sessionId, 80, 24, preferredShell ?? undefined, cwd, getToggle("shell-integration"));
-      set((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
-        ),
-      }));
-      useUIStore.getState().setActiveNav("terminal");
-      useUIStore.getState().setSidebarOpen(false);
-    } catch (err) {
-      set((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "error" as const } : sess,
-        ),
-      }));
-      throw err;
-    }
-  },
+  connectLocalAt: (cwd: string) => startLocalSession(set as SessionSetter, cwd),
 
   beginLocalSession: (shell, cwd) => {
+    refuseOrThrow();
     const sessionId = crypto.randomUUID();
-    const session: TerminalSession = {
-      id: sessionId,
-      connectionId: "local",
-      connectionName: formatLocalShellTitle(shell ?? null),
-      status: "connecting",
-      type: "local",
-      localShell: shell ?? undefined,
-    };
-    addSession(set as SessionSetter, session);
-    void localConnect(sessionId, 80, 24, shell, cwd, getToggle("shell-integration")).then(() => {
-      set((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
-        ),
-      }));
-    }).catch((err) => {
-      markSessionError(set, sessionId, err);
-    });
+    addSession(set as SessionSetter, localSessionDraft(sessionId, shell));
+    settleLocalSpawn(sessionId, spawnLocalSession(sessionId, shell, cwd, getToggle("shell-integration"))).catch(() => {});
     return sessionId;
   },
 
   connectAt: async (connectionId, cwd) => {
+    if (refuseWhilePreviewing(connectionTarget(connectionId))) return;
     await get().connect(connectionId);
     const session = get().sessions.find((s) => s.id === get().activeSessionId);
     if (session) {
@@ -769,6 +752,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   connectSerial: async (connectionId) => {
+    if (refuseWhilePreviewing(connectionTarget(connectionId))) return;
     const connection = findConnection(connectionId);
     if (!connection) throw new Error(i18n.t("common.error.connectionNotFound"));
 
@@ -779,6 +763,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   connectSerialEphemeral: async (initialPort?: string) => {
+    if (refuseWhilePreviewing()) return;
     const sessionId = crypto.randomUUID();
     const session: TerminalSession = {
       id: sessionId,
@@ -822,10 +807,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (!session) return;
     const connection = connectionForSession(session);
     if (connection) {
-      await useConnectionStore.getState().updateConnection(connection.id, {
-        ...connectionToFormData(connection),
-        serial_auto_reconnect: enabled,
-      });
+      await patchConnection(connection, { serial_auto_reconnect: enabled });
       return;
     }
     patchSession(set, sessionId, { autoReconnect: enabled });
@@ -836,7 +818,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     patchSession(set, sessionId, { serialLines });
   },
 
-  disconnect: async (sessionId) => {
+  disconnect: async (sessionId, options) => {
     cancelBackoff(sessionId);
     const session = get().sessions.find((s) => s.id === sessionId);
     // Awaited below, after the session row is removed: the tab closes immediately
@@ -871,8 +853,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           }
         } finally {
           try {
-            let kill = true;
-            if (persist) {
+            let kill = !options?.detach;
+            if (persist && kill) {
               const { otherDeviceListsSession } = await import("./crossDeviceSessionsStore");
               kill = !otherDeviceListsSession(sessionId);
             }
@@ -926,6 +908,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       sessions: s.sessions.map((sess) => (sess.id === sessionId ? { ...sess, webIcon: icon } : sess)),
     })),
 
+  setSessionsLocked: (sessionIds, locked) =>
+    set((s) => ({
+      sessions: s.sessions.map((sess) => (sessionIds.includes(sess.id) ? { ...sess, locked } : sess)),
+    })),
+
   markDisconnected: (sessionId) => markSessionDisconnected(set, sessionId),
 
   // Steady "connecting" the auto-reconnect loop holds across attempts, so the
@@ -953,13 +940,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     })),
 
   markConnected: (sessionId) =>
-    set((s) => ({
-      sessions: s.sessions.map((sess) =>
-        sess.id === sessionId
-          ? { ...sess, status: "connected" as const, errorMessage: undefined, errorCode: undefined, reconnectWait: undefined, everConnected: true }
-          : sess,
-      ),
-    })),
+    patchSession(set as SessionSetter, sessionId, {
+      status: "connected",
+      errorMessage: undefined,
+      errorCode: undefined,
+      reconnectWait: undefined,
+      everConnected: true,
+    }),
 
   markError: (sessionId, message, code, identityPick) => markSessionError(set, sessionId, message, { code, identityPick }),
 
@@ -1113,6 +1100,19 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }
   },
 
+  enableLegacyAlgorithms: async (sessionId) => {
+    const session = get().sessions.find((s) => s.id === sessionId);
+    const connection = session && connectionForSession(session);
+    if (!connection) return;
+    try {
+      await patchConnection(connection, { legacy_algorithms: true });
+    } catch (err) {
+      markSessionError(set, sessionId, err);
+      return;
+    }
+    await get().reconnect(sessionId);
+  },
+
   retryConnect: async (sessionId, override, save) => {
     const session = get().sessions.find((s) => s.id === sessionId);
     if (!session || session.type !== "ssh") return;
@@ -1242,3 +1242,13 @@ export function getSessionTransportType(sessionId: string): TerminalSession["typ
 export function encodeSessionText(sessionId: string, text: string): Uint8Array {
   return encodeTerminalInput(text, useSessionStore.getState().sessions.find((s) => s.id === sessionId)?.encoding);
 }
+
+onConnectionsRevoked((revoked) => {
+  const closing = useSessionStore.getState().sessions.filter(
+    (s) => revoked.has(s.connectionId) && s.type !== "local" && s.type !== "multiplayer",
+  );
+  if (closing.length === 0) return;
+  for (const s of closing) void useSessionStore.getState().disconnect(s.id, { detach: true });
+  const hosts = [...new Set(closing.map((s) => s.connectionName))].join(", ");
+  appToast("warning", i18n.t("common.toast.hostAccessRevoked", { hosts }), { duration: 10000 });
+});

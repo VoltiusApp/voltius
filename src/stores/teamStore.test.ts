@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { test, expect, vi, beforeEach } from "vitest";
 import type { Team, TeamMember, TeamRole } from "@/services/teamService";
+import { makeTeam } from "@/test/team";
 
 const api = vi.hoisted(() => ({
   listTeams: vi.fn(), listMembers: vi.fn(), listRoles: vi.fn(),
@@ -15,8 +16,7 @@ vi.mock("@tauri-apps/api/core", () => tauri);
 
 import { useTeamStore } from "./teamStore.ts";
 
-const team = (id: string, role_ids: string[] = []): Team =>
-  ({ id, name: id, owner_id: "o", owner_tier: "business", created_at: "", role_ids });
+const team = (id: string, role_ids: string[] = []): Team => makeTeam(id, { role_ids });
 const member = (user_id: string, role_ids: string[] = []): TeamMember =>
   ({ team_id: "t1", user_id, handle: "", public_key: "", invited_by_display_name: null, joined_at: "", role_ids });
 const role = (id: string, permissions = 0): TeamRole =>
@@ -40,6 +40,13 @@ test("loadTeams populates teams and auto-selects the first as active", async () 
   expect(get().teams.map((t) => t.id)).toEqual(["t1", "t2"]);
   expect(get().activeTeamId).toBe("t1");
   expect(get().loading).toBe(false);
+});
+
+test("teamsLoaded turns on after a successful load, even of an unchanged empty list", async () => {
+  useTeamStore.setState({ teams: [], teamsLoaded: false });
+  api.listTeams.mockResolvedValueOnce([]);
+  await get().loadTeams();
+  expect(get().teamsLoaded).toBe(true);
 });
 
 test("loadTeams keeps the same array reference when data is unchanged (cache identity)", async () => {

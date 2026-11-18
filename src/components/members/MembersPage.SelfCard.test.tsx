@@ -37,11 +37,8 @@ vi.mock("@/components/members/panels/RolesPanel", () => ({
   TeamRolesPanel: () => null,
 }));
 vi.mock("@/hooks/useListKeyNav", () => ({ useListKeyNav: () => ({ focusedId: null, setFocusedId: () => {} }) }));
-vi.mock("@/hooks/usePermission", () => ({
-  PERM_BITS: { MANAGE_MEMBERS: 1, MANAGE_ROLES: 2, INVITE_MEMBERS: 4 },
-  effectivePermissions: () => 0,
-  hasBuiltinRole: () => false,
-}));
+vi.mock("@/hooks/usePermission", async () =>
+  (await import("@/test/memberPermissions")).memberPermissions(() => 0, { hasBuiltinRole: () => false }));
 vi.mock("@/services/teamService", () => ({
   searchUsers: vi.fn(),
   getMyUserId: h.getMyUserId,

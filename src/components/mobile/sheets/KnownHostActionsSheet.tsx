@@ -7,6 +7,7 @@ import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
 import { writeClipboard } from "@/utils/clipboard";
 import type { KnownHost } from "@/types";
 import { SheetActionRow, type SheetAction } from "./SheetActionRow";
+import { previewGuarded } from "./previewGuardedActions";
 
 type Mode = "menu" | "confirm-delete" | "move" | "copy";
 
@@ -59,11 +60,12 @@ export default function KnownHostActionsSheet({ host, onClose }: { host: KnownHo
     );
   }
 
-  const items: SheetAction[] = [
+  const items: SheetAction[] = previewGuarded([
     {
       icon: "lucide:fingerprint-pattern",
       label: t("mobile.sheets.knownHostActions.copyFingerprint"),
       slug: "copy-fingerprint",
+      reads: true,
       onTap: () => {
         void writeClipboard(host.fingerprint);
         useNotificationStore.getState().addToast({ source: APP_SOURCE, type: "toast", message: t("mobile.sheets.knownHostActions.copiedFingerprint"), severity: "success", duration: 2000 });
@@ -73,7 +75,7 @@ export default function KnownHostActionsSheet({ host, onClose }: { host: KnownHo
     ...(otherVaults.length > 0 ? [{ icon: "lucide:folder-input", label: t("mobile.sheets.shared.moveToVault"), slug: "move-to-vault", onTap: () => setMode("move") }] : []),
     ...(otherVaults.length > 0 ? [{ icon: "lucide:copy", label: t("mobile.sheets.shared.copyToVault"), slug: "copy-to-vault", onTap: () => setMode("copy") }] : []),
     { icon: "lucide:trash-2", label: t("common.action.delete"), danger: true, slug: "delete", onTap: () => setMode("confirm-delete") },
-  ];
+  ], undefined, onClose);
 
   return (
     <BottomSheet title={displayName} onClose={onClose}>

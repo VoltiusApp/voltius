@@ -1,18 +1,7 @@
-import { writeClipboard } from "@/utils/clipboard";
-import { useCopiedFlash } from "@/hooks/useCopiedFlash";
+import { useCopyText } from "@/hooks/useCopyText";
 
-/**
- * One-tap "copy my address": writes `@handle` and flips a transient copied flag.
- * Shared by the two surfaces B4 puts the handle on — Settings → Account and the
- * account menu — so both spell the address the same way.
- */
+/** One-tap "copy my address": writes `@handle`, shared by Settings → Account and the account menu. */
 export function useCopyHandle(handle: string | null): { copied: boolean; copy: () => void } {
-  const { copied, flash } = useCopiedFlash(1500);
-  const copy = () => {
-    if (!handle) return;
-    writeClipboard(`@${handle}`)
-      .then(() => flash())
-      .catch(() => {});
-  };
-  return { copied, copy };
+  const { copied, copy } = useCopyText();
+  return { copied, copy: () => { if (handle) copy(`@${handle}`); } };
 }

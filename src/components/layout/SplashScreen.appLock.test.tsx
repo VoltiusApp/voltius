@@ -11,11 +11,15 @@ const h = vi.hoisted(() => ({
   accountId: "acc-1" as string | null,
   launchLock: null as string | null,
   secret: "plain",
-  authProps: null as null | { isLocked: boolean; systemAuth?: boolean; vaultUnreadable?: boolean },
+  authProps: null as null | { isLocked: boolean; systemAuth?: boolean; vaultUnreadable?: boolean; cloudOnly?: boolean },
   stopLanSync: vi.fn(async () => {}),
   startSessionSync: vi.fn(),
   startLanSyncInBackground: vi.fn(),
   getAppLock: vi.fn(async () => null as string | null),
+  applySettingDefaults: vi.fn(),
+  markCliReady: vi.fn(),
+  applyCliPending: vi.fn(async () => {}),
+  announceWithdrawnInvitations: vi.fn(async () => {}),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -24,6 +28,7 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@/utils/platform", () => ({ isMobilePlatform: (p: string | null) => p === "android" || p === "ios", usePlatform: () => "linux" }));
 vi.mock("@/services/account", () => ({
+  announceWithdrawnInvitations: h.announceWithdrawnInvitations,
   autoLogin: h.autoLogin,
   getAppLock: h.getAppLock,
   setAppLock: vi.fn(async () => {}),
@@ -41,15 +46,24 @@ vi.mock("@/stores/securityStore", () => ({
 }));
 vi.mock("@/services/vault", () => ({ getVaultStatus: vi.fn(async () => ({ exists: h.exists })) }));
 vi.mock("./AuthPage", () => ({
-  default: (p: { isLocked: boolean; systemAuth?: boolean; vaultUnreadable?: boolean }) => { h.authProps = p; return <div>auth-page</div>; },
+  default: (p: { isLocked: boolean; systemAuth?: boolean; vaultUnreadable?: boolean; cloudOnly?: boolean }) => { h.authProps = p; return <div>auth-page</div>; },
 }));
 vi.mock("./LogoBadge", () => ({ default: () => <div /> }));
+vi.mock("@/services/policy/adminDefaults", () => ({ applySettingDefaults: h.applySettingDefaults }));
+vi.mock("@/services/cliBridge", () => ({ markCliReady: h.markCliReady, applyCliPending: h.applyCliPending }));
+vi.mock("@/stores/marketplaceStore", async (orig) => ({
+  ...(await orig<typeof import("@/stores/marketplaceStore")>()),
+  loadPluginMeta: vi.fn(async () => {
+    throw new Error("plugin loader broke");
+  }),
+}));
 vi.mock("@/services/lanSync", () => ({
   startSessionSync: h.startSessionSync,
   startLanSyncInBackground: h.startLanSyncInBackground,
   stopLanSync: h.stopLanSync,
 }));
 
+import { usePolicyStore } from "@/stores/policyStore";
 import SplashScreen from "./SplashScreen";
 
 beforeEach(() => {
@@ -67,6 +81,10 @@ beforeEach(() => {
   h.startSessionSync.mockClear();
   h.startLanSyncInBackground.mockClear();
   h.getAppLock.mockReset().mockImplementation(async () => h.lock);
+  h.applySettingDefaults.mockClear();
+  h.markCliReady.mockClear();
+  h.applyCliPending.mockClear();
+  h.announceWithdrawnInvitations.mockClear();
 });
 afterEach(() => {
   cleanup();
@@ -100,6 +118,15 @@ test("the unlock page offers system auth when it was on at lock time", async () 
   render(<SplashScreen onReady={() => {}} />);
   await advance(2000);
   expect(h.authProps).toMatchObject({ isLocked: true, systemAuth: true });
+});
+
+test("without a remembered password the unlock page asks for it instead of offering system auth", async () => {
+  h.lock = "vault";
+  h.systemAuthUnlock = true;
+  h.secret = "none";
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(2000);
+  expect(h.authProps).toMatchObject({ isLocked: true, systemAuth: false });
 });
 
 test("a screen lock that survived a restart is up before the shell shows", async () => {
@@ -201,4 +228,59 @@ test("a no-account install starts lan sync once it has loaded", async () => {
   await advance(10_000);
   expect(h.startLanSyncInBackground).toHaveBeenCalledTimes(1);
   expect(h.startSessionSync).not.toHaveBeenCalled();
+});
+
+test("loading names the invitations a sign-up could not honour", async () => {
+  h.mode = "local";
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(10_000);
+  expect(h.announceWithdrawnInvitations).toHaveBeenCalledTimes(1);
+});
+
+test("a vault lock leaves withdrawn invitations for after the unlock", async () => {
+  h.lock = "vault";
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(10_000);
+  expect(h.announceWithdrawnInvitations).not.toHaveBeenCalled();
+});
+
+test("policy loads before auto-login so a disallowed server is seen", async () => {
+  const load = vi.spyOn(usePolicyStore.getState(), "load").mockResolvedValue(undefined);
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(10_000);
+  expect(load.mock.invocationCallOrder[0]).toBeLessThan(h.autoLogin.mock.invocationCallOrder[0]);
+  load.mockRestore();
+});
+
+test("a server-blocked login lands on cloud sign-in only", async () => {
+  h.autoLogin.mockResolvedValueOnce("server-blocked");
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(2000);
+  expect(h.authProps).toMatchObject({ isLocked: false, cloudOnly: true });
+});
+
+test("policy loads on the vault-locked path too", async () => {
+  h.lock = "vault";
+  const load = vi.spyOn(usePolicyStore.getState(), "load").mockResolvedValue(undefined);
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(2000);
+  expect(load).toHaveBeenCalledTimes(1);
+  expect(h.autoLogin).not.toHaveBeenCalled();
+  load.mockRestore();
+});
+
+test("setting defaults still apply when plugin loading throws, and the CLI bridge opens once loading is done", async () => {
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(10_000);
+  expect(h.applySettingDefaults).toHaveBeenCalled();
+  expect(h.markCliReady).toHaveBeenCalledTimes(1);
+  expect(h.markCliReady.mock.invocationCallOrder[0]).toBeLessThan(h.applyCliPending.mock.invocationCallOrder[0]);
+});
+
+test("a vault lock keeps the CLI bridge closed", async () => {
+  h.lock = "vault";
+  render(<SplashScreen onReady={() => {}} />);
+  await advance(2000);
+  expect(h.markCliReady).not.toHaveBeenCalled();
 });

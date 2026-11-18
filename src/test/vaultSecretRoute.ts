@@ -1,5 +1,6 @@
 const PLAIN = "master_password";
 const SEALED = "master_password_sealed";
+export const FORGET = "master_password_forget";
 
 /** Emulates the vault_secret_* commands over a test keychain map; sealed values are stored as "S:<plaintext>". */
 export function routeVaultSecret(
@@ -9,6 +10,11 @@ export function routeVaultSecret(
 ): { handled: boolean; value?: unknown } {
   const state = () => (store[SEALED] ? "sealed" : store[PLAIN] ? "plain" : "none");
   const done = (value?: unknown) => ({ handled: true, value });
+  const replaceWithPlain = (value: string, keep = !store[FORGET]) => {
+    if (keep) store[PLAIN] = value;
+    else delete store[PLAIN];
+    delete store[SEALED];
+  };
   switch (cmd) {
     case "vault_secret_state":
       return done(state());
@@ -21,7 +27,7 @@ export function routeVaultSecret(
     }
     case "vault_secret_set":
       if (state() === "sealed") store[SEALED] = `S:${args.value}`;
-      else store[PLAIN] = args.value as string;
+      else replaceWithPlain(args.value as string);
       return done("ok");
     case "vault_secret_bind":
       store[SEALED] = `S:${args.value}`;
@@ -29,8 +35,7 @@ export function routeVaultSecret(
       return done("ok");
     case "vault_secret_unbind":
       if (!store[SEALED]) return done("none");
-      store[PLAIN] = String(store[SEALED]).slice(2);
-      delete store[SEALED];
+      replaceWithPlain(String(store[SEALED]).slice(2));
       return done("ok");
     case "vault_secret_clear":
       delete store[PLAIN];
@@ -42,8 +47,20 @@ export function routeVaultSecret(
       return done({ kind: s, value: s === "plain" ? store[PLAIN] : store[SEALED] });
     }
     case "vault_secret_import":
-      store[args.kind === "sealed" ? SEALED : PLAIN] = args.value as string;
-      delete store[args.kind === "sealed" ? PLAIN : SEALED];
+      if (args.kind === "plain") replaceWithPlain(args.value as string);
+      else {
+        store[SEALED] = args.value as string;
+        delete store[PLAIN];
+      }
+      return done();
+    case "vault_secret_store_device_key":
+      replaceWithPlain(args.value as string, true);
+      return done();
+    case "vault_secret_remembers":
+      return done(!store[FORGET]);
+    case "vault_secret_set_remembers":
+      if (args.on) delete store[FORGET];
+      else store[FORGET] = "1";
       return done();
     default:
       return { handled: false };

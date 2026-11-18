@@ -15,9 +15,9 @@ export function VaultBadge({ vaultId }: { vaultId: string | undefined }) {
   const isPersonal = effectiveId === "personal";
   return (
     <span
-      className="shrink-0 flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-sm border"
+      className="shrink-0 flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-sm border"
       style={isPersonal
-        ? { background: "var(--t-bg-elevated)", color: "var(--t-text-muted)", borderColor: "var(--t-border)" }
+        ? { background: "var(--t-bg-elevated)", color: "var(--t-text-dim)", borderColor: "var(--t-border)" }
         : { background: "color-mix(in srgb, var(--t-accent) 12%, transparent)", color: "var(--t-accent)", borderColor: "color-mix(in srgb, var(--t-accent) 30%, transparent)" }}
     >
       <Icon icon="lucide:vault" width={10} />

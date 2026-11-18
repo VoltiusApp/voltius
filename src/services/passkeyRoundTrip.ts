@@ -1,6 +1,7 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import i18n from "@/i18n";
 import { invoke } from "@/lib/invoke";
+import { bytesToBase64Url } from "@/utils/base64";
 import { getPlatform, isMobilePlatform } from "@/utils/platform";
 
 /** Where the browser sends the code: a listener on this machine, or the app's own link on a phone. */
@@ -28,7 +29,7 @@ let cancelCurrent: (() => void) | null = null;
 
 function randomState(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(24));
-  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return bytesToBase64Url(bytes);
 }
 
 async function listenOnLoopback(state: string): Promise<Listener> {

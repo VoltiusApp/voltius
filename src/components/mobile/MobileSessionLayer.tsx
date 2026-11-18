@@ -3,12 +3,12 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { animate, SESSION_MOTION } from "@/lib/motion";
 import MobileSessionView from "./MobileSessionView";
 import { switchDirection } from "./sessionSwipeCore";
+import { useMobileSessions } from "./useMobileSessions";
 
 /** Always mounted in MobileShell; `visible` only toggles visibility so xterm state survives. */
 export default function MobileSessionLayer({ visible }: { visible: boolean }) {
-  const allSessions = useSessionStore((s) => s.sessions);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
-  const sessions = allSessions.filter((s) => s.type !== "multiplayer");
+  const sessions = useMobileSessions();
   const wrappers = useRef(new Map<string, HTMLDivElement>());
   const prevActive = useRef(activeSessionId);
   const running = useRef<(() => void) | null>(null);

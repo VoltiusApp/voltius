@@ -6,14 +6,14 @@ import { useSignOutConfirm } from "@/hooks/useSignOutConfirm";
 import { lockApp } from "@/services/appLock";
 import { resetVault } from "@/services/vault";
 import { useSecurityStore } from "@/stores/securityStore";
-import { ActionItem, FormButtons, SettingsInput } from "./shared";
+import { ActionItem, FormButtons, SETTINGS_SURFACE, SettingsInput } from "./shared";
 import { VaultBackups } from "@/components/shared/VaultBackups";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { usePlanDisplay } from "@/services/planDisplay";
 import { openPortal } from "@/utils/billing";
 import { useSeatReadout } from "@/hooks/useSeatReadout";
 import { seatsUsedText } from "@/services/seatMath";
-import { openBillingCheckout } from "@/services/billingCheckout";
+import { startTrialOrCheckout } from "@/services/promos";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 import { UpgradeStrip } from "@/components/shared/UpgradeStrip";
 import { claimHandle, updateInvitePreferences, HandleClaimError } from "@/services/teamService";
@@ -24,9 +24,12 @@ import EditEmailModal from "./EditEmailModal";
 import { SessionSecuritySettings } from "./SessionSecuritySettings";
 import ChangeMasterPasswordModal from "./ChangeMasterPasswordModal";
 import { TwoFactorSettings } from "./TwoFactorSettings";
+import { ActiveSessionsSettings } from "./ActiveSessionsSettings";
 import { formatOptionalDate, SHORT_DATE } from "@/utils/localeFormat";
 import { DeleteAccountModal } from "@/components/shared/DeleteAccountModal";
-import { runsLocalSync, usePlatform } from "@/utils/platform";
+import { usePlatform } from "@/utils/platform";
+import { adjacentPlan, planFeatureLabel, planFeaturesFor, type PlanFeature } from "@/services/planFeatures";
+import { FreeFeaturesLine } from "@/components/shared/FreeFeaturesLine";
 
 type AccountStep = "idle" | "set-password" | "loading" | "confirm-wipe";
 
@@ -75,24 +78,8 @@ function useEditableField(
   return { editing, input, setInput, error, loading, start, cancel, submit };
 }
 
-const PLAN_FEATURES = [
-  { id: "localVault",       free: true,  pro: true,  teams: true,  business: true  },
-  { id: "auditLogs",        free: true,  pro: true,  teams: true,  business: true  },
-  { id: "gistSync",         free: true,  pro: true,  teams: true,  business: true  },
-  { id: "localSync",        free: true,  pro: true,  teams: true,  business: true, lan: true },
-  { id: "deviceFiles",      free: true,  pro: true,  teams: true,  business: true, lan: true },
-  { id: "realtimeSync",     free: false, pro: true,  teams: true,  business: true  },
-  { id: "unlimitedVaults",  free: false, pro: true,  teams: true,  business: true  },
-  { id: "terminalSharing",  free: false, pro: true,  teams: true,  business: true  },
-  { id: "teamVaults",       free: false, pro: false, teams: true,  business: true  },
-  { id: "teamSharing",      free: false, pro: false, teams: true,  business: true  },
-  { id: "seats",            free: false, pro: false, teams: true,  business: true  },
-  { id: "granularPermissions", free: false, pro: false, teams: false, business: true  },
-  { id: "lockPolicy",       free: false, pro: false, teams: false, business: true  },
-];
-
 async function openCheckout(plan: "pro" | "teams") {
-  await openBillingCheckout(plan);
+  await startTrialOrCheckout(plan, "account");
 }
 
 /** Maps claimHandle's status-carrying error to the copy the server's per-status
@@ -235,7 +222,7 @@ export default function AccountSection() {
         </h3>
         <div
           data-settings-card
-          className="rounded-lg px-4 py-3 bg-(--t-bg-elevated) border border-(--t-border)"
+          className={`${SETTINGS_SURFACE} px-4 py-3`}
         >
           <p className="text-xs mb-1 text-(--t-text-dim)">{t("settings.account.currentMode")}</p>
           <div className="flex items-center gap-2">
@@ -250,7 +237,7 @@ export default function AccountSection() {
           <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
             {t("settings.account.handle.title")}
           </h3>
-          <div data-settings-card className="rounded-lg px-4 py-3 space-y-2 bg-(--t-bg-elevated) border border-(--t-border)">
+          <div data-settings-card className={`${SETTINGS_SURFACE} px-4 py-3 space-y-2`}>
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-(--t-text-primary)">
                 {handle ? `@${handle}` : "—"}
@@ -314,7 +301,7 @@ export default function AccountSection() {
             )}
           </div>
 
-          <div data-settings-card data-setting-row className="mt-2 rounded-lg px-4 py-3 flex items-center justify-between gap-4 bg-(--t-bg-elevated) border border-(--t-border)">
+          <div data-settings-card data-setting-row className={`mt-2 ${SETTINGS_SURFACE} px-4 py-3 flex items-center justify-between gap-4`}>
             <div>
               <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.account.strangerInvites.label")}</p>
               <p className="text-xs mt-0.5 text-(--t-text-dim)">{t("settings.account.strangerInvites.desc")}</p>
@@ -420,6 +407,8 @@ export default function AccountSection() {
         </div>
       )}
 
+      {step === "idle" && mode === "server" && <ActiveSessionsSettings />}
+
       {step === "idle" && (
         <div className="space-y-2">
           <p className="text-xs font-medium text-(--t-text-secondary)">
@@ -518,7 +507,10 @@ export function PlansSection() {
   const plan = usePlanDisplay();
   const { ownsTeamsPlan, subscriptionStatus, subscriptionCancelled, renewsAt, endsAt } = useSubscriptionStore();
   const seatsText = seatsUsedText(t, useSeatReadout(), "settings.account.plan.seatsUsed");
-  const features = runsLocalSync(usePlatform()) ? PLAN_FEATURES : PLAN_FEATURES.filter((f) => !("lan" in f));
+  const platform = usePlatform();
+  const previous = adjacentPlan(plan.plan, -1);
+  const next = adjacentPlan(plan.plan, 1);
+  const planName = (tier: string) => t(`settings.account.plan.name.${tier}`);
 
   const manageBilling = plan.showManageBilling && (
     <button
@@ -538,7 +530,7 @@ export function PlansSection() {
         {t("settings.account.plan.title")}
       </h3>
 
-      <div data-settings-card className="rounded-lg px-4 py-3 bg-(--t-bg-elevated) border border-(--t-border) space-y-3">
+      <div data-settings-card className={`${SETTINGS_SURFACE} px-4 py-3 space-y-3`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Icon
@@ -585,38 +577,37 @@ export function PlansSection() {
 
         {plan.showUpgrade && (
           <UpgradeStrip
-            label={t("settings.account.plan.upgradeToPro")}
-            buttonLabel={t("settings.account.plan.upgrade")}
+            label={t(plan.trialOffer ? "settings.account.plan.activateTrial" : "settings.account.plan.upgradeToPro")}
+            buttonLabel={t(plan.trialOffer ? "settings.account.plan.activate" : "settings.account.plan.upgrade")}
             onClick={() => openCheckout("pro")}
           />
         )}
 
-        {plan.upgradeTo === "teams" && (
+        {(plan.upgradeTo === "teams" || plan.teamsTrialOffer) && (
           <UpgradeStrip
             variant="neutral"
-            label={t("settings.account.plan.upgradeToTeams", { days: TEAMS_TRIAL_DAYS })}
-            buttonLabel={t("settings.account.plan.teamsButton")}
+            label={plan.teamsTrialOffer
+              ? t("settings.account.plan.upgradeToTeams", { days: TEAMS_TRIAL_DAYS })
+              : t("settings.account.plan.upgradeToTeamsPlain")}
+            buttonLabel={t(plan.teamsTrialOffer ? "settings.account.plan.teamsButton" : "settings.account.plan.upgrade")}
             onClick={() => openCheckout("teams")}
           />
         )}
 
-        {/* Feature comparison */}
-        <div className="border-t border-(--t-border) pt-3 space-y-1.5">
-          {features.map(({ id, ...byPlan }) => {
-            const active = byPlan[plan.plan];
-            return (
-              <div key={id} className="flex items-center justify-between">
-                <span className="text-xs" style={{ color: active ? "var(--t-text-primary)" : "var(--t-text-muted)" }}>
-                  {t(`settings.account.plan.feature.${id}`)}
-                </span>
-                <Icon
-                  icon={active ? "lucide:check" : "lucide:minus"}
-                  width={12}
-                  style={{ color: active ? "var(--t-status-connected)" : "var(--t-text-dim)" }}
-                />
-              </div>
-            );
-          })}
+        <div className="border-t border-(--t-border) pt-3 space-y-3">
+          <PlanFeatureGroup
+            heading={previous && t("settings.account.plan.everythingIn", { plan: planName(previous) })}
+            features={planFeaturesFor(plan.plan, platform)}
+            included
+          />
+          {next && (
+            <PlanFeatureGroup
+              heading={t("settings.account.plan.nextAdds", { plan: planName(next) })}
+              features={planFeaturesFor(next, platform)}
+              included={false}
+            />
+          )}
+          {previous && <FreeFeaturesLine />}
         </div>
 
         {plan.showAllPlans && (
@@ -628,6 +619,28 @@ export function PlansSection() {
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+function PlanFeatureGroup({ heading, features, included }: { heading: string | null; features: PlanFeature[]; included: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <div data-plan-group={included ? "included" : "next"} className="space-y-1.5">
+      {heading && <p className="text-xs font-medium text-(--t-text-secondary)">{heading}</p>}
+      {features.map((f) => (
+        <div key={f.id} className="flex items-center justify-between gap-3">
+          <span className="text-xs" style={{ color: included ? "var(--t-text-primary)" : "var(--t-text-muted)" }}>
+            {planFeatureLabel(t, f)}
+          </span>
+          <Icon
+            icon={included ? "lucide:check" : "lucide:minus"}
+            width={12}
+            className="shrink-0"
+            style={{ color: included ? "var(--t-status-connected)" : "var(--t-text-dim)" }}
+          />
+        </div>
+      ))}
     </div>
   );
 }

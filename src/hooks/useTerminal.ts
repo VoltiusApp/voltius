@@ -1,14 +1,14 @@
-import { activateTerminal, disposeClosedTerminals, reattachTerminal, setTerminalVisible, useTerminalMount, type CachedTerminal } from "@/components/terminal/terminalContainer";
+import { activateTerminal, disposeClosedTerminals, fitOrDefer, holdTerminalFit, reattachTerminal, setTerminalVisible, useTerminalMount, type CachedTerminal } from "@/components/terminal/terminalContainer";
 import { useEffect, useCallback } from "react";
 import { Terminal, type IBufferCell, type IBufferLine, type IDisposable } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { claimWebglRenderer } from "@/utils/webglAddon";
-import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SearchAddon, type ISearchOptions } from "@xterm/addon-search";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { onSshOutput, onSshClosed, onSshCwd, onSshMuxMode, sshSetOutputPaused, sshSetTerminalColors } from "@/services/ssh";
 import { createOutputFlow, type OutputFlow } from "@/components/terminal/outputFlow";
 import { suppressTerminalQueries } from "@/components/terminal/terminalQueries";
+import { createWrappedLinkProvider } from "@/components/terminal/wrappedLinks";
 import { createCommandTracker, type CommandRegion, type CommandTracker } from "@/components/terminal/commandMarks";
 import { attachKeywordHighlighter, eraseRange, type KeywordHighlighter } from "@/components/terminal/keywordHighlighter";
 import { currentTerminalColors } from "@/utils/terminalColors";
@@ -18,15 +18,16 @@ import { sendSessionInput as sendSessionInputRaw, sendSessionResize } from "@/se
 import { log } from "@/lib/logger";
 import { useThemeStore } from "@/stores/themeStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { getToggle, useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { matchShortcut } from "@/stores/shortcutStore";
+import { primaryOnly } from "@/utils/primaryModifier";
 import { matchPanelShortcut } from "@/hooks/panelShortcuts";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
 import { broadcastActiveForSession, findLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 import { broadcastTargets } from "@/services/broadcast";
-import { useCommandHistoryStore } from "@/stores/commandHistoryStore";
+import { forgetSession, useCommandHistoryStore, type EchoProbe } from "@/stores/commandHistoryStore";
+import { terminalEchoProbe } from "@/components/terminal/inputEcho";
 import { consumeLatchForChar } from "@/stores/modifierLatchStore";
 import { sampleLineDensities, scrollDeltaForRatio, type TerminalMinimapCell, type TerminalMinimapSample } from "@/components/terminal/minimapMath";
 import { wheelToRows } from "@/components/terminal/terminalWheelCore";
@@ -35,7 +36,7 @@ import { handleDuplicateShortcut } from "@/services/duplicateSession";
 import type { TerminalTheme } from "@/themes/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { terminalFontStack } from "@/utils/fontStack";
-import { applyTerminalTheme, clampTerminalLineHeight, subscribeTerminalCursor, subscribeTerminalTheme } from "@/utils/terminalTheme";
+import { applyTerminalTheme, subscribeTerminalCursor, terminalOptionsFor, subscribeTerminalTheme } from "@/utils/terminalTheme";
 import { getPlatform } from "@/utils/platform";
 import { createOutputDecoder, encodeTerminalInput, type OutputDecoder } from "@/utils/terminalEncoding";
 import i18n from "@/i18n";
@@ -84,7 +85,7 @@ function isHttpUrl(uri: string) {
 }
 
 // Single opener for every link path in a terminal: the regex matcher
-// (WebLinksAddon), OSC 8 hyperlinks (linkHandler), and the alt+click capture
+// (createWrappedLinkProvider), OSC 8 hyperlinks (linkHandler), and the alt+click capture
 // that runs while a TUI holds the mouse.
 function openTerminalLink(event: MouseEvent, uri: string) {
   if (!event.altKey || !isHttpUrl(uri)) return;
@@ -152,12 +153,16 @@ export interface TerminalMinimapSnapshot {
   rows: number;
   cols: number;
   version: number;
+  /** Bumps only when the buffer's text may have changed (output, buffer switch, resize), not on scroll. */
+  contentVersion: number;
 }
 
 interface MinimapState {
   snapshot: TerminalMinimapSnapshot;
   subscribers: Set<() => void>;
   frame: number | null;
+  /** Content changed since the last snapshot. */
+  contentDirty: boolean;
 }
 
 export interface TerminalMinimapController {
@@ -174,6 +179,7 @@ type CacheEntry = CachedTerminal & {
   minimap: MinimapState;
   commands: CommandTracker;
   highlighter: KeywordHighlighter | null;
+  echoProbe: EchoProbe;
   sessionType: "ssh" | "local" | "serial";
   connectedRef: { current: boolean };
   /** The session's terminal encoding (undefined = UTF-8), for input and output alike. */
@@ -209,18 +215,21 @@ function notifySearch(entry: CacheEntry) {
 
 function minimapSnapshot(entry: CacheEntry): TerminalMinimapSnapshot {
   const buffer = entry.terminal.buffer.active;
+  const prev = entry.minimap.snapshot;
   return {
     bufferLength: buffer.length,
     viewportY: buffer.viewportY,
     baseY: buffer.baseY,
     rows: entry.terminal.rows,
     cols: entry.terminal.cols,
-    version: entry.minimap.snapshot.version + 1,
+    version: prev.version + 1,
+    contentVersion: prev.contentVersion + (entry.minimap.contentDirty ? 1 : 0),
   };
 }
 
 function notifyMinimap(entry: CacheEntry) {
   entry.minimap.snapshot = minimapSnapshot(entry);
+  entry.minimap.contentDirty = false;
   entry.minimap.subscribers.forEach((fn) => fn());
 }
 
@@ -299,7 +308,9 @@ function noteRestoreOutput(sessionId: string): void {
   timers.settle = setTimeout(() => applyRestoreScroll(sessionId), RESTORE_SETTLE_MS);
 }
 
-function scheduleMinimapNotify(entry: CacheEntry) {
+/** `contentChanged` false = only the viewport moved, so the minimap can redraw from cached samples. */
+function scheduleMinimapNotify(entry: CacheEntry, contentChanged: boolean) {
+  if (contentChanged) entry.minimap.contentDirty = true;
   if (entry.minimap.frame !== null) return;
   entry.minimap.frame = requestAnimationFrame(() => {
     entry.minimap.frame = null;
@@ -396,7 +407,7 @@ function scrollMinimapToRatio(entry: CacheEntry, ratio: number) {
   const buffer = entry.terminal.buffer.active;
   const delta = scrollDeltaForRatio(ratio, buffer.length, entry.terminal.rows, buffer.viewportY);
   entry.terminal.scrollLines(delta);
-  scheduleMinimapNotify(entry);
+  scheduleMinimapNotify(entry, false);
 }
 
 function searchDecorations() {
@@ -471,9 +482,18 @@ export function getTerminalDims(sessionId: string): { cols: number; rows: number
  *  Fast-path complement to the per-container ResizeObserver: fires immediately on the
  *  caller's frame rather than after the observer's debounce, for snappier keyboard reflow. */
 export function refitSession(sessionId: string): void {
+  fitSession(sessionId, fitOrDefer);
+}
+
+/** Freeze a session's grid size across a viewport resize (e.g. the keyboard closing under a long-press). */
+export function holdSessionFit(sessionId: string, held: boolean): void {
+  fitSession(sessionId, (entry) => holdTerminalFit(entry, held));
+}
+
+function fitSession(sessionId: string, fit: (entry: CacheEntry) => void): void {
   const entry = terminalCache.get(sessionId);
   if (!entry) return;
-  try { entry.fitAddon.fit(); } catch { /* container not laid out yet */ }
+  try { fit(entry); } catch { /* container not laid out yet */ }
 }
 
 /** Programmatically send input to a session's PTY (used by the mobile extra-keys row).
@@ -488,13 +508,15 @@ export function sessionAcceptsInput(sessionId: string): boolean {
   return entry.connectedRef.current;
 }
 
+function feedHistory(sessionId: string, probe: EchoProbe, kind: "addInput" | "addShellMark", data: string): void {
+  const sess = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
+  if (sess) useCommandHistoryStore.getState()[kind](sessionId, sess.connectionName, sess.connectionId, data, probe);
+}
+
 export function writeToSession(sessionId: string, data: string): void {
   const entry = terminalCache.get(sessionId);
   if (!entry || !sessionAcceptsInput(sessionId)) return;
-  const sess = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
-  if (sess) {
-    useCommandHistoryStore.getState().addInput(sessionId, sess.connectionName, sess.connectionId, data);
-  }
+  feedHistory(sessionId, entry.echoProbe, "addInput", data);
   sendSessionInput(sessionId, entry.sessionType, encodeTerminalInput(data, entry.encoding));
 }
 
@@ -575,8 +597,11 @@ export function readTerminalSnapshot(sessionId: string, maxLines = 200): string 
  */
 export function readTerminalSelection(sessionId: string): string {
   const entry = terminalCache.get(sessionId);
-  if (!entry) return "";
-  return entry.terminal.getSelection();
+  return entry ? selectionOf(entry) : "";
+}
+
+function selectionOf(entry: CacheEntry): string {
+  return entry.clip?.selectionText() ?? entry.terminal.getSelection();
 }
 
 /** Test seam: replace the module-private terminal cache. Do not use in app code. */
@@ -602,7 +627,7 @@ export function getTerminalSearchController(sessionId: string): TerminalSearchCo
       const cur = entry.search.snapshot;
       const wasOpen = cur.open;
       // Only pre-fill from a single-line terminal selection on the first open.
-      const selection = entry.terminal.getSelection();
+      const selection = selectionOf(entry);
       const initialQuery =
         !wasOpen && selection && !selection.includes("\n") ? selection : cur.query;
       entry.search.snapshot = {
@@ -676,7 +701,7 @@ function claimChord(e: KeyboardEvent): false {
 
 /** Ctrl+G / Shift+Ctrl+G — the search widget's find-next / find-previous chord. */
 export function isTerminalSearchNavKey(e: KeyboardEvent): boolean {
-  return e.ctrlKey && !e.altKey && (e.key === "g" || e.key === "G");
+  return primaryOnly(e) && !e.altKey && (e.key === "g" || e.key === "G");
 }
 
 /**
@@ -748,20 +773,10 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       // ── Create new terminal ───────────────────────────────────────────────
       const activeTheme = useThemeStore.getState().getActiveTheme();
-      const { scrollbackLines: scrollback, cursorStyle } = useTerminalSettingsStore.getState();
       const term = new Terminal({
+        ...terminalOptionsFor(activeTheme),
         altClickMovesCursor: false,
-        // macOS has no Shift bypass for mouse-reporting apps; Alt+click is the only one.
-        macOptionClickForcesSelection: true,
-        cursorBlink: getToggle("cursor-blink"),
-        cursorStyle,
-        fontSize: activeTheme.terminalFontSize,
-        lineHeight: clampTerminalLineHeight(activeTheme.terminalLineHeight),
-        fontFamily: terminalFontStack(activeTheme.terminalFontFamily),
-        scrollback,
-        theme: activeTheme.terminal,
         overviewRuler: { width: 4 },
-        allowProposedApi: true,
         // Some remote prompts/programs (e.g. sudo password entry) don't
         // support bracketed paste and echo the \x1b[200~/201~ markers back
         // literally, corrupting the buffer. Let users opt out entirely.
@@ -820,7 +835,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         linkTooltip.style.top = `${event.clientY + 12}px`;
       };
 
-      term.loadAddon(new WebLinksAddon(openTerminalLink, {
+      term.registerLinkProvider(createWrappedLinkProvider(term, openTerminalLink, {
         hover: showLinkTooltip,
         leave: hideLinkTooltip,
       }));
@@ -843,9 +858,10 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         searchAddon,
         search: { snapshot: { ...EMPTY_SNAPSHOT }, subscribers: new Set() },
         minimap: {
-          snapshot: { bufferLength: 0, viewportY: 0, baseY: 0, rows: term.rows, cols: term.cols, version: 0 },
+          snapshot: { bufferLength: 0, viewportY: 0, baseY: 0, rows: term.rows, cols: term.cols, version: 0, contentVersion: 0 },
           subscribers: new Set(),
           frame: null,
+          contentDirty: true,
         },
         commands: createCommandTracker({
           mark: (line) => {
@@ -857,6 +873,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           now: Date.now,
         }),
         highlighter: null,
+        echoProbe: terminalEchoProbe(term),
         sessionType,
         // Serial is live the moment its port opens (the store marks it
         // connected before the terminal mounts); ssh and local flip in the
@@ -879,23 +896,23 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       });
 
       const scrollDispose = term.onScroll(() => {
-        scheduleMinimapNotify(entry);
+        scheduleMinimapNotify(entry, false);
         notifyScrollListeners();
       });
-      const bufferChangeDispose = term.buffer.onBufferChange(() => scheduleMinimapNotify(entry));
+      const bufferChangeDispose = term.buffer.onBufferChange(() => scheduleMinimapNotify(entry, true));
 
       // Intercept app shortcuts before xterm processes them
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
         const layout = useLayoutStore.getState();
         const isSplitPaneTerminal = layout.splitTabActive && getPaneSessionIds(layout.root).includes(sessionId);
-        if (isSplitPaneTerminal && e.ctrlKey && e.shiftKey && e.key === "Enter") {
+        if (isSplitPaneTerminal && primaryOnly(e) && e.shiftKey && e.key === "Enter") {
           if (e.type === "keydown") {
             const activePaneId = layout.activePaneId;
             if (activePaneId) layout.setMaximized(layout.maximizedPaneId === activePaneId ? null : activePaneId);
           }
           return false;
         }
-        if (isSplitPaneTerminal && e.ctrlKey && e.shiftKey && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+        if (isSplitPaneTerminal && primaryOnly(e) && e.shiftKey && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
           if (e.type === "keydown") {
             const direction = e.key === "ArrowLeft" ? "left" : e.key === "ArrowRight" ? "right" : e.key === "ArrowUp" ? "up" : "down";
             focusPaneInDirection(direction);
@@ -1051,6 +1068,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       const oscMarkDispose = term.parser.registerOscHandler(133, (data) => {
         entry.commands.handle(data);
+        feedHistory(sessionId, entry.echoProbe, "addShellMark", data);
         return true;
       });
 
@@ -1080,13 +1098,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         const latched = consumeLatchForChar(data);
         if (latched !== null) data = latched;
 
-        const sess = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
-        if (sess) {
-          useCommandHistoryStore
-            .getState()
-            .addInput(sessionId, sess.connectionName, sess.connectionId, data);
-        }
-
+        feedHistory(sessionId, entry.echoProbe, "addInput", data);
         routeInput(data);
       });
 
@@ -1097,7 +1109,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         flow?.written(text.length);
         term.write(text, () => {
           flow?.processed(text.length);
-          scheduleMinimapNotify(entry);
+          scheduleMinimapNotify(entry, true);
         });
       };
 
@@ -1155,7 +1167,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       const onResizeDispose = term.onResize(({ cols, rows }) => {
         entry.onResizeRef.current?.(cols, rows);
-        scheduleMinimapNotify(entry);
+        scheduleMinimapNotify(entry, true);
         if (!entry.connectedRef.current) return;
         sendResize(sessionId, sessionType, cols, rows);
       });
@@ -1168,6 +1180,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         onResizeDispose.dispose();
         oscCwdDispose.dispose();
         oscMarkDispose.dispose();
+        forgetSession(sessionId);
         eraseDispose.dispose();
         searchResultsDispose.dispose();
         scrollDispose.dispose();

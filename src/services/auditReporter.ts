@@ -1,5 +1,6 @@
+import { logFailure } from "@/lib/logger";
 import type { AuditContext, AuditTarget, ClientAuditAction, PluginAuditAction } from "@/services/auditContext";
-import { reportClientEvent } from "@/services/auditService";
+import { enqueueAuditEvent } from "@/services/auditOutbox";
 import { reportLocalClientEvent } from "@/services/localAuditService";
 
 export type { ClientAuditAction } from "@/services/auditContext";
@@ -18,10 +19,10 @@ export function reportAuditClientEvent(
   };
 
   if (context.kind === "team") {
-    reportClientEvent(context.teamId, {
+    enqueueAuditEvent(context.teamId, {
       ...event,
       vault_id: opts.vault_id ?? context.vaultId,
-    }).catch(() => {});
+    }).catch(logFailure("audit enqueue"));
     return;
   }
 
@@ -115,11 +116,11 @@ export function reportPluginAuditEvent(
   }).catch(() => {});
 
   if (context.kind === "team") {
-    reportClientEvent(context.teamId, {
+    enqueueAuditEvent(context.teamId, {
       ...target,
       action,
       occurred_at,
       vault_id: target.vault_id ?? context.vaultId,
-    }).catch(() => {});
+    }).catch(logFailure("audit enqueue"));
   }
 }

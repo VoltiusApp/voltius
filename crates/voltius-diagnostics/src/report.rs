@@ -53,7 +53,7 @@ mod tests {
         let mut archive = zip::ZipArchive::new(buf).unwrap();
         assert_eq!(archive.len(), 3);
         let names: Vec<String> = (0..archive.len())
-            .map(|i| archive.by_index(i).unwrap().name().to_string())
+            .map(|i| archive.by_index(i).unwrap().name().unwrap().to_string())
             .collect();
         assert!(names.contains(&"voltius.log".to_string()));
         assert!(names.contains(&"system.json".to_string()));

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { assertNotPreviewing } from "@/services/previewGuard";
 import type { Connection, ConnectionFormData } from "@/types";
 import * as api from "@/services/connections";
 import { syncAfterEdit } from "@/stores/syncAfterEdit";
@@ -129,6 +130,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     set((s) => ({ teamConnections: clearTeamMapEntry(s.teamConnections, teamId) })),
 
   saveConnection: async (data) => {
+    assertNotPreviewing();
     if (isTeamVaultId(data.vault_id)) {
       const now = new Date().toISOString();
       const conn = connectionFromForm(data, { id: crypto.randomUUID(), now });
@@ -162,6 +164,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   },
 
   updateConnection: async (id, input) => {
+    assertNotPreviewing();
     const existing = findAnyConnection(id);
     const data = existing ? keepOwned(existing, input, managedOwnedOf(id)) : input;
     const teamEntry = findTeamEntry(get().teamConnections, id);
@@ -223,6 +226,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   },
 
   deleteConnection: async (id) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamConnections, id);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
@@ -308,6 +312,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   },
 
   renameTag: async (oldName, newName) => {
+    assertNotPreviewing();
     await retagConnections(oldName, (tags) => tags.map((t) => (t === oldName ? newName : t)));
 
     useHistoryStore.getState().push({
@@ -318,6 +323,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   },
 
   deleteTag: async (name) => {
+    assertNotPreviewing();
     const retagged = await retagConnections(name, (tags) => tags.filter((t) => t !== name));
     const prevTagsById = new Map(retagged.map((c) => [c.id, c.tags]));
 
@@ -338,6 +344,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   },
 
   pinConnection: async (id, pinned) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamConnections, id);
     if (teamEntry) {
       await useTeamObjectPrefsStore.getState().setPinned(teamEntry.teamId, id, pinned);
@@ -353,6 +360,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   },
 
   pinConnectionForTeam: async (id, pinned) => {
+    assertNotPreviewing();
     const teamEntry = findTeamEntry(get().teamConnections, id);
     if (!teamEntry) return;
     const { teamId } = teamEntry;

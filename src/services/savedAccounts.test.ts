@@ -1,5 +1,5 @@
-import { test, expect, vi, beforeEach } from "vitest";
-import { routeVaultSecret } from "@/test/vaultSecretRoute";
+import { test, expect, vi, beforeEach, afterEach, describe } from "vitest";
+import { FORGET, routeVaultSecret } from "@/test/vaultSecretRoute";
 
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
@@ -53,7 +53,9 @@ vi.mock("@/stores/persistedAccountUiState", () => ({
   dropAccountUiState: h.dropAccountUiState,
 }));
 
-import { getSavedAccounts, getSwitchTargets, saveCurrentAccount, removeSavedAccount, addAccount, switchToAccount, forgetOtherPlainPasswords, type SavedAccount } from "./savedAccounts";
+import { adoptServerMove, getSavedAccounts, getSwitchTargets, saveCurrentAccount, removeSavedAccount, addAccount, switchToAccount, forgetOtherPlainPasswords, forgetSavedPlainPasswords, type SavedAccount } from "./savedAccounts";
+import { AccountAlreadyActiveError, AccountNotSavedError } from "./accountErrors";
+import { usePolicyStore } from "@/stores/policyStore";
 import { ACCOUNT_CACHE_KEYS } from "./accountCacheKeys";
 import { GLOBAL_PROXY_PASSWORD_KEY } from "./teamVaultSecretKeys";
 
@@ -201,6 +203,19 @@ test("switchToAccount restores the target's own wrapped secrets", async () => {
   await switchToAccount(CLOUD_B);
 
   expect(h.store.wrapped_user_secrets).toBe(fake("wrapped", "b"));
+});
+
+test("switchToAccount refuses an account whose server policy disallows", async () => {
+  activate(CLOUD_A);
+  seed(CLOUD_A, CLOUD_B);
+  usePolicyStore.setState({
+    machine: { policy: { "server.url": "https://corp.example", "server.allowOther": false }, defaults: {} },
+  });
+  try {
+    await expect(switchToAccount({ ...CLOUD_B, server_url: "https://other.example" })).rejects.toThrow();
+  } finally {
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+  }
 });
 
 test("a vault key move left half done survives parking the account and switching back", async () => {
@@ -463,12 +478,74 @@ test("adding an account leaves the session alone when the current one cannot be 
   expect(h.reload).not.toHaveBeenCalled();
 });
 
-test("adding the account already signed in does not tear it down", async () => {
+const pinCorp = () =>
+  usePolicyStore.setState({
+    machine: { policy: { "server.url": "https://corp.example", "server.allowOther": false }, defaults: {} },
+  });
+const unpin = () => usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+const BLOCKED_A = { ...CLOUD_A, server_url: "https://other.example" };
+const CORP_B = { ...SESSION_B, server_url: "https://corp.example" };
+
+test("adding the pinned-server account from a blocked one parks the blocked account intact", async () => {
+  activate(BLOCKED_A);
+  pinCorp();
+  try {
+    await addAccount(CORP_B);
+  } finally {
+    unpin();
+  }
+  expect(h.push).not.toHaveBeenCalled();
+  const saved = await getSavedAccounts();
+  expect(saved.find((a) => a.account_id === "a")).toMatchObject({
+    master_password: BLOCKED_A.master_password,
+    jwt: BLOCKED_A.jwt,
+    wrapped_user_secrets: BLOCKED_A.wrapped_user_secrets,
+  });
+  expect(h.parkAccountUiState).toHaveBeenCalledWith("a");
+  expect(h.store.account_id).toBe("b");
+});
+
+test("a locked blocked account is parked with the password proven in memory", async () => {
+  activate(BLOCKED_A);
+  delete h.store.master_password;
+  pinCorp();
+  try {
+    await addAccount(CORP_B, "proven-pw");
+  } finally {
+    unpin();
+  }
+  const saved = await getSavedAccounts();
+  expect(saved.find((a) => a.account_id === "a")?.master_password).toBe("proven-pw");
+  expect(h.store.account_id).toBe("b");
+  expect(h.store.master_password).toBe(CLOUD_B.master_password);
+});
+
+test("a secret already in the keychain is parked over the one held in memory", async () => {
+  activate(CLOUD_A);
+  await saveCurrentAccount("other-pw");
+  expect((await getSavedAccounts())[0].master_password).toBe(CLOUD_A.master_password);
+});
+
+test("adding an account refuses when the current server account cannot be snapshotted", async () => {
+  activate(CLOUD_A);
+  delete h.store.master_password;
+  const before = { ...h.store };
+
+  await expect(addAccount(SESSION_B)).rejects.toBeInstanceOf(AccountNotSavedError);
+
+  expect(h.store).toEqual(before);
+  expect(h.swapAccountProfile).not.toHaveBeenCalled();
+  expect(h.reload).not.toHaveBeenCalled();
+});
+
+test("adding the account already signed in says so and changes nothing", async () => {
   activate(CLOUD_A);
   const { mode: _m, ...sessionA } = CLOUD_A;
+  const before = { ...h.store };
 
-  await addAccount(sessionA);
+  await expect(addAccount(sessionA)).rejects.toBeInstanceOf(AccountAlreadyActiveError);
 
+  expect(h.store).toEqual(before);
   expect(h.swapAccountProfile).not.toHaveBeenCalled();
   expect(h.reload).not.toHaveBeenCalled();
 });
@@ -624,4 +701,89 @@ test("a bound account's entry stores no empty secret field and fits under the Wi
   const raw = h.store[entryKey("a")];
   expect(raw).not.toContain("master_password\":null");
   expect(JSON.parse(raw).master_password_sealed).toBe(blob);
+});
+
+describe("with Remember master password off, the switcher keeps no plain copy", () => {
+  beforeEach(() => {
+    h.store[FORGET] = "1";
+  });
+
+  test("the current account is saved without one, so switching back asks for it", async () => {
+    const { master_password: _pw, ...withoutPassword } = CLOUD_A;
+    activate(withoutPassword as SavedAccount);
+    expect(await saveCurrentAccount(CLOUD_A.master_password!)).toBe(true);
+    const saved = JSON.parse(h.store[entryKey("a")]);
+    expect(saved.jwt).toBe(CLOUD_A.jwt);
+    expect(saved.master_password).toBeUndefined();
+  });
+
+  test("an added account and the switch into it leave no plain password in the keychain", async () => {
+    const { master_password: _pw, ...withoutPassword } = CLOUD_A;
+    activate(withoutPassword as SavedAccount);
+    await addAccount(SESSION_B);
+    expect(h.store.account_id).toBe("b");
+    expect(Object.values(h.store).some((v) => String(v).includes(CLOUD_B.master_password!))).toBe(false);
+    expect(Object.values(h.store).some((v) => String(v).includes(CLOUD_A.master_password!))).toBe(false);
+  });
+
+  test("an entry saved before the option went off is switched into without its password", async () => {
+    seed(CLOUD_B);
+    await switchToAccount(CLOUD_B);
+    expect(h.store.account_id).toBe("b");
+    expect(h.store.master_password).toBeUndefined();
+  });
+
+  test("a sealed copy is still saved and restored", async () => {
+    h.store = { account_id: "a1", mode: "server", master_password_sealed: "S:pw" };
+    await saveCurrentAccount();
+    const saved = JSON.parse(h.store[entryKey("a1")]);
+    expect(saved.master_password_sealed).toBe("S:pw");
+    await switchToAccount(saved);
+    expect(h.store.master_password_sealed).toBe("S:pw");
+  });
+});
+
+test("turning remembering off drops every saved account's plain password, the current one's too", async () => {
+  seed(CLOUD_A, CLOUD_B);
+  h.store.account_id = "a";
+  await forgetSavedPlainPasswords();
+  expect(JSON.parse(h.store[entryKey("a")]).master_password).toBeUndefined();
+  expect(JSON.parse(h.store[entryKey("b")]).master_password).toBeUndefined();
+  expect(JSON.parse(h.store[entryKey("b")]).jwt).toBe(CLOUD_B.jwt);
+});
+
+describe("adoptServerMove", () => {
+  const OLD = "https://api.acme.com";
+  const NEW = "https://voltius.acme.com";
+  const moved = (policy: Record<string, unknown> = { "server.url": NEW }, defaults: Record<string, unknown> = {}) =>
+    usePolicyStore.setState({ machine: { policy: { "server.previousUrls": [OLD], ...policy }, defaults } });
+  afterEach(unpin);
+
+  test("moves the active and saved accounts on a previous url to the locked one", async () => {
+    activate({ ...CLOUD_A, server_url: `${OLD}/` });
+    seed({ ...CLOUD_A, server_url: OLD }, { ...CLOUD_B, server_url: "https://other.example" });
+    moved();
+    await adoptServerMove();
+    expect(h.store.server_url).toBe(NEW);
+    expect(h.store.jwt).toBe(CLOUD_A.jwt);
+    expect(await getSavedAccounts()).toEqual([
+      { ...CLOUD_A, server_url: NEW },
+      { ...CLOUD_B, server_url: "https://other.example" },
+    ]);
+  });
+
+  test("does nothing without a locked server.url", async () => {
+    activate({ ...CLOUD_A, server_url: OLD });
+    seed({ ...CLOUD_B, server_url: OLD });
+    moved({}, { "server.url": NEW });
+    await adoptServerMove();
+    expect(h.store.server_url).toBe(OLD);
+    expect((await getSavedAccounts())[0].server_url).toBe(OLD);
+  });
+
+  test("survives an unreadable keychain", async () => {
+    moved();
+    h.readFails = true;
+    await expect(adoptServerMove()).resolves.toBeUndefined();
+  });
 });

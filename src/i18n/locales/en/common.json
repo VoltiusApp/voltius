@@ -24,7 +24,9 @@
       "pin": "Pin",
       "unpin": "Unpin",
       "moreOptions": "More options",
-      "closePanel": "Close panel"
+      "closePanel": "Close panel",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password"
     },
     "entity": {
       "host": "Host",
@@ -60,6 +62,8 @@
       "search": "Search…"
     },
     "toast": {
+      "invitationWithdrawnAtSignup": "Your invitation to {{team}} is no longer valid, so you were not added to it. Ask the team to send you a new one.",
+      "hostAccessRevoked": "Your access to {{hosts}} was revoked, so its open sessions were closed.",
       "proSubscriptionEnded": "Your Pro subscription has ended — cloud sync is paused. Your devices still sync on the same network.",
       "proSubscriptionEnded_ios": "Your Pro subscription has ended — sync has been paused.",
       "seatEnded": "Your seat in {{team}} ended — cloud sync is paused. Your devices still sync on the same network.",
@@ -80,6 +84,7 @@
       "disableCount": "Keep on this device only ({{count}})"
     },
     "error": {
+      "invitationWithdrawn": "This invitation is no longer valid. Ask the team to send you a new one.",
       "identityPickUnavailable": "Your identity for {{host}} isn't available",
       "failedToListIdentityPicks": "Couldn't load your identity choices ({{status}})",
       "failedToSaveIdentityPick": "Couldn't save your identity choice ({{status}})",
@@ -101,6 +106,7 @@
       "failedToExportAuditLogs": "Failed to export audit logs: {{status}}",
       "serverUnreachableTimeout": "Server unreachable (timeout) — check your internet connection and server URL",
       "networkError": "Network error — {{message}}",
+      "accountAlreadyActive": "You're already signed in to this account on this device",
       "emailAlreadyRegistered": "Email already registered",
       "registrationFailed": "Registration failed: {{status}}",
       "registrationDisabled": "New account registration is disabled on this server. Ask its administrator for an account.",
@@ -231,7 +237,14 @@
       "twoFactorNotEnabled": "Two-factor authentication is not on.",
       "twoFactorExpired": "This sign-in took too long. Start again.",
       "passkeyIncomplete": "The passkey step was not finished. Try again.",
-      "passkeyLimit": "This account already has as many passkeys as it can hold."
+      "passkeyLimit": "This account already has as many passkeys as it can hold.",
+      "teamPolicyConflict": "Someone else changed the team policy. Review it and import again.",
+      "teamPolicyRefused": "The server refused this policy: {{reason}}",
+      "failedToLoadTeamPolicy": "Failed to load the team policy: {{status}}",
+      "failedToSaveTeamPolicy": "Failed to save the team policy: {{status}}",
+      "invitationLookupFailed": "Could not check this invitation (HTTP {{status}}).",
+      "invitationNotFound": "This invitation has expired or was already used. Ask for a new one.",
+      "invitationEmailMismatch": "This invitation was sent to a different email address."
     },
     "clipboard": {
       "cut_one": "{{count}} item cut",
@@ -247,12 +260,12 @@
       "crossVaultMoveDescription_other": "{{count}} items will leave their current vault and move into {{targetVaultName}}.",
       "crossVaultCopyDescription_one": "{{count}} item will be copied into {{targetVaultName}}.",
       "crossVaultCopyDescription_other": "{{count}} items will be copied into {{targetVaultName}}.",
-      "cascadeMoved_one": "Its {{names}} moves across with it.",
-      "cascadeMoved_other": "Its {{names}} move across with it.",
+      "cascadeMoved_one": "{{names}} moves across too.",
+      "cascadeMoved_other": "{{names}} move across too.",
       "cascadeCopied_one": "{{names}} is copied rather than moved, because objects staying behind still use it.",
       "cascadeCopied_other": "{{names}} are copied rather than moved, because objects staying behind still use them.",
-      "cascadeAlsoCopied_one": "Its {{names}} is copied across too.",
-      "cascadeAlsoCopied_other": "Its {{names}} are copied across too.",
+      "cascadeAlsoCopied_one": "{{names}} is copied across too.",
+      "cascadeAlsoCopied_other": "{{names}} are copied across too.",
       "pasteRootCrossVault": "Pasting at the top level can't move items between vaults while several vaults are shown — select a single vault, or open a folder in the destination vault.",
       "pasteFailed": "Paste failed: {{error}}",
       "pasteBlocked": "Nothing was pasted: you are missing {{permissions}} in one of the vaults involved.",
@@ -290,6 +303,24 @@
       "minutesAgo": "{{count}}m ago",
       "hoursAgo": "{{count}}h ago",
       "daysAgo": "{{count}}d ago"
+    },
+    "cliPending": {
+      "failed_one": "{{count}} change from voltius-cli couldn't be applied.",
+      "failed_other": "{{count}} changes from voltius-cli couldn't be applied."
+    },
+    "policy": {
+      "managed": "Managed by your organization",
+      "managedByTeam": "Managed by {{team}}",
+      "rangeMax": "Your organization allows up to {{value}}",
+      "rangeMin": "Your organization allows {{value}} or more",
+      "rangeBetween": "Your organization allows {{min}}–{{max}}",
+      "rangeAllowed": "Your organization allows {{values}}",
+      "serverBlocked": "This server isn't allowed by your organization",
+      "accountNotSaved": "The current account could not be saved first, so nothing was changed",
+      "fileError": "Your organization's Voltius policy couldn't be read, so none of it applies.",
+      "unprotected": "Your organization's Voltius policy file was ignored because standard users can change it. Ask your IT team to set it with voltius-cli.",
+      "issues_one": "Your organization's Voltius policy has {{count}} problem; the rest of it still applies.",
+      "issues_other": "Your organization's Voltius policy has {{count}} problems; the rest of it still applies."
     },
     "history": {
       "movedItems_one": "Moved {{count}} item",

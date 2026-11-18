@@ -16,7 +16,7 @@ import {
   type GlobalProxy,
   type GlobalProxyMode,
 } from "@/stores/connectivitySettingsStore";
-import { useLocaleStore, SUPPORTED_LOCALES, type Locale } from "@/stores/localeStore";
+import { useLocaleStore, SUPPORTED_LOCALES, TIME_FORMATS, type Locale, type TimeFormat } from "@/stores/localeStore";
 import { KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
 import type { KeywordRule } from "@/utils/keywordMatcher";
 import { lastWriteWins, type UserDataHandler } from "../handler";
@@ -30,6 +30,7 @@ interface AppSettingsData {
   keepalivePreset?: KeepalivePreset;
   detachedTtlHours?: DetachedTtlHours;
   locale?: Locale;
+  timeFormat?: TimeFormat;
   proxy?: GlobalProxy;
   // Absent from peers that predate per-leaf clocks: every leaf then carries the section's clock.
   clocks?: Record<string, string>;
@@ -69,7 +70,7 @@ const mergeAppSettings: UserDataHandler["merge"] = (local, remote, localTs, remo
 
 // Sync input is untrusted: rebuild a fresh object field-by-field instead of
 // trusting the sender's types, so a bad host/port never reaches the Rust IPC.
-function normalizeGlobalProxy(raw: unknown): GlobalProxy | null {
+export function normalizeGlobalProxy(raw: unknown): GlobalProxy | null {
   if (!raw || typeof raw !== "object") return null;
   const { mode, host, port, username } = raw as Record<string, unknown>;
   if (typeof mode !== "string" || !GLOBAL_PROXY_MODES.includes(mode as GlobalProxyMode)) return null;
@@ -101,6 +102,7 @@ export const appSettingsHandler: UserDataHandler = {
       keepalivePreset: useConnectivitySettingsStore.getState().keepalivePreset,
       detachedTtlHours: useConnectivitySettingsStore.getState().detachedTtlHours,
       locale: useLocaleStore.getState().locale,
+      timeFormat: useLocaleStore.getState().timeFormat,
       proxy: useConnectivitySettingsStore.getState().proxy,
       clocks: { ...useAppSettingsTimestampStore.getState().clocks },
     };
@@ -138,6 +140,9 @@ export const appSettingsHandler: UserDataHandler = {
     }
     if (d.locale && SUPPORTED_LOCALES.some((l) => l.value === d.locale)) {
       useLocaleStore.getState().setLocale(d.locale);
+    }
+    if (TIME_FORMATS.includes(d.timeFormat as TimeFormat)) {
+      useLocaleStore.getState().setTimeFormat(d.timeFormat as TimeFormat);
     }
     const proxy = normalizeGlobalProxy(d.proxy);
     if (proxy) useConnectivitySettingsStore.setState({ proxy });

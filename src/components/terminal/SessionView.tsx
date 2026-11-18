@@ -17,6 +17,7 @@ import type { ConnectRetryOverride, TerminalSession } from "@/types";
 import { EphemeralSerialConfigOverlay } from "@/components/connections/EphemeralSerialConfigOverlay";
 import { knocksOnConnect } from "@/services/portKnock";
 import { needsConnectionOverlay, sshOverlaySubtitle } from "./sessionOverlay";
+import { closeSessionTabs } from "@/services/closeSession";
 
 export function HostAwareTerminalView({
   session,
@@ -98,10 +99,10 @@ function SessionConnectionOverlayPanel({ session }: { session: TerminalSession }
   const connectSerialEphemeralFinalize = useSessionStore((s) => s.connectSerialEphemeralFinalize);
   const resetSerialEphemeral = useSessionStore((s) => s.resetSerialEphemeral);
   const reconnect = useSessionStore((s) => s.reconnect);
-  const removeSession = useSessionStore((s) => s.removeSession);
   const reconnectWithPassphrase = useSessionStore((s) => s.reconnectWithPassphrase);
   const retryConnect = useSessionStore((s) => s.retryConnect);
-  const onDismiss = () => removeSession(session.id);
+  const enableLegacyAlgorithms = useSessionStore((s) => s.enableLegacyAlgorithms);
+  const onDismiss = () => closeSessionTabs([session.id]);
   const onRetry = () => void reconnect(session.id);
   const reconnectProps = { reconnectWait: session.reconnectWait, onRetryNow: () => wakeBackoff(session.id) };
 
@@ -171,6 +172,7 @@ function SessionConnectionOverlayPanel({ session }: { session: TerminalSession }
       onRetryWithAuth={
         session.type === "ssh" ? (override: ConnectRetryOverride, save) => void retryConnect(session.id, override, save) : undefined
       }
+      onEnableLegacyAlgorithms={session.type === "ssh" ? () => void enableLegacyAlgorithms(session.id) : undefined}
     />
   );
 }

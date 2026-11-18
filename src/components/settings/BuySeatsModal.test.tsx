@@ -73,7 +73,7 @@ test("success WITH pendingUser: also calls addMemberById(teamId, user, role)", a
   render(<BuySeatsModal {...props} pendingUser={{ user_id: "u9", handle: "nimble-quail-9009" }} pendingRole="editor" />);
   fireEvent.click(screen.getByText("settings.account.buySeats.buyAndInvite"));
   await waitFor(() => expect(props.onSuccess).toHaveBeenCalled());
-  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u9", "editor", undefined);
+  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u9", "editor", undefined, undefined);
 });
 
 test("pendingName is forwarded to addMemberById", async () => {
@@ -82,7 +82,7 @@ test("pendingName is forwarded to addMemberById", async () => {
   render(<BuySeatsModal {...props} pendingUser={{ user_id: "u9", handle: "nimble-quail-9009" }} pendingRole="editor" pendingName="Jan" />);
   fireEvent.click(screen.getByText("settings.account.buySeats.buyAndInvite"));
   await waitFor(() => expect(props.onSuccess).toHaveBeenCalled());
-  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u9", "editor", "Jan");
+  expect(h.addMemberById).toHaveBeenCalledWith("t1", "u9", "editor", "Jan", undefined);
 });
 
 test("not connected (no jwt) → shows errorNotConnected, no fetch, no onSuccess", async () => {

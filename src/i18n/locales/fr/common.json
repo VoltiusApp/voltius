@@ -24,7 +24,9 @@
       "pin": "Épingler",
       "unpin": "Désépingler",
       "moreOptions": "Plus d'options",
-      "closePanel": "Fermer le panneau"
+      "closePanel": "Fermer le panneau",
+      "showPassword": "Afficher le mot de passe",
+      "hidePassword": "Masquer le mot de passe"
     },
     "entity": {
       "host": "Hôte",
@@ -60,6 +62,8 @@
       "search": "Rechercher…"
     },
     "toast": {
+      "invitationWithdrawnAtSignup": "Votre invitation à {{team}} n'est plus valable, vous n'avez donc pas été ajouté. Demandez à l'équipe de vous en envoyer une nouvelle.",
+      "hostAccessRevoked": "Votre accès à {{hosts}} a été révoqué, ses sessions ouvertes ont donc été fermées.",
       "proSubscriptionEnded": "Votre abonnement Pro a expiré — la synchronisation cloud est en pause. Vos appareils restent synchronisés sur le même réseau.",
       "proSubscriptionEnded_ios": "Votre abonnement Pro a expiré — la synchronisation est en pause.",
       "seatEnded": "Votre place dans {{team}} a pris fin — la synchronisation cloud est en pause. Vos appareils restent synchronisés sur le même réseau.",
@@ -80,6 +84,7 @@
       "disableCount": "Garder sur cet appareil uniquement ({{count}})"
     },
     "error": {
+      "invitationWithdrawn": "Cette invitation n'est plus valable. Demandez à l'équipe de vous en envoyer une nouvelle.",
       "identityPickUnavailable": "Votre identité pour {{host}} n'est pas disponible",
       "failedToListIdentityPicks": "Impossible de charger vos choix d'identité ({{status}})",
       "failedToSaveIdentityPick": "Impossible d'enregistrer votre choix d'identité ({{status}})",
@@ -101,6 +106,7 @@
       "failedToExportAuditLogs": "Échec de l'exportation des journaux d'audit : {{status}}",
       "serverUnreachableTimeout": "Serveur injoignable (délai dépassé) — vérifiez votre connexion internet et l'URL du serveur",
       "networkError": "Erreur réseau — {{message}}",
+      "accountAlreadyActive": "Vous êtes déjà connecté à ce compte sur cet appareil",
       "emailAlreadyRegistered": "Cet e-mail est déjà enregistré",
       "registrationFailed": "Échec de l'inscription : {{status}}",
       "registrationDisabled": "La création de comptes est désactivée sur ce serveur. Demandez un compte à son administrateur.",
@@ -231,7 +237,14 @@
       "twoFactorNotEnabled": "L'authentification à deux facteurs n'est pas activée.",
       "twoFactorExpired": "Cette connexion a pris trop de temps. Recommencez.",
       "passkeyIncomplete": "L'étape de la clé d'accès n'a pas abouti. Réessayez.",
-      "passkeyLimit": "Ce compte a déjà le nombre maximal de clés d'accès."
+      "passkeyLimit": "Ce compte a déjà le nombre maximal de clés d'accès.",
+      "teamPolicyConflict": "Quelqu'un d'autre a modifié la règle d'équipe. Vérifiez-la et importez à nouveau.",
+      "teamPolicyRefused": "Le serveur a refusé cette règle : {{reason}}",
+      "failedToLoadTeamPolicy": "Échec du chargement de la règle d'équipe : {{status}}",
+      "failedToSaveTeamPolicy": "Échec de l'enregistrement de la règle d'équipe : {{status}}",
+      "invitationLookupFailed": "Impossible de vérifier cette invitation (HTTP {{status}}).",
+      "invitationNotFound": "Cette invitation a expiré ou a déjà été utilisée. Demandez-en une nouvelle.",
+      "invitationEmailMismatch": "Cette invitation a été envoyée à une autre adresse e-mail."
     },
     "clipboard": {
       "cut_one": "{{count}} élément coupé",
@@ -251,15 +264,15 @@
       "crossVaultCopyDescription_one": "{{count}} élément sera copié dans {{targetVaultName}}.",
       "crossVaultCopyDescription_many": "{{count}} éléments seront copiés dans {{targetVaultName}}.",
       "crossVaultCopyDescription_other": "{{count}} éléments seront copiés dans {{targetVaultName}}.",
-      "cascadeMoved_one": "Sa {{names}} l'accompagne.",
-      "cascadeMoved_many": "Ses {{names}} l'accompagnent.",
-      "cascadeMoved_other": "Ses {{names}} l'accompagnent.",
+      "cascadeMoved_one": "Suit aussi : {{names}}.",
+      "cascadeMoved_many": "Suivent aussi : {{names}}.",
+      "cascadeMoved_other": "Suivent aussi : {{names}}.",
       "cascadeCopied_one": "{{names}} est copiée plutôt que déplacée, car des objets qui restent l'utilisent encore.",
       "cascadeCopied_many": "{{names}} sont copiées plutôt que déplacées, car des objets qui restent les utilisent encore.",
       "cascadeCopied_other": "{{names}} sont copiées plutôt que déplacées, car des objets qui restent les utilisent encore.",
-      "cascadeAlsoCopied_one": "Sa {{names}} est également copiée.",
-      "cascadeAlsoCopied_many": "Ses {{names}} sont également copiées.",
-      "cascadeAlsoCopied_other": "Ses {{names}} sont également copiées.",
+      "cascadeAlsoCopied_one": "Également copié : {{names}}.",
+      "cascadeAlsoCopied_many": "Également copiés : {{names}}.",
+      "cascadeAlsoCopied_other": "Également copiés : {{names}}.",
       "pasteRootCrossVault": "Coller au niveau supérieur ne peut pas déplacer des éléments entre coffres tant que plusieurs coffres sont affichés — sélectionnez un seul coffre, ou ouvrez un dossier dans le coffre de destination.",
       "pasteFailed": "Échec du collage : {{error}}",
       "pasteBlocked": "Rien n'a été collé : il vous manque {{permissions}} dans l'un des coffres concernés.",
@@ -303,6 +316,26 @@
       "minutesAgo": "il y a {{count}} min",
       "hoursAgo": "il y a {{count}} h",
       "daysAgo": "il y a {{count}} j"
+    },
+    "cliPending": {
+      "failed_one": "{{count}} modification de voltius-cli n'a pas pu être appliquée.",
+      "failed_many": "{{count}} modifications de voltius-cli n'ont pas pu être appliquées.",
+      "failed_other": "{{count}} modifications de voltius-cli n'ont pas pu être appliquées."
+    },
+    "policy": {
+      "managed": "Géré par votre organisation",
+      "managedByTeam": "Géré par {{team}}",
+      "rangeMax": "Votre organisation autorise jusqu'à {{value}}",
+      "rangeMin": "Votre organisation autorise {{value}} ou plus",
+      "rangeBetween": "Votre organisation autorise de {{min}} à {{max}}",
+      "rangeAllowed": "Votre organisation autorise : {{values}}",
+      "serverBlocked": "Ce serveur n'est pas autorisé par votre organisation",
+      "accountNotSaved": "Le compte actuel n'a pas pu être enregistré au préalable ; rien n'a été modifié",
+      "fileError": "La politique Voltius de votre organisation n'a pas pu être lue ; aucune de ses règles ne s'applique.",
+      "unprotected": "Le fichier de politique Voltius de votre organisation a été ignoré, car des utilisateurs standard peuvent le modifier. Demandez à votre équipe informatique de le définir avec voltius-cli.",
+      "issues_one": "La politique Voltius de votre organisation comporte {{count}} problème ; le reste s'applique toujours.",
+      "issues_many": "La politique Voltius de votre organisation comporte {{count}} problèmes ; le reste s'applique toujours.",
+      "issues_other": "La politique Voltius de votre organisation comporte {{count}} problèmes ; le reste s'applique toujours."
     },
     "history": {
       "movedItems_one": "{{count}} élément déplacé",

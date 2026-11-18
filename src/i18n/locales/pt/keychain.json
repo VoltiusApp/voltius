@@ -59,10 +59,6 @@
         "folderCascade_one": "{{count}} item arquivado nas pastas selecionadas também será excluído.",
         "folderCascade_other": "{{count}} itens arquivados nas pastas selecionadas também serão excluídos.",
         "folderCascade_many": "{{count}} itens arquivados nas pastas selecionadas também serão excluídos."
-      },
-      "vaultCascade": {
-        "moveDescription": "Mover \"{{folderName}}\" também moverá os seguintes itens para {{targetVaultName}}:",
-        "copyDescription": "Copiar \"{{folderName}}\" também copiará os seguintes itens para {{targetVaultName}}:"
       }
     },
     "cards": {
@@ -118,7 +114,10 @@
       "keyLabel": "Rótulo da Chave",
       "keyLabelPlaceholder": "Minha Chave SSH (opcional)",
       "editHostTitle": "Editar host",
-      "unlinkTitle": "Desvincular — copiar credenciais em linha para o host"
+      "unlinkTitle": "Desvincular — copiar credenciais em linha para o host",
+      "editIdentityTitle": "Editar identidade",
+      "unlinkNoPermission": "Você não tem permissão para desvincular este host",
+      "unlinkFailed": "Não foi possível desvincular “{{name}}”: {{error}}"
     },
     "exportPanel": {
       "exportSectionLabel": "Exportar",

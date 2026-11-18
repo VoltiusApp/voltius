@@ -59,10 +59,6 @@
         "folderCascade_one": "Le contenu des dossiers sélectionnés sera également supprimé ({{count}} élément).",
         "folderCascade_many": "Le contenu des dossiers sélectionnés sera également supprimé ({{count}} éléments).",
         "folderCascade_other": "Le contenu des dossiers sélectionnés sera également supprimé ({{count}} éléments)."
-      },
-      "vaultCascade": {
-        "moveDescription": "Déplacer \"{{folderName}}\" déplacera aussi les éléments suivants vers {{targetVaultName}} :",
-        "copyDescription": "Copier \"{{folderName}}\" copiera aussi les éléments suivants vers {{targetVaultName}} :"
       }
     },
     "cards": {
@@ -118,7 +114,10 @@
       "keyLabel": "Libellé de la clé",
       "keyLabelPlaceholder": "Ma clé SSH (facultatif)",
       "editHostTitle": "Modifier l'hôte",
-      "unlinkTitle": "Dissocier — copier les identifiants en ligne vers l'hôte"
+      "unlinkTitle": "Dissocier — copier les identifiants en ligne vers l'hôte",
+      "editIdentityTitle": "Modifier l'identité",
+      "unlinkNoPermission": "Vous n'avez pas la permission de dissocier cet hôte",
+      "unlinkFailed": "Impossible de dissocier « {{name}} » : {{error}}"
     },
     "exportPanel": {
       "exportSectionLabel": "Export",

@@ -1,5 +1,7 @@
+import { Icon } from "@iconify/react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ManagedNote } from "@/components/shared/ManagedNote";
 import { DEFAULT_SERVER_URL, instanceLabel, isDefaultServer } from "@/utils/serverInstance";
 
 /**
@@ -17,23 +19,42 @@ export function ServerUrlField({
   value,
   onChange,
   inputClassName,
+  locked = false,
+  lockedNote,
+  lockedHost,
 }: {
   value: string;
   onChange: (value: string) => void;
   inputClassName: string;
+  locked?: boolean;
+  lockedNote?: string | null;
+  lockedHost?: string;
 }) {
   const { t } = useTranslation();
   const [shown, setShown] = useState(() => !isDefaultServer(value));
   const host = instanceLabel(value);
+
+  if (locked) {
+    const shownHost = lockedHost ?? host;
+    return (
+      <div className="flex flex-col items-start gap-1 min-w-0 text-xs text-(--t-text-dim)">
+        <span className="max-w-full truncate" title={value}>
+          {shownHost ? t("layout.auth.serverNamed", { host: shownHost }) : DEFAULT_SERVER_URL}
+        </span>
+        {lockedNote === undefined ? <ManagedNote /> : lockedNote && <ManagedNote>{lockedNote}</ManagedNote>}
+      </div>
+    );
+  }
 
   return (
     <>
       <button
         type="button"
         onClick={() => setShown((v) => !v)}
-        className="text-xs w-full text-left transition-colors text-(--t-text-dim)"
+        aria-expanded={shown}
+        className="focus-ring flex items-center gap-1 text-xs w-full text-left transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
       >
-        {shown ? "▾" : "▸"}{" "}
+        <Icon icon={shown ? "lucide:chevron-down" : "lucide:chevron-right"} width={12} />
         {host ? t("layout.auth.serverNamed", { host }) : t("layout.auth.customServerUrl")}
       </button>
       {shown && (

@@ -1,0 +1,56 @@
+name: verify-macos-policy
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'src-tauri/src/policy/**'
+      - 'src-tauri/src/cli/**'
+      - 'src-tauri/src/mcp/transport/**'
+      - 'crates/voltius-cli/**'
+      - 'src-tauri/tauri.release.conf.json'
+      - 'scripts/stage-cli-sidecar.sh'
+      - 'scripts/macos/**'
+      - '.github/workflows/verify-macos-policy.yml'
+      - '.github/workflows/build-desktop.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: verify-macos-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-desktop.yml
+    with:
+      ref: ${{ github.sha }}
+      targets: '["aarch64-apple-darwin"]'
+      upload-artifacts: true
+      signed: false
+
+  verify:
+    needs: build
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Download the installers
+        uses: actions/download-artifact@v8
+        with:
+          name: desktop-aarch64-apple-darwin
+          path: installers
+
+      - name: Verify the configuration profile
+        shell: bash
+        run: |
+          dmgs=$(find installers -type f -name '*.dmg')
+          if [ "$(grep -c . <<< "$dmgs")" -ne 1 ]; then
+            echo "::error::expected one .dmg, found: $dmgs"
+            exit 1
+          fi
+          bash scripts/macos/verify-cli-policy.sh "$dmgs"

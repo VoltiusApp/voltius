@@ -37,7 +37,7 @@ export default function MobileFilterBar({
           onChange={(e) => onChange(e.target.value)}
           placeholder={effectivePlaceholder}
           aria-label={effectivePlaceholder}
-          className="flex-1 min-w-0 self-stretch bg-transparent outline-none text-base text-(--t-text-primary) placeholder:text-(--t-text-dim)"
+          className="flex-1 min-w-0 self-stretch bg-transparent outline-none text-base text-(--t-text-primary)"
         />
         {trailing}
         {value && (

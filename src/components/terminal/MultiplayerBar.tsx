@@ -2,11 +2,12 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { holdsControl } from "@/utils/multiplayerControl";
-import { useSessionStore } from "@/stores/sessionStore";
 import { AvatarOverflow } from "@/components/shared/AvatarStack";
 import { PresenceAvatar } from "@/components/shared/PresenceAvatar";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { avatarLabel, usePeerResolver } from "@/services/peerName";
+import { closeSessionTabs } from "@/services/closeSession";
+import { useDismissBlockedReason } from "@/hooks/useSessionLocked";
 
 const MAX_VISIBLE_PARTICIPANTS = 5;
 
@@ -22,8 +23,7 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
   const grantControl = useTeamSessionStore((s) => s.grantControl);
   const revokeControl = useTeamSessionStore((s) => s.revokeControl);
   const stopSharing = useTeamSessionStore((s) => s.stopSharing);
-  const leaveSession = useTeamSessionStore((s) => s.leaveSession);
-  const removeSession = useSessionStore((s) => s.removeSession);
+  const leaveBlockedReason = useDismissBlockedReason(localSessionId);
 
   if (!mpState) return null;
 
@@ -37,8 +37,7 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
       await stopSharing(localSessionId);
       // keep the terminal tab — only sharing state is cleared
     } else {
-      leaveSession(localSessionId);
-      removeSession(localSessionId);
+      closeSessionTabs([localSessionId]);
     }
   };
 
@@ -167,11 +166,12 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
 
       {/* Stop / Leave */}
       <button
-        className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors ml-1"
+        className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors ml-1 disabled:opacity-40 disabled:pointer-events-none"
         style={{
           color: "var(--t-text-dim)",
         }}
         onClick={() => void handleStopOrLeave()}
+        disabled={!isHost && !!leaveBlockedReason}
         onMouseEnter={(e) => {
           (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)";
           (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, var(--t-status-error) 10%, transparent)";
@@ -180,7 +180,7 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
           (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)";
           (e.currentTarget as HTMLButtonElement).style.background = "transparent";
         }}
-        title={isHost ? t("terminal.multiplayerBar.stopSharingTitle") : t("terminal.multiplayerBar.leaveSessionTitle")}
+        title={isHost ? t("terminal.multiplayerBar.stopSharingTitle") : leaveBlockedReason ?? t("terminal.multiplayerBar.leaveSessionTitle")}
       >
         <Icon icon={isHost ? "lucide:circle-stop" : "lucide:log-out"} width={13} />
         {isHost ? t("terminal.multiplayerBar.stop") : t("terminal.multiplayerBar.leave")}

@@ -8,6 +8,7 @@ vi.mock("react-i18next", () => ({
       vars ? `${key}:${Object.values(vars).join(",")}` : key,
   }),
 }));
+vi.mock("@iconify/react", () => ({ Icon: () => null }));
 
 import { ServerUrlField } from "./ServerUrlField";
 import { DEFAULT_SERVER_URL } from "@/utils/serverInstance";
@@ -43,4 +44,15 @@ test("can still be opened by hand on the official cloud", async () => {
 
   await userEvent.click(screen.getByText(/layout.auth.customServerUrl/));
   expect(field()).toBeTruthy();
+});
+
+test("locked shows the full host on its own line and the managed note beneath it", () => {
+  const url = "https://voltius.acme.example";
+  const { container } = render(<ServerUrlField value={url} onChange={vi.fn()} inputClassName="i" locked />);
+  const [host, note] = [...(container.firstElementChild as HTMLElement).children];
+
+  expect(host.textContent).toBe("layout.auth.serverNamed:voltius.acme.example");
+  expect(host.getAttribute("title")).toBe(url);
+  expect(note.textContent).toBe("common.policy.managed");
+  expect(field()).toBeNull();
 });

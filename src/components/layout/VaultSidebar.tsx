@@ -21,6 +21,7 @@ import type { MyPendingInvitation } from "@/stores/teamStore";
 import { useVaultAdmin } from "@/components/vault-admin/useVaultAdmin";
 import { VaultAdminSurface } from "@/components/vault-admin/VaultAdminSurface";
 import { cloudVaultTarget, localVaultTarget, type VaultAdminTarget } from "@/components/vault-admin/vaultAdminTarget";
+import { RoleBlurb, roleLabel } from "@/components/members/roleChips";
 
 function getInitials(name: string) {
   return name.trim().charAt(0).toUpperCase();
@@ -322,8 +323,9 @@ function PendingInviteModal({
               <span className="text-(--t-text-primary) font-medium">{invite.inviter_display_name ?? t("layout.vaultSidebar.inviterFallback")}</span>
               {" "}{t("layout.vaultSidebar.invitedYouTo")}{" "}
               <span className="text-(--t-text-primary) font-medium">{invite.team_name}</span>
-              {" "}{t("layout.vaultSidebar.asRole")} <span className="capitalize font-medium" style={{ color: "var(--t-accent)" }}>{invite.role}</span>.
+              {" "}{t("layout.vaultSidebar.asRole")} <span className="font-medium" style={{ color: "var(--t-accent)" }}>{roleLabel(t, invite.role)}</span>.
             </p>
+            <RoleBlurb name={invite.role} />
           </div>
         </div>
 

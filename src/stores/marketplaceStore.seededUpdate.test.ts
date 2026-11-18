@@ -12,6 +12,7 @@ const h = vi.hoisted(() => ({
   importPluginModule: vi.fn(async () => ({ default: () => {} })),
   getVersion: vi.fn(),
 }));
+vi.mock("@/services/pluginSync", () => ({ recordUserInstall: vi.fn(), recordUserUninstall: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@tauri-apps/api/app", () => ({ getVersion: h.getVersion }));
 vi.mock("@/plugins/runtime", () => ({ loadPlugin: h.loadPlugin, unloadPlugin: h.unloadPlugin, getLoadedPlugins: h.getLoadedPlugins }));
@@ -23,6 +24,7 @@ vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/http", () => ({ appFetch: vi.fn() }));
 vi.mock("@/stores/pluginRegistryStore", () => ({
   usePluginRegistryStore: { getState: () => ({ isEnabled: () => true }) },
+  installAllowed: () => true,
 }));
 
 import { useMarketplaceStore, FIRST_PARTY_SOURCE, type MarketplacePlugin } from "./marketplaceStore";

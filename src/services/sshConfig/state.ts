@@ -1,6 +1,7 @@
 import { invoke } from "@/lib/invoke";
 import { createSerialQueue } from "@/lib/serialQueue";
 import { syncAfterEdit } from "@/stores/syncAfterEdit";
+import { lockedBool } from "@/stores/policyStore";
 import { useSshConfigStore } from "@/stores/sshConfigStore";
 
 export interface DevicePresence { present: boolean; hash: string; at: number; key?: string }
@@ -19,6 +20,10 @@ export interface SshConfigState {
   joined?: Record<string, number>;
   legacyAliases?: Record<string, string>;
 }
+
+export const SSH_CONFIG_IMPORT = "sshConfig.import";
+
+export const sshConfigImportLock = (): boolean | null => lockedBool(SSH_CONFIG_IMPORT) ?? null;
 
 export const presentAt = (hash: string, at: number, key?: string): DevicePresence => ({ present: true, hash, at, ...(key && { key }) });
 

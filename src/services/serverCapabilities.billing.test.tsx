@@ -6,7 +6,7 @@ vi.mock("@/services/teamObjects", () => ({ fetchServerMeta: h.fetchServerMeta })
 vi.mock("@/services/authTokens", () => ({ getServerUrl: async () => h.serverUrl }));
 vi.mock("@/lib/logger", () => ({ logFailure: () => vi.fn() }));
 
-import { resetServerCapabilities, useServerBillingEnabled } from "./serverCapabilities";
+import { resetServerCapabilities, useServerBillingEnabled, useServerEmailDelivery } from "./serverCapabilities";
 
 beforeEach(() => {
   h.fetchServerMeta.mockReset();
@@ -42,4 +42,17 @@ test("an unreachable official cloud keeps its billing UI", async () => {
   h.fetchServerMeta.mockRejectedValue(new Error("offline"));
   const { result } = renderHook(() => useServerBillingEnabled());
   await waitFor(() => expect(result.current).toBe(true));
+});
+
+test("email delivery is assumed when the server does not say", async () => {
+  h.fetchServerMeta.mockResolvedValue({});
+  const { result } = renderHook(() => useServerEmailDelivery());
+  await waitFor(() => expect(h.fetchServerMeta).toHaveBeenCalled());
+  expect(result.current).toBe(true);
+});
+
+test("a server without email delivery says so", async () => {
+  h.fetchServerMeta.mockResolvedValue({ email_delivery: false });
+  const { result } = renderHook(() => useServerEmailDelivery());
+  await waitFor(() => expect(result.current).toBe(false));
 });

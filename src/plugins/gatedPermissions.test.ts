@@ -7,6 +7,11 @@ import {
   describePermissions, hasGatedPermission, requiresInstallConsent,
 } from "./gatedPermissions";
 
+test("gated_permissions.json mirrors GATED_PERMISSIONS", async () => {
+  await expect(JSON.stringify([...GATED_PERMISSIONS].sort(), null, 2) + "\n")
+    .toMatchFileSnapshot("../../src-tauri/src/policy/gated_permissions.json");
+});
+
 describe("gatedPermissions", () => {
   test("terminal read/stream are gated", () => {
     expect(GATED_PERMISSIONS.has("terminal:read")).toBe(true);

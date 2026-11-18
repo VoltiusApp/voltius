@@ -49,7 +49,7 @@ export function HostSessionsPanel() {
         </div>
         <div className="flex items-center gap-0.5">
           {newSession && <PanelIconButton title={newSession.label} icon={newSession.icon} iconWidth={16} onClick={newSession.onClick} />}
-          <PanelIconButton title={t("layout.titleBar.stack.unpin")} icon="lucide:pin-off" iconWidth={15} onClick={() => setPinned(false)} />
+          <PanelIconButton title={t("layout.titleBar.stack.unpin")} icon="lucide:panel-left-close" iconWidth={15} onClick={() => setPinned(false)} />
         </div>
       </div>
       <div data-testid="host-sessions-rows" className="flex-1 overflow-y-auto" onMouseLeave={clearTitlebarDropTarget}>

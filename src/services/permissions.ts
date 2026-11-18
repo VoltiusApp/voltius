@@ -3,6 +3,7 @@ import type { Vault } from "@/stores/vaultStore";
 import { vaultById } from "@/services/vaultLookup";
 import type { TeamObjectType } from "@/services/teamObjects";
 import type { ObjectAccessIndex } from "@/stores/teamObjectAccessStore";
+import type { MemberDraft, RuleLayers } from "@/services/permissionPreview";
 import { isBusinessLocked, teamLocked } from "@/stores/subscriptionTier";
 
 export type Permission =
@@ -101,22 +102,76 @@ export interface RuleEntry {
 type Masks = { role_ids: string[]; permission_allow?: number; permission_deny?: number };
 type MemberMasks = Masks & { user_id?: string };
 
-// Preview only; decisions read the server's my_permissions. Keep in sync with object_permissions() in server/src/permissions.rs.
-export function resolveObjectPermissions(member: MemberMasks, roles: TeamRole[], entries: RuleEntry[] | null, locked: boolean): number {
-  const teamDeny = member.permission_deny ?? 0;
-  const base = effectivePermissions(member, roles, locked);
-  if (base & PERM_BITS.ADMINISTRATOR) return withDependencies(ALL_PERMISSION_BITS & ~teamDeny);
-  if (!entries) return base;
+export const RULE_LAYER_ORDER = [
+  { kind: "everyoneDeny", field: "everyone_deny", op: "remove" },
+  { kind: "everyoneAllow", field: "everyone_allow", op: "add" },
+  { kind: "rolesDeny", field: "roles_deny", op: "remove" },
+  { kind: "rolesAllow", field: "roles_allow", op: "add" },
+  { kind: "memberDeny", field: "member_deny", op: "remove" },
+  { kind: "memberAllow", field: "member_allow", op: "add" },
+  { kind: "teamDenyLast", field: "team_deny", op: "remove" },
+] as const;
+export type RuleLayerDef = (typeof RULE_LAYER_ORDER)[number];
+
+export const appliesViaRole = (member: { role_ids: string[] }, e: RuleEntry) =>
+  e.subject_type === "role" && member.role_ids.includes(e.subject_id ?? "");
+
+export function layersFromEntries(member: { role_ids: string[]; user_id?: string }, entries: RuleEntry[]): RuleLayers {
   const layer = (match: (e: RuleEntry) => boolean) => entries.filter(match).reduce(
     (acc, e) => ({ allow: acc.allow | e.allow, deny: acc.deny | e.deny }), { allow: 0, deny: 0 });
   const every = layer((e) => e.subject_type === "everyone");
-  const byRole = layer((e) => e.subject_type === "role" && member.role_ids.includes(e.subject_id ?? ""));
+  const byRole = layer((e) => appliesViaRole(member, e));
   const mine = layer((e) => e.subject_type === "member" && e.subject_id === member.user_id);
-  let p = locked
-    ? base & ~(every.deny | byRole.deny | mine.deny)
-    : (((((base & ~every.deny) | every.allow) & ~byRole.deny) | byRole.allow) & ~mine.deny) | mine.allow;
-  p &= ~teamDeny;
+  return {
+    everyone_allow: every.allow, everyone_deny: every.deny,
+    roles_allow: byRole.allow, roles_deny: byRole.deny,
+    member_allow: mine.allow, member_deny: mine.deny,
+  };
+}
+
+export function foldRuleLayers(
+  start: number, layers: RuleLayers, teamDeny: number, locked: boolean,
+  observe?: (layer: RuleLayerDef, before: number, after: number) => void,
+): number {
+  return RULE_LAYER_ORDER.reduce((p, l) => {
+    if (locked && l.op === "add") return p;
+    const bits = l.field === "team_deny" ? teamDeny : layers[l.field];
+    const next = l.op === "add" ? p | bits : p & ~bits;
+    observe?.(l, p, next);
+    return next;
+  }, start);
+}
+
+// Preview only; decisions read the server's my_permissions. Keep in sync with object_permissions() in server/src/permissions.rs.
+export function maskFromLayers(base: number, layers: RuleLayers | null, teamDeny: number, locked: boolean): number {
+  if (base & PERM_BITS.ADMINISTRATOR) return withDependencies(ALL_PERMISSION_BITS & ~teamDeny);
+  if (!layers) return withDependencies(base);
+  const p = foldRuleLayers(base, layers, teamDeny, locked);
   return p & PERM_BITS.VIEW ? withDependencies(p) : 0;
+}
+
+export function resolveObjectPermissions(member: MemberMasks, roles: TeamRole[], entries: RuleEntry[] | null, locked: boolean): number {
+  return maskFromLayers(
+    basePermissions(member, roles, locked),
+    entries && layersFromEntries(member, entries),
+    member.permission_deny ?? 0,
+    locked,
+  );
+}
+
+// Mirrors the layer order of resolveObjectPermissions: role allows beat role denies, member rules beat both.
+export function hasNarrowerException(
+  entries: RuleEntry[], subject: RuleSubject, bit: number, granted: boolean, locked: boolean, members: MemberMasks[],
+): boolean {
+  if (subject.type === "member") return false;
+  const flips = (e: RuleEntry) => ((granted ? e.deny : locked ? 0 : e.allow) & bit) !== 0;
+  if (subject.type === "everyone") return entries.some((e) => e.subject_type !== "everyone" && flips(e));
+  const inRole = members.filter((m) => m.role_ids.includes(subject.id));
+  return entries.some((e) => {
+    if (e.subject_type === "member") return inRole.some((m) => m.user_id === e.subject_id) && flips(e);
+    return e.subject_type === "role" && e.subject_id !== subject.id && !granted
+      && inRole.some((m) => m.role_ids.includes(e.subject_id ?? "")) && flips(e);
+  });
 }
 
 /** A secret that can be read can be used, so reading one requires Connect (or Administrator). Mirrors the server. */
@@ -151,26 +206,28 @@ export function isPrimaryOwner(team: { owner_id: string } | undefined, myUserId:
   return !!myUserId && team?.owner_id === myUserId;
 }
 
-export function effectivePermissions(member: Masks, roles: TeamRole[], locked: boolean): number {
+export function basePermissions(member: Masks, roles: TeamRole[], locked: boolean): number {
   const allow = member.permission_allow ?? 0;
   const deny = member.permission_deny ?? 0;
   const union = member.role_ids.reduce((acc, rid) => {
     const role = roles.find((r) => r.id === rid);
     return !role || (locked && !role.is_builtin) ? acc : acc | role.permissions;
   }, 0);
-  return withDependencies(locked ? union & ~deny : (union | allow) & ~deny);
+  return locked ? union & ~deny : (union | allow) & ~deny;
+}
+
+export function effectivePermissions(member: Masks, roles: TeamRole[], locked: boolean): number {
+  return withDependencies(basePermissions(member, roles, locked));
 }
 
 const VAULT_KEY_GATE = PERM_BITS.CONNECT;
 
-export function crossesVaultKeyGate(member: Masks, roles: TeamRole[], next: { allow: number; deny: number }, locked: boolean): boolean {
-  const before = effectivePermissions(member, roles, locked) & VAULT_KEY_GATE;
-  const after = effectivePermissions(
-    { role_ids: member.role_ids, permission_allow: next.allow, permission_deny: next.deny },
-    roles,
-    locked,
-  ) & VAULT_KEY_GATE;
-  return before !== 0 && after === 0;
+export function dropsConnectSource(member: Masks, roles: TeamRole[], next: MemberDraft, locked: boolean): boolean {
+  const removesRoleBit = member.role_ids.some((id) =>
+    !next.role_ids.includes(id) && ((roles.find((r) => r.id === id)?.permissions ?? 0) & VAULT_KEY_GATE) !== 0);
+  const newDeny = (next.deny & ~(member.permission_deny ?? 0) & VAULT_KEY_GATE) !== 0;
+  const lostAllow = !locked && (((member.permission_allow ?? 0) & ~next.allow) & VAULT_KEY_GATE) !== 0;
+  return removesRoleBit || newDeny || lostAllow;
 }
 
 export function lostAccessToLapse(member: Masks, roles: TeamRole[]): boolean {
@@ -239,6 +296,54 @@ export function resolveMemberReadOnlyReason(params: {
   return null;
 }
 
+export function roleChangeBlock(canManageMembers: boolean, isMe: boolean): "noManage" | "self" | null {
+  if (!canManageMembers) return "noManage";
+  return isMe ? "self" : null;
+}
+
+export interface MemberReadOnly {
+  kind: MemberReadOnlyReason | null;
+  roleBlock: "noManage" | "self" | null;
+  offendingBits: number;
+  lockedEmpty: boolean;
+}
+
+export function memberReadOnly(params: {
+  member: TeamMember;
+  viewerRoleIds: string[] | null;
+  viewerBits: number;
+  canManageMembers: boolean;
+  isTargetOwner: boolean;
+  isMe: boolean;
+  teamRoles: TeamRole[];
+  locked: boolean;
+}): MemberReadOnly {
+  const { member, canManageMembers, isMe } = params;
+  const allow = member.permission_allow ?? 0;
+  const offendingBits = allow & ~params.viewerBits;
+  return {
+    kind: resolveMemberReadOnlyReason({
+      canManageMembers, isMe, offendingBits,
+      isTargetOwner: params.isTargetOwner,
+      viewerRoleIds: params.viewerRoleIds,
+      targetRoleIds: member.role_ids,
+      teamRoles: params.teamRoles,
+    }),
+    roleBlock: roleChangeBlock(canManageMembers, isMe),
+    offendingBits,
+    lockedEmpty: params.locked && (allow | (member.permission_deny ?? 0)) === 0,
+  };
+}
+
+/** CREATE_CUSTOM_ROLES is retired but stays editable while set, so a row can still clear it. */
+export const isEditablePermission = (permission: Permission, setBits: number): boolean =>
+  permission !== "CREATE_CUSTOM_ROLES" || (setBits & PERM_BITS.CREATE_CUSTOM_ROLES) !== 0;
+
+/** A whole-mask notHeld lock still lets the admin clear the very bit that caused it. */
+export function overrideRowLocked(reason: MemberReadOnlyReason | null, permission: Permission, offendingBits: number): boolean {
+  return reason !== null && (reason !== "notHeld" || (PERM_BITS[permission] & offendingBits) === 0);
+}
+
 export interface PermissionSnapshot {
   myUserId: string;
   teams: Team[];
@@ -246,6 +351,7 @@ export interface PermissionSnapshot {
   rolesByTeam: Record<string, TeamRole[]>;
   vaults: Vault[];
   objectAccess?: ObjectAccessIndex;
+  teamBits?: Record<string, number>;
 }
 
 /**
@@ -269,6 +375,9 @@ export function resolveCan(
 
   const objectMask = objectId === undefined ? undefined : snapshot.objectAccess?.[teamId]?.[objectId]?.myPermissions;
   if (objectMask !== undefined) return (objectMask & PERM_BITS[permission]) !== 0;
+
+  const teamBits = snapshot.teamBits?.[teamId];
+  if (teamBits !== undefined) return (teamBits & PERM_BITS[permission]) !== 0;
 
   const roles = snapshot.rolesByTeam[teamId] ?? [];
   const members = snapshot.membersByTeam[teamId];

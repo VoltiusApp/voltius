@@ -58,12 +58,16 @@ export interface ConnectionOverlayProps {
   onRetryWithAuth?: (override: ConnectRetryOverride, save: boolean) => void;
   identityPick?: IdentityPickIssue;
   onUseHostCredential?: () => void;
+  /** Offered in place of Retry when only legacy algorithms would negotiate. */
+  onEnableLegacyAlgorithms?: () => void;
 }
 
 export interface DecisionPanelAction {
   label: string;
   variant?: "primary" | "secondary" | "ghost";
   disabled?: boolean;
+  /** Closes the tab, so a locked tab greys it out. */
+  dismisses?: boolean;
   onClick?: () => void;
 }
 

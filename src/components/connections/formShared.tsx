@@ -1,9 +1,11 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import type { Connection } from "@/types";
+import type { Connection, NewObjectPlacement } from "@/types";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { clearRememberedVars } from "@/stores/hostCommandVarsStore";
+import { useAllSnippets } from "@/hooks/useAllSnippets";
+import { resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import type { HostFormSecrets } from "@/services/hostForm";
 import {
   useVaultObjectFormShell,
@@ -18,9 +20,12 @@ import { HostCommandField } from "./HostCommandField";
 import { LockMark } from "@/components/sshConfig/ManagedHost";
 import { ListRowContext } from "@/components/shared/listRowContext";
 import { useIsMobile } from "@/utils/platform";
+import { ManagedNote, ManagedWhen } from "@/components/shared/ManagedNote";
+import { FormSelect, type FormSelectOption } from "@/components/shared/FormSelect";
 
 export interface ConnectionFormProps {
   initial?: Connection;
+  placement?: NewObjectPlacement;
   onSubmit: (
     data: import("@/types").ConnectionFormData,
     secrets: HostFormSecrets,
@@ -41,9 +46,9 @@ export interface ConnectionFormHandle {
 }
 
 /** The connection forms' shell: the shared chrome bound to the connection store. */
-export function useConnectionFormShell(initial?: Connection): VaultObjectFormShell {
+export function useConnectionFormShell(initial?: Connection, placement?: NewObjectPlacement): VaultObjectFormShell {
   const pinConnection = useConnectionStore((s) => s.pinConnection);
-  return useVaultObjectFormShell({ initial, folderType: "connection", objectType: "connection", pin: pinConnection });
+  return useVaultObjectFormShell({ initial, placement, folderType: "connection", objectType: "connection", pin: pinConnection });
 }
 
 interface AdvancedDisclosureProps {
@@ -84,6 +89,8 @@ export function AdvancedDisclosure({ open, onToggle, hasValues, children }: Adva
 }
 
 export interface HostCommandFieldsState {
+  /** The host's vault as saved: the snippets it may run come from there. */
+  vaultId: string;
   preCommand: string;
   postCommand: string;
   preSnippetId?: string;
@@ -104,25 +111,56 @@ export function SettingRow({
   icon,
   label,
   title,
+  note,
+  locked = false,
   children,
 }: {
   icon: string;
   label: string;
   title?: string;
+  note?: ReactNode;
+  /** An admin lock: the control is disabled and the managed note replaces `note`. */
+  locked?: boolean;
   children: ReactNode;
 }) {
   // Android (mobile edit screens): an M3 list row, its control trailing (ListRowContext)
   // and a tap on the label forwarded to it (rowTapControl, MobileEditScreen).
   const isMobile = useIsMobile();
   const rowContext = useMemo(() => (isMobile ? { label } : null), [isMobile, label]);
-  return (
+  const shownNote = locked ? <ManagedNote /> : note;
+  const row = (
     <div data-setting-row={isMobile ? "" : undefined} data-form-setting-row className="flex items-center gap-1.5 text-xs text-(--t-text-dim) w-full py-1" title={title}>
       <Icon icon={icon} width={13} />
       <span>{label}</span>
       <ListRowContext.Provider value={rowContext}>
-        <span className="ml-auto">{children}</span>
+        <span className="ml-auto">
+          <ManagedWhen locked={locked} note={false}>{children}</ManagedWhen>
+        </span>
       </ListRowContext.Provider>
     </div>
+  );
+  if (!shownNote) return row;
+  return (
+    <div>
+      {row}
+      <div className="flex justify-end text-right pb-1">{shownNote}</div>
+    </div>
+  );
+}
+
+export function OverrideRow({ icon, label, locked, note, value, options, onChange }: {
+  icon: string;
+  label: string;
+  locked: boolean;
+  note?: ReactNode;
+  value: string;
+  options: FormSelectOption[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <SettingRow icon={icon} label={label} locked={locked} note={note}>
+      <FormSelect className="w-36" value={locked ? "" : value} title={label} options={options} onChange={onChange} />
+    </SettingRow>
   );
 }
 
@@ -147,16 +185,27 @@ export function DrillInRow({ icon, label, count, onClick, locked }: { icon: stri
   );
 }
 
-/** The pre/post command state both forms keep and submit. */
-export function useHostCommandFields(initial?: Connection): HostCommandFieldsState {
+/** The pre/post command state both forms keep and submit. A vault change drops snippets left outside it. */
+export function useHostCommandFields(initial: Connection | undefined, formVaultId: string): HostCommandFieldsState {
+  const vaultId = resolveVaultIdForSave(formVaultId);
+  const snippets = useAllSnippets();
   const [preCommand, setPreCommand] = useState(initial?.pre_command ?? "");
   const [postCommand, setPostCommand] = useState(initial?.post_command ?? "");
   const [preSnippetId, setPreSnippetId] = useState(initial?.pre_snippet_id);
   const [postSnippetId, setPostSnippetId] = useState(initial?.post_snippet_id);
   const [askVarsEachTime, setAskVarsEachTime] = useState(initial?.ask_vars_each_time ?? false);
   const [terminalEncoding, setTerminalEncoding] = useState(initial?.terminal_encoding ?? "");
+  const prevVaultIdRef = useRef(vaultId);
+  useEffect(() => {
+    if (prevVaultIdRef.current === vaultId) return;
+    prevVaultIdRef.current = vaultId;
+    const outside = (id: string | undefined) =>
+      !!id && snippets.some((s) => s.id === id && (s.vault_id ?? "personal") !== vaultId);
+    if (outside(preSnippetId)) setPreSnippetId(undefined);
+    if (outside(postSnippetId)) setPostSnippetId(undefined);
+  }, [vaultId, snippets, preSnippetId, postSnippetId]);
   return {
-    preCommand, postCommand, preSnippetId, postSnippetId, askVarsEachTime, terminalEncoding,
+    vaultId, preCommand, postCommand, preSnippetId, postSnippetId, askVarsEachTime, terminalEncoding,
     setPreCommand, setPostCommand, setPreSnippetId, setPostSnippetId, setAskVarsEachTime, setTerminalEncoding,
   };
 }
@@ -192,6 +241,7 @@ export function HostCommandFields({ connectionId, fields, markDirty }: HostComma
         snippetId={fields.preSnippetId}
         onChangeText={(v) => { markDirty(); fields.setPreCommand(v); }}
         onChangeSnippetId={(v) => { markDirty(); fields.setPreSnippetId(v); }}
+        vaultId={fields.vaultId}
       />
       <HostCommandField
         slot="post"
@@ -199,6 +249,7 @@ export function HostCommandFields({ connectionId, fields, markDirty }: HostComma
         snippetId={fields.postSnippetId}
         onChangeText={(v) => { markDirty(); fields.setPostCommand(v); }}
         onChangeSnippetId={(v) => { markDirty(); fields.setPostSnippetId(v); }}
+        vaultId={fields.vaultId}
       />
       <FormHint>{t("connections.common.sessionCommandsHint")}</FormHint>
       {(fields.preSnippetId || fields.postSnippetId) && (

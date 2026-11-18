@@ -1,17 +1,3 @@
-import type {
-  Connection,
-  ConnectionFormData,
-  Folder,
-  FolderFormData,
-  Identity,
-  IdentityFormData,
-  PortForwardingRule,
-  PortForwardingRuleFormData,
-  Snippet,
-  SnippetFormData,
-  SshKey,
-  SshKeyFormData,
-} from "@/types";
 import type { NavItem } from "@/stores/uiStore";
 import type { VaultClipboard, VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import type { PluginObjectMoveInput, PluginObjectMoveOutcome } from "../api";
@@ -21,22 +7,13 @@ import {
   type CascadeEntry,
   type ClipboardAdapter,
 } from "@/services/vaultClipboard";
-import { vaultClipboardBase } from "@/utils/vaultClipboardBase";
-import type { ClipboardHalf } from "@/services/clipboard/types";
-import { connectionsClipboardHalf } from "@/services/clipboard/connections";
-import { keychainClipboardHalf } from "@/services/clipboard/keychain";
-import { portForwardingClipboardHalf } from "@/services/clipboard/portForwarding";
-import { snippetsClipboardHalf } from "@/services/clipboard/snippets";
-import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
-import { cloneFolderTree } from "@/utils/folderCopy";
-import { moveFolderTreeToVault } from "@/utils/folderMove";
-import { snippetToForm } from "@/utils/snippetForm";
-import { ruleToForm } from "@/utils/portForwardingForm";
-import { getSecret, storeSecret } from "@/services/vault";
-import { reportUploadFailure } from "@/services/secretRouting";
-import { moveKeyToVault, moveIdentityToVault } from "@/services/vaultObjectSecrets";
-import { duplicateConnection, moveConnectionToVault } from "@/services/connectionDuplicate";
-import { copyingRulesOf } from "@/services/ruleSetIntent";
+import type { VaultObjectPorts } from "@/services/vaultObjectWrites";
+import {
+  createPasteState,
+  headlessVaultObjectsAdapter,
+  type PasteState,
+  type VaultObjectTab,
+} from "@/services/clipboard/vaultObjectsAdapter";
 import { vaultOf } from "./vaultOf";
 
 export type ObjectTab = "hosts" | "keychain" | "port_forwarding" | "snippets";
@@ -67,60 +44,13 @@ export interface ObjectsAPI {
  * the post-hydration ones. The writes are the same store methods the pages call,
  * so the vault permission checks inside them still apply.
  */
-export interface ObjectPorts {
+export interface ObjectPorts extends VaultObjectPorts {
   /** Loads the lazily-hydrated stores. See `run` for why it is not optional. */
   hydrate(): Promise<void>;
   can(permission: string, vaultId: string, objectId?: string): boolean;
   isTeamVault(vaultId: string): boolean;
   vaults(): { id: string; name: string }[];
   accessibleVaultIds(): string[];
-
-  connections(): Connection[];
-  keys(): SshKey[];
-  identities(): Identity[];
-  snippets(): Snippet[];
-  rules(): PortForwardingRule[];
-  /** The connection, keychain and port_forwarding trees. */
-  folders(): Folder[];
-  snippetFolders(): Folder[];
-
-  saveConnection(form: ConnectionFormData): Promise<{ id: string }>;
-  updateConnection(id: string, form: ConnectionFormData): Promise<unknown>;
-  deleteConnection(id: string): Promise<unknown>;
-  loadConnections(): Promise<unknown>;
-
-  saveKey(form: SshKeyFormData): Promise<{ id: string }>;
-  updateKey(id: string, form: SshKeyFormData): Promise<unknown>;
-  deleteKey(id: string): Promise<unknown>;
-  loadKeys(): Promise<unknown>;
-
-  saveIdentity(form: IdentityFormData): Promise<{ id: string }>;
-  updateIdentity(id: string, form: IdentityFormData): Promise<unknown>;
-  deleteIdentity(id: string): Promise<unknown>;
-  loadIdentities(): Promise<unknown>;
-
-  createSnippet(form: SnippetFormData): Promise<{ id: string }>;
-  updateSnippet(id: string, form: SnippetFormData): Promise<unknown>;
-  deleteSnippet(id: string): Promise<unknown>;
-
-  createRule(form: PortForwardingRuleFormData): Promise<{ id: string }>;
-  updateRule(id: string, form: PortForwardingRuleFormData): Promise<unknown>;
-  deleteRule(id: string): Promise<unknown>;
-  moveRuleFolder(id: string, folderId: string | null): Promise<unknown>;
-
-  moveObjectsToFolder(
-    ids: string[],
-    objectType: "connection" | "key" | "identity",
-    folderId: string | null,
-  ): Promise<unknown>;
-  saveFolder(data: FolderFormData): Promise<Folder>;
-  updateFolder(id: string, data: FolderFormData): Promise<unknown>;
-  deleteFolder(id: string): Promise<unknown>;
-  moveFolder(id: string, parentFolderId: string | null): Promise<unknown>;
-  saveSnippetFolder(data: FolderFormData): Promise<Folder>;
-  updateSnippetFolder(id: string, data: FolderFormData): Promise<unknown>;
-  deleteSnippetFolder(id: string): Promise<unknown>;
-  moveSnippetFolder(id: string, parentFolderId: string | null): Promise<unknown>;
 }
 
 const NAV_ITEM: Record<ObjectTab, NavItem> = {
@@ -130,14 +60,7 @@ const NAV_ITEM: Record<ObjectTab, NavItem> = {
   snippets: "snippets",
 };
 
-/** `object_type` on a folder record, per tab. Snippet folders live in their own store. */
-const FOLDER_TYPE: Record<ObjectTab, string> = {
-  hosts: "connection",
-  keychain: "keychain",
-  port_forwarding: "port_forwarding",
-  snippets: "snippet",
-};
-
+/** The tab a folder record's `object_type` belongs to. Snippet folders live in their own store. */
 const TAB_OF_FOLDER_TYPE: Record<string, ObjectTab> = {
   connection: "hosts",
   keychain: "keychain",
@@ -199,280 +122,7 @@ function resolveTab(
   return { tab: [...tabs][0], located, ids };
 }
 
-// ─── Per-tab duplication, used by a copy and by a folder clone ────────────
-
-const copySecret = async (from: string, to: string): Promise<void> => {
-  const value = await getSecret(from).catch(() => null);
-  if (value) await storeSecret(to, value).catch(reportUploadFailure("copySecret"));
-};
-
-interface DuplicateOpts {
-  vaultId?: string;
-  keepName?: boolean;
-  identityId?: string;
-  keyId?: string;
-}
-
-// default name suffix kept in English until all creation sites are localized together (see i18n issue #14)
-const cloneName = (name: string | undefined, keepName: boolean | undefined): string | undefined =>
-  name ? (keepName ? name : `${name} (copy)`) : undefined;
-
-function duplicators(ports: ObjectPorts) {
-  const connection = (conn: Connection, folderId: string | null, opts: DuplicateOpts = {}) =>
-    duplicateConnection(conn, folderId, opts, ports.saveConnection);
-
-  const key = async (k: SshKey, folderId: string | null, opts: DuplicateOpts = {}) => {
-    const vaultId = opts.vaultId ?? vaultOf(k);
-    const created = await ports.saveKey(copyingRulesOf({
-      name: cloneName(k.name, opts.keepName),
-      key_type: k.key_type,
-      tags: [...k.tags],
-      folder_id: folderId ?? undefined,
-      vault_id: vaultId,
-    }, k.id));
-    for (const part of ["private", "public", "passphrase"]) {
-      await copySecret(`key:${k.id}:${part}`, `key:${created.id}:${part}`);
-    }
-    return created;
-  };
-
-  const identity = async (i: Identity, folderId: string | null, opts: DuplicateOpts = {}) => {
-    const vaultId = opts.vaultId ?? vaultOf(i);
-    const created = await ports.saveIdentity(copyingRulesOf({
-      name: cloneName(i.name, opts.keepName),
-      username: i.username,
-      key_id: opts.keyId ?? i.key_id,
-      tags: [...i.tags],
-      folder_id: folderId ?? undefined,
-      vault_id: vaultId,
-    }, i.id));
-    await copySecret(`identity:${i.id}:password`, `identity:${created.id}:password`);
-    return created;
-  };
-
-  const snippet = (s: Snippet, folderId: string | null, opts: DuplicateOpts = {}) =>
-    ports.createSnippet(copyingRulesOf({
-      ...snippetToForm(s),
-      name: cloneName(s.name, opts.keepName) ?? s.name,
-      folder_id: folderId ?? undefined,
-      vault_id: opts.vaultId ?? s.vault_id,
-      favorite: false,
-    }, s.id));
-
-  const rule = (r: PortForwardingRule, folderId: string | null, opts: DuplicateOpts = {}) =>
-    ports.createRule(copyingRulesOf(ruleToForm(r, {
-      name: cloneName(r.name, opts.keepName) ?? r.name,
-      folder_id: folderId ?? undefined,
-      vault_id: opts.vaultId ?? r.vault_id,
-    }), r.id));
-
-  return { connection, key, identity, snippet, rule };
-}
-
-// ─── Per-tab folder handling ──────────────────────────────────────────────
-
-interface FolderOps {
-  folders: Folder[];
-  saveFolder(data: FolderFormData): Promise<Folder>;
-  updateFolder(id: string, data: FolderFormData): Promise<unknown>;
-  deleteFolder(id: string): Promise<unknown>;
-  moveFolder(id: string, parentFolderId: string | null): Promise<unknown>;
-  /** Recreates the items under `rootId` beneath the folders the clone just made. */
-  copySubtreeItems(
-    rootId: string,
-    folderIdMap: Map<string, string>,
-    newRootId: string,
-    vaultId: string,
-  ): Promise<void>;
-  /** Carries the items under `rootId` into `vaultId` after the folders have moved. */
-  migrateSubtreeItems(rootId: string, vaultId: string): Promise<void>;
-}
-
-function folderOpsFor(ports: ObjectPorts, tab: ObjectTab): FolderOps {
-  const dup = duplicators(ports);
-  const folders = tab === "snippets"
-    ? ports.snippetFolders()
-    : ports.folders().filter((f) => f.object_type === FOLDER_TYPE[tab]);
-  const store = tab === "snippets"
-    ? {
-      saveFolder: ports.saveSnippetFolder,
-      updateFolder: ports.updateSnippetFolder,
-      deleteFolder: ports.deleteSnippetFolder,
-      moveFolder: ports.moveSnippetFolder,
-    }
-    : {
-      saveFolder: ports.saveFolder,
-      updateFolder: ports.updateFolder,
-      deleteFolder: ports.deleteFolder,
-      moveFolder: ports.moveFolder,
-    };
-
-  const under = <T extends { folder_id?: string | null }>(items: T[], rootId: string): T[] =>
-    itemsInFolderSubtree(items, folders, rootId);
-  const destinationOf = (
-    item: { folder_id?: string | null },
-    folderIdMap: Map<string, string>,
-    newRootId: string,
-  ): string => folderIdMap.get(item.folder_id ?? "") ?? newRootId;
-
-  const copySubtreeItems: FolderOps["copySubtreeItems"] = async (rootId, map, newRootId, vaultId) => {
-    const opts = { vaultId, keepName: true };
-    if (tab === "hosts") {
-      for (const c of under(ports.connections(), rootId)) {
-        await dup.connection(c, destinationOf(c, map, newRootId), opts);
-      }
-      return;
-    }
-    if (tab === "keychain") {
-      // Keys first: an identity cloned from the same subtree must point at the
-      // clone of its key, not back at the original in the source vault.
-      const keyIdMap = new Map<string, string>();
-      for (const k of under(ports.keys(), rootId)) {
-        const created = await dup.key(k, destinationOf(k, map, newRootId), opts);
-        keyIdMap.set(k.id, created.id);
-      }
-      for (const i of under(ports.identities(), rootId)) {
-        await dup.identity(i, destinationOf(i, map, newRootId), {
-          ...opts,
-          keyId: i.key_id ? (keyIdMap.get(i.key_id) ?? i.key_id) : undefined,
-        });
-      }
-      return;
-    }
-    if (tab === "port_forwarding") {
-      for (const r of under(ports.rules(), rootId)) {
-        await dup.rule(r, destinationOf(r, map, newRootId), opts);
-      }
-      return;
-    }
-    for (const s of under(ports.snippets(), rootId)) {
-      await dup.snippet(s, destinationOf(s, map, newRootId), opts);
-    }
-  };
-
-  const migrateSubtreeItems: FolderOps["migrateSubtreeItems"] = async (rootId, vaultId) => {
-    if (tab === "hosts") {
-      for (const c of under(ports.connections(), rootId)) {
-        await moveConnectionToVault(c, vaultId, ports.updateConnection);
-      }
-      return;
-    }
-    if (tab === "keychain") {
-      for (const k of under(ports.keys(), rootId)) {
-        await moveKeyToVault(k, vaultId, {
-          name: k.name, key_type: k.key_type, tags: k.tags, folder_id: k.folder_id, vault_id: vaultId,
-        }, ports.updateKey);
-      }
-      for (const i of under(ports.identities(), rootId)) {
-        await moveIdentityToVault(i, vaultId, {
-          name: i.name, username: i.username, key_id: i.key_id, tags: i.tags,
-          folder_id: i.folder_id, vault_id: vaultId,
-        }, ports.updateIdentity);
-      }
-      return;
-    }
-    if (tab === "port_forwarding") {
-      for (const r of under(ports.rules(), rootId)) {
-        await ports.updateRule(r.id, ruleToForm(r, { vault_id: vaultId }));
-      }
-      return;
-    }
-    for (const s of under(ports.snippets(), rootId)) {
-      await ports.updateSnippet(s.id, { ...snippetToForm(s), vault_id: vaultId });
-    }
-  };
-
-  return { folders, ...store, copySubtreeItems, migrateSubtreeItems };
-}
-
 // ─── The headless adapter ─────────────────────────────────────────────────
-
-type ClipboardEntities = {
-  kind: VaultClipboardKind;
-  items: { id: string; vault_id?: string | null; folder_id?: string | null }[];
-}[];
-
-/** What each tab's ids are classified against, in the order the page lists them. */
-const ENTITIES: Record<ObjectTab, (ports: ObjectPorts) => ClipboardEntities> = {
-  hosts: (p) => [{ kind: "connection", items: p.connections() }],
-  keychain: (p) => [
-    { kind: "key", items: p.keys() },
-    { kind: "identity", items: p.identities() },
-  ],
-  port_forwarding: (p) => [{ kind: "port_forward", items: p.rules() }],
-  snippets: (p) => [{ kind: "snippet", items: p.snippets() }],
-};
-
-function halfFor(
-  ports: ObjectPorts,
-  tab: ObjectTab,
-  ops: FolderOps,
-  vaultForFolder: (folderId: string | null) => string | null,
-  cascadeRemap: { identities: Map<string, string>; keys: Map<string, string> },
-): ClipboardHalf {
-  const dup = duplicators(ports);
-  const inTree = <T extends { folder_id?: string | null }>(items: T[], folderId: string): T[] =>
-    itemsInFolderSubtree(items, ops.folders, folderId);
-
-  if (tab === "hosts") {
-    return connectionsClipboardHalf({
-      connections: ports.connections(),
-      keys: ports.keys(),
-      identities: ports.identities(),
-      getConnectionsInFolderTree: (folderId) => inTree(ports.connections(), folderId),
-      vaultForFolder,
-      updateConnection: ports.updateConnection,
-      deleteConnection: ports.deleteConnection,
-      loadConnections: ports.loadConnections,
-      moveObjectsToFolder: (ids, objectType, folderId) =>
-        ports.moveObjectsToFolder(ids, objectType, folderId),
-      duplicateInto: (conn, folderId, opts) => dup.connection(conn, folderId, opts),
-      updateKey: ports.updateKey,
-      saveKey: ports.saveKey,
-      updateIdentity: ports.updateIdentity,
-      saveIdentity: ports.saveIdentity,
-    }, cascadeRemap);
-  }
-  if (tab === "keychain") {
-    return keychainClipboardHalf({
-      keys: ports.keys(),
-      identities: ports.identities(),
-      keysInFolderTree: (folderId) => inTree(ports.keys(), folderId),
-      identitiesInFolderTree: (folderId) => inTree(ports.identities(), folderId),
-      vaultForFolder,
-      updateKey: ports.updateKey,
-      updateIdentity: ports.updateIdentity,
-      moveObjectsToFolder: (ids, objectType, folderId) =>
-        ports.moveObjectsToFolder(ids, objectType, folderId),
-      loadKeys: ports.loadKeys,
-      loadIdentities: ports.loadIdentities,
-      duplicateKeyInto: (k, folderId, opts) => dup.key(k, folderId, opts),
-      duplicateIdentityInto: (i, folderId, opts) => dup.identity(i, folderId, opts),
-      deleteKey: ports.deleteKey,
-      deleteIdentity: ports.deleteIdentity,
-    });
-  }
-  if (tab === "port_forwarding") {
-    return portForwardingClipboardHalf({
-      rules: ports.rules(),
-      connections: ports.connections(),
-      getRulesInFolderTree: (folderId) => inTree(ports.rules(), folderId),
-      vaultForFolder,
-      moveRuleFolder: ports.moveRuleFolder,
-      updateRule: ports.updateRule,
-      duplicateRuleInto: (r, folderId, opts) => dup.rule(r, folderId, opts),
-      deleteRule: ports.deleteRule,
-    });
-  }
-  return snippetsClipboardHalf({
-    snippets: ports.snippets(),
-    getSnippetsInFolderTree: (folderId) => inTree(ports.snippets(), folderId),
-    vaultForFolder,
-    updateSnippet: ports.updateSnippet,
-    duplicateSnippetInto: (s, folderId, opts) => dup.snippet(s, folderId, opts),
-    deleteSnippet: ports.deleteSnippet,
-  });
-}
 
 /**
  * The same adapter the page builds, with no page: no confirmation (the
@@ -480,57 +130,19 @@ function halfFor(
  * selection to update. Building it runs no store method, which is what lets the
  * cross-vault refusal below read `planCascade` without mutating anything.
  */
-function buildAdapter(
-  ports: ObjectPorts,
-  tab: ObjectTab,
-  input: MoveInput,
-  ops: FolderOps,
-  cascadeRemap: { identities: Map<string, string>; keys: Map<string, string> },
-): ClipboardAdapter {
-  const { vaultForFolder, adapter: base } = vaultClipboardBase({
-    navItem: NAV_ITEM[tab],
-    entities: ENTITIES[tab](ports),
-    folders: ops.folders,
-    selectedIdSet: new Set(input.ids),
-    focusedId: null,
-    activeFolderId: input.folderId,
-    scopedVaultId: input.vaultId,
+function buildAdapter(ports: ObjectPorts, tab: ObjectTab, input: MoveInput, state: PasteState): ClipboardAdapter {
+  return headlessVaultObjectsAdapter({
+    tab: NAV_ITEM[tab] as VaultObjectTab,
+    ports,
+    can: ports.can,
+    state,
+    folderId: input.folderId,
+    vaultId: input.vaultId,
     accessibleVaultIds: ports.accessibleVaultIds(),
     vaultOptions: ports.vaults(),
-    can: ports.can,
-    confirmCrossVault: undefined,
-    setSelection: () => {},
-    migrateFolderTreeToVault: async (folder, parentFolderId, vaultId) => {
-      await moveFolderTreeToVault({
-        root: folder,
-        subFolders: descendantFolders(ops.folders, folder.id),
-        parentFolderId,
-        vaultId,
-        updateFolder: ops.updateFolder,
-      });
-      await ops.migrateSubtreeItems(folder.id, vaultId);
-    },
-    moveFolder: ops.moveFolder,
-    copyFolderInto: async (folderId, parentFolderId, vaultId, opts) => {
-      const folder = ops.folders.find((f) => f.id === folderId);
-      if (!folder) throw new Error(`Folder "${folderId}" not found`);
-      const targetVaultId = vaultId ?? vaultOf(folder);
-      const { root, folderIdMap } = await cloneFolderTree({
-        root: folder,
-        subFolders: descendantFolders(ops.folders, folder.id),
-        parentFolderId,
-        vaultId: targetVaultId,
-        keepName: opts?.keepName ?? false,
-        saveFolder: ops.saveFolder,
-      });
-      await ops.copySubtreeItems(folder.id, folderIdMap, root.id, targetVaultId);
-      return root;
-    },
-    deleteFolder: ops.deleteFolder,
   });
-
-  return { ...base, ...halfFor(ports, tab, ops, vaultForFolder, cascadeRemap) };
 }
+
 
 // ─── Permissions ──────────────────────────────────────────────────────────
 
@@ -555,10 +167,9 @@ const TAB_CONTENT_KINDS: Record<ObjectTab, VaultClipboardKind[]> = {
 };
 
 /**
- * Kinds a tab's paste writes beyond the objects it names. A host carries its key
- * and identity: `applyCascade` saves or updates them in the destination vault
- * and the duplicators copy their private material with them, so a hosts paste —
- * of a bare connection id just as much as of a folder — needs those grants too.
+ * Kinds a hosts paste writes beyond the objects it names on any cross-vault
+ * call: the key and identity a host references, private material included.
+ * Anything else a call carries is authorized from its own plan in `run`.
  */
 const TAB_CASCADE_KINDS: Record<ObjectTab, VaultClipboardKind[]> = {
   hosts: ["key", "identity"],
@@ -578,9 +189,8 @@ const TAB_CASCADE_KINDS: Record<ObjectTab, VaultClipboardKind[]> = {
  * granted. Taken from the tab rather than the subtree so an empty folder that
  * fills up between the gate and the paste cannot widen what was authorized.
  *
- * A hosts id — folder or bare connection — asks for the keychain's kinds on the
- * same grounds: the paste cascade writes the key and identity a host references
- * into the destination vault, private material included.
+ * A hosts id also asks for the keychain's kinds on the same grounds. What else
+ * the paste carries depends on the call, so `run` authorizes it from the plan.
  *
  * A destination vault adds nothing: a move or copy never creates or destroys a
  * vault, so demanding `vaults:write` — which also deletes them — for filing a
@@ -633,11 +243,13 @@ export function createObjectsAPI(ports: ObjectPorts): ObjectsAPI {
     authorize(objectPermissionsFor(ports, input));
 
     const { tab, located, ids } = resolveTab(ports, input.ids);
-    const ops = folderOpsFor(ports, tab);
+    const tabFolders = tab === "snippets"
+      ? ports.snippetFolders()
+      : ports.folders().filter((f) => TAB_OF_FOLDER_TYPE[f.object_type] === tab);
 
     const destinationFolder = input.folderId === null
       ? null
-      : ops.folders.find((f) => f.id === input.folderId);
+      : tabFolders.find((f) => f.id === input.folderId);
     if (input.folderId !== null && !destinationFolder) {
       throw new Error(`Folder "${input.folderId}" not found on the ${tab} tab`);
     }
@@ -647,10 +259,7 @@ export function createObjectsAPI(ports: ObjectPorts): ObjectsAPI {
       );
     }
 
-    // One remap for the whole operation: the cascade records what it created for
-    // the paste that follows it, and both halves of that are this single call.
-    const cascadeRemap = { identities: new Map<string, string>(), keys: new Map<string, string>() };
-    const adapter = buildAdapter(ports, tab, input, ops, cascadeRemap);
+    const adapter = buildAdapter(ports, tab, input, createPasteState());
 
     // The adapter's own answer, not a second derivation: a folder with no vault
     // names no destination there either, and the two must not disagree.
@@ -715,9 +324,25 @@ export function createObjectsAPI(ports: ObjectPorts): ObjectsAPI {
       }
     }
 
+    // The cascade may carry referenced objects too, and a team one is refused like a team root.
+    const teamTraveller = destination === null
+      ? undefined
+      : adapter.planCascade?.(items, folderIds, destination, mode).find((e) => ports.isTeamVault(e.sourceVaultId));
+    if (teamTraveller) {
+      throw new Error(
+        `Refused: ${teamTraveller.type} "${teamTraveller.id}" referenced by the selection is in team vault `
+        + `"${nameOf(teamTraveller.sourceVaultId)}" and cannot be carried from here`,
+      );
+    }
+
     // Through the shared serializer, like the pages: an overlapping paste holds
     // the `withoutHistory` window open and the other one's undo entry is lost.
-    const result = await runPaste(() => pasteFromClipboard(clipboard, adapter));
+    // Planned and authorized inside the queue with no await before the paste, which plans the same cascade.
+    const result = await runPaste(() => {
+      const carried = destination === null ? [] : adapter.planCascade?.(items, folderIds, destination, mode) ?? [];
+      authorize([...new Set(carried.map((entry) => KIND_PERMISSION[entry.type]))]);
+      return pasteFromClipboard(clipboard, adapter);
+    });
     // Every non-mutating outcome is a refusal here. Reported as a success it
     // reads as "moved 0, nothing wrong", which is how a silently dropped paste
     // looks to a caller with no toast to see.

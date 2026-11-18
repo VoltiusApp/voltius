@@ -1,4 +1,5 @@
 import type { DecisionPanelAction, DecisionPanelProps } from "./types";
+import { useDismissBlocked } from "./dismissBlocked";
 
 const toneClasses = {
   warning: {
@@ -31,6 +32,7 @@ export function DecisionPanel({
   actions,
 }: DecisionPanelProps) {
   const classes = toneClasses[tone];
+  const dismissBlocked = useDismissBlocked();
 
   return (
     <div className="w-full flex flex-col gap-4">
@@ -48,7 +50,8 @@ export function DecisionPanel({
         {actions.map((action) => (
           <button
             key={action.label}
-            disabled={action.disabled}
+            disabled={action.disabled || (action.dismisses && !!dismissBlocked)}
+            title={action.dismisses ? dismissBlocked : undefined}
             onClick={action.onClick}
             className={actionClassName(action)}
           >

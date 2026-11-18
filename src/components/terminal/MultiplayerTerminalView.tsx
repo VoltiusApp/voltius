@@ -5,12 +5,9 @@ import { claimWebglRenderer } from "@/utils/webglAddon";
 import { suppressTerminalQueries } from "@/components/terminal/terminalQueries";
 import { activateTerminal, disposeClosedTerminals, reattachTerminal, setTerminalVisible, useTerminalMount, type CachedTerminal } from "@/components/terminal/terminalContainer";
 import { useThemeStore } from "@/stores/themeStore";
-import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
-import { getToggle } from "@/stores/toggleSettingsStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { attachGuestOutput, useTeamSessionStore } from "@/stores/teamSessionStore";
-import { terminalFontStack } from "@/utils/fontStack";
-import { clampTerminalLineHeight, subscribeTerminalCursor, subscribeTerminalTheme } from "@/utils/terminalTheme";
+import { subscribeTerminalCursor, subscribeTerminalTheme, terminalOptionsFor } from "@/utils/terminalTheme";
 import "@xterm/xterm/css/xterm.css";
 
 interface Props {
@@ -36,18 +33,7 @@ function mountGuestTerminal(localSessionId: string, container: HTMLDivElement): 
   }
 
   const activeTheme = useThemeStore.getState().getActiveTheme();
-  const { scrollbackLines: scrollback, cursorStyle } = useTerminalSettingsStore.getState();
-  const term = new Terminal({
-    macOptionClickForcesSelection: true,
-    cursorBlink: getToggle("cursor-blink"),
-    cursorStyle,
-    fontSize: activeTheme.terminalFontSize,
-    lineHeight: clampTerminalLineHeight(activeTheme.terminalLineHeight),
-    fontFamily: terminalFontStack(activeTheme.terminalFontFamily),
-    scrollback,
-    theme: activeTheme.terminal,
-    allowProposedApi: true,
-  });
+  const term = new Terminal(terminalOptionsFor(activeTheme));
 
   const fitAddon = new FitAddon();
   term.loadAddon(fitAddon);

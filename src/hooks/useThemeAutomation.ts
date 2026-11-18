@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useThemeStore } from "@/stores/themeStore";
+import { useThemeStore, locationSetting } from "@/stores/themeStore";
 import { resolveThemePhase, nextTransition } from "@/services/themeAutomation";
 import { getSystemPrefersDark, subscribeSystemAppearance } from "@/services/systemAppearance";
 
@@ -7,7 +7,7 @@ export function useThemeAutomation(): void {
   const mode = useThemeStore((s) => s.mode);
   const scheduleLightStart = useThemeStore((s) => s.scheduleLightStart);
   const scheduleDarkStart = useThemeStore((s) => s.scheduleDarkStart);
-  const location = useThemeStore((s) => s.location);
+  const location = locationSetting.use();
 
   useEffect(() => {
     if (mode === "manual") return;
@@ -42,5 +42,5 @@ export function useThemeAutomation(): void {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [mode, scheduleLightStart, scheduleDarkStart, location]);
+  }, [mode, scheduleLightStart, scheduleDarkStart, location?.lat, location?.lng]);
 }

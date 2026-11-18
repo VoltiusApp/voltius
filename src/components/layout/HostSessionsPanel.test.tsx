@@ -92,7 +92,7 @@ describe("HostSessionsPanel", () => {
 
   it("unpins from its header", () => {
     render(<HostSessionsPanel />);
-    fireEvent.click(screen.getByTitle("Unpin session list"));
+    fireEvent.click(screen.getByTitle("Hide side panel"));
     expect(useUIStore.getState().hostPanelPinned).toBe(false);
   });
 

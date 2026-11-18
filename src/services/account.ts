@@ -9,17 +9,29 @@ import { deviceScopedSecretKeys } from "./deviceScopedSecrets";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { sameKey } from "./vaultKeyCandidates";
-import { appFetch, isAbortError } from "@/services/http";
+import { fetchWithTimeout } from "@/services/fetchWithTimeout";
 import { VaultUnreadableError } from "./vaultErrors";
-import { clearSecret, readPlainSecret, readSecret, rememberPassword, replacePassword, secretState, storePassword } from "./vaultSecret";
-import { rememberServer } from "@/utils/serverInstance";
+import {
+  clearSecret, keepsPlainPassword, readPlainSecret, readSecret, rememberPassword, replacePassword, secretState, storeDeviceKey,
+  storePassword,
+} from "./vaultSecret";
+import { serverAllowed } from "@/services/policy/serverPolicy";
+import { ServerBlockedError } from "@/services/accountErrors";
+import { normalizeServerUrl, rememberServer } from "@/utils/serverInstance";
 import { base64ToByteArray, bytesToHex, hexToBytes } from "@/utils/base64";
 import { EmailUndeliverableError, isEmailUndeliverable } from "@/utils/emailVerification";
 import { deleteAccountFailure } from "@/utils/deleteAccount";
 import type { SavedAccount } from "./savedAccounts";
-import { clearSessionRevoked, refreshAccessToken } from "./authTokens";
+import { joinRefusal, toEnrollmentOutcome, type EnrollmentCredential, type EnrollmentOutcome } from "./enrollment/enrollmentPublic";
+import { enrollmentErrorFrom } from "./enrollment/enrollmentApi";
+import { invitationRefusal, RegistrationClosedError } from "./teamInvitation";
+import { adoptSessionTokens, authDevice, refreshAccessToken } from "./authTokens";
 import { fetchAuth } from "./authFetch";
+export { adoptSessionTokens } from "./authTokens";
 import { proofBody, twoFactorError, TwoFactorRequiredError, type TwoFactorProof } from "./twoFactorProof";
+import {
+  authChallenge, authErrorToError, authLogin, authPasskeyStart, authSecondFactor, type LoginData, type Refused,
+} from "./authClient";
 
 function reloadSubscription() {
   useSubscriptionStore.getState().load().catch(() => {});
@@ -58,6 +70,12 @@ async function unwrapUserSecrets(kek: number[], wrappedB64: string): Promise<Unw
   return invoke<UnwrappedUserSecrets>("unwrap_user_secrets_cmd", { kek, wrappedB64 });
 }
 
+/** What lets a registration through besides open sign-up: an enrolment token or an emailed invitation. */
+export interface SignupCredential {
+  enrollment?: EnrollmentCredential;
+  invitation?: string;
+}
+
 async function registerOnServer(args: {
   serverUrl: string;
   email: string;
@@ -65,8 +83,12 @@ async function registerOnServer(args: {
   authKey: string;
   publicKey: string;
   wrappedUserSecrets: string;
-}): Promise<{ jwt_token: string; refresh_token: string }> {
-  const machine_fingerprint = await invoke<string | null>("get_machine_fingerprint").catch(() => null);
+  credential: SignupCredential;
+}): Promise<{ jwt_token: string; refresh_token: string; enrollment?: EnrollmentOutcome }> {
+  const [machine_fingerprint, device] = await Promise.all([
+    invoke<string | null>("get_machine_fingerprint").catch(() => null),
+    authDevice(),
+  ]);
 
   const res = await fetchWithTimeout(`${args.serverUrl}/v1/auth/register`, {
     method: "POST",
@@ -78,16 +100,52 @@ async function registerOnServer(args: {
       public_key: args.publicKey,
       wrapped_user_secrets: args.wrappedUserSecrets,
       machine_fingerprint,
+      supports_trial_activation: true,
+      device,
+      ...(args.credential.enrollment && { enrollment: args.credential.enrollment }),
+      ...(args.credential.invitation && { invitation: args.credential.invitation }),
     }),
   });
 
   if (res.status === 409) throw new Error(i18n.t("common.error.emailAlreadyRegistered"));
-  if (!res.ok) throw (await featureDisabledError(res)) ?? new Error(i18n.t("common.error.registrationFailed", { status: res.status }));
-  return res.json();
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    const failed = { status: res.status, headers: res.headers, json: async () => body };
+    const refused = args.credential.enrollment ? await enrollmentErrorFrom(failed) : null;
+    if (joinRefusal(refused)) throw refused;
+    const code = (body as { error?: unknown } | null)?.error;
+    const invitationError = invitationRefusal(code);
+    if (invitationError) throw invitationError;
+    if (code === "REGISTRATION_DISABLED") throw new RegistrationClosedError(i18n.t("common.error.registrationDisabled"));
+    throw (await featureDisabledError(failed)) ?? new Error(i18n.t("common.error.registrationFailed", { status: res.status }));
+  }
+  const data = await res.json();
+  rememberWithdrawnInvitations(data.withdrawn_invitations);
+  return { ...data, enrollment: toEnrollmentOutcome(data.enrollment) ?? undefined };
 }
 
-function normalizeServerUrl(url: string): string {
-  return url.replace(/\/+$/, "");
+// Held in sessionStorage because adding an account reloads the window before anything is shown.
+const WITHDRAWN_INVITATIONS_KEY = "voltius.withdrawn-invitations";
+
+function rememberWithdrawnInvitations(withdrawn: { team_name: string }[] | undefined): void {
+  if (!withdrawn?.length) return;
+  sessionStorage.setItem(WITHDRAWN_INVITATIONS_KEY, JSON.stringify(withdrawn.map((w) => w.team_name)));
+}
+
+export async function announceWithdrawnInvitations(): Promise<void> {
+  const saved = sessionStorage.getItem(WITHDRAWN_INVITATIONS_KEY);
+  if (!saved) return;
+  sessionStorage.removeItem(WITHDRAWN_INVITATIONS_KEY);
+  const { APP_SOURCE, useNotificationStore } = await import("@/stores/notificationStore");
+  for (const team of JSON.parse(saved) as string[]) {
+    useNotificationStore.getState().addToast({
+      source: APP_SOURCE,
+      type: "toast",
+      message: i18n.t("common.toast.invitationWithdrawnAtSignup", { team }),
+      severity: "warning",
+      duration: 0,
+    });
+  }
 }
 
 /** Unwrap cached user secrets into the vault-keys store; null when unusable. */
@@ -106,8 +164,9 @@ async function adoptUserSecrets(kek: number[], wrapped: string | null): Promise<
   }
 }
 
-/** First candidate that opens secrets.enc; the first one when no vault exists yet. */
-async function keyThatOpensVault(...candidates: number[][]): Promise<number[] | null> {
+/** First present candidate that opens secrets.enc; the first one when no vault exists yet. */
+async function keyThatOpensVault(...maybe: Array<number[] | null | undefined>): Promise<number[] | null> {
+  const candidates = maybe.filter((k): k is number[] => !!k);
   const { exists } = await getVaultStatus();
   if (!exists) return candidates[0] ?? null;
   for (const key of candidates) {
@@ -157,29 +216,24 @@ async function passwordVaultKey(kek: number[], recoverFromServer: boolean): Prom
   }
   const prior = await keychainGet(PRIOR_WRAPPED_KEY);
   const priorKey = prior ? await wrappedVaultKey(kek, prior) : null;
-  const opened = await keyThatOpensVault(...[dek, kek, priorKey].filter((k): k is number[] => !!k));
+  const opened = await keyThatOpensVault(dek, kek, priorKey);
   // A password-mode vault never needs it; left behind, it outlives the password's seal.
   if (opened && (await keychainGet(PENDING_VAULT_KEY))) await keychainDelete(PENDING_VAULT_KEY);
   if (opened && prior) await settlePriorWrapped(kek, prior, opened);
   return opened;
 }
 
-async function fetchWithTimeout(input: string, init?: RequestInit, timeoutMs = 10_000): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await appFetch(input, { ...init, signal: controller.signal, connectTimeout: timeoutMs });
-  } catch (e) {
-    if (isAbortError(e)) {
-      throw new Error(i18n.t("common.error.serverUnreachableTimeout"));
-    }
+async function storedWrappedKey(kek: number[], entry: string): Promise<number[] | null> {
+  const wrapped = await keychainGet(entry);
+  return wrapped ? wrappedVaultKey(kek, wrapped) : null;
+}
 
-    // WebView2 / network errors are often opaque objects; normalise them.
-    const msg = e instanceof Error ? e.message : String(e);
-    throw new Error(i18n.t("common.error.networkError", { message: msg }));
-  } finally {
-    clearTimeout(timer);
-  }
+/** Read-only: the vault opens, or with no vault the cached wrapped secrets unwrap. */
+async function passwordProvenOffline(kek: number[]): Promise<boolean> {
+  const dek = await storedWrappedKey(kek, "wrapped_user_secrets");
+  if (!(await getVaultStatus()).exists) return !!dek;
+  const prior = await storedWrappedKey(kek, PRIOR_WRAPPED_KEY);
+  return !!(await keyThatOpensVault(dek, kek, prior));
 }
 
 // ─── Keychain helpers ─────────────────────────────────────────────────────────
@@ -223,25 +277,14 @@ async function persistServerSession(session: {
   rememberServer(session.serverUrl);
 }
 
-/** Store a token pair the server just issued; it supersedes whatever session was revoked. */
-export async function adoptSessionTokens(tokens: { jwt_token: string; refresh_token: string }): Promise<void> {
-  await keychainSet("jwt", tokens.jwt_token);
-  await keychainSet("refresh_token", tokens.refresh_token);
-  clearSessionRevoked();
+function failWith(expected: string | Refused, step?: "second") {
+  return (e: unknown): never => {
+    throw authErrorToError(e, expected, step);
+  };
 }
 
-interface LoginData {
-  jwt_token: string;
-  refresh_token: string;
-  wrapped_user_secrets?: string | null;
-}
-
-async function postJson(url: string, body: unknown): Promise<Response> {
-  return fetchWithTimeout(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+async function accountIdFor(serverUrl: string, email: string): Promise<string> {
+  return authChallenge(serverUrl, email).catch(failWith("common.error.accountNotFound"));
 }
 
 /**
@@ -253,31 +296,16 @@ async function serverLogin<T>(
   serverUrl: string,
   accountId: string,
   authKey: string,
-  refused: (status: number) => Error,
+  refused: string | Refused,
   then: (data: LoginData) => Promise<T>,
 ): Promise<T> {
-  const res = await postJson(`${serverUrl}/v1/auth/login`, { account_id: accountId, auth_key: authKey });
-  if (res.ok) return then(await res.json());
-  if (res.status !== 428) throw refused(res.status);
-
-  const challenge = await res.json().catch(() => null);
-  if (challenge?.error !== "TWO_FACTOR_REQUIRED" || !challenge.pending_token) throw refused(res.status);
-  const secondStep = async (path: string, body: object) => {
-    const second = await postJson(`${serverUrl}/v1/auth/login/2fa${path}`, {
-      pending_token: challenge.pending_token,
-      ...body,
-    });
-    if (second.ok) return second.json();
-    const refusal = await twoFactorError(second);
-    if (refusal) throw refusal;
-    // A bare 401 here is the pending token: expired, or the account moved on.
-    if (second.status === 401) throw new Error(i18n.t("common.error.twoFactorExpired"));
-    throw refused(second.status);
-  };
+  const step = await authLogin(serverUrl, accountId, authKey).catch(failWith(refused));
+  if (step.kind === "signed") return then(step.data);
+  const second = <R>(call: Promise<R>) => call.catch(failWith(refused, "second"));
   throw new TwoFactorRequiredError<T>(
-    challenge.methods ?? ["totp"],
-    async (proof: TwoFactorProof) => then(await secondStep("", proofBody(proof))),
-    (returnTo) => secondStep("/passkey", { return_to: returnTo }),
+    step.methods,
+    async (proof) => then(await second(authSecondFactor(serverUrl, step.pendingToken, proof))),
+    async (returnTo) => ({ url: await second(authPasskeyStart(serverUrl, step.pendingToken, returnTo)) }),
   );
 }
 
@@ -322,7 +350,7 @@ export async function createLocalAccountNoPassword(): Promise<void> {
 
   setVaultKey(keyBytes);
 
-  await storePassword(bytesToHex(keyBytes)); // hex = "password" for this mode
+  await storeDeviceKey(bytesToHex(keyBytes)); // hex = "password" for this mode
   await keychainSet("account_id", accountId);
   await keychainSet("mode", "local-nopassword");
 }
@@ -339,7 +367,7 @@ export async function createLocalAccount(password: string): Promise<void> {
   await keychainSet("mode", "local");
 }
 
-async function registerServerAccount(email: string, password: string, serverUrl: string) {
+async function registerServerAccount(email: string, password: string, serverUrl: string, credential: SignupCredential) {
   const accountId = crypto.randomUUID();
   const { auth_key, enc_key } = await deriveKeys(password, accountId);
   const secrets = await generateUserSecrets();
@@ -350,7 +378,7 @@ async function registerServerAccount(email: string, password: string, serverUrl:
 
   const data = await registerOnServer({
     serverUrl, email, accountId, authKey: auth_key,
-    publicKey: public_key, wrappedUserSecrets: wrapped_user_secrets,
+    publicKey: public_key, wrappedUserSecrets: wrapped_user_secrets, credential,
   });
   return { accountId, kek: enc_key, secrets, wrapped_user_secrets, data };
 }
@@ -360,10 +388,11 @@ export async function createServerAccount(
   email: string,
   password: string,
   serverUrl: string,
-): Promise<void> {
+  credential: SignupCredential = {},
+): Promise<EnrollmentOutcome | null> {
   serverUrl = normalizeServerUrl(serverUrl);
   const { accountId, kek, secrets, wrapped_user_secrets, data } =
-    await registerServerAccount(email, password, serverUrl);
+    await registerServerAccount(email, password, serverUrl, credential);
 
   useVaultKeysStore.getState().set({ dek: secrets.dek, x25519Private: secrets.x25519_private, kek });
   setVaultKey(secrets.dek);
@@ -374,6 +403,7 @@ export async function createServerAccount(
   });
   await keychainSet("wrapped_user_secrets", wrapped_user_secrets);
   reloadSubscription();
+  return data.enrollment ?? null;
 }
 
 /** Unlock with password (vault must exist). */
@@ -381,14 +411,11 @@ export async function login(password: string, email?: string, serverUrl?: string
   if (serverUrl) serverUrl = normalizeServerUrl(serverUrl);
   let accountId = await keychainGet("account_id");
 
-  if (!accountId && email && serverUrl) {
-    const res = await fetchWithTimeout(`${serverUrl}/v1/auth/challenge?email=${encodeURIComponent(email)}`);
-    if (!res.ok) throw authFailure(res.status, "common.error.accountNotFound");
-    accountId = (await res.json()).account_id;
-  }
+  if (!accountId && email && serverUrl) accountId = await accountIdFor(serverUrl, email);
   if (!accountId) throw new Error(i18n.t("common.error.noAccountFoundCreateOne"));
 
   const mode = await keychainGet("mode");
+  const blocked = !serverUrl && (await storedServerBlocked(mode));
 
   // Re-authenticate with server if in server mode (e.g. after logout deleted the JWT)
   const resolvedEmail = email ?? await keychainGet("email");
@@ -407,6 +434,10 @@ export async function login(password: string, email?: string, serverUrl?: string
     if (!(await keyThatOpensVault(encKey))) throw new Error(i18n.t("common.error.incorrectPassword"));
   } else {
     const { enc_key: kek } = await deriveKeys(password, accountId);
+    if (blocked) {
+      if (!(await passwordProvenOffline(kek))) throw new Error(i18n.t("common.error.incorrectPassword"));
+      throw new ServerBlockedError(password);
+    }
     const opened = await passwordVaultKey(kek, false);
     // Without a cached dek only the server can supply a cloud vault's key.
     if (!opened && !reauth) throw new Error(i18n.t("common.error.incorrectPassword"));
@@ -415,9 +446,10 @@ export async function login(password: string, email?: string, serverUrl?: string
     encKey = opened ?? kek;
   }
 
+  const deviceKey = mode === "local-nopassword" || (!mode && isHexEncoded32ByteKey(password));
   const openLocally = async () => {
     setVaultKey(encKey);
-    await rememberPassword(password);
+    await (deviceKey ? storeDeviceKey(password) : rememberPassword(password));
     await keychainSet("account_id", accountId);
     if (!mode) {
       // Heal missing mode for local accounts (e.g. Windows after mock-keychain loss).
@@ -486,7 +518,7 @@ async function sessionStillHonoured(): Promise<boolean> {
  * the account has no master password to retype, so the unlock prompt cannot help
  * and the caller must offer the vault recovery screen instead.
  */
-export type AutoLoginOutcome = "ok" | "declined" | "vault-unreadable" | "sealed" | "wrong-key";
+export type AutoLoginOutcome = "ok" | "declined" | "vault-unreadable" | "sealed" | "wrong-key" | "server-blocked";
 
 /** Auto-login from keychain — instant (no secret access). */
 export async function autoLogin(): Promise<AutoLoginOutcome> {
@@ -495,13 +527,19 @@ export async function autoLogin(): Promise<AutoLoginOutcome> {
   // splash init and freeze the app on its loading screen.
   let password: string | null;
   try {
-    if ((await secretState()) === "sealed") return "sealed";
+    if ((await secretState()) === "sealed") {
+      return (await storedServerBlocked(await keychainGet("mode"))) ? "server-blocked" : "sealed";
+    }
     password = await readPlainSecret();
   } catch {
     return "declined";
   }
   if (!password) return "declined";
   return openWithStoredSecret(password);
+}
+
+async function storedServerBlocked(mode: string | null): Promise<boolean> {
+  return mode === "server" && !serverAllowed(await keychainGet("server_url"));
 }
 
 /** The launch-time unlock, given the stored secret however it was obtained. */
@@ -534,6 +572,7 @@ export async function openWithStoredSecret(password: string): Promise<AutoLoginO
       }
     } else {
       if (!accountId) return "declined";
+      if (await storedServerBlocked(mode)) return "server-blocked";
       const { enc_key: kek } = await deriveKeys(password, accountId);
 
       // Local Tauri calls only, except a cloud account missing its wrapped
@@ -600,9 +639,7 @@ export async function getAccountMode(): Promise<string | null> {
   return keychainGet("mode");
 }
 
-export async function getAccountId(): Promise<string | null> {
-  return keychainGet("account_id");
-}
+export { getAccountId } from "./authTokens";
 
 export async function getCurrentUserEmail(): Promise<string | null> {
   return keychainGet("email");
@@ -679,11 +716,10 @@ export async function refreshVerificationState(): Promise<boolean> {
   return useSubscriptionStore.getState().emailVerified;
 }
 
-export async function resendVerificationEmail(): Promise<void> {
-  const [jwt, serverUrl] = await Promise.all([
-    keychainGet("jwt"),
-    keychainGet("server_url"),
-  ]);
+export async function resendVerificationEmail(session?: { serverUrl: string; jwt: string }): Promise<void> {
+  const [jwt, serverUrl] = session
+    ? [session.jwt, session.serverUrl]
+    : await Promise.all([keychainGet("jwt"), keychainGet("server_url")]);
   if (!jwt || !serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
   const res = await fetchWithTimeout(`${serverUrl}/v1/auth/resend-verification-email`, {
@@ -718,8 +754,14 @@ export async function setMasterPassword(password: string): Promise<void> {
   await withPendingVaultKey(groupKey ?? enc_key, async () => {
     if (groupKey) (await wrapVaultKey(enc_key, groupKey))();
     else await invoke("secrets_reencrypt", { newEncKey: enc_key });
-    await storePassword(password);
-    await keychainSet("mode", "local");
+    // Crash-safe order: a stored password opens through the pending key; with none, a password mode asks for it.
+    if (await keepsPlainPassword()) {
+      await storePassword(password);
+      await keychainSet("mode", "local");
+    } else {
+      await keychainSet("mode", "local");
+      await storePassword(password);
+    }
   });
 
   if (!groupKey) setVaultKey(enc_key);
@@ -728,19 +770,6 @@ export async function setMasterPassword(password: string): Promise<void> {
   // encrypted with the new key — without this, pullAndMerge on any other
   // device would fail to decrypt this device's old blob.
   if (priorMode === "server") pushUnderNewVaultKey();
-}
-
-/**
- * Turns a failed auth response into the message the status actually means.
- * The auth limiter is a hardcoded 10/min per IP with no env override, and a
- * retry loop can exhaust it before the user types anything — collapsing every
- * non-ok status into `expected` rendered that 429 as "Account not found",
- * which sends people off to create a second account they don't need.
- */
-function authFailure(status: number, expected: string): Error {
-  if (status === 429) return new Error(i18n.t("common.error.tooManyAttempts"));
-  if (status === 404 || status === 401 || status === 403) return new Error(i18n.t(expected));
-  return new Error(i18n.t("common.error.serverError", { status }));
 }
 
 interface ServerSignIn {
@@ -755,15 +784,13 @@ async function signInServerAccount<T>(
   serverUrl: string,
   then: (signedIn: ServerSignIn) => Promise<T>,
 ): Promise<T> {
-  const res = await fetchWithTimeout(`${serverUrl}/v1/auth/challenge?email=${encodeURIComponent(email)}`);
-  if (!res.ok) throw authFailure(res.status, "common.error.accountNotFound");
-  const { account_id: accountId } = await res.json();
+  const accountId = await accountIdFor(serverUrl, email);
 
   const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
 
   return serverLogin(
     serverUrl, accountId, auth_key,
-    (status) => authFailure(status, "common.error.invalidEmailOrPassword"),
+    "common.error.invalidEmailOrPassword",
     (data) => then({ accountId, kek, data }),
   );
 }
@@ -817,7 +844,8 @@ export async function authenticateServerAccount(
   email: string,
   password: string,
   serverUrl: string,
-): Promise<Omit<SavedAccount, "mode">> {
+  credential: SignupCredential = {},
+): Promise<{ account: Omit<SavedAccount, "mode">; enrollment: EnrollmentOutcome | null }> {
   serverUrl = normalizeServerUrl(serverUrl);
   const saved = (accountId: string, data: { jwt_token: string; refresh_token: string }, wrapped: string | null) => {
     rememberServer(serverUrl);
@@ -832,11 +860,13 @@ export async function authenticateServerAccount(
     };
   };
   if (kind === "register") {
-    const { accountId, data, wrapped_user_secrets } = await registerServerAccount(email, password, serverUrl);
-    return saved(accountId, data, wrapped_user_secrets);
+    const { accountId, data, wrapped_user_secrets } = await registerServerAccount(email, password, serverUrl, credential);
+    return { account: saved(accountId, data, wrapped_user_secrets), enrollment: data.enrollment ?? null };
   }
-  return signInServerAccount(email, password, serverUrl, async ({ accountId, data }) =>
-    saved(accountId, data, data.wrapped_user_secrets ?? null));
+  return signInServerAccount(email, password, serverUrl, async ({ accountId, data }) => ({
+    account: saved(accountId, data, data.wrapped_user_secrets ?? null),
+    enrollment: null,
+  }));
 }
 
 /** Link an existing local account to a cloud server — registers and enables sync. */
@@ -844,16 +874,21 @@ export async function linkToCloud(
   email: string,
   serverUrl: string,
   beforeKeyChange?: BeforeKeyChange,
-): Promise<void> {
+  typedPassword?: string,
+  credential: SignupCredential = {},
+): Promise<EnrollmentOutcome | null> {
   serverUrl = normalizeServerUrl(serverUrl);
   const accountId = await keychainGet("account_id");
   const mode = await keychainGet("mode");
-  const read = mode === "local-nopassword" ? null : await readSecret(i18n.t("layout.appLock.sealReason"));
-  const password = read?.outcome === "ok" ? read.value : null;
+  const read = mode === "local-nopassword" || typedPassword ? null : await readSecret(i18n.t("layout.appLock.sealReason"));
+  const password = typedPassword || (read?.outcome === "ok" ? read.value : null);
 
   if (!accountId) throw new Error(i18n.t("common.error.noAccountFound"));
   if (mode === "local-nopassword") throw new Error(i18n.t("common.error.setMasterPasswordBeforeLinking"));
   if (!password) throw new Error(i18n.t("common.error.masterPasswordRequired"));
+  if (typedPassword && !(await isCurrentMasterPassword(typedPassword))) {
+    throw new Error(i18n.t("common.error.incorrectPassword"));
+  }
   await unlockVaultIfNeeded();
 
   const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
@@ -864,7 +899,7 @@ export async function linkToCloud(
 
   const data = await registerOnServer({
     serverUrl, email, accountId, authKey: auth_key,
-    publicKey: identity.public_key, wrappedUserSecrets: wrapped_user_secrets,
+    publicKey: identity.public_key, wrappedUserSecrets: wrapped_user_secrets, credential,
   });
   await runBeforeKeyChange(beforeKeyChange);
 
@@ -879,6 +914,7 @@ export async function linkToCloud(
     await moveVaultToKey(getVaultKey() ?? kek, dek);
   }).catch((e) => console.warn("Linking kept the vault on its key:", e));
   reloadSubscription();
+  return data.enrollment ?? null;
 }
 
 // ─── New account management features ─────────────────────────────────────────
@@ -991,7 +1027,7 @@ async function noPasswordVaultKey(stored: string): Promise<number[] | null> {
   const keys = [stored, pending].filter((k): k is string => !!k && isHexEncoded32ByteKey(k));
   const opened = keys.length > 0 ? await keyThatOpensVault(...keys.map(hexToBytes)) : null;
   if (pending) {
-    if (opened && bytesToHex(opened) !== stored.toLowerCase()) await storePassword(bytesToHex(opened));
+    if (opened && bytesToHex(opened) !== stored.toLowerCase()) await storeDeviceKey(bytesToHex(opened));
     await keychainDelete(PENDING_VAULT_KEY);
   }
   return opened;
@@ -1027,7 +1063,7 @@ export async function adoptVaultKey(key: number[]): Promise<void> {
   await withPendingVaultKey(key, async () => {
     const undo = await moveVaultToKey(current, key);
     try {
-      await storePassword(bytesToHex(key));
+      await storeDeviceKey(bytesToHex(key));
     } catch (e) {
       await undo?.().catch((u) => console.warn("Putting the vault back on its old key failed:", u));
       throw e;
@@ -1050,8 +1086,7 @@ export async function settleVaultOnDek(): Promise<void> {
 
 /** Whether this device already knew this password: its cached secrets are wrapped under its kek. */
 async function cachedSecretsUnwrapWith(kek: number[]): Promise<boolean> {
-  const cached = await keychainGet("wrapped_user_secrets");
-  return !!cached && (await unwrapUserSecrets(kek, cached).then(() => true, () => false));
+  return !!(await storedWrappedKey(kek, "wrapped_user_secrets"));
 }
 
 /** `rememberPassword` keeps a sealed secret, so a password changed elsewhere must be sealed anew. */

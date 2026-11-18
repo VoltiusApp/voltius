@@ -2,17 +2,23 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useUIStore, type NavItem } from "@/stores/uiStore";
 import { useRipple } from "@/hooks/useRipple";
+import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
+import { usePermissions } from "@/hooks/usePermission";
+import { usePreviewActive } from "@/hooks/previewScope";
+import { useSelectedAuditContext } from "@/hooks/useAuditContext";
+import { previewAreaLock } from "@/components/preview/previewAreaLocks";
 
 interface NavEntry {
   id: NavItem;
   label: string;
   icon: string;
+  lockedReason?: string;
 }
 
 const NAV_ITEM_DEFS: { id: NavItem; icon: string }[] = [
   { id: "hosts",           icon: "lucide:server" },
   { id: "keychain",        icon: "lucide:key-round" },
-  { id: "port-forwarding", icon: "lucide:arrow-left-right" },
+  { id: "port-forwarding", icon: PORT_FORWARDING_ICON },
   { id: "snippets",        icon: "lucide:braces" },
   { id: "known-hosts",     icon: "lucide:fingerprint-pattern" },
   { id: "members",         icon: "lucide:users-round" },
@@ -25,9 +31,15 @@ export default function NavBar() {
   const setActiveNav = useUIStore((s) => s.setActiveNav);
   const setSftpPanelOpen = useUIStore((s) => s.setSftpPanelOpen);
 
+  const can = usePermissions();
+  const previewing = usePreviewActive() !== null;
+  const auditContext = useSelectedAuditContext();
+  const logsLock = previewAreaLock({ area: "logs", previewing, can, auditContext });
+
   const NAV_ITEMS: NavEntry[] = NAV_ITEM_DEFS.map((d) => ({
     ...d,
     label: t(`layout.nav.${d.id}`),
+    lockedReason: d.id === "logs" && logsLock ? t(logsLock) : undefined,
   }));
 
   const handleNav = (id: NavItem) => {
@@ -72,6 +84,7 @@ function NavTabButton({
   return (
     <button
       onClick={onClick}
+      title={item.lockedReason}
       onPointerDown={createRipple}
       className="relative flex items-center gap-2 px-3.5 h-full text-sm font-medium shrink-0 transition-colors overflow-hidden"
       style={{
@@ -90,6 +103,7 @@ function NavTabButton({
       {rippleEls}
       <Icon icon={item.icon} width={15} className="shrink-0" />
       <span>{item.label}</span>
+      {item.lockedReason && <Icon icon="lucide:lock" width={11} className="shrink-0" />}
       {isActive && (
         <span
           className="absolute bottom-0 left-0 right-0 rounded-t-full"

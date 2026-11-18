@@ -115,6 +115,14 @@ test("changing what this device syncs downloads every blob again", async () => {
   expect(blobPulls()).toBe(2);
 });
 
+test("a policy lock change downloads every blob again", async () => {
+  await sync.syncNow();
+  const { usePolicyStore } = await import("@/stores/policyStore");
+  usePolicyStore.setState({ machine: { policy: { "sync.types.connection": false }, defaults: {} } });
+  await sync.syncNow();
+  expect(blobPulls()).toBe(2);
+});
+
 test("swapping out the session's local data downloads every blob again", async () => {
   await sync.syncNow();
   sync.haltSync();
@@ -133,9 +141,25 @@ test("an undecryptable blob is downloaded again only once the keys change", asyn
   expect(blobPulls()).toBe(2);
 });
 
-test("a failed merge leaves the blob to be downloaded again", async () => {
+test("a damaged blob is downloaded again only once its device pushes or the user retries", async () => {
   decrypt = () => { throw new Error("Blob malformed"); };
   await sync.syncNow();
+  await sync.syncNow();
+  expect(blobPulls()).toBe(1);
+  await sync.retryRemoteSources(["remote-1"]);
+  expect(blobPulls()).toBe(2);
+  remoteUpdatedAt = "2030-01-02T00:00:00.000Z";
+  await sync.syncNow();
+  expect(blobPulls()).toBe(3);
+});
+
+test("a blob that failed to download is tried again on the next sync", async () => {
+  let fail = true;
+  const serveBlob = h.appFetch.getMockImplementation()!;
+  h.appFetch.mockImplementation(async (url: string, init?: RequestInit) =>
+    fail && url.includes("/v1/sync/blob?device_id=") ? { ok: false, status: 500, json: async () => ({}) } : serveBlob(url, init));
+  await sync.syncNow();
+  fail = false;
   await sync.syncNow();
   expect(blobPulls()).toBe(2);
 });

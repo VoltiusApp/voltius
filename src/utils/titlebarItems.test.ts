@@ -30,6 +30,18 @@ describe("buildTitlebarItems", () => {
     expect(stack.type === "stack" && stack.members.map((m) => m.id)).toEqual(["w1", "w2", "w3"]);
   });
 
+  it("keeps a pinned session out of its host's stack", () => {
+    const items = buildTitlebarItems(keysOf("w1", "w2", "w3"), sessions, [], true, (key) => key === "session:w1");
+    expect(items.map((i) => i.key)).toEqual(["session:w1", stackKey("web")]);
+    const stack = items[1];
+    expect(stack.type === "stack" && stack.members.map((m) => m.id)).toEqual(["w2", "w3"]);
+  });
+
+  it("drops the stack when only one unpinned member is left", () => {
+    const items = buildTitlebarItems(keysOf("w1", "w2"), sessions, [], true, (key) => key === "session:w1");
+    expect(items.map((i) => i.type)).toEqual(["session", "session"]);
+  });
+
   it("keeps a single-session host as a plain tab", () => {
     const items = buildTitlebarItems(keysOf("d1", "w1"), sessions, [], true);
     expect(items.map((i) => i.type)).toEqual(["session", "session"]);

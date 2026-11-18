@@ -2,14 +2,21 @@ import i18n from "@/i18n";
 import { featureDisabledError } from "@/services/featureDisabled";
 import { fetchAuthJson as fetchAuth } from "@/services/authFetch";
 import { refuseIfPlanRequired } from "@/services/planRequired";
+import { assertNotPreviewing } from "@/services/previewGuard";
 import { getJwt, getServerUrl } from "@/services/authTokens";
 import { parseJwtPayload } from "@/utils/jwtPayload";
+import type { OwnerSeats } from "@/services/seatMath";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface TeamLockPolicy {
   max_minutes: number;
   force_vault: boolean;
+}
+
+export interface TeamPolicyDoc {
+  version: number;
+  policy: Record<string, unknown>;
 }
 
 export interface Team {
@@ -22,6 +29,12 @@ export interface Team {
   permission_allow?: number;
   permission_deny?: number;
   lock_policy?: TeamLockPolicy | null;
+  policy?: TeamPolicyDoc | null;
+  policy_revision?: number;
+  data_version?: number;
+  joined_at?: string;
+  /** The team owner's seats; null when an older server omits `owner_seats`. */
+  ownerSeats?: OwnerSeats | null;
 }
 
 export type CreatedTeam = Pick<Team, "id" | "name" | "owner_id" | "created_at">;
@@ -56,10 +69,14 @@ export interface TeamRole {
 
 // ─── API calls ────────────────────────────────────────────────────────────────
 
-export async function createTeam(name: string): Promise<CreatedTeam> {
+export async function serverFetch(path: string, init?: RequestInit): Promise<Response> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams`, {
+  return fetchAuth(`${serverUrl}${path}`, init);
+}
+
+export async function createTeam(name: string): Promise<CreatedTeam> {
+  const res = await serverFetch(`/v1/teams`, {
     method: "POST",
     body: JSON.stringify({ name }),
   });
@@ -68,16 +85,14 @@ export async function createTeam(name: string): Promise<CreatedTeam> {
 }
 
 export async function deleteTeam(teamId: string): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}`, { method: "DELETE" });
+  assertNotPreviewing();
+  const res = await serverFetch(`/v1/teams/${teamId}`, { method: "DELETE" });
   if (!res.ok) throw new Error(i18n.t("common.error.failedToDeleteTeam", { status: res.status }));
 }
 
 export async function renameTeam(teamId: string, name: string): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}`, {
+  assertNotPreviewing();
+  const res = await serverFetch(`/v1/teams/${teamId}`, {
     method: "PATCH",
     body: JSON.stringify({ name }),
   });
@@ -85,10 +100,8 @@ export async function renameTeam(teamId: string, name: string): Promise<void> {
 }
 
 export async function setTeamLockPolicy(teamId: string, policy: TeamLockPolicy | null): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(
-    `${serverUrl}/v1/teams/${teamId}/lock-policy`,
+  const res = await serverFetch(
+    `/v1/teams/${teamId}/lock-policy`,
     policy ? { method: "PUT", body: JSON.stringify(policy) } : { method: "DELETE" },
   );
   refuseIfPlanRequired(res);
@@ -96,20 +109,83 @@ export async function setTeamLockPolicy(teamId: string, policy: TeamLockPolicy |
   if (!res.ok) throw new Error(i18n.t("common.error.failedToSaveLockPolicy", { status: res.status }));
 }
 
+export interface StoredTeamPolicy {
+  policy: TeamPolicyDoc | null;
+  revision: number;
+  updated_at: string | null;
+  updated_by: string | null;
+}
+
+export class PolicyRevisionMismatch extends Error {
+  constructor() {
+    super(i18n.t("common.error.teamPolicyConflict"));
+  }
+}
+
+export class TeamPolicyRejected extends Error {
+  constructor(public code: string, public key?: string) {
+    super(i18n.t("common.error.teamPolicyRefused", { reason: key ?? code }));
+  }
+}
+
+const policyPath = (teamId: string) => `/v1/teams/${teamId}/policy`;
+
+/** `null` when the server predates team policy documents. */
+export async function getTeamPolicy(teamId: string): Promise<StoredTeamPolicy | null> {
+  const res = await serverFetch(policyPath(teamId));
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToLoadTeamPolicy", { status: res.status }));
+  return res.json();
+}
+
+async function changeTeamPolicy(teamId: string, init: RequestInit): Promise<void> {
+  assertNotPreviewing();
+  const res = await serverFetch(policyPath(teamId), init);
+  refuseIfPlanRequired(res);
+  if (res.status === 409) throw new PolicyRevisionMismatch();
+  if (res.status === 400) {
+    const body = (await res.json().catch(() => null)) as { error?: string; key?: string } | null;
+    throw new TeamPolicyRejected(body?.error ?? "POLICY_INVALID", body?.key);
+  }
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToSaveTeamPolicy", { status: res.status }));
+}
+
+export function putTeamPolicy(teamId: string, policy: unknown, revision: number): Promise<void> {
+  return changeTeamPolicy(teamId, { method: "PUT", body: JSON.stringify({ policy, revision }) });
+}
+
+export function deleteTeamPolicy(teamId: string): Promise<void> {
+  return changeTeamPolicy(teamId, { method: "DELETE" });
+}
+
+function toOwnerSeats(s: OwnerSeats | null | undefined): OwnerSeats | null {
+  if (!s || typeof s.used !== "number") return null;
+  return { used: s.used, total: typeof s.total === "number" ? s.total : null };
+}
+
 export async function listTeams(): Promise<Team[]> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) return [];
   const res = await fetchAuth(`${serverUrl}/v1/teams`);
   if (!res.ok) throw new Error(i18n.t("common.error.failedToListTeams", { status: res.status }));
+  const raw = (await res.json()) as Array<Team & { owner_seats?: OwnerSeats | null }>;
+  return raw.map(({ owner_seats, ...team }) => ({ ...team, ownerSeats: toOwnerSeats(owner_seats) }));
+}
+
+const fetchMembers = (teamId: string) => serverFetch(`/v1/teams/${teamId}/members`);
+
+export async function listMembers(teamId: string): Promise<TeamMember[]> {
+  const res = await fetchMembers(teamId);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToListMembers", { status: res.status }));
   return res.json();
 }
 
-export async function listMembers(teamId: string): Promise<TeamMember[]> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members`);
+/** False only when the server confirms the caller is off the team; throws when it can't tell. */
+export async function isStillMember(teamId: string): Promise<boolean> {
+  const res = await fetchMembers(teamId);
+  if (res.status === 403 || res.status === 404) return false;
   if (!res.ok) throw new Error(i18n.t("common.error.failedToListMembers", { status: res.status }));
-  return res.json();
+  return true;
 }
 
 /**
@@ -118,9 +194,7 @@ export async function listMembers(teamId: string): Promise<TeamMember[]> {
  * absent here are missing their key (issue #41).
  */
 export async function getVaultKeyHolders(teamId: string): Promise<string[]> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/vault-key/holders`);
+  const res = await serverFetch(`/v1/teams/${teamId}/vault-key/holders`);
   if (!res.ok) throw new Error(i18n.t("common.error.failedToListVaultKeyHolders", { status: res.status }));
   return res.json();
 }
@@ -128,12 +202,39 @@ export async function getVaultKeyHolders(teamId: string): Promise<string[]> {
 export interface RotationStatus {
   stale: boolean;
   draining: boolean;
+  // Absent on servers older than #796.
+  epoch?: number;
+  rotated_at?: string | null;
+  rotation_requested_at?: string | null;
+  uncovered_members?: number;
+  old_epoch?: { objects: number; secrets: number; blobs: number };
+}
+
+export interface StaleItem {
+  kind: "object" | "secret" | "blob";
+  object_id: string | null;
+  secret_id: string | null;
+  object_type: string | null;
+  key_version: number;
+  orphan: boolean;
+  my_permissions: number;
+}
+
+export interface StaleItems {
+  epoch: number;
+  items: StaleItem[];
+  hidden: number;
+  truncated: boolean;
 }
 
 export async function getRotationStatus(teamId: string): Promise<RotationStatus> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/vault-key/rotation-status`);
+  const res = await serverFetch(`/v1/teams/${teamId}/vault-key/rotation-status`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToCheckRotationStatus", { status: res.status }));
+  return res.json();
+}
+
+export async function getStaleItems(teamId: string): Promise<StaleItems> {
+  const res = await serverFetch(`/v1/teams/${teamId}/vault-key/stale-items`);
   if (!res.ok) throw new Error(i18n.t("common.error.failedToCheckRotationStatus", { status: res.status }));
   return res.json();
 }
@@ -142,9 +243,7 @@ export async function rotateVaultKey(
   teamId: string,
   keys: { user_id: string; wrapped_key: string }[],
 ): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/vault-key/rotate`, {
+  const res = await serverFetch(`/v1/teams/${teamId}/vault-key/rotate`, {
     method: "POST",
     body: JSON.stringify({ keys }),
   });
@@ -156,9 +255,7 @@ export async function addMember(
   email: string,
   role?: string,
 ): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members`, {
+  const res = await serverFetch(`/v1/teams/${teamId}/members`, {
     method: "POST",
     body: JSON.stringify({ email, role }),
   });
@@ -173,12 +270,11 @@ export async function addMemberById(
   userId: string,
   role?: string,
   name?: string,
+  roleIds?: string[],
 ): Promise<{ status: "pending" | "already_member" }> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members`, {
+  const res = await serverFetch(`/v1/teams/${teamId}/members`, {
     method: "POST",
-    body: JSON.stringify({ user_id: userId, role, name }),
+    body: JSON.stringify({ user_id: userId, role, name, role_ids: roleIds }),
   });
   if (!res.ok) {
     if (res.status === 404) throw new Error(i18n.t("common.error.userNotFound"));
@@ -190,9 +286,7 @@ export async function addMemberById(
 }
 
 export async function removeMember(teamId: string, userId: string): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members/${userId}`, {
+  const res = await serverFetch(`/v1/teams/${teamId}/members/${userId}`, {
     method: "DELETE",
   });
   if (!res.ok) throw new Error(i18n.t("common.error.failedToRemoveMember", { status: res.status }));
@@ -213,9 +307,7 @@ export async function assignMemberRole(
   userId: string,
   roleId: string,
 ): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members/${userId}/roles`, {
+  const res = await serverFetch(`/v1/teams/${teamId}/members/${userId}/roles`, {
     method: "POST",
     body: JSON.stringify({ role_id: roleId }),
   });
@@ -231,9 +323,7 @@ export async function removeMemberRole(
   userId: string,
   roleId: string,
 ): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members/${userId}/roles/${roleId}`, {
+  const res = await serverFetch(`/v1/teams/${teamId}/members/${userId}/roles/${roleId}`, {
     method: "DELETE",
   });
   if (!res.ok) {
@@ -243,9 +333,7 @@ export async function removeMemberRole(
 }
 
 export async function transferBillingOwner(teamId: string, userId: string): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/billing-owner`, {
+  const res = await serverFetch(`/v1/teams/${teamId}/billing-owner`, {
     method: "PUT",
     body: JSON.stringify({ user_id: userId }),
   });
@@ -262,9 +350,7 @@ export async function setMemberPermissions(
   allow: number,
   deny: number,
 ): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members/${userId}/permissions`, {
+  const res = await serverFetch(`/v1/teams/${teamId}/members/${userId}/permissions`, {
     method: "PUT",
     body: JSON.stringify({ allow, deny }),
   });
@@ -276,9 +362,7 @@ export async function setMemberPermissions(
 }
 
 export async function setMemberName(teamId: string, userId: string, name: string | null): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members/${userId}/name`, {
+  const res = await serverFetch(`/v1/teams/${teamId}/members/${userId}/name`, {
     method: "PUT",
     body: JSON.stringify({ name }),
   });
@@ -305,9 +389,7 @@ export async function createRole(
   permissions: number,
   color?: string,
 ): Promise<TeamRole> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/roles`, {
+  const res = await serverFetch(`/v1/teams/${teamId}/roles`, {
     method: "POST",
     body: JSON.stringify({ name, permissions, color }),
   });
@@ -324,9 +406,7 @@ export async function updateRole(
   roleId: string,
   updates: { name?: string; permissions?: number; color?: string; position?: number },
 ): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/roles/${roleId}`, {
+  const res = await serverFetch(`/v1/teams/${teamId}/roles/${roleId}`, {
     method: "PATCH",
     body: JSON.stringify(updates),
   });
@@ -338,9 +418,7 @@ export async function updateRole(
 }
 
 export async function deleteRole(teamId: string, roleId: string): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/roles/${roleId}`, {
+  const res = await serverFetch(`/v1/teams/${teamId}/roles/${roleId}`, {
     method: "DELETE",
   });
   if (!res.ok) {
@@ -377,9 +455,7 @@ export interface UserKeyLookup {
  * person is gone" on what was really a transient network blip.
  */
 export async function getUserPublicKey(userId: string): Promise<UserKeyLookup | null> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/users/${userId}/public-key`);
+  const res = await serverFetch(`/v1/users/${userId}/public-key`);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(i18n.t("common.error.failedToFetchPublicKey", { status: res.status }));
   return res.json();
@@ -395,9 +471,7 @@ export class HandleClaimError extends Error {
 // and getUserPublicKey resolves to null instead of throwing — both diverge from the plain
 // "throw the keyed i18n error" shape below, so they stay out of authedCall.
 export async function claimHandle(handle: string): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/users/me/handle`, {
+  const res = await serverFetch(`/v1/users/me/handle`, {
     method: "PUT",
     body: JSON.stringify({ handle }),
   });
@@ -415,9 +489,7 @@ async function authedCall(
   errorKey: string,
   interpolate?: (status: number) => Record<string, unknown>,
 ): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}${path}`, init);
+  const res = await serverFetch(path, init);
   if (!res.ok) throw new Error(i18n.t(errorKey, interpolate?.(res.status)));
 }
 
@@ -479,7 +551,9 @@ export interface PendingInvitation {
    * Voltius account yet.
    */
   display_name: string;
+  /** The most senior invited role; `role_ids` (absent from older servers) holds them all. */
   role: string;
+  role_ids?: string[];
   /** The field name is the alias, the value is not: this holds the inviter's handle. */
   invited_by_display_name: string | null;
   member_name?: string | null;
@@ -493,17 +567,22 @@ export interface PendingInvitation {
   status?: "pending" | "expired";
 }
 
+/** `email_sent` is absent from older servers and from invites that needed no email. */
+export interface EmailInviteResult {
+  status: "added" | "invited";
+  email_sent?: boolean;
+}
+
 export async function inviteByEmail(
   teamId: string,
   email: string,
   role?: string,
   name?: string,
-): Promise<{ status: "added" | "invited" }> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/invite`, {
+  roleIds?: string[],
+): Promise<EmailInviteResult> {
+  const res = await serverFetch(`/v1/teams/${teamId}/invite`, {
     method: "POST",
-    body: JSON.stringify({ email, role, name }),
+    body: JSON.stringify({ email, role, name, role_ids: roleIds }),
   });
   if (!res.ok) {
     if (res.status === 402) throw Object.assign(new Error(i18n.t("common.error.seatLimitReached")), { code: 402 });
@@ -525,9 +604,7 @@ export async function listPendingInvitations(teamId: string): Promise<PendingInv
 }
 
 export async function revokePendingInvitation(teamId: string, invitationId: string): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/pending-invitations/${invitationId}`, {
+  const res = await serverFetch(`/v1/teams/${teamId}/pending-invitations/${invitationId}`, {
     method: "DELETE",
   });
   if (!res.ok) throw new Error(i18n.t("common.error.failedToRevokeInvitation", { status: res.status }));
@@ -554,18 +631,15 @@ export async function fetchMyPendingInvitations(): Promise<MyPendingInvitation[]
 }
 
 export async function acceptMyPendingInvitation(invitationId: string): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/my/pending-invitations/${invitationId}/accept`, {
+  const res = await serverFetch(`/v1/my/pending-invitations/${invitationId}/accept`, {
     method: "POST",
   });
+  if (res.status === 410) throw new Error(i18n.t("common.error.invitationWithdrawn"));
   if (!res.ok) throw new Error(i18n.t("common.error.failedToAcceptInvitation", { status: res.status }));
 }
 
 export async function declineMyPendingInvitation(invitationId: string): Promise<void> {
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
-  const res = await fetchAuth(`${serverUrl}/v1/my/pending-invitations/${invitationId}`, {
+  const res = await serverFetch(`/v1/my/pending-invitations/${invitationId}`, {
     method: "DELETE",
   });
   if (!res.ok) throw new Error(i18n.t("common.error.failedToDeclineInvitation", { status: res.status }));

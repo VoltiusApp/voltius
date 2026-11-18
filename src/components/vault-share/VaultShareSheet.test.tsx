@@ -11,6 +11,7 @@ const h = vi.hoisted(() => ({
   grantVaultKeyToMember: vi.fn().mockResolvedValue(undefined),
   writeClipboard: vi.fn().mockResolvedValue(undefined),
   keyHolders: [] as string[],
+  teams: [] as Array<{ id: string; owner_id: string; ownerSeats: { used: number; total: number | null } | null }>,
 }));
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
@@ -52,7 +53,15 @@ vi.mock("@/services/vaultShare", () => ({
   addressedInviteLink: (id: string) => `voltius://notification?n=invite%3A${id}`,
 }));
 vi.mock("@/utils/clipboard", () => ({ writeClipboard: h.writeClipboard }));
-vi.mock("./InviteControl", () => ({ InviteControl: () => <div>invite-control</div> }));
+vi.mock("./InviteControl", () => ({
+  InviteControl: ({ seats, onInvited }: { seats: unknown; onInvited: () => void }) => (
+    <>
+      <div>invite-control</div>
+      <button onClick={onInvited}>invited</button>
+      <div data-testid="invite-seats">{JSON.stringify(seats)}</div>
+    </>
+  ),
+}));
 vi.mock("./ConvertToTeamGate", () => ({ ConvertToTeamGate: () => <div>convert-gate</div> }));
 vi.mock("@/stores/vaultStore", () => ({
   useVaultStore: Object.assign((sel: (s: unknown) => unknown) => sel({ vaults: [h.vault] }), {
@@ -63,6 +72,7 @@ vi.mock("@/stores/teamStore", () => ({
   useTeamStore: Object.assign(
     (sel: (s: unknown) => unknown) =>
       sel({
+        teams: h.teams,
         membersByTeam: { t1: h.members },
         rolesByTeam: { t1: h.roles },
         pendingInvitationsByTeam: { t1: h.pending },
@@ -95,6 +105,7 @@ afterEach(() => {
   h.members = [];
   h.pending = [];
   h.keyHolders = [];
+  h.teams = [];
   vi.clearAllMocks();
 });
 
@@ -189,4 +200,59 @@ test("the addressed invite link is copied for a pending invitation only", () => 
 
   fireEvent.click(screen.getByText("link:inv1"));
   expect(h.writeClipboard).toHaveBeenCalledWith("voltius://notification?n=invite%3Ainv1");
+});
+
+test("the invite tab counts the seats of the team being shared into, unlimited included", () => {
+  h.vault.teamId = "t1";
+  h.teams = [{ id: "t1", owner_id: "boss", ownerSeats: { used: 3, total: null } }];
+  render(<VaultShareSheet vaultId="v1" variant="full" />);
+  fireEvent.click(screen.getByText("members.share.tabInvite"));
+  expect(JSON.parse(screen.getByTestId("invite-seats").textContent ?? "")).toEqual({ kind: "unlimited", used: 3 });
+});
+
+test("the invite tab falls back to the viewer's own seats when the server omits owner seats", () => {
+  h.vault.teamId = "t1";
+  h.teams = [{ id: "t1", owner_id: "boss", ownerSeats: null }];
+  render(<VaultShareSheet vaultId="v1" variant="full" />);
+  fireEvent.click(screen.getByText("members.share.tabInvite"));
+  expect(JSON.parse(screen.getByTestId("invite-seats").textContent ?? "")).toMatchObject({ kind: "known", used: 1, total: 10 });
+});
+
+test("share_people_tab_pushes_the_members_list_for_a_team_vault", () => {
+  h.vault.teamId = "t1";
+  const onOpenPeople = vi.fn();
+  render(<VaultShareSheet vaultId="v1" variant="page" initialTab="invite" onOpenPeople={onOpenPeople} />);
+  fireEvent.click(screen.getByText("members.share.tabPeople"));
+  expect(onOpenPeople).toHaveBeenCalledTimes(1);
+  expect(screen.getByText("invite-control")).toBeTruthy();
+  expect(screen.queryByText("people:0")).toBeNull();
+});
+
+test("onOpenPeople turns an initial People tab into Invite", () => {
+  h.vault.teamId = "t1";
+  render(<VaultShareSheet vaultId="v1" variant="page" initialTab="people" onOpenPeople={() => {}} />);
+  expect(screen.getByText("invite-control")).toBeTruthy();
+});
+
+test("share_people_tab_switches_locally_on_desktop", () => {
+  h.vault.teamId = "t1";
+  render(<VaultShareSheet vaultId="v1" variant="popover" initialTab="invite" />);
+  fireEvent.click(screen.getByText("members.share.tabPeople"));
+  expect(screen.getByText("people:0")).toBeTruthy();
+});
+
+test("a successful invite opens the Members list when onOpenPeople is set", () => {
+  h.vault.teamId = "t1";
+  const onOpenPeople = vi.fn();
+  render(<VaultShareSheet vaultId="v1" variant="page" initialTab="invite" onOpenPeople={onOpenPeople} />);
+  fireEvent.click(screen.getByText("invited"));
+  expect(onOpenPeople).toHaveBeenCalledTimes(1);
+  expect(screen.getByText("invite-control")).toBeTruthy();
+});
+
+test("a successful invite switches to People locally without onOpenPeople", () => {
+  h.vault.teamId = "t1";
+  render(<VaultShareSheet vaultId="v1" variant="popover" initialTab="invite" />);
+  fireEvent.click(screen.getByText("invited"));
+  expect(screen.getByText("people:0")).toBeTruthy();
 });

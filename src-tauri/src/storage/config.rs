@@ -1,8 +1,11 @@
+use crate::commands::raw_entities::RawEntityFile;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::OnceLock;
+
+pub const APP_IDENTIFIER: &str = "com.voltius.app";
 
 /// Overrides the base config directory. Set once at startup on platforms where
 /// `dirs::config_dir()` doesn't resolve to writable, app-scoped storage — most
@@ -505,11 +508,21 @@ pub fn plain_leaf(name: &str) -> Option<&str> {
     ok.then_some(name)
 }
 
-pub fn config_dir() -> PathBuf {
-    let dir = match CONFIG_DIR_OVERRIDE.get() {
+pub fn app_data_dir() -> Result<PathBuf, String> {
+    dirs::data_dir()
+        .map(|d| d.join(APP_IDENTIFIER))
+        .ok_or_else(|| "Failed to get app data dir".to_string())
+}
+
+pub fn config_dir_peek() -> PathBuf {
+    match CONFIG_DIR_OVERRIDE.get() {
         Some(base) => base.clone(),
         None => default_config_dir(),
-    };
+    }
+}
+
+pub fn config_dir() -> PathBuf {
+    let dir = config_dir_peek();
     fs::create_dir_all(&dir).ok();
     dir
 }
@@ -870,6 +883,15 @@ pub fn save_port_forwarding_rules(rules: &[PortForwardingRule]) -> Result<(), St
     save_json(port_forwarding_rules_file(), rules)
 }
 
+/// Kept as raw JSON: the frontend owns the record shape and its CRDT stamps.
+pub fn load_raw_entities(file: RawEntityFile) -> Result<Vec<serde_json::Value>, String> {
+    load_json(config_dir().join(file.file_name()))
+}
+
+pub fn save_raw_entities(file: RawEntityFile, items: &[serde_json::Value]) -> Result<(), String> {
+    save_json(config_dir().join(file.file_name()), items)
+}
+
 type SuppressedPorts = BTreeMap<String, BTreeSet<u16>>;
 
 // Device-local on purpose: absent from the sync file lists.
@@ -989,6 +1011,13 @@ pub fn save_snippet_folders(folders: &[SnippetFolder]) -> Result<(), String> {
 mod tests {
     use super::*;
     use serde::de::DeserializeOwned;
+
+    #[test]
+    fn app_identifier_matches_tauri_conf() {
+        let conf: serde_json::Value =
+            serde_json::from_str(include_str!("../../tauri.conf.json")).unwrap();
+        assert_eq!(conf["identifier"], APP_IDENTIFIER);
+    }
 
     /// Asserts that `value` survives a JSON serialize → deserialize → serialize
     /// cycle unchanged. Compares `serde_json::Value`s (not strings) so that

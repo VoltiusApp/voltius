@@ -48,7 +48,7 @@ let seededEntriesPromise: Promise<Map<string, SeededEntry>> | null = null;
 async function loadSeededEntriesUncached(): Promise<Map<string, SeededEntry>> {
   let folders: string[] = [];
   try {
-    folders = await invoke<string[]>("plugins_list_seeded");
+    folders = (await invoke<string[] | null>("plugins_list_seeded")) ?? [];
   } catch {
     return new Map();
   }

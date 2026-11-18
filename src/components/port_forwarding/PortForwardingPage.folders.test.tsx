@@ -1,7 +1,8 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, cleanup, act } from "@testing-library/react";
 import type { Folder, PortForwardingRule } from "@/types";
-import type { PendingCascade } from "@/hooks/useVaultCascade";
+import type { CascadeEntry } from "@/services/vaultClipboard";
+import { runPaste } from "@/services/vaultClipboard";
 
 function folder(id: string, over: Partial<Folder> = {}): Folder {
   return { id, name: id, created_at: "", object_type: "port_forwarding", vault_id: "personal", updated_at: "", clocks: {}, ...over } as Folder;
@@ -21,13 +22,17 @@ const h = vi.hoisted(() => ({
   vaults: [] as unknown[],
   visibleFolders: [] as unknown[],
   folderCardProps: [] as Record<string, unknown>[],
+  ruleCardProps: [] as Record<string, unknown>[],
+  panels: [] as string[],
+  duplicateRule: vi.fn(async () => {}),
   navFolders: [] as unknown[],
   folderPath: [] as unknown[],
+  toolbarProps: {} as Record<string, unknown>,
   ejectTargetFolderId: null as string | null,
   isDragging: false,
   activeFolderId: null as string | null,
   accessibleVaultIds: [] as string[],
-  cascades: [] as PendingCascade[],
+  cascades: [] as { targetVaultName: string; mode: string; cascade: CascadeEntry[] }[],
   navigateTo: vi.fn(),
   navigateToRoot: vi.fn(),
   updateFolder: vi.fn(async (_id: string, _data?: unknown) => {}),
@@ -39,13 +44,26 @@ const h = vi.hoisted(() => ({
   bulkOnDelete: null as ((ids: string[]) => void) | null,
 }));
 
+vi.mock("@/services/vaultObjectStores", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/vaultObjectStores")>()),
+  storeObjectPorts: (await import("@/test/objectPortsFrom")).objectPortsFrom(h),
+  hydrateVaultObjectStores: async () => {},
+}));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string, o?: Record<string, unknown>) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/hooks/useCrossVaultPasteConfirm", () => ({
-  useCrossVaultPasteConfirm: () => ({ pending: null, confirmCrossVault: vi.fn(async () => true), accept: vi.fn(), cancel: vi.fn() }),
+  useCrossVaultPasteConfirm: () => ({
+    pending: null,
+    confirmCrossVault: async (summary: { targetVaultName: string; mode: string; cascade: CascadeEntry[] }) => {
+      h.cascades.push(summary);
+      return true;
+    },
+    accept: vi.fn(),
+    cancel: vi.fn(),
+  }),
 }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
 
@@ -58,11 +76,13 @@ vi.mock("@/components/shared/DragSelectSurface", () => ({
 vi.mock("@/components/folders/FolderCard", () => ({
   FolderCard: (props: Record<string, unknown>) => { h.folderCardProps.push(props); return null; },
 }));
-vi.mock("@/components/folders/FolderEditPanel", () => ({ FolderEditPanel: () => null }));
-vi.mock("./PortForwardingToolbar", () => ({ PortForwardingToolbar: () => null }));
-vi.mock("./ActiveTunnelsSection", () => ({ ActiveTunnelsSection: () => null }));
-vi.mock("./RuleCard", () => ({ RuleCard: () => null }));
-vi.mock("./RuleForm", () => ({ RuleForm: () => null }));
+vi.mock("@/components/folders/FolderEditPanel", () => ({ FolderEditPanel: () => { h.panels.push("folder"); return null; } }));
+vi.mock("./PortForwardingToolbar", () => ({
+  PortForwardingToolbar: (props: Record<string, unknown>) => { h.toolbarProps = props; return null; },
+}));
+vi.mock("./ActiveTunnelsSection", () => ({ ActiveTunnelsSection: () => <div data-test-active-tunnels /> }));
+vi.mock("./RuleCard", () => ({ RuleCard: (p: Record<string, unknown>) => { h.ruleCardProps.push(p); return null; } }));
+vi.mock("./RuleForm", () => ({ RuleForm: () => { h.panels.push("rule"); return null; } }));
 vi.mock("@/components/shared/ConfirmModal", () => ({
   ConfirmModal: (props: Record<string, unknown>) => { h.confirmModals.push(props); return null; },
 }));
@@ -115,14 +135,6 @@ vi.mock("@/hooks/useDragToFolder", () => ({
     ejectDropProps: () => ({}),
   }),
 }));
-vi.mock("@/hooks/useVaultCascade", () => ({
-  useVaultCascade: () => ({
-    pending: null,
-    request: (c: PendingCascade) => { h.cascades.push(c); },
-    confirm: vi.fn(),
-    cancel: vi.fn(),
-  }),
-}));
 vi.mock("@/hooks/useSyncedFormKey", () => ({ useSyncedFormKey: () => 0 }));
 vi.mock("@/hooks/useRuleTunnels", () => ({
   useRuleTunnels: () => ({
@@ -155,7 +167,7 @@ vi.mock("@/stores/portForwardingStore", () => ({
     createRule: h.createRule,
     updateRule: h.updateRule,
     deleteRule: vi.fn(async () => {}),
-    duplicateRule: vi.fn(async () => {}),
+    duplicateRule: h.duplicateRule,
     moveRuleFolder: vi.fn(async () => {}),
     get rules() { return h.rules; },
   }),
@@ -191,6 +203,10 @@ vi.mock("@/stores/vaultStore", () => ({
 }));
 
 import { PortForwardingPage } from "./PortForwardingPage";
+import { callProp, expectEachRefused, startPreview, stopPreview } from "@/test/preview";
+import { PreviewContentScope } from "@/components/preview/PreviewScope";
+
+const settle = () => act(async () => { await runPaste(async () => {}); });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -201,6 +217,8 @@ beforeEach(() => {
   h.vaults = [];
   h.visibleFolders = [];
   h.folderCardProps = [];
+  h.ruleCardProps = [];
+  h.panels = [];
   h.navFolders = [];
   h.folderPath = [];
   h.ejectTargetFolderId = null;
@@ -211,7 +229,10 @@ beforeEach(() => {
   h.can.mockReturnValue(true);
   h.saveFolder.mockImplementation(async (d: { name: string }) => folder(`new-${d.name}`, d as Partial<Folder>));
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  stopPreview();
+});
 
 function lastModal(): Record<string, unknown> {
   return h.confirmModals[h.confirmModals.length - 1];
@@ -285,13 +306,9 @@ test("moving a folder to a vault cascades over the whole subtree, parents before
 
   const card = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
   act(() => { (card.onMoveToVault as (v: string) => void)("team-1"); });
+  await settle();
 
-  const cascade = h.cascades[0];
-  expect(cascade.operation).toBe("move");
-  expect(cascade.targetVaultName).toBe("Team One");
-  expect(cascade.items.map((i) => i.label)).toEqual(["r-root", "r-leaf"]);
-
-  await act(async () => { await cascade.execute(); });
+  expect(h.cascades[0]).toMatchObject({ targetVaultName: "Team One", mode: "cut", cascade: [] });
   expect(h.updateFolder.mock.calls.map((c) => c[0])).toEqual(["root", "mid", "leaf"]);
   expect(h.updateFolder.mock.calls.every((c) => (c[1] as { vault_id: string }).vault_id === "team-1")).toBe(true);
   expect(h.updateRule.mock.calls.map((c) => c[0])).toEqual(["r-root", "r-leaf"]);
@@ -306,8 +323,7 @@ test("copying a folder to a vault recreates the subtree and re-parents the rules
 
   const card = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
   act(() => { (card.onCopyToVault as (v: string) => void)("team-1"); });
-
-  await act(async () => { await h.cascades[0].execute(); });
+  await settle();
   expect(h.saveFolder.mock.calls.map((c) => (c[0] as { name: string }).name)).toEqual(["root", "mid"]);
   expect((h.saveFolder.mock.calls[1][0] as { parent_folder_id: string }).parent_folder_id).toBe("new-root");
   expect(h.createRule.mock.calls[0][0]).toMatchObject({ folder_id: "new-mid", vault_id: "team-1" });
@@ -336,4 +352,68 @@ test("the folder delete confirmation counts every rule nested under it", () => {
   const empty = h.folderCardProps.find((p) => (p.folder as Folder).id === "empty")!;
   act(() => { (empty.onDelete as (f: Folder) => void)(folder("empty")); });
   expect(lastModal().message).toBe("portForwarding.page.confirmDeleteFolder.messageEmpty");
+});
+
+test("a new folder created inside a team folder lands in that team's vault (#816)", async () => {
+  h.folderPath = [folder("child", { vault_id: "team-1" })];
+  h.activeFolderId = "child";
+  render(<PortForwardingPage />);
+
+  await act(async () => { (h.toolbarProps.onNewFolder as () => void)(); });
+  expect(h.saveFolder).toHaveBeenCalledWith(expect.objectContaining({ parent_folder_id: "child", vault_id: "team-1" }));
+});
+
+test("New folder is greyed out inside a folder whose vault the user cannot edit folders in", () => {
+  h.folderPath = [folder("child", { vault_id: "team-1" })];
+  h.activeFolderId = "child";
+  h.can.mockImplementation((p: string, vaultId: string) => !(p === "EDIT_FOLDERS" && vaultId === "team-1"));
+  render(<PortForwardingPage />);
+
+  expect(h.toolbarProps.newFolderBlocked).toBe("folders.noPermissionCreate");
+});
+
+test("rule and folder actions refuse while previewing a member and open why for the item", async () => {
+  h.vaults = [{ id: "v-team", teamId: "team-1", name: "Team One" }];
+  h.rules = [rule("r1")];
+  h.folders = [folder("root")];
+  h.visibleFolders = [folder("root")];
+  render(<PortForwardingPage />);
+  startPreview();
+  const card = h.ruleCardProps[h.ruleCardProps.length - 1];
+  const folderCard = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
+  const r1 = h.rules[0] as PortForwardingRule;
+  const ruleTarget = { type: "port_forwarding_rule" as const, objectId: "r1" };
+  const folderTarget = { type: "folder" as const, objectId: "root" };
+
+  await expectEachRefused([
+    ["edit rule", callProp(card, "onEdit", r1), ruleTarget],
+    ["duplicate rule", callProp(card, "onDuplicate", "r1"), ruleTarget],
+    ["delete rule", callProp(card, "onDelete", "r1"), ruleTarget],
+    ["move rule to vault", callProp(card, "onMoveToVault", r1, "team-1"), ruleTarget],
+    ["copy rule to vault", callProp(card, "onCopyToVault", r1, "team-1"), ruleTarget],
+    ["edit folder", callProp(folderCard, "onEdit"), folderTarget],
+    ["move folder to vault", callProp(folderCard, "onMoveToVault", "team-1"), folderTarget],
+    ["copy folder to vault", callProp(folderCard, "onCopyToVault", "team-1"), folderTarget],
+    ["new rule", callProp(h.toolbarProps, "onNewRule"), undefined],
+    ["new folder", callProp(h.toolbarProps, "onNewFolder"), undefined],
+  ]);
+
+  await settle();
+  expect(h.panels).toEqual([]);
+  expect(h.cascades).toEqual([]);
+  expect(h.confirmModals).toEqual([]);
+  for (const write of [h.createRule, h.updateRule, h.duplicateRule, h.saveFolder, h.updateFolder]) {
+    expect(write).not.toHaveBeenCalled();
+  }
+});
+
+test("active_tunnels_are_hidden_while_previewing_and_shown_outside", () => {
+  const tunnels = () => document.querySelector("[data-test-active-tunnels]");
+  startPreview();
+  render(<PreviewContentScope><PortForwardingPage /></PreviewContentScope>);
+  expect(tunnels()).toBeNull();
+  cleanup();
+  stopPreview();
+  render(<PreviewContentScope><PortForwardingPage /></PreviewContentScope>);
+  expect(tunnels()).not.toBeNull();
 });

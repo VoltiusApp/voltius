@@ -15,6 +15,7 @@ import { type FileEntry, genId } from "@/components/filetransfer/SFTPTypes";
 import { useDirListing } from "@/components/filetransfer/useDirListing";
 import { joinPath } from "@/components/filetransfer/moveTargetCore";
 import { closedPhase, connectErrorPhase, useConnectRetry } from "@/hooks/useConnectRetry";
+import { revokedPhase, useConnectionRevoked } from "@/hooks/useConnectionRevoked";
 import type { Connection } from "@/types";
 import type { BackendErrorCode } from "@/services/backendErrors";
 
@@ -66,6 +67,7 @@ export function useSftpDir(target: SftpDirTarget | undefined) {
   const [retryTick, setRetryTick] = useState(0);
   const sftpIdRef = useRef<string | null>(null);
   const refresh = useCallback(() => setRefreshTick((n) => n + 1), []);
+  const releaseSftp = () => { if (sftpIdRef.current) { sftpClose(sftpIdRef.current).catch(() => {}); sftpIdRef.current = null; } };
 
   // Connect once per connection.
   useEffect(() => {
@@ -87,7 +89,7 @@ export function useSftpDir(target: SftpDirTarget | undefined) {
     })();
     return () => {
       cancelled = true;
-      if (sftpIdRef.current) { sftpClose(sftpIdRef.current).catch(() => {}); sftpIdRef.current = null; }
+      releaseSftp();
     };
   }, [key, retryTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -95,6 +97,11 @@ export function useSftpDir(target: SftpDirTarget | undefined) {
   // process and trips keepalive; retry so the drop self-heals instead of dead-ending.
   const { retrying, reset: resetRetry } = useConnectRetry(phase, () => setRetryTick((n) => n + 1), key);
   const reconnect = useCallback(() => { resetRetry(); setRetryTick((n) => n + 1); }, [resetRetry]);
+
+  useConnectionRevoked(target && !("device" in target) ? target.id : undefined, () => {
+    releaseSftp();
+    setPhase(revokedPhase());
+  });
 
   // Detect connection loss.
   useEffect(() => {

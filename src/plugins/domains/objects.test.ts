@@ -196,12 +196,18 @@ describe("createObjectsAPI", () => {
     expect(ports.updateConnection).not.toHaveBeenCalled();
   });
 
-  it("reports a dangling reference as a refusal, not a success", async () => {
-    // Port forwarding cannot cascade: a rule keeps pointing at hosts left behind.
+  it("carries a rule's hosts into the destination instead of refusing", async () => {
     const ports = fakePorts({ rules: () => [rule({ connection_ids: ["c1"] })] });
-    await expect(objects(ports).move({
-      ids: ["r1"], folderId: null, vaultId: "vault-2", allowCrossVault: true,
-    })).rejects.toThrow(/connection/);
+    await objects(ports).move({ ids: ["r1"], folderId: null, vaultId: "vault-2", allowCrossVault: true });
+    expect(ports.updateConnection).toHaveBeenCalledWith("c1", expect.objectContaining({ vault_id: "vault-2" }));
+    expect(ports.updateRule).toHaveBeenCalledWith("r1", expect.objectContaining({ vault_id: "vault-2", connection_ids: ["c1"] }));
+  });
+
+  it("refuses to carry a referenced object out of a team vault", async () => {
+    const ports = fakePorts({ keys: () => [key({ vault_id: "team-1" })] });
+    await expect(objects(ports).move({ ids: ["c1"], folderId: null, vaultId: "vault-2", allowCrossVault: true }))
+      .rejects.toThrow(/team vault "Ops"/);
+    expect(ports.updateConnection).not.toHaveBeenCalled();
   });
 
   it("refuses to copy an object out of a team vault, naming the vault", async () => {
@@ -269,10 +275,24 @@ describe("objectPermissionsFor", () => {
   });
 
   it("makes a host ask for the keychain its cascade writes", () => {
-    // applyCascade saves/updates the key and identity a host references, and the
-    // duplicators copy their private material into the destination vault.
     expect(objectPermissionsFor(fakePorts(), { ids: ["c1"], folderId: null, vaultId: null }).sort())
       .toEqual(["connections:write", "identities:write", "keys:write"]);
+  });
+
+  it("authorizes what a call actually carries, from its plan", async () => {
+    const ports = fakePorts({ connections: () => [conn({ key_id: undefined, pre_snippet_id: "s1" })] });
+    const asked: string[][] = [];
+    await createObjectsAPI(ports).move(
+      { ids: ["c1"], folderId: null, vaultId: "vault-2", allowCrossVault: true },
+      (perms) => { asked.push(perms); },
+    );
+    expect(asked[asked.length - 1]).toEqual(["snippets:write"]);
+
+    const refused = createObjectsAPI(ports).move(
+      { ids: ["c1"], folderId: null, vaultId: "vault-2", allowCrossVault: true },
+      (perms) => { if (perms.includes("snippets:write")) throw new Error("needs snippets:write"); },
+    );
+    await expect(refused).rejects.toThrow(/snippets:write/);
   });
 
   it("gives every kind its own permission", () => {

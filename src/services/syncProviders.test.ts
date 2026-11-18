@@ -179,9 +179,11 @@ describe("aggregateSyncStatus", () => {
     expect(effective).toMatchObject({ status: "offline", error: "connection refused", errorSource: null, nearby: 0 });
   });
 
-  test("rank order is error > offline > syncing > success > idle", () => {
+  test("rank order is error > offline > syncing > partial > success > idle", () => {
     expect(aggregateSyncStatus(providersWith({ status: "syncing" }, { status: "offline" })).status).toBe("offline");
     expect(aggregateSyncStatus(providersWith({ status: "success" }, { status: "syncing" })).status).toBe("syncing");
+    expect(aggregateSyncStatus(providersWith({ status: "partial" }, { status: "syncing" })).status).toBe("syncing");
+    expect(aggregateSyncStatus(providersWith({ status: "success" }, { status: "partial", error: "1 device" }))).toMatchObject({ status: "partial", error: "1 device", errorSource: null });
     expect(aggregateSyncStatus(providersWith({ status: "idle" }, { status: "success" })).status).toBe("success");
   });
 

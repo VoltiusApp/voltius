@@ -7,7 +7,7 @@ function equal<T>(actual: T, expected: T) {
 }
 
 function run() {
-  equal(DEFAULT_SCROLLBACK_LINES, 50_000);
+  equal(DEFAULT_SCROLLBACK_LINES, 10_000);
   equal(clampScrollbackLines(0), 1_000);
   equal(clampScrollbackLines(999), 1_000);
   equal(clampScrollbackLines(50_000), 50_000);

@@ -17,6 +17,11 @@
         "bodyBilling": "Od této chvíle bude tento tým hrazen z vlastního předplatného Teams nebo Business uživatele {{name}}. Pouze {{name}} pak bude moci tým smazat. Vaše předplatné zůstane beze změny: snižte počet míst nebo ho sami zrušte.",
         "bodySelfHosted": "Tento tým bude moci smazat pouze {{name}}. Vlastníkem zůstanete i vy a poté můžete tým opustit."
       },
+      "invite": {
+        "title": "Pozvat {{name}} jako vlastníka?",
+        "body": "Vlastníci mají všechna oprávnění včetně přidávání a odebírání dalších vlastníků. Hlavní vlastník a fakturace zůstávají beze změny.",
+        "confirm": "Odeslat pozvánku vlastníka"
+      },
       "grant": {
         "title": "Nastavit {{name}} jako vlastníka?",
         "body": "Vlastníci mají všechna oprávnění včetně přidávání a odebírání dalších vlastníků.",
@@ -75,11 +80,14 @@
       "ADMINISTRATOR": "Administrátor"
     },
     "permissions": {
+      "youLack": "K této akci nemáte oprávnění",
+      "youCannotEdit": "K úpravě nemáte oprávnění",
       "title": "Oprávnění",
       "inheritedFrom": "Z rolí: {{roles}}",
       "notGranted": "Žádná role toto oprávnění neuděluje",
       "effectiveAllowed": "povoleno",
       "effectiveDenied": "zakázáno",
+      "withExceptions": "s výjimkami",
       "state": {
         "deny": "Zakázat",
         "inherit": "Zdědit",
@@ -129,6 +137,7 @@
       "nameHint": "Ponechte prázdné, aby se zobrazovala přezdívka."
     },
     "invite": {
+      "ownerOnlyOwners": "Jako vlastníka mohou zvát jen vlastníci",
       "nameLabel": "Jméno v tomto týmu",
       "namePlaceholder": "např. Jan Novák",
       "nameHint": "Kolegové uvidí toto jméno místo přezdívky. Změnit ho mohou jen administrátoři.",
@@ -150,7 +159,7 @@
       "inviteArrow": "Pozvat →",
       "handleRule": "Podle části jména se hledají jen vlastní přezdívky. Vygenerovanou přezdívku jako rapid-violet-8884 zadejte celou, nebo použijte e-mail.",
       "seatsUnknown": "Počet míst není dostupný — zkontrolujte připojení k synchronizačnímu serveru",
-      "seatsUnlimited": "Využito {{used}} · neomezeně",
+      "seatsUnlimited": "Využito {{used}} / ∞ míst",
       "inviteAction": "Pozvat",
       "joinsAs": "Připojí se jako",
       "selectRoleHint": "Před pozváním vyberte alespoň jednu roli",
@@ -164,6 +173,7 @@
       "expiredOn": "Vypršelo {{date}}"
     },
     "roleBlurb": {
+      "owner": "Vlastníci mají všechna oprávnění včetně přidávání a odebírání dalších vlastníků.",
       "manager": "Správci mohou zvát lidi, měnit role a spravovat odkazy.",
       "editor": "Editoři mohou v tomto trezoru přidávat a měnit hosty, klíče a úryvky.",
       "member": "Členové mohou používat vše v tomto trezoru, ale nemohou nic měnit.",
@@ -185,6 +195,7 @@
       "userAdded": "{{name}} přidán(a)",
       "invitingEmail": "Zvaní {{email}}...",
       "invitationSentToEmail": "Pozvánka odeslána na {{email}}",
+      "invitationEmailNotSent": "Pozvánka je uložena, ale e-mail na {{email}} se nepodařilo odeslat. Do týmu se připojí, až se zaregistruje s touto adresou.",
       "invitingToSession": "Zvaní {{name}} do relace...",
       "invitedToSession": "{{name}} pozván(a) do relace",
       "convertingVault": "Změna {{vault}} na týmový trezor...",
@@ -205,6 +216,8 @@
       "convertFailed": "{{vault}} se nepodařilo změnit na týmový trezor — {{reason}}",
       "serverUnreachable": "synchronizační server není dostupný",
       "removeFailed": "{{name}} se nepodařilo odebrat — {{reason}}",
+      "removePartial": "Odebráno: {{removed}}. {{failed}} se nepodařilo odebrat — {{reason}}",
+      "undoRolesNotRestorable": "Zpět nedokáže přesně obnovit role pro {{name}}. Pozvěte je znovu a role nastavte ručně.",
       "revokeFailed": "Pozvánku pro {{name}} se nepodařilo zrušit — {{reason}}",
       "grantKeyFailed": "Přístup k trezoru pro {{name}} se nepodařilo udělit — {{reason}}",
       "memberHasNoPublicKey": "Zatím nezveřejnil(a) klíč — požádejte ho/ji, aby se jednou přihlásil(a).",
@@ -254,8 +267,9 @@
       "ownPlanTitle": "Převedení trezoru na tým vyžaduje vlastní tarif Teams",
       "upgradeDesc": "Zvěte členy, přiřazujte role a bezpečně sdílejte přihlašovací údaje se svým týmem.",
       "upgradeBtn": "Vyzkoušejte Teams zdarma na {{days}} dní →",
+      "upgradePlainBtn": "Přejít na Teams →",
       "ownPlanBtn": "Pořídit vlastní tarif Teams →",
-      "trialNote": "Vyžaduje kartu · během zkušební doby se nic neúčtuje"
+      "trialNote": "Bez platební karty · až 10 členů týmu"
     },
     "joinLinks": {
       "explainer": "Kdokoli s odkazem se připojí k tomuto trezoru v roli, kterou vyberete. Odkaz nikdy neobsahuje klíč trezoru — ten dorazí zvlášť, jakmile bude online někdo, kdo ho už má.",
@@ -324,6 +338,77 @@
       "newLink": "Nový odkaz",
       "cancel": "Zrušit"
     },
+    "enrollment": {
+      "title": "Registrace zařízení",
+      "explainer": "Jeden firemní token pro nasazení Voltiusu pomocí Ansible nebo MDM. Lidé, kteří ho použijí, požádají o vstup do týmu {{team}}.",
+      "domainsLabel": "Povolené e-mailové domény",
+      "domainPlaceholder": "Přidat doménu",
+      "removeDomain": "Odebrat {{domain}}",
+      "invalidDomain": "{{domain}} není název domény, například example.com.",
+      "approve": "Každé připojení schvaluje správce",
+      "noEmail": "Tento server neumí odesílat e-maily, proto musí každé připojení schválit správce.",
+      "expiresLabel": "Platnost",
+      "expiry": {
+        "never": "Bez omezení",
+        "day30": "30 dní",
+        "day90": "90 dní",
+        "year1": "1 rok"
+      },
+      "create": "Vytvořit token",
+      "guardHint": "Každé připojení vyžaduje odpovídající e-mailovou doménu, schválení správcem, nebo obojí.",
+      "copyNow": "Zkopírujte si ho hned; už se znovu nezobrazí.",
+      "example": "Příklad",
+      "tokenLabel": "Registrační token",
+      "approvalOn": "schvaluje správce",
+      "approvalOff": "bez schvalování",
+      "expiresOn": "vyprší {{date}}",
+      "neverExpires": "bez omezení platnosti",
+      "expiredOn": "Vypršel {{date}}",
+      "expiredHint": "Obnovte ho, abyste získali funkční token.",
+      "createdBy": "Vytvořil(a) {{name}} · {{date}}",
+      "createdOn": "Vytvořeno {{date}}",
+      "lastUsed": "Naposledy použito {{when}}",
+      "neverUsed": "Nikdy nepoužito",
+      "counts": "Připojeno: {{joined}} · čeká: {{waiting}}",
+      "notShownAgain": "Token se už nezobrazí. Pro nový token použijte Obnovit.",
+      "rotate": "Obnovit",
+      "rotateTitle": "Obnovit registrační token?",
+      "rotateMessage": "Stávající token přestane fungovat pro nové registrace. Zařízení, která se s ním už zaregistrovala, nadále dostávají zásady týmu.",
+      "rotateConfirm": "Obnovit token",
+      "revoke": "Zrušit",
+      "revokeTitle": "Zrušit registrační token?",
+      "revokeMessage": "Zařízení se s ním už nebudou moci registrovat a zařízení, která se s ním zaregistrovala, přestanou dostávat zásady týmu. Lidé, kteří se již připojili, zůstávají členy.",
+      "revokeConfirm": "Zrušit token",
+      "lapsed": "Registrace zařízení vyžaduje tarif Business.",
+      "loadFailed": "Registrační token se nepodařilo načíst — {{reason}}",
+      "toast": {
+        "create": {
+          "pending": "Vytvářím token…",
+          "done": "Registrační token vytvořen",
+          "failed": "Token se nepodařilo vytvořit — {{reason}}"
+        },
+        "rotate": {
+          "pending": "Obnovuji token…",
+          "done": "Registrační token obnoven",
+          "failed": "Token se nepodařilo obnovit — {{reason}}"
+        },
+        "revoke": {
+          "pending": "Ruším token…",
+          "done": "Registrační token zrušen",
+          "failed": "Token se nepodařilo zrušit — {{reason}}"
+        }
+      },
+      "error": {
+        "gone": "Tento token pro zápis byl zrušen nebo vypršel.",
+        "needsGuard": "Přidejte e-mailovou doménu nebo vyžadujte schválení.",
+        "needsApproval": "Tento server neumí odesílat e-maily, proto každé připojení vyžaduje schválení správcem.",
+        "domainMismatch": "Doména jejich e-mailu není v seznamu tokenu.",
+        "invalid": "Server tato nastavení odmítl.",
+        "forbidden": "Nemáte oprávnění spravovat registraci zařízení."
+      },
+      "copyLink": "Kopírovat odkaz",
+      "copyLinkTitle": "Zkopírovat odkaz, který otevře Voltius na této registraci"
+    },
     "offboarding": {
       "removeTitle_one": "Odebrat {{names}} z tohoto týmu?",
       "removeTitle_few": "Odebrat {{count}} lidi z tohoto týmu?",
@@ -360,12 +445,302 @@
       "forceVault": "Vyžadovat „Zamknout trezor“",
       "forceVaultDesc": "Členové nemohou zvolit zamčení obrazovky, takže zamčení vždy odstraní klíč trezoru z paměti.",
       "immediateVaultWarning": "Při volbě „Okamžitě“ se zámkem trezoru se otevřené relace členů zavřou pokaždé, když opustí Voltius, i jen na chvíli.",
-      "appliesToAll": "Platí pro všechny členy včetně vás. Starší verze Voltius ji nevynucují.",
+      "appliesToAll": "Platí pro všechny členy včetně vás.",
       "lockBody": "Zásady zamykání vyžadují tarif Business týmu.",
       "lapsed": "Tarif Business vypršel: tato zásada stále platí. Můžete ji odebrat.",
       "remove": "Odebrat zásadu",
       "saving": "Ukládání zásady…",
       "saved": "Zásada uložena"
+    },
+    "keyHealth": {
+      "title": "Stav klíče trezoru",
+      "state": {
+        "upToDate": "Aktuální",
+        "rotationPending": "Čeká na nový klíč",
+        "reencryptPending": "Přešifrovává se",
+        "attention": "Vyžaduje pozornost",
+        "unavailable": "Nedostupné"
+      },
+      "version": "Verze klíče {{version}} · změněno {{time}}",
+      "versionNever": "Verze klíče {{version}} · nikdy nezměněno",
+      "uncovered_one": "{{count}} členovi chybí aktuální klíč.",
+      "uncovered_few": "{{count}} členům chybí aktuální klíč.",
+      "uncovered_many": "{{count}} členům chybí aktuální klíč.",
+      "uncovered_other": "{{count}} členům chybí aktuální klíč.",
+      "requested": "Člen odešel {{time}}, proto je potřeba nový klíč.",
+      "remaining_one": "{{count}} položka stále používá starší klíč.",
+      "remaining_few": "{{count}} položky stále používají starší klíč.",
+      "remaining_many": "{{count}} položky stále používá starší klíč.",
+      "remaining_other": "{{count}} položek stále používá starší klíč.",
+      "remainingUnknown": "Některé položky stále používají starší klíč.",
+      "blocked": "Dokud nebudou přešifrovány, nový klíč nelze vytvořit.",
+      "fromServer": "Podle serveru.",
+      "device": {
+        "never": "Toto zařízení to ještě nezkusilo.",
+        "finished": "Toto zařízení dokončilo poslední pokus {{time}}.",
+        "failed_one": "Toto zařízení to zkusilo {{time}}: {{count}} položka selhala.",
+        "failed_few": "Toto zařízení to zkusilo {{time}}: {{count}} položky selhaly.",
+        "failed_many": "Toto zařízení to zkusilo {{time}}: {{count}} položky selhalo.",
+        "failed_other": "Toto zařízení to zkusilo {{time}}: {{count}} položek selhalo.",
+        "stopped": "Toto zařízení to zkusilo {{time}} a zastavilo se: {{reason}}",
+        "skipped_one": "{{count}} položku musí zpracovat někdo, kdo ji může upravit.",
+        "skipped_few": "{{count}} položky musí zpracovat někdo, kdo je může upravit.",
+        "skipped_many": "{{count}} položky musí zpracovat někdo, kdo je může upravit.",
+        "skipped_other": "{{count}} položek musí zpracovat někdo, kdo je může upravit."
+      },
+      "step": {
+        "status": "nepodařilo se spojit se serverem.",
+        "rotate": "server odmítl nový klíč.",
+        "drain": "trezor se nepodařilo přešifrovat."
+      },
+      "loadFailed": "Stav klíče se nepodařilo načíst. Zkontrolujte připojení a obnovte.",
+      "retry": "Zkusit znovu",
+      "retrying": "Zkouší se znovu…",
+      "refresh": "Obnovit",
+      "retryDenied": "Vytvoření nového klíče vyžaduje oprávnění Zobrazit hesla a Kopírovat hesla.",
+      "stuck": {
+        "title": "Položky se starším klíčem",
+        "truncated": "Zobrazeno prvních {{count}}.",
+        "hidden_one": "{{count}} další položka je před vámi skrytá. Musí to zkusit znovu někdo, kdo ji vidí.",
+        "hidden_few": "{{count}} další položky jsou před vámi skryté. Musí to zkusit znovu někdo, kdo je vidí.",
+        "hidden_many": "{{count}} další položky je před vámi skryto. Musí to zkusit znovu někdo, kdo je vidí.",
+        "hidden_other": "{{count}} dalších položek je před vámi skryto. Musí to zkusit znovu někdo, kdo je vidí."
+      },
+      "reason": {
+        "orphan": "Zbytek smazané položky",
+        "undecryptable": "Nelze dešifrovat",
+        "uploadFailed": "Nepodařilo se uložit. Zkuste znovu.",
+        "needsEditor": "Musí ji zpracovat někdo, kdo ji může upravit",
+        "waiting": "Čeká na další pokus"
+      },
+      "kind": {
+        "secret": "Heslo nebo klíč položky {{name}}",
+        "deleted": "smazaná položka",
+        "blob": "Starší data trezoru"
+      },
+      "unnamed": "{{type}} bez názvu",
+      "type": {
+        "connection": "Hostitel",
+        "identity": "Identita",
+        "key": "Klíč SSH",
+        "folder": "Složka",
+        "snippet": "Úryvek",
+        "snippet_folder": "Složka úryvků",
+        "port_forwarding_rule": "Pravidlo přesměrování portu"
+      },
+      "remove": "Odebrat",
+      "removeTitle": "Odebrat {{name}}?",
+      "removeBody": "Nelze ji dešifrovat, a proto brání tomu, aby trezor dostal nový klíč. Odebráním ji smažete pro všechny členy a nelze to vrátit.",
+      "removeOrphanBody": "Patří k položce, která už neexistuje. Po odebrání může trezor znovu dostat nový klíč.",
+      "removing": "Odebírá se…",
+      "removed": "Odebráno",
+      "note": "Nový klíč chrání to, co se uloží od této chvíle. Nevezme zpět nic, co si bývalý člen už zkopíroval."
+    },
+    "devicePolicy": {
+      "title": "Zásady zařízení",
+      "empty": "Uzamkněte nastavení ve Voltiusu každého člena. Používá stejný formát jako policy.json.",
+      "locked_one": "Uzamčeno: {{count}}",
+      "locked_few": "Uzamčeno: {{count}}",
+      "locked_many": "Uzamčeno: {{count}}",
+      "locked_other": "Uzamčeno: {{count}}",
+      "limited_one": "Omezeno: {{count}}",
+      "limited_few": "Omezeno: {{count}}",
+      "limited_many": "Omezeno: {{count}}",
+      "limited_other": "Omezeno: {{count}}",
+      "updatedBy": "Upraveno: {{name}}, {{time}}",
+      "updated": "Upraveno {{time}}",
+      "show_one": "Zobrazit {{count}} nastavení",
+      "show_few": "Zobrazit {{count}} nastavení",
+      "show_many": "Zobrazit {{count}} nastavení",
+      "show_other": "Zobrazit {{count}} nastavení",
+      "hide": "Skrýt nastavení",
+      "import": "Importovat",
+      "export": "Exportovat",
+      "clear": "Vymazat",
+      "lapsed": "Import zásady vyžaduje tarif Business.",
+      "olderVersions": "Starší verze Voltius uplatňují jen nastavení zámku aplikace.",
+      "loadFailed": "Zásady zařízení se nepodařilo načíst.",
+      "rangeMin": "min. {{value}}",
+      "rangeMax": "max. {{value}}",
+      "rangeBetween": "{{min}}–{{max}}",
+      "previewTitle": "Importovat týmovou zásadu",
+      "fixErrors_one": "Opravte {{count}} chybu v souboru a importujte ho znovu. Varování ukládání nebrání.",
+      "fixErrors_few": "Opravte {{count}} chyby v souboru a importujte ho znovu. Varování ukládání nebrání.",
+      "fixErrors_many": "Opravte {{count}} chyby v souboru a importujte ho znovu. Varování ukládání nebrání.",
+      "fixErrors_other": "Opravte {{count}} chyb v souboru a importujte ho znovu. Varování ukládání nebrání.",
+      "warningsOnly": "Varování ukládání nebrání.",
+      "replaces": "Uložením se nahradí týmová zásada ve Voltiusu každého člena.",
+      "save": "Uložit zásadu",
+      "saving": "Ukládání týmové zásady…",
+      "saved": "Týmová zásada uložena",
+      "clearTitle": "Vymazat týmovou zásadu?",
+      "clearMessage": "Voltius každého člena se vrátí k vlastnímu nastavení. Tím se odstraní i výše uvedené limity zámku aplikace.",
+      "clearConfirm": "Vymazat zásadu",
+      "clearing": "Mazání týmové zásady…",
+      "cleared": "Týmová zásada vymazána",
+      "issue": {
+        "machineOnly": "lze nastavit jen v zásadách počítače",
+        "defaults": "Výchozí hodnoty patří do zásad počítače, ne do týmové zásady",
+        "unknownKey": "tato verze nezná; novější verze ho mohou používat",
+        "type": "má hodnotu, kterou toto nastavení nepřijímá",
+        "range": "má rozsah, který toto nastavení nepřijímá",
+        "newerVersion": "Tento soubor vyžaduje novější verzi Voltius",
+        "file": "Tento soubor není platný policy.json",
+        "plainTimeout": "platí jen v novějších verzích Voltius. Starší vyžadují maximum: {{example}}"
+      }
+    },
+    "joinRequests": {
+      "title": "Žádosti o připojení",
+      "via": "přes zapisování zařízení",
+      "reason": {
+        "approval": "Čeká na schválení",
+        "email_unverified": "Čeká na ověření e-mailu",
+        "seat_limit": "Žádné volné místo"
+      },
+      "approve": "Schválit",
+      "deny": "Zamítnout",
+      "noSeatToast": "Žádné volné místo. Přidejte místa a schvalte znovu.",
+      "emailUnverifiedToast": "Ještě musí ověřit svou e-mailovou adresu. Až to udělají, schvalte znovu.",
+      "gone": "Tato žádost již byla vyřízena.",
+      "toast": {
+        "approve": {
+          "pending": "Schvaluji žádost…",
+          "done": "Žádost schválena",
+          "failed": "Žádost se nepodařilo schválit — {{reason}}"
+        },
+        "deny": {
+          "pending": "Zamítám žádost…",
+          "done": "Žádost zamítnuta",
+          "failed": "Žádost se nepodařilo zamítnout — {{reason}}"
+        }
+      }
+    },
+    "viewAs": {
+      "loading": "Ověřování přístupu…",
+      "discardDraft": {
+        "title": "Zahodit neuložené změny?",
+        "body": "Ukončením náhledu zahodíte neuložené změny přístupu pro {{name}}.",
+        "confirm": "Zahodit a ukončit"
+      },
+      "reason": {
+        "needsBusiness": "Funkce Zobrazit jako je součástí tarifu Business",
+        "needsManage": "Pro použití Zobrazit jako potřebujete oprávnění Spravovat členy nebo Spravovat role",
+        "self": "Zobrazit jako nelze použít na sebe",
+        "serverTooOld": "Aktualizujte server, abyste mohli použít Zobrazit jako",
+        "previewing": "Nejprve ukončete aktuální náhled"
+      },
+      "noPermission": "Nemáte oprávnění k tomuto náhledu",
+      "ended": "Náhled skončil: tento člen nebo role již není k dispozici",
+      "failed": "Náhled se nepodařilo načíst",
+      "readOnly": "Náhled jen pro čtení",
+      "lacksPermission": "Role tohoto člena to neumožňuje",
+      "locked": {
+        "auditLog": "Protokol auditu je pro tohoto člena uzamčen",
+        "sessions": "Relace terminálu jsou pro tohoto člena uzamčeny"
+      },
+      "viewingAs": "Zobrazení jako {{name}}",
+      "viewingAsReadOnly": "Zobrazení jako {{name}} · jen pro čtení",
+      "unsaved_one": "{{count}} neuložená změna",
+      "unsaved_few": "{{count}} neuložené změny",
+      "unsaved_many": "{{count}} neuložených změn",
+      "unsaved_other": "{{count}} neuložených změn",
+      "discard": "Zahodit",
+      "save": "Uložit",
+      "saveConfirm": "Uložit…",
+      "exit": "Ukončit",
+      "changesAccess_one": "Mění přístup pro {{count}} člena",
+      "changesAccess_few": "Mění přístup pro {{count}} členy",
+      "changesAccess_many": "Mění přístup pro {{count}} členů",
+      "changesAccess_other": "Mění přístup pro {{count}} členů",
+      "roleTitle": "Role {{name}}",
+      "manageRolesRequired": "Je potřeba oprávnění Spravovat role",
+      "builtinReadOnly": "Vestavěné role nelze upravovat",
+      "affects_one": "Ovlivní {{count}} člena",
+      "affects_few": "Ovlivní {{count}} členy",
+      "affects_many": "Ovlivní {{count}} členů",
+      "affects_other": "Ovlivní {{count}} členů",
+      "roleKeyLoss": {
+        "title": "Odebrat přístup ke klíči trezoru?",
+        "body": "{{names}} ztratí klíč trezoru. Klíč se obmění pro všechny ostatní.",
+        "confirm": "Uložit a obměnit klíč"
+      },
+      "hiddenFrom": "Skryto před {{name}}",
+      "hiddenNoKey": "{{name}} nemá klíč trezoru",
+      "cannotEdit": "Role tohoto člena úpravy nepovoluje",
+      "draftBadge": "Koncept",
+      "draftTag": "(koncept)",
+      "draftChange": "Koncept: {{from}} → {{to}}",
+      "ownerElsewhere": "Změny vlastníka se provádějí jinde",
+      "keyLoss": "Po uložení {{name}} ztratí klíč trezoru a klíč se pro ostatní členy obnoví.",
+      "saveFailed": "Nepodařilo se použít {{failed}} z {{total}} změn",
+      "access": {
+        "title": "Přístup uživatele {{name}}",
+        "subtitle": "Úpravy se zobrazují vlevo. Zatím nic není uloženo.",
+        "can": "{{name}} může",
+        "allPermissions": "Všechna oprávnění…"
+      },
+      "step": {
+        "overrides": "Přepsání oprávnění",
+        "addRole": "Přidat {{role}}",
+        "removeRole": "Odebrat {{role}}"
+      },
+      "level": {
+        "hidden": "Skryto",
+        "view": "Pouze zobrazení",
+        "connect": "Může se připojit",
+        "edit": "Může upravovat"
+      },
+      "secrets": {
+        "yes": "Tajné údaje viditelné",
+        "no": "Tajné údaje skryté"
+      },
+      "why": {
+        "noVaultKey": "{{name}} nemá klíč trezoru, takže v tomto trezoru nelze nic otevřít",
+        "as": "Jako {{name}}",
+        "gets": "Co zde {{name}} získá",
+        "addsUp": "Jak se to sčítá",
+        "order": "Použito v pořadí: všichni, pak role uživatele {{name}}, pak {{name}}. V každém kroku může povolení zrušit předchozí zákaz; vlastní celotýmový zákaz uživatele {{name}} vždy vyhrává.",
+        "decidedByServer": "Rozhodl server",
+        "notGranted": "Žádná role uživatele {{name}} to nepovoluje",
+        "someRole": "Jedna z jeho rolí",
+        "thisItem": "tato položka",
+        "editRules": "Upravit pravidla na {{folder}}",
+        "editRulesLocked": "K úpravě pravidel na {{folder}} potřebujete oprávnění Spravovat role",
+        "editRulesUnavailable": "Pravidla na {{folder}} zde nelze upravit",
+        "editAccess": "Upravit přístup uživatele {{name}}",
+        "step": {
+          "roles_one": "Povoleno rolí {{roles}}",
+          "roles_few": "Povoleno rolemi {{roles}}",
+          "roles_many": "Povoleno rolemi {{roles}}",
+          "roles_other": "Povoleno rolemi {{roles}}",
+          "teamAllow": "{{name}} to má povoleno v celém týmu",
+          "teamDeny": "{{name}} to má zakázáno v celém týmu",
+          "administrator": "{{name}} má Administrátora",
+          "everyoneDeny": "Všem je to zakázáno na {{folder}}",
+          "everyoneAllow": "Všem je to povoleno na {{folder}}",
+          "rolesDeny_one": "{{roles}} má zákaz na {{folder}}",
+          "rolesDeny_few": "{{roles}} mají zákaz na {{folder}}",
+          "rolesDeny_many": "{{roles}} mají zákaz na {{folder}}",
+          "rolesDeny_other": "{{roles}} mají zákaz na {{folder}}",
+          "rolesAllow_one": "{{roles}} má povolení na {{folder}}",
+          "rolesAllow_few": "{{roles}} mají povolení na {{folder}}",
+          "rolesAllow_many": "{{roles}} mají povolení na {{folder}}",
+          "rolesAllow_other": "{{roles}} mají povolení na {{folder}}",
+          "memberDeny": "{{name}} má zákaz na {{folder}}",
+          "memberAllow": "{{name}} má povolení na {{folder}}",
+          "teamDenyLast": "Vlastní celotýmový zákaz uživatele {{name}} má přednost před {{folder}}",
+          "noView": "Skryto před {{name}}, takže nic jiného neplatí",
+          "needsConnect": "Tajné údaje vyžadují Připojovat se, které zde {{name}} nemá",
+          "ruleNotShown": "Rozhodlo pravidlo na {{folder}}"
+        }
+      },
+      "viewAs": "Zobrazit jako",
+      "previewAsRole": "Náhled jako role",
+      "menuItem": "Zobrazit jako {{name}}",
+      "summary": {
+        "title": "Zjistěte, k čemu má {{name}} přístup",
+        "counts": "{{hosts}} hostitelů · {{snippets}} úryvků · {{keys}} klíčů · {{hidden}} skrytých"
+      }
     }
   }
 }

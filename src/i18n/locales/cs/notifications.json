@@ -87,6 +87,18 @@
         "message": "Hosty z ~/.ssh/config se už nesynchronizují automaticky. Teď patří vám: vaše změny zůstanou zachovány.",
         "turnOnSync": "Zapnout průběžnou synchronizaci",
         "dismiss": "OK"
+      },
+      "enroll": {
+        "invite": "Vaše organizace používá {{team}} ve Voltiusu",
+        "signIn": "Přihlásit se",
+        "pending": {
+          "approval": "Čeká se, až správce týmu {{team}} schválí vaši žádost",
+          "email_unverified": "Ověřte e-mail a připojte se k {{team}}",
+          "seat_limit": "{{team}} nemá volné místo. Správce byl upozorněn."
+        },
+        "declined": "Vaše žádost do týmu {{team}} byla zamítnuta",
+        "askAgain": "Požádat znovu",
+        "joined": "Připojili jste se k týmu {{team}}"
       }
     },
     "sshConfigOffer": {

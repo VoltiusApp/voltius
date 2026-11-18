@@ -3,7 +3,7 @@ import { test, expect, vi, beforeEach, afterEach } from "vitest";
 
 const h = vi.hoisted(() => ({
   refresh: vi.fn(),
-  load: vi.fn(async () => {}),
+  load: vi.fn(async (): Promise<LoadSource> => "jwt"),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => null) }));
@@ -27,7 +27,7 @@ vi.mock("@/services/authTokens", async (orig) => ({
 }));
 
 import { handleRealtimeEvent } from "./sync";
-import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { useSubscriptionStore, type LoadSource } from "@/stores/subscriptionStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 
@@ -36,7 +36,7 @@ beforeEach(() => {
   h.refresh.mockReset();
   h.refresh.mockResolvedValue({ jwt: "x.y.z" });
   h.load.mockReset();
-  h.load.mockResolvedValue(undefined);
+  h.load.mockResolvedValue("jwt");
   useSubscriptionStore.setState({
     load: h.load,
     isPro: true,
@@ -90,9 +90,10 @@ test("membership_removed_refreshes_token", async () => {
 test("seat_loss_toast_names_the_team", async () => {
   h.load.mockImplementation(async () => {
     useSubscriptionStore.setState({ isPro: false, isTeams: false, tier: "free", seatTeam: null } as never);
+    return "jwt";
   });
   await handleRealtimeEvent("membership_changed:removed:t1", "dev");
-  await vi.advanceTimersByTimeAsync(4_100);
+  await vi.advanceTimersByTimeAsync(6_100);
   expect(toastMessages()).toContain("Your seat in Acme ended — cloud sync is paused. Your devices still sync on the same network.");
 });
 
@@ -100,9 +101,10 @@ test("seat loss with an unknown team falls back to the generic wording", async (
   useTeamStore.setState({ teams: [] });
   h.load.mockImplementation(async () => {
     useSubscriptionStore.setState({ isPro: false, isTeams: false, tier: "free", seatTeam: null } as never);
+    return "jwt";
   });
   await handleRealtimeEvent("plan_changed", "dev");
-  await vi.advanceTimersByTimeAsync(4_100);
+  await vi.advanceTimersByTimeAsync(6_100);
   expect(toastMessages()).toEqual(["Your Pro subscription has ended — cloud sync is paused. Your devices still sync on the same network."]);
 });
 
@@ -125,8 +127,9 @@ test("a failed refresh does not leave a stale team name for the next one", async
   useTeamStore.setState({ teams: [] });
   h.load.mockImplementation(async () => {
     useSubscriptionStore.setState({ isPro: false, isTeams: false, tier: "free", seatTeam: null } as never);
+    return "jwt";
   });
   await handleRealtimeEvent("plan_changed", "dev");
-  await vi.advanceTimersByTimeAsync(4_100);
+  await vi.advanceTimersByTimeAsync(6_100);
   expect(toastMessages()).toEqual(["Your Pro subscription has ended — cloud sync is paused. Your devices still sync on the same network."]);
 });

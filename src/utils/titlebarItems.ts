@@ -21,6 +21,7 @@ export function buildTitlebarItems(
   sessions: TerminalSession[],
   splitTabs: SplitTab[],
   grouped: boolean,
+  isPinned: (key: string) => boolean = () => false,
 ): TitlebarItem[] {
   const sessionById = new Map(sessions.map((session) => [session.id, session]));
   const tabById = new Map(splitTabs.map((tab) => [tab.id, tab]));
@@ -28,7 +29,7 @@ export function buildTitlebarItems(
   if (grouped) {
     for (const key of orderedKeys) {
       const session = sessionById.get(sessionIdOf(key) ?? "");
-      if (!session) continue;
+      if (!session || isPinned(key)) continue;
       const groupKey = stackGroupKey(session);
       membersByHost.set(groupKey, [...(membersByHost.get(groupKey) ?? []), session]);
     }
@@ -44,7 +45,7 @@ export function buildTitlebarItems(
     const session = sessionById.get(sessionIdOf(key) ?? "");
     if (!session) continue;
     const groupKey = stackGroupKey(session);
-    const members = membersByHost.get(groupKey);
+    const members = isPinned(key) ? undefined : membersByHost.get(groupKey);
     if (!members || members.length < 2) {
       items.push({ key, type: "session", session });
       continue;

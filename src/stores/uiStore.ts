@@ -1,11 +1,16 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { EnrollmentTokenParts } from "@/services/enrollment/enrollmentToken";
 import { pushSettingsChange, settingsStamp } from "./remoteApplyGuard";
+import { connectionTarget, refuseWhilePreviewing, targetOf } from "@/services/previewGuard";
+import type { TeamObjectType } from "@/services/teamObjects";
 
 export type NavItem = "hosts" | "keychain" | "port-forwarding" | "snippets" | "known-hosts" | "members" | "logs" | "terminal";
 export type PageNavItem = Exclude<NavItem, "terminal">;
 
 const navTo = (nav: NavItem) => (nav === "terminal" ? { activeNav: nav } : { activeNav: nav, lastPageNav: nav });
+
+export interface PluginBrowseRequest { query?: string; tag?: string }
 
 export type BuiltinRightPanelSection = "snippets" | "history" | "notes" | "themes" | "ports" | "sftp";
 /** Widened to allow plugin-contributed section IDs (prefixed with "plugin:") */
@@ -17,6 +22,8 @@ export type RightPanelSection = BuiltinRightPanelSection | (string & {});
  */
 export const SETTINGS_SECTIONS = ["appearance", "account", "sync", "plugins", "integrations", "terminal", "sftp", "portForwarding", "hosts", "devices", "shortcuts", "diagnostics", "about"] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
+
+const NO_SETTINGS_FILTER = { settingsQuery: "", settingsChangedOnly: false };
 
 export function isSettingsSection(value: string): value is SettingsSection {
   return (SETTINGS_SECTIONS as readonly string[]).includes(value);
@@ -44,6 +51,13 @@ export function clampTabFontSize(value: number): number {
 
 export function clampTerminalFontSize(value: number): number {
   return Math.min(MAX_TERMINAL_FONT_SIZE, Math.max(MIN_TERMINAL_FONT_SIZE, Math.round(value)));
+}
+
+export const RIGHT_PANEL_WIDTH = { default: 300, min: 300, max: 560 } as const;
+
+export function clampRightPanelWidth(value: number): number {
+  const width = Number.isFinite(value) ? Math.round(value) : RIGHT_PANEL_WIDTH.default;
+  return Math.min(RIGHT_PANEL_WIDTH.max, Math.max(RIGHT_PANEL_WIDTH.min, width));
 }
 
 export type ImportExportSection = "vaults" | "user-data";
@@ -86,6 +100,11 @@ export type KeychainPendingAction =
   | { action: "edit-key"; id: string }
   | { action: "edit-identity"; id: string }
   | null;
+const refusePending = (action: { action: string; id?: string } | null, type: TeamObjectType): boolean =>
+  action !== null && refuseWhilePreviewing(targetOf(type)(action.id));
+
+export type EnrollSource = "machine" | "link" | "paste";
+export type EnrollTarget = { token: EnrollmentTokenParts; source: EnrollSource };
 export type CloudAuthMode = "signin" | "register";
 /** `link` moves the current local account to the cloud; `add` signs in to another one beside it; `reauth` renews the current one after the server ended its session. */
 export type CloudAuthPurpose = "link" | "add" | "reauth";
@@ -98,6 +117,7 @@ interface UIStore {
   activeNav: NavItem;
   lastPageNav: PageNavItem;
   omniOpen: boolean;
+  omniSeed: string;
   globalPanelOpen: Record<string, boolean>;
   setGlobalPanelOpen: (id: string, open: boolean) => void;
   toggleGlobalPanel: (id: string) => void;
@@ -109,6 +129,7 @@ interface UIStore {
   notificationCenterOpen: boolean;
   /** Inbox entry a deep link asked for; the bell clears it once shown. */
   notificationFocusId: string | null;
+  enrollTarget: EnrollTarget | null;
   cloudAuthOpen: boolean;
   cloudAuthMode: CloudAuthMode;
   cloudAuthPurpose: CloudAuthPurpose;
@@ -116,12 +137,15 @@ interface UIStore {
   /** Mobile drill-down page: null = section list, otherwise the open section. */
   settingsSubPage: SettingsSection | null;
   settingsPluginPageId: string | null;
-  /** Browse-tab search a caller asked for; the Plugins section consumes it. */
-  pluginBrowseQuery: string | null;
+  settingsQuery: string;
+  settingsChangedOnly: boolean;
+  /** Browse-tab search / tag a caller asked for; the Plugins section consumes it. */
+  pluginBrowseRequest: PluginBrowseRequest | null;
   /** Whether the Plugins nav group is expanded. Persisted; a selected child force-expands regardless. */
   pluginsNavExpanded: boolean;
   rightPanelOpen: boolean;
   rightPanelSection: RightPanelSection;
+  rightPanelWidth: number;
   sftpPanelOpen: boolean;
   pendingSftpConnectionId: string | null;
   uiScale: number;
@@ -163,12 +187,15 @@ interface UIStore {
   /** From the terminal view, go back to the page shown before it. */
   leaveTerminal: () => void;
   setOmniOpen: (open: boolean) => void;
+  openOmniWith: (query: string) => void;
   setSettingsOpen: (open: boolean) => void;
   setNotificationCenterOpen: (open: boolean) => void;
   openNotificationCenter: (focusId?: string | null) => void;
   clearNotificationFocus: () => void;
   openCloudAuth: (mode?: CloudAuthMode, purpose?: CloudAuthPurpose) => void;
   closeCloudAuth: () => void;
+  openEnroll: (token: EnrollmentTokenParts, source: EnrollSource) => void;
+  closeEnroll: () => void;
   setCloudAuthMode: (mode: CloudAuthMode) => void;
   setSettingsSection: (section: SettingsSection) => void;
   setSettingsSubPage: (section: SettingsSection | null) => void;
@@ -176,10 +203,13 @@ interface UIStore {
   setPluginsNavExpanded: (expanded: boolean) => void;
   /** Select a plugin settings page as the current settings target (both shells). */
   selectPluginPage: (pageId: string) => void;
-  openSettings: (section?: SettingsSection, pluginPageId?: string) => void;
-  setPluginBrowseQuery: (query: string | null) => void;
+  openSettings: (section?: SettingsSection, pluginPageId?: string, opts?: { query?: string }) => void;
+  setSettingsQuery: (query: string) => void;
+  setSettingsChangedOnly: (on: boolean) => void;
+  setPluginBrowseRequest: (request: PluginBrowseRequest | null) => void;
   setRightPanelOpen: (open: boolean) => void;
   setRightPanelSection: (section: RightPanelSection) => void;
+  setRightPanelWidth: (width: number) => void;
   toggleRightPanel: (section?: RightPanelSection) => void;
   setSftpPanelOpen: (open: boolean) => void;
   openSftpWith: (connectionId: string) => void;
@@ -240,21 +270,26 @@ export const useUIStore = create<UIStore>()(
         activeNav: "hosts" as NavItem,
         lastPageNav: "hosts" as PageNavItem,
         omniOpen: false,
+        omniSeed: "",
         globalPanelOpen: {},
         dockedPanelWidth: 0,
         settingsOpen: false,
         notificationCenterOpen: false,
         notificationFocusId: null as string | null,
+        enrollTarget: null as EnrollTarget | null,
         cloudAuthOpen: false,
         cloudAuthMode: "signin" as CloudAuthMode,
         cloudAuthPurpose: "link" as CloudAuthPurpose,
         settingsSection: "appearance" as SettingsSection,
+        settingsQuery: "",
+        settingsChangedOnly: false,
         settingsSubPage: null as SettingsSection | null,
         settingsPluginPageId: null as string | null,
-        pluginBrowseQuery: null as string | null,
+        pluginBrowseRequest: null as PluginBrowseRequest | null,
         pluginsNavExpanded: true,
         rightPanelOpen: false,
         rightPanelSection: "themes" as RightPanelSection,
+        rightPanelWidth: RIGHT_PANEL_WIDTH.default,
         sftpPanelOpen: false,
         pendingSftpConnectionId: null as string | null,
         uiScale: 1,
@@ -297,37 +332,43 @@ export const useUIStore = create<UIStore>()(
         setHomeView: (v) => set({ homeView: v }),
         setActiveNav: (nav) => set(navTo(nav)),
         leaveTerminal: () => set((s) => (s.activeNav === "terminal" ? { activeNav: s.lastPageNav } : {})),
-        setOmniOpen: (open) => set({ omniOpen: open }),
+        setOmniOpen: (open) => set({ omniOpen: open, ...(open ? {} : { omniSeed: "" }) }),
+        openOmniWith: (query) => set({ omniOpen: true, omniSeed: query }),
         setGlobalPanelOpen: (id, open) => set((s) => ({ globalPanelOpen: { ...s.globalPanelOpen, [id]: open } })),
         toggleGlobalPanel: (id) => set((s) => ({ globalPanelOpen: { ...s.globalPanelOpen, [id]: !s.globalPanelOpen[id] } })),
         setDockedPanelWidth: (width) => set({ dockedPanelWidth: width }),
-        setSettingsOpen: (open) => set((s) => ({ settingsOpen: open, settingsSubPage: open ? s.settingsSubPage : null })),
+        setSettingsOpen: (open) => set((s) => ({ settingsOpen: open, settingsSubPage: open ? s.settingsSubPage : null, ...(open ? {} : NO_SETTINGS_FILTER) })),
         setNotificationCenterOpen: (open) => set((s) => ({ notificationCenterOpen: open, notificationFocusId: open ? s.notificationFocusId : null })),
         openNotificationCenter: (focusId) => set({ notificationCenterOpen: true, notificationFocusId: focusId ?? null }),
         clearNotificationFocus: () => set({ notificationFocusId: null }),
         openCloudAuth: (mode, purpose) => set({ cloudAuthOpen: true, cloudAuthMode: mode ?? "signin", cloudAuthPurpose: purpose ?? "link" }),
         closeCloudAuth: () => set({ cloudAuthOpen: false }),
+        openEnroll: (token, source) => set({ enrollTarget: { token, source }, notificationCenterOpen: false, notificationFocusId: null }),
+        closeEnroll: () => set({ enrollTarget: null }),
         setCloudAuthMode: (mode) => set({ cloudAuthMode: mode }),
         // Selecting a builtin section must drop any plugin target, or
         // `settingsPluginPageId ?? settingsSection` would keep showing the plugin pane.
-        setSettingsSection: (section) => set({ settingsSection: section, settingsPluginPageId: null }),
-        setSettingsSubPage: (section) => set({ settingsSubPage: section, settingsPluginPageId: null }),
+        setSettingsSection: (section) => set({ settingsSection: section, settingsPluginPageId: null, ...NO_SETTINGS_FILTER }),
+        setSettingsSubPage: (section) => set({ settingsSubPage: section, settingsPluginPageId: null, ...NO_SETTINGS_FILTER }),
+        setSettingsQuery: (query) => set({ settingsQuery: query }),
+        setSettingsChangedOnly: (on) => set({ settingsChangedOnly: on }),
         setSettingsPluginPageId: (id) => set({ settingsPluginPageId: id }),
         setPluginsNavExpanded: (expanded) => set({ pluginsNavExpanded: expanded }),
         selectPluginPage: (pageId) =>
-          set({ settingsSection: "plugins", settingsSubPage: "plugins", settingsPluginPageId: pageId }),
+          set({ settingsSection: "plugins", settingsSubPage: "plugins", settingsPluginPageId: pageId, ...NO_SETTINGS_FILTER }),
         // section given = deep-link → mobile drills straight in; no section = plain open → mobile lands on the list.
-        openSettings: (section, pluginPageId) => set((s) => ({ settingsOpen: true, settingsSection: section ?? s.settingsSection, settingsSubPage: section ?? null, settingsPluginPageId: pluginPageId ?? null })),
-        setPluginBrowseQuery: (query) => set({ pluginBrowseQuery: query }),
+        openSettings: (section, pluginPageId, opts) => set((s) => ({ settingsOpen: true, settingsSection: section ?? s.settingsSection, settingsSubPage: section ?? null, settingsPluginPageId: pluginPageId ?? null, settingsQuery: opts?.query ?? "", settingsChangedOnly: false })),
+        setPluginBrowseRequest: (request) => set({ pluginBrowseRequest: request }),
         setRightPanelOpen: (open) => set({ rightPanelOpen: open }),
         setRightPanelSection: (section) => set({ rightPanelSection: section }),
+        setRightPanelWidth: (width) => set({ rightPanelWidth: clampRightPanelWidth(width) }),
         toggleRightPanel: (section) =>
           set((s) => ({
             rightPanelOpen: section && section !== s.rightPanelSection ? true : !s.rightPanelOpen,
             rightPanelSection: section ?? s.rightPanelSection,
           })),
         setSftpPanelOpen: (open) => set({ sftpPanelOpen: open }),
-        openSftpWith: (connectionId) => set({ sftpPanelOpen: true, pendingSftpConnectionId: connectionId }),
+        openSftpWith: (connectionId) => refuseWhilePreviewing(connectionTarget(connectionId)) || set({ sftpPanelOpen: true, pendingSftpConnectionId: connectionId }),
         clearPendingSftpConnection: () => set({ pendingSftpConnectionId: null }),
         setUiScale: (value) => setPref({ uiScale: clampUiScale(value) }),
         setTerminalFontSize: (value) => setPref({ terminalFontSize: value === null ? null : clampTerminalFontSize(value) }),
@@ -336,17 +377,18 @@ export const useUIStore = create<UIStore>()(
         setHomeSortMode: (v) => setPref({ homeSortMode: v }),
         setKeychainLayoutMode: (v) => setPref({ keychainLayoutMode: v }),
         setKeychainSortMode: (v) => setPref({ keychainSortMode: v }),
-        setHomePendingAction: (action) => set({ homePendingAction: action }),
+        setHomePendingAction: (action) => refusePending(action, "connection") || set({ homePendingAction: action }),
         setPortForwardingLayoutMode: (v) => setPref({ portForwardingLayoutMode: v }),
         toggleActiveTunnelsCollapsed: () => set((s) => ({ activeTunnelsCollapsed: !s.activeTunnelsCollapsed })),
         setPortForwardingSortMode: (v) => setPref({ portForwardingSortMode: v }),
-        setPortForwardingPendingAction: (action) => set({ portForwardingPendingAction: action }),
-        setKeychainPendingAction: (action) => set({ keychainPendingAction: action }),
+        setPortForwardingPendingAction: (action) => refusePending(action, "port_forwarding_rule") || set({ portForwardingPendingAction: action }),
+        setKeychainPendingAction: (action) =>
+          refusePending(action, action?.action === "edit-identity" ? "identity" : "key") || set({ keychainPendingAction: action }),
         setMembersLayoutMode: (v) => setPref({ membersLayoutMode: v }),
         setMembersSortMode: (v) => setPref({ membersSortMode: v }),
         setSnippetsLayoutMode: (v) => setPref({ snippetsLayoutMode: v }),
         setKnownHostsLayoutMode: (v) => setPref({ knownHostsLayoutMode: v }),
-        setSnippetsPendingAction: (action) => set({ snippetsPendingAction: action }),
+        setSnippetsPendingAction: (action) => refusePending(action, "snippet") || set({ snippetsPendingAction: action }),
         openMembersPanel: (panel) => set({ ...navTo("members"), homeView: false, membersPanelPending: panel }),
         clearMembersPanelPending: () => set({ membersPanelPending: null }),
         openMembersNav: () => set({ ...navTo("members"), homeView: false }),
@@ -393,6 +435,7 @@ export const useUIStore = create<UIStore>()(
         snippetsLayoutMode: state.snippetsLayoutMode,
         knownHostsLayoutMode: state.knownHostsLayoutMode,
         rightPanelSection: state.rightPanelSection,
+        rightPanelWidth: state.rightPanelWidth,
         prefsUpdatedAt: state.prefsUpdatedAt,
         lastSeenChangelogVersion: state.lastSeenChangelogVersion,
         imagePasteNoticeSeen: state.imagePasteNoticeSeen,

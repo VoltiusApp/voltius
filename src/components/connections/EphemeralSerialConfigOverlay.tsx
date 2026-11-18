@@ -7,6 +7,7 @@ import { Pills } from "@/components/shared/Pills";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { PortInput } from "@/components/shared/PortInput";
 import { formatNumber } from "@/utils/localeFormat";
+import { useDismissBlockedReason } from "@/hooks/useSessionLocked";
 
 const BAUD_RATE_PRESETS = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
 
@@ -22,6 +23,7 @@ export function EphemeralSerialConfigOverlay({
   onDismiss?: () => void;
 }) {
   const { t } = useTranslation();
+  const dismissBlockedReason = useDismissBlockedReason(sessionId);
   const [port, setPort] = useState(initialPort ?? "");
   const [baud, setBaud] = useState(115200);
   const [dataBits, setDataBits] = useState(8);
@@ -117,7 +119,7 @@ export function EphemeralSerialConfigOverlay({
             {t("common.action.connect")}
           </button>
           {onDismiss && (
-            <button onClick={onDismiss} className="w-full px-4 py-2 rounded-lg text-sm text-text-muted hover:text-text-primary transition-colors">
+            <button onClick={onDismiss} disabled={!!dismissBlockedReason} title={dismissBlockedReason} className="w-full px-4 py-2 rounded-lg text-sm text-text-muted hover:text-text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
               {t("common.action.cancel")}
             </button>
           )}

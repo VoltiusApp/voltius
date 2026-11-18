@@ -53,7 +53,7 @@ describe("PermissionOverrideRow", () => {
     permission: "CONNECT" as const,
     state: "inherit" as const,
     inheritedFrom: ["editor"],
-    inheritedGrants: true,
+    granted: true,
     disabled: false,
   };
 
@@ -69,10 +69,36 @@ describe("PermissionOverrideRow", () => {
     expect(onChange).toHaveBeenCalledWith("deny");
   });
 
+  it("shows the colored result for an explicit override too", () => {
+    render(<PermissionOverrideRow {...base} state="deny" granted={false} onChange={vi.fn()} />);
+    const result = screen.getByText("members.permissions.effectiveDenied");
+    expect(result.style.color).toBe("var(--t-status-error)");
+  });
+
+  it("colors an allowed result as success", () => {
+    render(<PermissionOverrideRow {...base} state="allow" onChange={vi.fn()} />);
+    expect(screen.getByText("members.permissions.effectiveAllowed").style.color).toBe("var(--t-status-connected)");
+  });
+
+  it("notes narrower exceptions after the result", () => {
+    render(<PermissionOverrideRow {...base} state="deny" granted={false} exceptions onChange={vi.fn()} />);
+    expect(screen.getByText(/members\.permissions\.withExceptions/)).toBeTruthy();
+  });
+
   it("does not emit while disabled", () => {
     const onChange = vi.fn();
     render(<PermissionOverrideRow {...base} disabled onChange={onChange} />);
     fireEvent.click(screen.getByRole("radio", { name: /deny/i }));
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("lets the source line wrap to two lines on touch so the result stays visible", () => {
+    const { container, unmount } = render(<PermissionOverrideRow {...base} toggleSize="touch" onChange={vi.fn()} />);
+    const line = container.querySelector("p:nth-of-type(2)")!;
+    expect(line.className).toContain("line-clamp-2");
+    expect(line.className).not.toContain("truncate");
+    unmount();
+    const desktop = render(<PermissionOverrideRow {...base} onChange={vi.fn()} />);
+    expect(desktop.container.querySelector("p:nth-of-type(2)")!.className).toContain("truncate");
   });
 });

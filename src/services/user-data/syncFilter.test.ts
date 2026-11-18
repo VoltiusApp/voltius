@@ -4,6 +4,8 @@ import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { filterOutgoing, filterIncoming, restoreLocal, heldBackKeys } from "./syncFilter";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { useThemeStore } from "@/stores/themeStore";
+import { usePolicyStore } from "@/stores/policyStore";
+import { useAdminDefaultsStore } from "@/stores/adminDefaultsStore";
 import { useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { appSettingsHandler } from "./handlers/appSettings";
 import type { UserDataBundle } from "./formats";
@@ -236,5 +238,53 @@ describe("heldBackKeys", () => {
 
   test("lists the theme location, so the Sync panel can say so", () => {
     expect(heldBackKeys("themes").map((k) => k.id)).toEqual(["themes.location"]);
+  });
+});
+
+describe("policy", () => {
+  const KEY = "appSettings.toggles.cursor-blink";
+  const toggles = (b: UserDataBundle) =>
+    (b.sections.appSettings.data as Record<string, Record<string, unknown>>).toggles;
+  const lockKey = () => usePolicyStore.setState({ machine: { policy: { [KEY]: true }, defaults: {} } });
+  beforeEach(() => {
+    useSyncPrefsStore.setState({ syncSettingDomains: {}, settingSyncOverrides: {} });
+    usePolicyStore.setState({ machine: { policy: {}, defaults: {} }, server: { policy: {}, defaults: {} } });
+    useAdminDefaultsStore.setState({ applied: {} });
+  });
+
+  test("outgoing bundle omits locked keys", () => {
+    lockKey();
+    expect("cursor-blink" in toggles(filterOutgoing(appBundle()))).toBe(false);
+  });
+
+  test("incoming value for a locked key is not applied", () => {
+    lockKey();
+    expect("cursor-blink" in toggles(restoreLocal(appBundle()))).toBe(false);
+  });
+
+  test("an additive lock keeps syncing", () => {
+    const key = "appSettings.terminal.keywordRules";
+    const USER_RULES = [{ id: "mine", color: "green", words: ["ok"], enabled: true }];
+    usePolicyStore.setState({ machine: { policy: { [key]: [{ id: "admin", color: "red", words: ["panic"], enabled: true }] }, defaults: {} } });
+    const bundle = appBundle();
+    (bundle.sections.appSettings.data as Record<string, Record<string, unknown>>).terminal.keywordRules = USER_RULES;
+    const data = filterOutgoing(bundle).sections.appSettings.data as Record<string, Record<string, unknown>>;
+    expect(data.terminal.keywordRules).toEqual(USER_RULES);
+    expect(heldBackKeys("appSettings").map((k) => k.id)).not.toContain(key);
+  });
+
+  test("heldBackKeys lists an enforced lock", () => {
+    lockKey();
+    expect(heldBackKeys("appSettings").map((k) => k.id)).toContain(KEY);
+  });
+
+  test("outgoing bundle omits admin-defaulted keys", () => {
+    useAdminDefaultsStore.setState({ applied: { [KEY]: true } });
+    expect("cursor-blink" in toggles(filterOutgoing(appBundle()))).toBe(false);
+  });
+
+  test("incoming value for an admin-defaulted key is applied", () => {
+    useAdminDefaultsStore.setState({ applied: { [KEY]: true } });
+    expect(toggles(restoreLocal(appBundle()))["cursor-blink"]).toBe(false);
   });
 });

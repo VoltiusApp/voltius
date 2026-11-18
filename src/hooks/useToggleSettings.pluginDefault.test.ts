@@ -5,8 +5,9 @@ import type { PluginManifest } from "@/plugins/api";
 
 const loaded = vi.hoisted(() => ({ list: [] as PluginManifest[] }));
 vi.mock("@/plugins/runtime", () => ({ getLoadedPlugins: () => loaded.list, setPluginActive: vi.fn() }));
+const i18nMock = vi.hoisted(() => ({ t: (k: string) => k }));
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
+  useTranslation: () => i18nMock,
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 
@@ -40,4 +41,20 @@ test("a bundled plugin's quick toggle honours defaultEnabled:false", () => {
 test("an explicit override still wins for an installed plugin", () => {
   usePluginRegistryStore.setState({ overrides: { installed: false } });
   expect(pluginValue("installed")).toBe(false);
+});
+
+test("a policy-locked toggle reads the policy value and is flagged locked", async () => {
+  const { usePolicyStore } = await import("@/stores/policyStore");
+  usePolicyStore.setState({ machine: { policy: { "appSettings.toggles.cursor-blink": true }, defaults: {} } });
+  const item = renderHook(() => useToggleSettings()).result.current.find((i) => i.id === "cursor-blink")!;
+  expect(item.locked).toBe(true);
+  expect(item.value).toBe(true);
+  usePolicyStore.setState({ machine: { policy: {}, defaults: {} } });
+});
+
+test("the list is the same array across renders when nothing changed", () => {
+  const { result, rerender } = renderHook(() => useToggleSettings());
+  const first = result.current;
+  rerender();
+  expect(result.current).toBe(first);
 });

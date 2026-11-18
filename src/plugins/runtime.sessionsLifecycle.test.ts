@@ -6,6 +6,8 @@ const disconnect = vi.fn(async () => {});
 vi.mock("@/stores/sessionStore", () => ({
   useSessionStore: { getState: () => ({ sessions: [], connect, disconnect }) },
 }));
+const closeSessionTabs = vi.fn((_ids: string[]) => ({ closed: [] as string[], kept: [] as string[], settled: Promise.resolve() }));
+vi.mock("@/services/closeSession", () => ({ closeSessionTabs: (ids: string[]) => closeSessionTabs(ids) }));
 vi.mock("@/services/ssh", () => ({ sshSendInput: vi.fn(), onSshOutput: vi.fn(async () => () => {}) }));
 vi.mock("@/services/local", () => ({ onLocalOutput: vi.fn(async () => () => {}) }));
 vi.mock("@/services/serial", () => ({ onSerialOutput: vi.fn(async () => () => {}) }));
@@ -29,10 +31,24 @@ describe("sessions open/close", () => {
     expect(connect).toHaveBeenCalledWith("conn-1", undefined);
   });
 
-  test("close with sessions:write calls store.disconnect", async () => {
+  test("close with sessions:write closes the tab through the guarded close", async () => {
     loadPlugin(m(["sessions:write"]), register, true, false);
     await api.sessions.close("sess-1");
-    expect(disconnect).toHaveBeenCalledWith("sess-1");
+    expect(closeSessionTabs).toHaveBeenCalledWith(["sess-1"]);
+  });
+
+  test("close resolves only once the session's teardown has settled", async () => {
+    let release!: () => void;
+    const settled = new Promise<void>((resolve) => { release = resolve; });
+    closeSessionTabs.mockReturnValueOnce({ closed: ["sess-1"], kept: [], settled });
+    loadPlugin(m(["sessions:write"]), register, true, false);
+    let done = false;
+    const closing = api.sessions.close("sess-1").then(() => { done = true; });
+    await Promise.resolve();
+    expect(done).toBe(false);
+    release();
+    await closing;
+    expect(done).toBe(true);
   });
 
   test("open without sessions:write throws", async () => {

@@ -4,6 +4,8 @@ import { canDuplicateSession, duplicateSession } from "@/services/duplicateSessi
 import { useSessionStore } from "@/stores/sessionStore";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import type { TerminalSession } from "@/types";
+import { titlebarKeyOfSession } from "@/services/tabLock";
+import { tabFlagMenuItems } from "@/utils/tabFlagMenuItems";
 
 /** Entries shared by the tab context menu and the pane header menu, close last. */
 export function sessionMenuItems({
@@ -13,6 +15,7 @@ export function sessionMenuItems({
   onClose,
   onRename,
   extras = [],
+  scope = "tab",
 }: {
   session: TerminalSession;
   t: TFunction;
@@ -23,6 +26,7 @@ export function sessionMenuItems({
   onRename: () => void;
   /** Caller-specific entries, inserted between reconnect and close. */
   extras?: ContextMenuItem[];
+  scope?: "tab" | "pane";
 }): ContextMenuItem[] {
   const items: ContextMenuItem[] = [
     { label: t("panes.header.rename"), icon: "lucide:text-cursor-input", onClick: onRename },
@@ -48,7 +52,14 @@ export function sessionMenuItems({
   items.push(
     { label: t("panes.header.reconnect"), icon: "lucide:rotate-cw", onClick: () => void useSessionStore.getState().reconnect(session.id) },
     ...extras,
-    { label: closeLabel, icon: "lucide:x", danger: true, onClick: onClose },
+    ...tabFlagMenuItems(t, { pinKey: titlebarKeyOfSession(session.id), lockTarget: { kind: "session", id: session.id }, locked: session.locked === true, scope }),
+    {
+      label: closeLabel,
+      icon: "lucide:x",
+      danger: true,
+      disabledReason: session.locked ? t("layout.titleBar.lock.closeBlocked") : undefined,
+      onClick: onClose,
+    },
   );
 
   return items;
@@ -57,7 +68,7 @@ export function sessionMenuItems({
 export function pinListExtra(t: TFunction, pinned: boolean, onToggle: () => void): ContextMenuItem {
   return {
     label: t(pinned ? "layout.titleBar.stack.unpin" : "layout.titleBar.stack.pin"),
-    icon: pinned ? "lucide:pin-off" : "lucide:pin",
+    icon: pinned ? "lucide:panel-left-close" : "lucide:panel-left",
     onClick: onToggle,
   };
 }
