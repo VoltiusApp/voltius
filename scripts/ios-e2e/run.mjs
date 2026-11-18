@@ -534,7 +534,7 @@ if (!STORE && !VIDEO) {
     const photo = await nativeFind('type == "XCUIElementTypeImage" AND name == "PXGGridLayout-Info"', 60000);
     fs.writeFileSync(path.join(OUT, "upload-photos.xml"), await driver.getPageSource());
     if (!photo) throw new Error(`${out.join("; ")}; no photo to pick (see upload-photos.xml)`);
-    const at = await photo.getRect();
+    const at = await driver.getElementRect(photo.elementId);
     await driver.execute("mobile: tap", { x: Math.round(at.x + at.width / 2), y: Math.round(at.y + at.height / 2) });
     out.push(`picked "${await photo.getAttribute("label")}"`);
     await sleep(1500);
