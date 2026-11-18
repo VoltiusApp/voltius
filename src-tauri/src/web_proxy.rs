@@ -22,6 +22,7 @@ use hyper::header::{self, HeaderMap, HeaderName, HeaderValue};
 use hyper::service::service_fn;
 use hyper::upgrade::OnUpgrade;
 use hyper::{Request, Response, StatusCode, Uri};
+use hyper_util::client::legacy::connect::HttpConnector;
 use hyper_util::client::legacy::Client;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use std::collections::{HashMap, HashSet};
@@ -42,6 +43,9 @@ type ProxyBody = BoxBody<Bytes, hyper::Error>;
 // server closes it (same reasoning as the WebDAV client).
 const POOL_IDLE: Duration = Duration::from_secs(4);
 
+/// How long a plain-HTTP host gets to say whether it redirects to HTTPS before it is loaded as is.
+const REDIRECT_PROBE_TIMEOUT: Duration = Duration::from_secs(3);
+
 /// The proxies in use, one per pane or window. Managed Tauri state.
 #[derive(Default)]
 pub struct WebProxies {
@@ -60,15 +64,21 @@ struct Running {
 impl WebProxies {
     /// The address a webview should load for `url`, under the name `key`: `url` itself when it is
     /// plain HTTP or a CA vouches for the host, otherwise a local proxy to it (started on first use).
+    /// A plain-HTTP address whose host redirects to its own HTTPS (Proxmox on :8006 does) counts
+    /// as that HTTPS address, since the webview would follow the redirect into a refused certificate.
     pub async fn resolve(
         &self,
         key: &str,
         url: &str,
         known_hosts: Arc<KnownHostsStore>,
     ) -> Result<String, AppError> {
-        let parsed = Url::parse(url).map_err(|e| AppError::from(format!("Invalid URL: {e}")))?;
+        let mut parsed =
+            Url::parse(url).map_err(|e| AppError::from(format!("Invalid URL: {e}")))?;
         if parsed.scheme() != "https" {
-            return Ok(url.to_string());
+            match https_redirect_target(&parsed).await {
+                Some(target) => parsed = target,
+                None => return Ok(url.to_string()),
+            }
         }
         let shown_host = parsed
             .host_str()
@@ -99,6 +109,7 @@ impl WebProxies {
             .iter()
             .any(|fp| fp == TLS_WEBPKI_MARKER);
         if ca_vouches {
+            // Still `url`: for a redirecting HTTP address the webview follows the redirect itself.
             return Ok(url.to_string());
         }
 
@@ -144,6 +155,24 @@ impl WebProxies {
             keep
         });
     }
+}
+
+/// Where the plain-HTTP `url` redirects, when that is HTTPS on the same host; `None` when it does
+/// not redirect so, or does not answer within [`REDIRECT_PROBE_TIMEOUT`].
+async fn https_redirect_target(url: &Url) -> Option<Url> {
+    let client: Client<HttpConnector, Empty<Bytes>> =
+        Client::builder(TokioExecutor::new()).build_http();
+    let uri: Uri = url.as_str().parse().ok()?;
+    let resp = tokio::time::timeout(REDIRECT_PROBE_TIMEOUT, client.get(uri))
+        .await
+        .ok()?
+        .ok()?;
+    if !resp.status().is_redirection() {
+        return None;
+    }
+    let location = resp.headers().get(header::LOCATION)?.to_str().ok()?;
+    let target = url.join(location).ok()?;
+    (target.scheme() == "https" && target.host_str() == url.host_str()).then_some(target)
 }
 
 /// A fixed port in the dynamic range for an upstream, so reopening a host keeps its origin.
@@ -498,6 +527,41 @@ mod tests {
             rewritten_cookie("secure_token=1; Path=/"),
             "secure_token=1; Path=/"
         );
+    }
+
+    /// A one-shot HTTP server on localhost that answers every request with `response`.
+    async fn answering(response: &'static str) -> Url {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut buf = [0u8; 1024];
+            let _ = socket.read(&mut buf).await;
+            let _ = socket.write_all(response.as_bytes()).await;
+        });
+        Url::parse(&format!("http://127.0.0.1:{port}/")).unwrap()
+    }
+
+    #[tokio::test]
+    async fn an_http_host_redirecting_to_its_own_https_is_followed() {
+        let url = answering(
+            "HTTP/1.1 301 Moved\r\nLocation: https://127.0.0.1:8006/\r\nContent-Length: 0\r\n\r\n",
+        )
+        .await;
+        let target = https_redirect_target(&url).await.unwrap();
+        assert_eq!(target.as_str(), "https://127.0.0.1:8006/");
+    }
+
+    #[tokio::test]
+    async fn a_redirect_elsewhere_or_a_plain_page_is_not_followed() {
+        let elsewhere = answering(
+            "HTTP/1.1 302 Found\r\nLocation: https://other.example/\r\nContent-Length: 0\r\n\r\n",
+        )
+        .await;
+        assert!(https_redirect_target(&elsewhere).await.is_none());
+        let page = answering("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok").await;
+        assert!(https_redirect_target(&page).await.is_none());
     }
 
     #[tokio::test]
