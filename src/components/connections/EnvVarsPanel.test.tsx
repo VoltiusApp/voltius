@@ -41,7 +41,7 @@ test("a plain paste into a key field is left to the browser", () => {
 
 test("raw mode edits the list as .env text and reports ignored lines", () => {
   const onChange = renderPanel();
-  fireEvent.click(screen.getByRole("radio", { name: /\.env/ }));
+  fireEvent.click(screen.getByRole("radio", { name: ".env" }));
   const textarea = screen.getByDisplayValue("A=a");
   fireEvent.change(textarea, { target: { value: "A=new\nnot a var\nC=3" } });
   expect(onChange).toHaveBeenLastCalledWith([{ id: "1", key: "A", value: "new" }, expect.objectContaining({ key: "C", value: "3" })]);
