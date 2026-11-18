@@ -116,18 +116,21 @@ const PROXIED_PAGE_SCRIPT: &str = r#"(function () {
   }
   var WS = window.WebSocket;
   if (WS) {
-    window.WebSocket = class extends WS {
-      constructor(url, protocols) {
-        try {
-          var u = new URL(url, location.href);
-          if (u.protocol === 'wss:' && u.host === location.host) {
-            u.protocol = 'ws:';
-            url = u.href;
-          }
-        } catch (e) {}
-        if (protocols === undefined) super(url); else super(url, protocols);
-      }
+    // A plain function that returns a real WebSocket, not a subclass: noVNC checks that the
+    // socket's direct prototype owns `send`, `close`, ..., which a subclass prototype does not.
+    var Wrapped = function WebSocket(url, protocols) {
+      try {
+        var u = new URL(url, location.href);
+        if (u.protocol === 'wss:' && u.host === location.host) {
+          u.protocol = 'ws:';
+          url = u.href;
+        }
+      } catch (e) {}
+      return protocols === undefined ? new WS(url) : new WS(url, protocols);
     };
+    Wrapped.prototype = WS.prototype;
+    ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'].forEach(function (k) { Wrapped[k] = WS[k]; });
+    window.WebSocket = Wrapped;
   }
 })();"#;
 
