@@ -509,7 +509,8 @@ async function nativeFind(predicate, timeoutMs = 15000) {
   const end = Date.now() + timeoutMs;
   while (Date.now() < end) {
     const el = await driver.$(`-ios predicate string:${predicate}`);
-    if (await el.isExisting()) return el;
+    // An element looked up before it existed has no elementId: fetch it again once it does.
+    if (await el.isExisting()) return el.elementId ? el : driver.$(`-ios predicate string:${predicate}`);
     await sleep(1000);
   }
   return null;
