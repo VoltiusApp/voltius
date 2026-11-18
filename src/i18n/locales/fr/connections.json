@@ -167,7 +167,15 @@
       "keyPlaceholder": "CLÉ",
       "valuePlaceholder": "valeur",
       "removeAriaLabel": "Supprimer la variable",
-      "addButton": "Ajouter une variable"
+      "addButton": "Ajouter une variable",
+      "modeLabel": "Mode d'édition",
+      "modeList": "Liste",
+      "pasteTip": "Collez un fichier .env dans un champ clé pour ajouter plusieurs variables d'un coup",
+      "rawHint": "Une ligne CLÉ=valeur par variable. Commentaires, guillemets et préfixes export acceptés.",
+      "skippedLines": "Lignes ignorées : {{count}}",
+      "copyButton": "Copier en .env",
+      "downloadButton": "Télécharger le .env",
+      "copied": "Copié"
     },
     "serialConfigOverlay": {
       "title": "Connexion série",

@@ -9,28 +9,16 @@ import { DirtyDot, ResetButton, RowControl, SETTINGS_SURFACE, useRowManaged } fr
 import { getMcpStatus } from "@/mcp/status";
 import { buildMcpClientSnippet, MCP_CLIENT_IDS, type McpClientId } from "@/mcp/clientSnippets";
 import { buildAddMcpCommand } from "@/mcp/registerCommand";
-import { writeClipboard } from "@/utils/clipboard";
 import { contributionsByPlugin, onContributionsChanged } from "@/mcp/contributions";
 import { useMcpContributionStore, setPluginExposed } from "@/stores/mcpContributionStore";
 import { getLoadedPlugins } from "@/plugins/runtime";
-import { useCopiedFlash } from "@/hooks/useCopiedFlash";
+import { useCopyText } from "@/hooks/useCopyText";
 import { useSettingState } from "@/components/settings/registry/useSettingState";
 
 /** The installed plugin's manifest name, falling back to its id: a contribution
  *  can outlive the plugin's load, and only the id is always available. */
 function pluginDisplayName(pluginId: string): string {
   return getLoadedPlugins().find((m) => m.id === pluginId)?.name ?? pluginId;
-}
-
-function useCopy(value: string) {
-  const { copied, flash } = useCopiedFlash(1500);
-
-  async function copy() {
-    await writeClipboard(value);
-    flash();
-  }
-
-  return { copied, copy };
 }
 
 function CopyButton({ copied, onCopy }: { copied: boolean; onCopy: () => void }) {
@@ -54,7 +42,7 @@ function CopyButton({ copied, onCopy }: { copied: boolean; onCopy: () => void })
 }
 
 function CopyRow({ value }: { value: string }) {
-  const { copied, copy } = useCopy(value);
+  const { copied, copy } = useCopyText();
 
   return (
     <div className="flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-md bg-(--t-bg-base) border border-(--t-border)">
@@ -64,13 +52,13 @@ function CopyRow({ value }: { value: string }) {
         value={value}
         onFocus={(e) => e.target.select()}
       />
-      <CopyButton copied={copied} onCopy={copy} />
+      <CopyButton copied={copied} onCopy={() => copy(value)} />
     </div>
   );
 }
 
 function CopyBlock({ value }: { value: string }) {
-  const { copied, copy } = useCopy(value);
+  const { copied, copy } = useCopyText();
 
   return (
     <div className="relative rounded-md bg-(--t-bg-base) border border-(--t-border)">
@@ -78,7 +66,7 @@ function CopyBlock({ value }: { value: string }) {
         {value}
       </pre>
       <div className="absolute top-1 right-1">
-        <CopyButton copied={copied} onCopy={copy} />
+        <CopyButton copied={copied} onCopy={() => copy(value)} />
       </div>
     </div>
   );

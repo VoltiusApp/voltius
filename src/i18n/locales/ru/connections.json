@@ -167,7 +167,15 @@
       "keyPlaceholder": "КЛЮЧ",
       "valuePlaceholder": "значение",
       "removeAriaLabel": "Удалить переменную",
-      "addButton": "Добавить переменную"
+      "addButton": "Добавить переменную",
+      "modeLabel": "Режим редактирования",
+      "modeList": "Список",
+      "pasteTip": "Вставьте файл .env в поле ключа, чтобы добавить сразу несколько переменных",
+      "rawHint": "Одна строка КЛЮЧ=значение на переменную. Комментарии, кавычки и префикс export допускаются.",
+      "skippedLines": "Пропущено строк: {{count}}",
+      "copyButton": "Копировать как .env",
+      "downloadButton": "Скачать .env",
+      "copied": "Скопировано"
     },
     "serialConfigOverlay": {
       "title": "Последовательное подключение",
