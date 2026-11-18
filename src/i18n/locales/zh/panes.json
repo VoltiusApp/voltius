@@ -4,7 +4,8 @@
       "ssh": "SSH",
       "serial": "串口",
       "multiplayer": "MPX",
-      "local": "本地"
+      "local": "本地",
+      "web": "WEB"
     },
     "header": {
       "copied": "已复制！",

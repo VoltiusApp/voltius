@@ -14,6 +14,7 @@ import { sunTimes, type ThemeMode } from "@/services/themeAutomation";
 import type { AppTheme } from "@/themes/types";
 import ScaleSection from "./ScaleSection";
 import TerminalFontSizeSection from "./TerminalFontSizeSection";
+import TabFontSizeSection from "./TabFontSizeSection";
 import { ManagedWhen } from "@/components/shared/ManagedNote";
 import { Setting, SettingMark } from "@/components/settings/Setting";
 import { useSettingState } from "@/components/settings/registry/useSettingState";
@@ -68,6 +69,11 @@ export default function AppearanceSection() {
         <div className="mt-4">
           <TerminalFontSizeSection />
         </div>
+        {!isMobile && (
+          <div className="mt-4">
+            <TabFontSizeSection />
+          </div>
+        )}
         <Setting id="locale.language" variant="card" className="mt-4" />
         <Setting id="locale.timeFormat" variant="card" className="mt-4" />
         <Setting id="toggles.group-tabs-by-host" variant="card" className="mt-4" />

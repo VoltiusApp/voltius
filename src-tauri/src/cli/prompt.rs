@@ -143,8 +143,10 @@ mod echo_unix {
                     &mut leader,
                     &mut follower,
                     std::ptr::null_mut(),
-                    std::ptr::null(),
-                    std::ptr::null(),
+                    // `null_mut` coerces to the `*const` Linux takes and is the
+                    // `*mut` macOS takes, so the call compiles on both.
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
                 )
             };
             assert_eq!(made, 0);

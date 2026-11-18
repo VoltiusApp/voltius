@@ -121,6 +121,16 @@
         "resetTitle": "Seguir o tamanho da fonte do tema",
         "reset": "Redefinir"
       },
+      "tabFontSize": {
+        "clickHintMobile": "Toque para introduzir um valor",
+        "title": "Tamanho do tipo de letra dos separadores",
+        "desc": "Ajusta o tamanho do texto dos separadores no topo, sem redimensionar o resto da interface.",
+        "clickHint": "Clique para introduzir um valor",
+        "zoomOut": "Texto menor",
+        "zoomIn": "Texto maior",
+        "resetTitle": "Usar o tamanho predefinido dos separadores",
+        "reset": "Repor"
+      },
       "automation": {
         "themeMode": "Modo automático de tema",
         "title": "Tema automático",

@@ -22,6 +22,7 @@ import AuditLogsPage from "@/components/logs/AuditLogsPage";
 import { Icon } from "@iconify/react";
 import { useHostPingPolling } from "@/hooks/useHostPingPolling";
 import { EmptySplitPane } from "@/components/panes/PaneTerminal";
+import { WebPane } from "@/components/panes/WebPane";
 import { PaneView } from "@/components/panes/PaneView";
 import { usePaneDragController } from "@/components/panes/usePaneDragController";
 import { DropZones } from "@/components/panes/DropZones";
@@ -84,6 +85,8 @@ const SessionTab = memo(function SessionTab({
           <MultiplayerTerminalView localSessionId={session.id} active={selected && !covered} visible={visible} />
           <MultiplayerBar localSessionId={session.id} />
         </div>
+      ) : session.type === "web" ? (
+        <WebPane session={session} visible={visible && !covered && !sftpPanelOpen} />
       ) : (
         <HostAwareTerminalView
           session={session}

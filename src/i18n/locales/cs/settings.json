@@ -122,6 +122,16 @@
         "resetTitle": "Použít velikost písma z motivu",
         "reset": "Obnovit"
       },
+      "tabFontSize": {
+        "clickHintMobile": "Klepnutím zadáte hodnotu",
+        "title": "Velikost písma karet",
+        "desc": "Nastaví velikost textu karet nahoře, aniž by se změnila velikost zbytku rozhraní.",
+        "clickHint": "Kliknutím zadáte hodnotu",
+        "zoomOut": "Menší text",
+        "zoomIn": "Větší text",
+        "resetTitle": "Použít výchozí velikost karet",
+        "reset": "Obnovit"
+      },
       "automation": {
         "themeMode": "Automatický režim motivu",
         "title": "Automatický motiv",

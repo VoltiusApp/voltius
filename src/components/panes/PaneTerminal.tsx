@@ -3,10 +3,13 @@ import { useTranslation } from "react-i18next";
 import MultiplayerTerminalView from "@/components/terminal/MultiplayerTerminalView";
 import { MultiplayerBar } from "@/components/terminal/MultiplayerBar";
 import { HostAwareTerminalView, SessionConnectionOverlay } from "@/components/terminal/SessionView";
+import { WebPane } from "@/components/panes/WebPane";
 import { sessionClosed } from "@/stores/reconnectBackoff";
 import type { TerminalSession } from "@/types";
 
 export function PaneTerminal({ session, active, visible }: { session: TerminalSession; active: boolean; visible: boolean }) {
+  if (session.type === "web") return <WebPane session={session} visible={visible} />;
+
   if (session.type === "multiplayer") {
     return (
       <div className="absolute inset-0 flex flex-col">

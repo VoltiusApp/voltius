@@ -42,6 +42,13 @@ export function clampUiScale(value: number): number {
 export const MIN_TERMINAL_FONT_SIZE = 8;
 export const MAX_TERMINAL_FONT_SIZE = 32;
 
+export const MIN_TAB_FONT_SIZE = 10;
+export const MAX_TAB_FONT_SIZE = 24;
+
+export function clampTabFontSize(value: number): number {
+  return Math.min(MAX_TAB_FONT_SIZE, Math.max(MIN_TAB_FONT_SIZE, Math.round(value)));
+}
+
 export function clampTerminalFontSize(value: number): number {
   return Math.min(MAX_TERMINAL_FONT_SIZE, Math.max(MIN_TERMINAL_FONT_SIZE, Math.round(value)));
 }
@@ -148,6 +155,8 @@ interface UIStore {
    * cloning a theme, or scaling the whole UI (#159).
    */
   terminalFontSize: number | null;
+  /** Text size of the tabs in the title bar, in px. Null keeps the default. */
+  tabFontSize: number | null;
   homeLayoutMode: LayoutMode;
   homeSortMode: SortMode;
   keychainLayoutMode: LayoutMode;
@@ -207,6 +216,7 @@ interface UIStore {
   clearPendingSftpConnection: () => void;
   setUiScale: (value: number) => void;
   setTerminalFontSize: (value: number | null) => void;
+  setTabFontSize: (value: number | null) => void;
   setHomeLayoutMode: (v: LayoutMode) => void;
   setHomeSortMode: (v: SortMode) => void;
   setKeychainLayoutMode: (v: LayoutMode) => void;
@@ -284,6 +294,7 @@ export const useUIStore = create<UIStore>()(
         pendingSftpConnectionId: null as string | null,
         uiScale: 1,
         terminalFontSize: null as number | null,
+        tabFontSize: null as number | null,
         homeLayoutMode: "grid" as LayoutMode,
         homeSortMode: "newest" as SortMode,
         keychainLayoutMode: "list" as LayoutMode,
@@ -361,6 +372,7 @@ export const useUIStore = create<UIStore>()(
         clearPendingSftpConnection: () => set({ pendingSftpConnectionId: null }),
         setUiScale: (value) => setPref({ uiScale: clampUiScale(value) }),
         setTerminalFontSize: (value) => setPref({ terminalFontSize: value === null ? null : clampTerminalFontSize(value) }),
+        setTabFontSize: (value) => setPref({ tabFontSize: value === null ? null : clampTabFontSize(value) }),
         setHomeLayoutMode: (v) => setPref({ homeLayoutMode: v }),
         setHomeSortMode: (v) => setPref({ homeSortMode: v }),
         setKeychainLayoutMode: (v) => setPref({ keychainLayoutMode: v }),
@@ -408,6 +420,7 @@ export const useUIStore = create<UIStore>()(
       partialize: (state) => ({
         uiScale: state.uiScale,
         terminalFontSize: state.terminalFontSize,
+        tabFontSize: state.tabFontSize,
         settingsSection: state.settingsSection,
         pluginsNavExpanded: state.pluginsNavExpanded,
         homeLayoutMode: state.homeLayoutMode,

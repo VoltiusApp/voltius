@@ -138,4 +138,18 @@ assertEqual(
   undefined,
   "non-string title sanitized away",
 );
+
+// --- web tabs ---
+const web = buildSnapshot({
+  sessions: [
+    { id: "w1", type: "web", connectionId: "c9", connectionName: "proxmox", webUrl: "https://192.168.1.3:8006/" },
+    { id: "w2", type: "web", connectionId: "c10", connectionName: "no page" },
+  ],
+  cwds: {},
+  layout,
+  activeSessionId: "w1",
+});
+assertEqual(web.sessions.map((x) => x.id), ["w1"], "a web tab is kept only with its page");
+assertEqual(web.sessions[0].webUrl, "https://192.168.1.3:8006/", "web tab keeps its page");
+assertEqual(parseSnapshot(web)?.sessions[0].webUrl, "https://192.168.1.3:8006/", "web tab survives a round trip");
 });

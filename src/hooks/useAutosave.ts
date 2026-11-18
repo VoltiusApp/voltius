@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+/** A text field has the keyboard: saving now re-renders the list behind the form and drops focus. */
+function isTyping(): boolean {
+  const el = document.activeElement;
+  if (el instanceof HTMLTextAreaElement) return true;
+  if (el instanceof HTMLInputElement) {
+    return !["checkbox", "radio", "button", "submit", "reset", "range", "color", "file"].includes(el.type);
+  }
+  return el instanceof HTMLElement && el.isContentEditable;
+}
+
 export type SaveState = "idle" | "dirty" | "saving" | "saved";
 
 const DEFAULT_DELAY = 600;
@@ -35,6 +45,8 @@ export function useAutosave({
   const readOnlyRef = useRef(readOnly);
   readOnlyRef.current = readOnly;
   const pendingRef = useRef(false);
+  // The debounce elapsed while a text field had focus: the save waits for it to lose focus.
+  const deferredRef = useRef(false);
 
   const markDirty = useCallback(() => { dirtyRef.current = true; }, []);
 
@@ -46,6 +58,7 @@ export function useAutosave({
 
   const runSave = useCallback(() => {
     pendingRef.current = false;
+    deferredRef.current = false;
     setSaveState("saving");
     const result = onSaveRef.current();
     if (result instanceof Promise) result.then(markSaved, markSaved);
@@ -63,6 +76,10 @@ export function useAutosave({
     setSaveState("dirty");
     timerRef.current = setTimeout(() => {
       timerRef.current = null;
+      if (isTyping()) {
+        deferredRef.current = true;
+        return;
+      }
       runSave();
     }, delay);
     return () => {
@@ -71,11 +88,25 @@ export function useAutosave({
   }, [delay, runSave]);
 
   const flush = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
+    if (timerRef.current || deferredRef.current) {
+      if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = null;
       if (!canSaveRef.current || canSaveRef.current()) runSave();
     }
+  }, [runSave]);
+
+  // Save a deferred edit once focus has left every text field.
+  useEffect(() => {
+    const onFocusOut = () => {
+      if (!deferredRef.current) return;
+      setTimeout(() => {
+        if (!deferredRef.current || isTyping()) return;
+        if (!canSaveRef.current || canSaveRef.current()) runSave();
+        else deferredRef.current = false;
+      }, 0);
+    };
+    document.addEventListener("focusout", onFocusOut);
+    return () => document.removeEventListener("focusout", onFocusOut);
   }, [runSave]);
 
   // The schedule effect's own cleanup clears the timer on unmount, so this goes by

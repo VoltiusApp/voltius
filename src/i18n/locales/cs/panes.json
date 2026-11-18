@@ -4,7 +4,8 @@
       "ssh": "SSH",
       "serial": "SÉRIOVÝ",
       "multiplayer": "MPX",
-      "local": "LOKÁLNÍ"
+      "local": "LOKÁLNÍ",
+      "web": "WEB"
     },
     "header": {
       "copied": "Zkopírováno!",

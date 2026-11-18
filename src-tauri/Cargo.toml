@@ -26,7 +26,8 @@ httpdate = "1"
 percent-encoding = "2"
 infer = "0.19"
 png = "0.17"
-tauri = { version = "2", features = ["protocol-asset"] }
+# `unstable` gates `Window::add_child`: web hosts render in a webview embedded in the tab.
+tauri = { version = "2", features = ["protocol-asset", "unstable"] }
 tauri-plugin-shell = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-deep-link = "2"
@@ -42,7 +43,7 @@ russh = { version = "0.65.0", default-features = false, features = ["flate2", "r
 russh-sftp = "2.3"
 tokio-socks = "0.5"
 tokio-util = { version = "0.7", default-features = false, features = ["io", "io-util", "rt"] }
-hyper = { version = "1", features = ["client", "http1"] }
+hyper = { version = "1", features = ["client", "server", "http1"] }
 hyper-util = { version = "0.1", features = ["client-legacy", "http1", "tokio"] }
 tower-service = "0.3"
 http-body-util = "0.1"
@@ -101,6 +102,8 @@ tauri-plugin-updater = "2"
 minisign-verify = "0.2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-notification = "2"
+# Reopen the window at the size and place it was closed at.
+tauri-plugin-window-state = "2"
 # machine-uid 0.6 has no Android/iOS backend (its lib.rs fails to compile there).
 # Desktop reads it via raw_machine_id(); mobile uses ANDROID_ID instead (see vault.rs).
 machine-uid = "0.6"

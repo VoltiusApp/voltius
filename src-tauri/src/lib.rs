@@ -53,6 +53,7 @@ mod terminal_output;
 mod tls;
 mod updater;
 mod vault_auth;
+mod web_proxy;
 mod webdav;
 #[cfg(windows)]
 mod win_security;
@@ -226,7 +227,17 @@ pub fn run() {
     {
         builder = builder
             .plugin(tauri_plugin_updater::Builder::new().build())
-            .plugin(tauri_plugin_notification::init());
+            .plugin(tauri_plugin_notification::init())
+            .plugin(
+                tauri_plugin_window_state::Builder::default()
+                    .with_state_flags(
+                        tauri_plugin_window_state::StateFlags::SIZE
+                            | tauri_plugin_window_state::StateFlags::POSITION
+                            | tauri_plugin_window_state::StateFlags::MAXIMIZED
+                            | tauri_plugin_window_state::StateFlags::FULLSCREEN,
+                    )
+                    .build(),
+            );
     }
 
     builder
@@ -304,6 +315,7 @@ pub fn run() {
             app.manage(Arc::new(PendingConflicts::new()));
             app.manage(PortForwardManager::new(app.handle().clone()));
             app.manage(Arc::new(mcp::McpState::new()));
+            app.manage(web_proxy::WebProxies::default());
             network_watch::start(app.handle().clone());
 
             #[cfg(all(desktop, not(debug_assertions)))]
@@ -363,6 +375,10 @@ pub fn run() {
             commands::connections::connection_delete,
             commands::connections::connection_set_distro,
             commands::connections::connection_set_last_used,
+            commands::web_host::web_host_open,
+            commands::web_host::web_pane_sync,
+            commands::web_host::web_pane_close,
+            commands::web_host::web_favicon,
             commands::folders::folder_list,
             commands::folders::folder_save,
             commands::folders::folder_update,

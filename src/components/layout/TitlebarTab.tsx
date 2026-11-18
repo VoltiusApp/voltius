@@ -8,6 +8,7 @@ import { StatusDot } from "@/components/shared/StatusDot";
 import { STATUS_TONE_COLOR, type StatusTone } from "@/utils/statusTone";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { useDragStore } from "@/stores/dragStore";
+import { useUIStore } from "@/stores/uiStore";
 import { sessionLabel } from "@/utils/sessionLabel";
 import { TabCloseControl } from "@/components/shared/TabCloseControl";
 
@@ -18,6 +19,7 @@ export function sessionTabIcon(
   tone: StatusTone,
 ): ReactNode {
   const isLocal = session.type === "local";
+  const glyph = isLocal ? "lucide:terminal" : session.type === "web" ? "lucide:globe" : null;
   const connectionIcon = !isLocal && connection ? (connection.icon || connection.distro) : null;
   const distroIcon = connectionIcon ? getConnectionIcon(connectionIcon) : null;
   const distroBg = connectionIcon ? getConnectionIconColor(connectionIcon) : null;
@@ -32,13 +34,20 @@ export function sessionTabIcon(
       </span>
     );
   }
-  if (isLocal) {
+  if (session.type === "web" && session.webIcon) {
+    return (
+      <span className="flex items-center justify-center size-6 rounded-md shrink-0">
+        <img src={session.webIcon} alt="" width={16} height={16} className="size-4 object-contain" />
+      </span>
+    );
+  }
+  if (glyph) {
     return (
       <span
         className="flex items-center justify-center size-6 rounded-md shrink-0"
         style={{ color: active ? "var(--t-tab-active-text)" : STATUS_TONE_COLOR[tone] }}
       >
-        <Icon icon="lucide:terminal" width={14} />
+        <Icon icon={glyph} width={14} />
       </span>
     );
   }
@@ -137,12 +146,17 @@ export function TitlebarTab({
   closeTitle?: string;
   compact?: boolean;
 }) {
+  const tabFontSize = useUIStore((s) => s.tabFontSize);
+  const fontSize = tabFontSize ? { fontSize: tabFontSize } : undefined;
+  // A long label is cut off in the tab: the tooltip gives it in full.
+  const tooltip = title || (typeof label === "string" ? label : undefined);
+
   if (renaming) {
     return (
       <div
         data-titlebar-key={itemKey}
         className="relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 overflow-hidden"
-        style={tabSurfaceStyle(active)}
+        style={{ ...tabSurfaceStyle(active), ...fontSize }}
       >
         {icon}
         <InlineNameEditor
@@ -165,8 +179,8 @@ export function TitlebarTab({
       onDoubleClick={onDoubleClick}
       onPointerDown={onPointerDown}
       className={`group relative flex items-center h-9 rounded-xl text-base font-medium-bold shrink-0 transition-all ${compact ? "w-10 justify-center" : "gap-2 px-2 overflow-hidden"}`}
-      title={compact ? [renameValue, title].filter(Boolean).join("\n") : title}
-      style={tabSurfaceStyle(active)}
+      title={compact ? [renameValue, title].filter(Boolean).join("\n") : tooltip}
+      style={{ ...tabSurfaceStyle(active), ...fontSize }}
       onMouseEnter={(e) => {
         if (!active) {
           (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-toolbar)";

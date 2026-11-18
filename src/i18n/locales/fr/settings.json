@@ -121,6 +121,16 @@
         "resetTitle": "Revenir à la taille du thème",
         "reset": "Réinitialiser"
       },
+      "tabFontSize": {
+        "clickHintMobile": "Toucher pour saisir une valeur",
+        "title": "Taille de police des onglets",
+        "desc": "Règle la taille du texte des onglets en haut, sans redimensionner le reste de l'interface.",
+        "clickHint": "Cliquer pour saisir une valeur",
+        "zoomOut": "Texte plus petit",
+        "zoomIn": "Texte plus grand",
+        "resetTitle": "Reprendre la taille par défaut des onglets",
+        "reset": "Réinitialiser"
+      },
       "automation": {
         "themeMode": "Mode du thème automatique",
         "title": "Thème automatique",

@@ -18,7 +18,16 @@ export function useSyncedFormKey(
     const prev = prevRef.current;
     prevRef.current = entityUpdatedAt;
     if (!isOpen || entityUpdatedAt === undefined || prev === undefined || prev === entityUpdatedAt) return;
-    if (!isDirty?.()) setVersion((v) => v + 1);
+    // Never remount under the user's caret: a background bump of updated_at
+    // (sync, ping, last-used) would otherwise steal focus from an input the
+    // user just clicked but hasn't typed in yet.
+    const el = document.activeElement;
+    const typing =
+      el instanceof HTMLInputElement ||
+      el instanceof HTMLTextAreaElement ||
+      el instanceof HTMLSelectElement ||
+      (el instanceof HTMLElement && el.isContentEditable);
+    if (!typing && !isDirty?.()) setVersion((v) => v + 1);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entityUpdatedAt, isOpen]);
 

@@ -121,6 +121,16 @@
         "resetTitle": "Seguir o tamanho da fonte do tema",
         "reset": "Redefinir"
       },
+      "tabFontSize": {
+        "clickHintMobile": "Toque para inserir um valor",
+        "title": "Tamanho da fonte das abas",
+        "desc": "Ajusta o tamanho do texto das abas no topo, sem redimensionar o resto da interface.",
+        "clickHint": "Clique para inserir um valor",
+        "zoomOut": "Texto menor",
+        "zoomIn": "Texto maior",
+        "resetTitle": "Usar o tamanho padrão das abas",
+        "reset": "Redefinir"
+      },
       "automation": {
         "themeMode": "Modo automático de tema",
         "title": "Tema automático",

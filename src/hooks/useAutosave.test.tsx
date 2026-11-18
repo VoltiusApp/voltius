@@ -62,4 +62,27 @@ describe("useAutosave", () => {
     unmount();
     expect(onSave).toHaveBeenCalledTimes(1);
   });
+
+  test("waits for a text field to lose focus before saving", () => {
+    vi.useFakeTimers();
+    const onSave = vi.fn();
+    render(<><Harness onSave={onSave} /><input data-testid="field" /><button>other</button></>);
+    const field = document.querySelector("input") as HTMLInputElement;
+    field.focus();
+    act(() => setValue("typed"));
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(onSave).not.toHaveBeenCalled();
+    act(() => { field.blur(); vi.advanceTimersByTime(10); });
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith("typed");
+  });
+
+  test("saves on the debounce when no text field has focus", () => {
+    vi.useFakeTimers();
+    const onSave = vi.fn();
+    render(<Harness onSave={onSave} />);
+    act(() => setValue("toggled"));
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(onSave).toHaveBeenCalledWith("toggled");
+  });
 });
