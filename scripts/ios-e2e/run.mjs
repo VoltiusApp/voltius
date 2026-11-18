@@ -503,6 +503,52 @@ await step("open-sftp", async () => {
   throw new Error(`${r}; no SFTP session on the server`);
 });
 
+/** First native element matching an XCUITest predicate, or null. */
+async function nativeFind(predicate, timeoutMs = 15000) {
+  await toNative();
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    const el = await driver.$(`-ios predicate string:${predicate}`);
+    if (await el.isExisting()) return el;
+    await sleep(1000);
+  }
+  return null;
+}
+
+if (!STORE && !VIDEO) {
+  await step("sftp-upload", async () => {
+    // The Upload action opens WKWebView's file input: iOS offers Photo Library / Take Photo / Choose Files.
+    const out = [await tapSel("[data-sftp-create]")];
+    await sleep(1000);
+    out.push(await tapSel('[data-sftp-action="upload"]'));
+    await sleep(3000);
+    await toNative();
+    fs.writeFileSync(path.join(OUT, "upload-picker.xml"), await driver.getPageSource());
+    const library = await nativeFind('label ==[c] "Photo Library" OR name ==[c] "Photo Library"');
+    if (!library) throw new Error(`${out.join("; ")}; no system picker (see upload-picker.xml)`);
+    await library.click();
+    out.push("Photo Library");
+    await sleep(4000);
+    fs.writeFileSync(path.join(OUT, "upload-photos.xml"), await driver.getPageSource());
+    const photo = await nativeFind('type == "XCUIElementTypeImage" AND visible == 1 AND label BEGINSWITH[c] "Photo"', 20000)
+      ?? await nativeFind('type == "XCUIElementTypeCell" AND visible == 1', 5000);
+    if (!photo) throw new Error(`${out.join("; ")}; no photo to pick (see upload-photos.xml)`);
+    await photo.click();
+    out.push("picked a photo");
+    await sleep(1500);
+    const add = await nativeFind('type == "XCUIElementTypeButton" AND (label ==[c] "Add" OR label ==[c] "Done")', 5000);
+    if (add) { await add.click(); out.push("Add"); }
+    const before = sshLog("ssh-events.log");
+    const end = Date.now() + 90000;
+    while (Date.now() < end) {
+      const written = sshLog("ssh-events.log").slice(before.length).match(/SFTP_WRITE (.*)/);
+      if (written) return `${out.join("; ")}; uploaded ${written[1]}`;
+      await sleep(2000);
+    }
+    throw new Error(`${out.join("; ")}; nothing written on the server`);
+  });
+}
+
 // ---------------------------------------------------------------- store
 
 /** Taps a bottom-bar tab, falling back to a JS click if the tap misses. */
