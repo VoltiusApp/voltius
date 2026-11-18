@@ -9,6 +9,8 @@
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
+	<true/>
+	<key>ITSEncryptionExportComplianceCode</key>
+	<string>61e416ba-b30e-4ef5-890b-7394aba4d861</string>
 </dict>
 </plist>
