@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.79.0] - 2026-11-18
+
+### Added
+
+- On iPhone and iPad, upload files to SFTP: tap Upload to pick photos or files, or drag files onto the SFTP panel. Large files upload in chunks and can be cancelled (#910)
+
+### Changed
+
+- The iOS app icon is now the borderless one used on Android, so its edges are no longer cut off on the App Store and home screen (#907)
+
+### Fixed
+
+- On iOS, the command palette no longer lists settings pages that only exist on desktop (#908)
+- Settings no longer shows two lists both called devices: the Devices section is now "File sharing" and Sync's "Your devices" is now "Cloud copies" (#909)
+
 ## [0.78.0] - 2026-11-18
 
 ### Added
