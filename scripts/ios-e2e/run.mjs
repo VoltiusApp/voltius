@@ -530,15 +530,18 @@ if (!STORE && !VIDEO) {
     if (!library) throw new Error(`${out.join("; ")}; no system picker (see upload-picker.xml)`);
     await library.click();
     out.push("Photo Library");
-    const photo = await nativeFind('type == "XCUIElementTypeImage" AND visible == 1 AND label BEGINSWITH[c] "Photo"', 60000)
-      ?? await nativeFind('type IN {"XCUIElementTypeCell", "XCUIElementTypeImage"} AND visible == 1', 5000);
+    // The photos picker runs out of process: its thumbnails report visible=false, so tap their frame.
+    const photo = await nativeFind('type == "XCUIElementTypeImage" AND name == "PXGGridLayout-Info"', 60000);
     fs.writeFileSync(path.join(OUT, "upload-photos.xml"), await driver.getPageSource());
     if (!photo) throw new Error(`${out.join("; ")}; no photo to pick (see upload-photos.xml)`);
-    await photo.click();
-    out.push("picked a photo");
+    const at = await photo.getRect();
+    await driver.execute("mobile: tap", { x: Math.round(at.x + at.width / 2), y: Math.round(at.y + at.height / 2) });
+    out.push(`picked "${await photo.getAttribute("label")}"`);
     await sleep(1500);
-    const add = await nativeFind('type == "XCUIElementTypeButton" AND (label ==[c] "Add" OR label ==[c] "Done")', 5000);
-    if (add) { await add.click(); out.push("Add"); }
+    const done = await nativeFind('type == "XCUIElementTypeButton" AND label IN {"Done", "Add"} AND enabled == 1', 10000);
+    if (!done) throw new Error(`${out.join("; ")}; the picker did not take the photo`);
+    await done.click();
+    out.push("Done");
     const before = sshLog("ssh-events.log");
     const end = Date.now() + 90000;
     while (Date.now() < end) {
