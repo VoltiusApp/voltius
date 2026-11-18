@@ -517,7 +517,9 @@ async function nativeFind(predicate, timeoutMs = 15000) {
 
 if (!STORE && !VIDEO) {
   await step("sftp-upload", async () => {
-    // The Upload action opens WKWebView's file input: iOS offers Photo Library / Take Photo / Choose Files.
+    // The Upload action opens WKWebView's file input: iOS offers Photo Library / Choose Files.
+    // A fresh simulator's library is empty, so give it the last screenshot to pick.
+    execFileSync("xcrun", ["simctl", "addmedia", UDID, path.join(OUT, "10-open-sftp.png")], { stdio: "ignore", timeout: 60000 });
     const out = [await tapSel("[data-sftp-create]")];
     await sleep(1000);
     out.push(await tapSel('[data-sftp-action="upload"]'));
@@ -528,10 +530,9 @@ if (!STORE && !VIDEO) {
     if (!library) throw new Error(`${out.join("; ")}; no system picker (see upload-picker.xml)`);
     await library.click();
     out.push("Photo Library");
-    await sleep(4000);
+    const photo = await nativeFind('type == "XCUIElementTypeImage" AND visible == 1 AND label BEGINSWITH[c] "Photo"', 60000)
+      ?? await nativeFind('type IN {"XCUIElementTypeCell", "XCUIElementTypeImage"} AND visible == 1', 5000);
     fs.writeFileSync(path.join(OUT, "upload-photos.xml"), await driver.getPageSource());
-    const photo = await nativeFind('type == "XCUIElementTypeImage" AND visible == 1 AND label BEGINSWITH[c] "Photo"', 20000)
-      ?? await nativeFind('type == "XCUIElementTypeCell" AND visible == 1', 5000);
     if (!photo) throw new Error(`${out.join("; ")}; no photo to pick (see upload-photos.xml)`);
     await photo.click();
     out.push("picked a photo");
