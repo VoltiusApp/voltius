@@ -1112,7 +1112,7 @@ pub async fn connect(
     // mangled — the session then just starts in the default directory.
     let cd_prefix = initial_cwd
         .filter(|p| !p.is_empty() && !p.contains(['"', '$', '`', '\\', '\n', '\r']))
-        .map(|p| format!("cd {} 2>/dev/null; ", shell_escape(&p)))
+        .map(|p| format!("cd {} 2>/dev/null; ", crate::ssh::exec::shell_quote(&p)))
         .unwrap_or_default();
 
     // When shell integration is enabled we replace the standard shell channel
@@ -1176,9 +1176,7 @@ pub async fn connect(
 
     let mut startup = String::new();
     if posix_shell {
-        for (key, value) in &env_vars {
-            startup.push_str(&format!("export {}={}\n", key, shell_escape(value)));
-        }
+        startup.push_str(&crate::ssh::env_handoff::startup_input(&final_handle, &env_vars).await);
         // Before pre_command: a host command that changes directory itself must win.
         if cd_over_stdin {
             startup.push_str(&format!("{}\n", cd_prefix.trim_end()));
@@ -1343,10 +1341,6 @@ pub async fn connect_authenticated(
         .map_err(|e| e.describe("Connection failed"))?;
     authenticate_handle(&mut handle, username, password, private_key, passphrase).await?;
     Ok((handle, platform_of(&sshid).await))
-}
-
-fn shell_escape(s: &str) -> String {
-    format!("'{}'", s.replace('\'', "'\\''"))
 }
 
 /// russh's safe defaults plus legacy/weak algorithms appended (OpenSSH `+algo`
