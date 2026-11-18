@@ -217,7 +217,7 @@
       },
       "devices": {
         "mobileSub": "Permitir que os seus dispositivos abram ficheiros aqui",
-        "label": "Dispositivos",
+        "label": "Compartilhamento de arquivos",
         "keywords": ["dispositivos", "ficheiros", "sftp", "partilha", "pastas", "acesso"]
       },
       "sftp": {
@@ -834,7 +834,7 @@
         "resume": "Retomar sincronização"
       },
       "devices": {
-        "title": "Seus dispositivos",
+        "title": "Cópias na nuvem",
         "footer": "Cada dispositivo envia sua própria cópia criptografada. Esta lista mostra se este dispositivo conseguiu ler a cópia mais recente de cada um.",
         "empty": "Nenhum outro dispositivo sincronizou ainda.",
         "unnamed": "Dispositivo {{id}}",

@@ -217,7 +217,7 @@
       },
       "devices": {
         "mobileSub": "Laisser vos appareils ouvrir des fichiers ici",
-        "label": "Appareils",
+        "label": "Partage de fichiers",
         "keywords": ["appareils", "fichiers", "sftp", "partage", "dossiers", "accès"]
       },
       "sftp": {
@@ -834,7 +834,7 @@
         "resume": "Reprendre la synchronisation"
       },
       "devices": {
-        "title": "Vos appareils",
+        "title": "Copies dans le cloud",
         "footer": "Chaque appareil envoie sa propre copie chiffrée. Cette liste indique si cet appareil a pu lire la dernière copie de chacun.",
         "empty": "Aucun autre appareil n'a encore synchronisé.",
         "unnamed": "Appareil {{id}}",

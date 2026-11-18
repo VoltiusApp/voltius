@@ -144,7 +144,7 @@
       "plugins":        { "mobileSub": "已安装插件和插件目录", "label": "插件",         "keywords": ["扩展", "附加组件", "市场"] },
       "integrations":   { "mobileSub": "供 AI 代理使用的 MCP 服务器", "label": "集成",         "keywords": ["mcp", "claude", "claude code", "服务器", "socket", "代理"] },
       "terminal":       { "mobileSub": "光标、回滚、粘贴", "label": "终端",        "keywords": ["光标", "回滚", "粘贴", "括号", "复制", "小地图", "缓冲区"] },
-      "devices": { "mobileSub": "允许你的设备在此打开文件", "label": "设备", "keywords": ["设备", "文件", "sftp", "共享", "文件夹", "访问"] },
+      "devices": { "mobileSub": "允许你的设备在此打开文件", "label": "文件共享", "keywords": ["设备", "文件", "sftp", "共享", "文件夹", "访问"] },
       "sftp":           { "mobileSub": "下载、传输、编辑器", "label": "SFTP",            "keywords": ["文件", "传输", "ftp", "文件"] },
       "portForwarding": { "mobileSub": "自动端口转发", "label": "端口转发", "keywords": ["隧道", "转发", "端口", "ssh", "自动"] },
       "hosts":          { "mobileSub": "可达性、保活、代理", "label": "主机",           "keywords": ["ping", "可达性", "连接性", "状态"] },
@@ -674,7 +674,7 @@
         "resume": "恢复同步"
       },
       "devices": {
-        "title": "你的设备",
+        "title": "云端副本",
         "footer": "每台设备都会上传自己的加密副本。此列表显示本设备能否读取每台设备的最新副本。",
         "empty": "还没有其他设备同步过。",
         "unnamed": "设备 {{id}}",
