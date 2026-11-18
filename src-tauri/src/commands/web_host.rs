@@ -93,22 +93,42 @@ pub async fn web_pane_close(
     Ok(())
 }
 
-/// A proxied page runs on plain `http://127.0.0.1`, where WebKit drops cookies a script sets with
-/// `Secure` (Proxmox does, to store its login ticket). Strip that flag, as the proxy does for
-/// `Set-Cookie` headers.
+/// A proxied page runs on plain `http://127.0.0.1`, which breaks two things a page may assume of
+/// its HTTPS origin, so the script undoes them in every frame (Proxmox's console is an iframe):
+/// - WebKit drops cookies a script sets with `Secure` (Proxmox does, to store its login ticket).
+///   Strip that flag, as the proxy does for `Set-Cookie` headers.
+/// - A `wss://` socket to the page's own address meets a proxy that only speaks plain HTTP
+///   (Proxmox's noVNC always asks for `wss://`). Open it as `ws://`; the proxy still talks TLS to
+///   the host.
 #[cfg(desktop)]
 const PROXIED_PAGE_SCRIPT: &str = r#"(function () {
   var d = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');
-  if (!d || !d.set) return;
-  Object.defineProperty(document, 'cookie', {
-    configurable: true,
-    get: function () { return d.get.call(document); },
-    set: function (v) {
-      d.set.call(document, String(v)
-        .replace(/;\s*secure\s*(?=;|$)/ig, '')
-        .replace(/;\s*samesite\s*=\s*none/ig, '; SameSite=Lax'));
-    }
-  });
+  if (d && d.set) {
+    Object.defineProperty(document, 'cookie', {
+      configurable: true,
+      get: function () { return d.get.call(document); },
+      set: function (v) {
+        d.set.call(document, String(v)
+          .replace(/;\s*secure\s*(?=;|$)/ig, '')
+          .replace(/;\s*samesite\s*=\s*none/ig, '; SameSite=Lax'));
+      }
+    });
+  }
+  var WS = window.WebSocket;
+  if (WS) {
+    window.WebSocket = class extends WS {
+      constructor(url, protocols) {
+        try {
+          var u = new URL(url, location.href);
+          if (u.protocol === 'wss:' && u.host === location.host) {
+            u.protocol = 'ws:';
+            url = u.href;
+          }
+        } catch (e) {}
+        if (protocols === undefined) super(url); else super(url, protocols);
+      }
+    };
+  }
 })();"#;
 
 #[cfg(desktop)]
@@ -157,7 +177,7 @@ async fn open_window(
     .title(title)
     .inner_size(1280.0, 800.0);
     if resolved != url {
-        builder = builder.initialization_script(PROXIED_PAGE_SCRIPT);
+        builder = builder.initialization_script_for_all_frames(PROXIED_PAGE_SCRIPT);
     }
     let window = builder.build().map_err(app_error)?;
     let handle = app.clone();
@@ -210,7 +230,7 @@ async fn sync_pane(
             let mut builder =
                 WebviewBuilder::new(label, WebviewUrl::External(parse_web_url(&resolved)?));
             if resolved != url {
-                builder = builder.initialization_script(PROXIED_PAGE_SCRIPT);
+                builder = builder.initialization_script_for_all_frames(PROXIED_PAGE_SCRIPT);
             }
             let window = app
                 .get_window("main")
