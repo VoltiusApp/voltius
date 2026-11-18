@@ -176,7 +176,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const catalogLoading = useMarketplaceStore((s) => s.catalogLoading);
   const locale = useUiLanguage();
   const isAndroid = useIsAndroid();
-  const nav = useMemo(() => (isAndroid ? mobileSettingsNav(getSettingsNav()) : getSettingsNav()), [locale, isAndroid]);
+  const isMobile = useIsMobile();
+  const nav = useMemo(() => (isMobile ? mobileSettingsNav(getSettingsNav()) : getSettingsNav()), [locale, isMobile]);
 
   const settingsItems = useMemo<OmniItem[]>(() => {
     const base = nav.map((n): OmniItem => ({
@@ -225,7 +226,6 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
   const category = scope;
   const q = useMemo(() => query.toLowerCase().trim(), [query]);
-  const isMobile = useIsMobile();
   const settingValueItems = useMemo<OmniItem[]>(() => (q
     ? searchSettings(q, { isMobile, isAndroid }).flatMap((h): OmniItem[] => h.kind === "setting" && h.def.control.kind !== "toggle"
       ? [{
