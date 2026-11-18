@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.78.0] - 2026-11-18
+
+### Added
+
+- Host environment variables accept a pasted .env file: paste `KEY=value` lines into any key field to add them all at once, or switch the panel to its .env view to edit every variable as text with syntax colouring. Lines that are not valid variables are listed and ignored. "Copy as .env" and "Download .env" export them (#905)
+- .env files opened in the remote file editor use the same colouring: keys, values, comments and invalid lines (#905)
+
+### Fixed
+
+- Host environment variable values no longer show in the terminal, in the remote shell history or in session logs when connecting. They now reach the host through a private temporary file that deletes itself once loaded (#906)
+- The iOS App Store build carries the approved French encryption declaration, so the app can be listed in France (#904)
+
 ## [0.77.0] - 2026-11-17
 
 ### Added
