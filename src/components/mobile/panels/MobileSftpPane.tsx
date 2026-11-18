@@ -11,7 +11,7 @@ import { accelFor, tarMode } from "@/components/filetransfer/tarSupport";
 import { PermissionsDialog } from "@/components/filetransfer/PermissionsDialog";
 import { canEditPermissions } from "@/components/filetransfer/permissionsModel";
 import { transferItem } from "@/services/sftpTransferCore";
-import { useIsAndroid, useIsIOS } from "@/utils/platform";
+import { useIsMobile } from "@/utils/platform";
 import { downloadDirGet, downloadDirPick, downloadTempPath, downloadPublish } from "@/services/downloads";
 import { uploadContentFiles, uploadPick, type ContentFile } from "@/services/uploads";
 import { needsPicker } from "@/components/terminal/androidDownloadDir";
@@ -78,8 +78,7 @@ export default function MobileSftpPane({
   const readOnlyTip = useReadOnlyTip(readOnly, device?.name);
   const chmodable = !!sftpId && !device;
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
-  const isAndroid = useIsAndroid();
-  const isIOS = useIsIOS();
+  const isPhone = useIsMobile();
   const [showHidden, setShowHidden] = useState(false);
   const [sheetFor, setSheetFor] = useState<FileEntry | null>(null);
   const [renaming, setRenaming] = useState<FileEntry | null>(null);
@@ -155,7 +154,7 @@ export default function MobileSftpPane({
     // Android: stream to a temp path, then publish into the user's SAF download folder
     // (picked once, persisted) so the file lands somewhere visible to the system Files app.
     // iOS: same path; the folder is always the app's Documents (Files › Voltius SSH), no picker.
-    if (isAndroid || isIOS) {
+    if (isPhone) {
       try {
         let dir = await downloadDirGet();
         if (needsPicker(dir)) {
@@ -184,7 +183,7 @@ export default function MobileSftpPane({
       fail(e, () => upload(pick));
     }
   };
-  const canUpload = isAndroid && phase.tag === "connected" && !!sftpId;
+  const canUpload = isPhone && phase.tag === "connected" && !!sftpId;
   useImperativeHandle(dropRef, () => (files: ContentFile[]) => {
     if (canUpload && !refuseReadOnly(readOnlyTip)) void upload(async () => files);
   });

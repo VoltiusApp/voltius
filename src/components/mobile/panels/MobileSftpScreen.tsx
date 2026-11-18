@@ -13,8 +13,8 @@ import { useUIStore } from "@/stores/uiStore";
 import { formatTransferProgress, type FileEntry } from "@/components/filetransfer/SFTPTypes";
 import MobilePanelHeader from "./MobilePanelHeader";
 import MobileSftpPane, { type PaneDrop } from "./MobileSftpPane";
-import { useAndroidFileDrop } from "./useAndroidFileDrop";
-import { useIsAndroid } from "@/utils/platform";
+import { useFileDrop } from "./useFileDrop";
+import { useIsAndroid, useIsIOS } from "@/utils/platform";
 import SftpHostPickerSheet from "../sheets/SftpHostPickerSheet";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { NO_SELECTION, paneItems, setPaneSelection, type SftpPaneId, type SftpPaneTarget, type SftpSelection } from "./sftpSelectionCore";
@@ -54,7 +54,9 @@ export default function MobileSftpScreen({ presetConnectionId, asTab, visible = 
   const dropA = useRef<PaneDrop>(null);
   const dropB = useRef<PaneDrop>(null);
   const isAndroid = useIsAndroid();
-  const dropHover = useAndroidFileDrop(isAndroid && visible, backPane, (id, files) => (id === "a" ? dropA : dropB).current?.(files));
+  const isIOS = useIsIOS();
+  const dropSource = !visible ? null : isAndroid ? "native" : isIOS ? "webview" : null;
+  const dropHover = useFileDrop(dropSource, backPane, (id, files) => (id === "a" ? dropA : dropB).current?.(files));
 
   const connA = useMemo(() => connections.find((c) => c.id === connAId), [connections, connAId]);
   const connB = useMemo(() => connections.find((c) => c.id === connBId), [connections, connBId]);

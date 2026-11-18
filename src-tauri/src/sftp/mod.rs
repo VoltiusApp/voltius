@@ -508,7 +508,6 @@ impl SftpManager {
         t.cancelled.insert(transfer_id);
     }
 
-    #[cfg(any(target_os = "android", test))]
     pub fn is_cancelled(&self, transfer_id: &str) -> bool {
         self.transfers
             .lock()

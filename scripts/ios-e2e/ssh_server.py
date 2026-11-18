@@ -174,6 +174,11 @@ class LoggingSFTP(asyncssh.SFTPServer):
         event("SFTP_OPEN")
         super().__init__(chan)
 
+    def open(self, path, pflags, attrs):
+        if pflags & asyncssh.FXF_WRITE:
+            event("SFTP_WRITE", path.decode(errors="replace") if isinstance(path, bytes) else path)
+        return super().open(path, pflags, attrs)
+
 
 async def main():
     key = asyncssh.generate_private_key("ssh-ed25519")

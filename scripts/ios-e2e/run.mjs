@@ -503,6 +503,55 @@ await step("open-sftp", async () => {
   throw new Error(`${r}; no SFTP session on the server`);
 });
 
+/** First native element matching an XCUITest predicate, or null. */
+async function nativeFind(predicate, timeoutMs = 15000) {
+  await toNative();
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    const el = await driver.$(`-ios predicate string:${predicate}`);
+    // An element looked up before it existed has no elementId: fetch it again once it does.
+    if (await el.isExisting()) return el.elementId ? el : driver.$(`-ios predicate string:${predicate}`);
+    await sleep(1000);
+  }
+  return null;
+}
+
+if (!STORE && !VIDEO) {
+  await step("sftp-upload", async () => {
+    // The Upload action opens WKWebView's file input: iOS offers Photo Library / Choose Files.
+    const out = [await tapSel("[data-sftp-create]")];
+    await sleep(1000);
+    out.push(await tapSel('[data-sftp-action="upload"]'));
+    await sleep(3000);
+    await toNative();
+    fs.writeFileSync(path.join(OUT, "upload-picker.xml"), await driver.getPageSource());
+    const library = await nativeFind('label ==[c] "Photo Library" OR name ==[c] "Photo Library"');
+    if (!library) throw new Error(`${out.join("; ")}; no system picker (see upload-picker.xml)`);
+    await library.click();
+    out.push("Photo Library");
+    // The photos picker runs out of process: its thumbnails report visible=false, so tap their frame.
+    const photo = await nativeFind('type == "XCUIElementTypeImage" AND name == "PXGGridLayout-Info"', 60000);
+    fs.writeFileSync(path.join(OUT, "upload-photos.xml"), await driver.getPageSource());
+    if (!photo) throw new Error(`${out.join("; ")}; no photo to pick (see upload-photos.xml)`);
+    const at = await driver.getElementRect(photo.elementId);
+    await driver.execute("mobile: tap", { x: Math.round(at.x + at.width / 2), y: Math.round(at.y + at.height / 2) });
+    out.push(`picked "${await photo.getAttribute("label")}"`);
+    await sleep(1500);
+    const done = await nativeFind('type == "XCUIElementTypeButton" AND label IN {"Done", "Add"} AND enabled == 1', 10000);
+    if (!done) throw new Error(`${out.join("; ")}; the picker did not take the photo`);
+    await done.click();
+    out.push("Done");
+    const before = sshLog("ssh-events.log");
+    const end = Date.now() + 90000;
+    while (Date.now() < end) {
+      const written = sshLog("ssh-events.log").slice(before.length).match(/SFTP_WRITE (.*)/);
+      if (written) return `${out.join("; ")}; uploaded ${written[1]}`;
+      await sleep(2000);
+    }
+    throw new Error(`${out.join("; ")}; nothing written on the server`);
+  });
+}
+
 // ---------------------------------------------------------------- store
 
 /** Taps a bottom-bar tab, falling back to a JS click if the tap misses. */

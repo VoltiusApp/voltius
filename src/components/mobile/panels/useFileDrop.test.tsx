@@ -25,6 +25,7 @@ vi.mock("@/utils/platform", async (orig) => ({
   ...(await orig<typeof import("@/utils/platform")>()),
   useIsAndroid: () => true,
   useIsIOS: () => false,
+  useIsMobile: () => true,
 }));
 vi.mock("@/services/useSftpDir", async (orig) => ({
   ...(await orig<typeof import("@/services/useSftpDir")>()),
@@ -33,7 +34,7 @@ vi.mock("@/services/useSftpDir", async (orig) => ({
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useAndroidFileDrop, FILE_DRAG_EVENT } from "./useAndroidFileDrop";
+import { useFileDrop, FILE_DRAG_EVENT, type DropSource } from "./useFileDrop";
 import type { SftpPaneId } from "./sftpSelectionCore";
 import type { ContentFile } from "@/services/uploads";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
@@ -58,8 +59,8 @@ const drop = async () => {
   act(() => h.dropped!({ payload: { x: 5, y: 6, files: FILES } }));
 };
 
-function Harness({ enabled = true, fallback = "a", onDrop }: { enabled?: boolean; fallback?: SftpPaneId; onDrop: (p: SftpPaneId, f: ContentFile[]) => void }) {
-  const hover = useAndroidFileDrop(enabled, fallback, onDrop);
+function Harness({ enabled = true, source = "native", fallback = "a", onDrop }: { enabled?: boolean; source?: DropSource; fallback?: SftpPaneId; onDrop: (p: SftpPaneId, f: ContentFile[]) => void }) {
+  const hover = useFileDrop(enabled ? source : null, fallback, onDrop);
   return (
     <div data-hover={hover ?? "none"}>
       <div data-sftp-pane="a"><span data-in="a" /></div>
@@ -79,7 +80,7 @@ function mount(props: Partial<Parameters<typeof Harness>[0]> = {}) {
 
 const nativeFlag = () => vi.mocked(invoke).mock.calls.filter(([c]) => c === "upload_drop_target").map(([, a]) => (a as { on: boolean }).on);
 
-describe("useAndroidFileDrop", () => {
+describe("useFileDrop on Android", () => {
   test("a drop goes to the pane under the finger", async () => {
     const { onDrop, point } = mount();
     point("b");
