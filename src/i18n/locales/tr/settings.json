@@ -222,7 +222,7 @@
       },
       "devices": {
         "mobileSub": "Cihazlarınızın burada dosya açmasına izin verin",
-        "label": "Cihazlar",
+        "label": "Dosya paylaşımı",
         "keywords": ["cihazlar", "dosyalar", "sftp", "paylaşım", "klasörler", "erişim"]
       },
       "sftp": {
@@ -749,7 +749,7 @@
         "resume": "Eşitlemeyi sürdür"
       },
       "devices": {
-        "title": "Cihazlarınız",
+        "title": "Buluttaki kopyalar",
         "footer": "Her cihaz kendi şifreli kopyasını yükler. Bu liste, bu cihazın her birinin son kopyasını okuyup okuyamadığını gösterir.",
         "empty": "Henüz başka bir cihaz eşitlenmedi.",
         "unnamed": "Cihaz {{id}}",

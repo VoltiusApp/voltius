@@ -218,7 +218,7 @@
       },
       "devices": {
         "mobileSub": "Povolit zařízením otevírat zde soubory",
-        "label": "Zařízení",
+        "label": "Sdílení souborů",
         "keywords": ["zařízení", "soubory", "sftp", "sdílení", "složky", "přístup"]
       },
       "sftp": {
@@ -855,7 +855,7 @@
         "resume": "Obnovit synchronizaci"
       },
       "devices": {
-        "title": "Vaše zařízení",
+        "title": "Kopie v cloudu",
         "footer": "Každé zařízení nahrává vlastní šifrovanou kopii. Tento seznam ukazuje, zda toto zařízení dokázalo přečíst poslední kopii každého z nich.",
         "empty": "Žádné jiné zařízení se zatím nesynchronizovalo.",
         "unnamed": "Zařízení {{id}}",

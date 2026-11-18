@@ -216,7 +216,7 @@
       },
       "devices": {
         "mobileSub": "Let your devices open files here",
-        "label": "Devices",
+        "label": "File sharing",
         "keywords": ["devices", "files", "sftp", "share", "folders", "access"]
       },
       "sftp": {
@@ -828,7 +828,7 @@
         "resume": "Resume syncing"
       },
       "devices": {
-        "title": "Your devices",
+        "title": "Cloud copies",
         "footer": "Each device uploads its own encrypted copy. This list shows whether this device could read the latest copy from each one.",
         "empty": "No other device has synced yet.",
         "unnamed": "Device {{id}}",
