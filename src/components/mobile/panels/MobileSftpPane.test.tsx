@@ -18,6 +18,7 @@ vi.mock("@/utils/platform", async (orig) => ({
   ...(await orig<typeof import("@/utils/platform")>()),
   useIsAndroid: () => true,
   useIsIOS: () => false,
+  useIsMobile: () => true,
 }));
 
 import { createRef } from "react";

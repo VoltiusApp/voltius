@@ -584,6 +584,7 @@ pub fn run() {
             commands::uploads::upload_drop_target,
             commands::uploads::upload_stage,
             commands::uploads::upload_stage_clear,
+            commands::uploads::upload_stage_chunk,
             ios_native::haptic_perform,
             ios_native::share_files_native,
             commands::sftp::sftp_transfer_batch_tar,

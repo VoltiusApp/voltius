@@ -1,9 +1,16 @@
-use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
+use std::io::{Seek, SeekFrom, Write};
+use std::path::Path;
 
+use serde::{Deserialize, Serialize};
+use tauri::ipc::Request;
+use tauri::{AppHandle, Manager};
+
+use super::raw_body;
 use crate::scratch::transfer_dir;
 
 const AREA: &str = "voltius-uploads";
+// The remote name comes from the queue item; the staging copy only needs to be unique per transfer.
+const STAGED_NAME: &str = "upload";
 #[cfg(target_os = "android")]
 const DROP_EVENT: &str = "android://files-dropped";
 
@@ -180,7 +187,6 @@ pub async fn upload_stage(
             tauri::async_runtime::spawn_blocking(move || android::copy_to_cache(&uri, &to, &id))
                 .await
                 .map_err(|e| format!("copy picked file: {e}"))?;
-        use tauri::Manager;
         let transfers = app.state::<crate::sftp::SftpManager>();
         copied.map(|()| dest).map_err(|e| {
             if transfers.is_cancelled(&transfer_id) {
@@ -195,6 +201,51 @@ pub async fn upload_stage(
         let _ = (app, uri, name, transfer_id);
         Err("upload staging is Android-only".into())
     }
+}
+
+/// One chunk of a file the WebView holds (the iOS file picker or a drop), written at
+/// the `offset` header into the transfer's staging copy. Returns the copy's path.
+#[tauri::command]
+pub async fn upload_stage_chunk(app: AppHandle, request: Request<'_>) -> Result<String, String> {
+    let bytes = raw_body(request.body(), "file")?;
+    let header = |name: &str| {
+        request
+            .headers()
+            .get(name)
+            .and_then(|v| v.to_str().ok())
+            .ok_or_else(|| format!("missing {name} header"))
+    };
+    let transfer_id = header("transfer-id")?;
+    let offset: u64 = header("offset")?
+        .parse()
+        .map_err(|_| "invalid offset header".to_string())?;
+    if app
+        .state::<crate::sftp::SftpManager>()
+        .is_cancelled(transfer_id)
+    {
+        return Err(crate::sftp::TRANSFER_CANCELLED.into());
+    }
+    let dest = crate::scratch::transfer_file(&app, AREA, transfer_id, STAGED_NAME)?;
+    write_chunk(&dest, offset, bytes)?;
+    Ok(dest.to_string_lossy().into_owned())
+}
+
+/// Chunks arrive in order: offset 0 starts the copy over, any other must be its current end.
+fn write_chunk(path: &Path, offset: u64, bytes: &[u8]) -> Result<(), String> {
+    let failed = |e: std::io::Error| format!("Cannot write the upload temp copy: {e}");
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(offset == 0)
+        .open(path)
+        .map_err(failed)?;
+    let end = file.seek(SeekFrom::End(0)).map_err(failed)?;
+    if end != offset {
+        return Err(format!(
+            "upload chunk at {offset} but the copy holds {end} bytes"
+        ));
+    }
+    file.write_all(bytes).map_err(failed)
 }
 
 #[tauri::command]
@@ -256,6 +307,22 @@ mod tests {
             })
         );
         assert!(parse_dropped(0.0, 0.0, "{}").is_err());
+    }
+
+    #[test]
+    fn chunks_append_in_order_and_offset_zero_starts_over() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(STAGED_NAME);
+        write_chunk(&path, 0, b"abc").unwrap();
+        write_chunk(&path, 3, b"de").unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"abcde");
+        assert!(write_chunk(&path, 2, b"x").is_err());
+        assert!(write_chunk(&path, 9, b"x").is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), b"abcde");
+        write_chunk(&path, 0, b"z").unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"z");
+        write_chunk(&path, 0, b"").unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"");
     }
 
     #[test]
