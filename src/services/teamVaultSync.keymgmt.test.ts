@@ -27,7 +27,7 @@ vi.mock("@/services/multiplayerService", () => ({
   publishMyPublicKey: h.publishPublicKey,
 }));
 
-import { initTeamVaultKey, distributeKeyToNewMember, clearTeamKeyCache, getCachedTeamKeyVersion } from "./teamVaultSync";
+import { initTeamVaultKey, distributeKeyToNewMember, clearTeamKeyCache, getCurrentTeamKey } from "./teamVaultSync";
 
 function futureJwt(): string {
   const exp = Math.floor(Date.now() / 1000) + 3600;
@@ -123,7 +123,7 @@ test("distributeKeyToNewMember uploads a single wrapped key for the new member",
   expect(body.keys).toEqual([{ user_id: "u9", wrapped_key: "wrapped-for-pk9" }]);
 });
 
-test("initTeamVaultKey caches epoch 1 for a freshly minted key, keeping key and version in lockstep", async () => {
+test("initTeamVaultKey caches epoch 1 for a freshly minted key", async () => {
   h.appFetch.mockImplementation(async (url: string, init?: RequestInit) => {
     if (url.endsWith("/vault-key") && (!init || init.method === "GET")) return res(404);
     if (url.endsWith("/vault-key") && init?.method === "PUT") return res(200);
@@ -132,9 +132,8 @@ test("initTeamVaultKey caches epoch 1 for a freshly minted key, keeping key and 
 
   await initTeamVaultKey("team-7", [] as any);
 
-  // A cached key with no corresponding version breaks every caller that
-  // trusts "a key is cached implies a version is cached" (#217).
-  expect(getCachedTeamKeyVersion("team-7")).toBe(1);
+  // The GET still answers 404, so this only resolves from the cache.
+  await expect(getCurrentTeamKey("team-7")).resolves.toMatchObject({ version: 1 });
 });
 
 test("distributeKeyToNewMember names the epoch of the key it wrapped", async () => {

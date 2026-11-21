@@ -1,7 +1,7 @@
 import { getRotationStatus, rotateVaultKey, listMembers, getMyUserId } from "@/services/teamService";
 import { wrapSessionKeyForUser, publishMyPublicKey } from "@/services/multiplayerService";
 import {
-  getTeamVaultKey, getCachedTeamKeyVersion, getTeamVaultKeyAtVersion, deleteTeamKey,
+  getCurrentTeamKey, getTeamVaultKeyAtVersion, deleteTeamKey,
   reencryptLegacyBlobIfStale,
 } from "@/services/teamVaultSync";
 import {
@@ -194,9 +194,7 @@ async function _drainTeamKeyRotation(teamId: string, pass: RotationPass): Promis
   // rotation-status said draining:true. Force a fresh fetch so "current"
   // always means the server's current, never this client's last-known.
   deleteTeamKey(teamId);
-  const currentKey = await getTeamVaultKey(teamId); // forces a fresh network fetch, primes both caches
-  const currentVersion = getCachedTeamKeyVersion(teamId);
-  if (currentVersion === undefined) throw new Error("current team key unavailable"); // offline/forbidden — try again next event
+  const { key: currentKey, version: currentVersion } = await getCurrentTeamKey(teamId);
 
   // Step 4 of the spec's reencrypt pass: the legacy whole-blob some older
   // teams still carry. Independent of the object/secret loops below (already

@@ -4,8 +4,7 @@ import { teamSecretCache } from "./teamSecretCache";
 
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
-  getTeamVaultKey: vi.fn(),
-  getCachedTeamKeyVersion: vi.fn(),
+  getCurrentTeamKey: vi.fn(),
   getTeamVaultKeyAtVersion: vi.fn(),
   listTeamSecrets: vi.fn(),
   upsertTeamSecret: vi.fn(),
@@ -16,8 +15,7 @@ const h = vi.hoisted(() => ({
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/teamVaultSync", () => ({
-  getTeamVaultKey: h.getTeamVaultKey,
-  getCachedTeamKeyVersion: h.getCachedTeamKeyVersion,
+  getCurrentTeamKey: h.getCurrentTeamKey,
   getTeamVaultKeyAtVersion: h.getTeamVaultKeyAtVersion,
 }));
 vi.mock("@/services/teamObjects", () => ({
@@ -38,8 +36,7 @@ beforeEach(() => {
   Object.values(h).forEach((m) => (m as { mockReset?: () => void }).mockReset?.());
   h.teams = [];
   h.vaults = [];
-  h.getTeamVaultKey.mockResolvedValue("ENCKEY");
-  h.getCachedTeamKeyVersion.mockReturnValue(1);
+  h.getCurrentTeamKey.mockResolvedValue({ key: "ENCKEY", version: 1 });
   h.getTeamVaultKeyAtVersion.mockResolvedValue("OLD-ENCKEY");
   teamSecretCache.clearAll();
 });
@@ -51,7 +48,7 @@ test("saveTeamVaultSecret encrypts a single-secret payload and upserts the parse
 
   await saveTeamVaultSecret("t1", "password:conn-9", "hunter2");
 
-  expect(h.getTeamVaultKey).toHaveBeenCalledWith("t1");
+  expect(h.getCurrentTeamKey).toHaveBeenCalledWith("t1");
   expect(h.invoke).toHaveBeenCalledWith("encrypt_payload", {
     encKey: "ENCKEY",
     files: {},
@@ -69,7 +66,7 @@ test("saveTeamVaultSecret encrypts a single-secret payload and upserts the parse
 test("saveTeamVaultSecret is a no-op for an unrecognized local key (no key fetch, no encrypt, no upsert)", async () => {
   await saveTeamVaultSecret("t1", "totally-unknown-shape", "v");
 
-  expect(h.getTeamVaultKey).not.toHaveBeenCalled();
+  expect(h.getCurrentTeamKey).not.toHaveBeenCalled();
   expect(h.invoke).not.toHaveBeenCalled();
   expect(h.upsertTeamSecret).not.toHaveBeenCalled();
 });
@@ -111,7 +108,7 @@ test("hydrate replaces the team's cache with exactly what the server served", as
 test("a served row that fails to decrypt keeps its previous value", async () => {
   teamSecretCache.set("t1", "password:c1", "previous");
   h.listTeamSecrets.mockResolvedValue([row("c1", "connection_password", 2)]);
-  h.getCachedTeamKeyVersion.mockReturnValue(3);
+  h.getCurrentTeamKey.mockResolvedValue({ key: "ENCKEY", version: 3 });
   h.getTeamVaultKeyAtVersion.mockRejectedValue(Object.assign(new Error("429"), { status: 429 }));
 
   await hydrateTeamVaultSecrets("t1");
@@ -143,7 +140,7 @@ test("a denial clears the team's cache and rethrows", async () => {
 
 test("a transient failure keeps the last served set", async () => {
   teamSecretCache.set("t1", "password:c1", "pw");
-  h.getTeamVaultKey.mockRejectedValue("offline");
+  h.getCurrentTeamKey.mockRejectedValue("offline");
 
   await expect(hydrateTeamVaultSecrets("t1")).rejects.toBe("offline");
 
@@ -170,7 +167,7 @@ test("hydrateTeamVaultSecrets logs a rejected record, naming the team and secret
 });
 
 test("saveTeamVaultSecret includes the current cached key_version", async () => {
-  h.getCachedTeamKeyVersion.mockReturnValue(3);
+  h.getCurrentTeamKey.mockResolvedValue({ key: "ENCKEY", version: 3 });
   h.invoke.mockResolvedValue([1, 2, 3]);
 
   await saveTeamVaultSecret("t1", "password:c1", "hunter2");
@@ -179,7 +176,7 @@ test("saveTeamVaultSecret includes the current cached key_version", async () => 
 });
 
 test("hydrateTeamVaultSecrets uses the historical key for a record behind the current epoch", async () => {
-  h.getCachedTeamKeyVersion.mockReturnValue(3);
+  h.getCurrentTeamKey.mockResolvedValue({ key: "ENCKEY", version: 3 });
   h.listTeamSecrets.mockResolvedValue([
     { secret_id: "s1", object_id: "c1", secret_type: "connection_password", ciphertext: "AQID", key_version: 1 },
   ]);
@@ -192,7 +189,7 @@ test("hydrateTeamVaultSecrets uses the historical key for a record behind the cu
 });
 
 test("hydrateTeamVaultSecrets uses the plain current key for a record already on the current epoch", async () => {
-  h.getCachedTeamKeyVersion.mockReturnValue(1);
+  h.getCurrentTeamKey.mockResolvedValue({ key: "ENCKEY", version: 1 });
   h.listTeamSecrets.mockResolvedValue([
     { secret_id: "s1", object_id: "c1", secret_type: "connection_password", ciphertext: "AQID", key_version: 1 },
   ]);
@@ -205,7 +202,7 @@ test("hydrateTeamVaultSecrets uses the plain current key for a record already on
 });
 
 test("hydrateTeamVaultSecrets treats a missing key_version as epoch 1, not a literal undefined fetch", async () => {
-  h.getCachedTeamKeyVersion.mockReturnValue(3);
+  h.getCurrentTeamKey.mockResolvedValue({ key: "ENCKEY", version: 3 });
   h.listTeamSecrets.mockResolvedValue([
     // A pre-#217 record with no key_version at all.
     { secret_id: "s1", object_id: "c1", secret_type: "connection_password", ciphertext: "AQID" },

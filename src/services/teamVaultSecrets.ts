@@ -1,5 +1,5 @@
 import { invoke } from "@/lib/invoke";
-import { getTeamVaultKey, getCachedTeamKeyVersion, getTeamVaultKeyAtVersion } from "@/services/teamVaultSync";
+import { getCurrentTeamKey, getTeamVaultKeyAtVersion } from "@/services/teamVaultSync";
 import { listTeamSecrets, upsertTeamSecret } from "@/services/teamObjects";
 import { useTeamStore } from "@/stores/teamStore";
 import { useVaultStore } from "@/stores/vaultStore";
@@ -19,8 +19,7 @@ export async function saveTeamVaultSecret(teamId: string, localKey: string, valu
   const parts = teamSecretFromLocalKey(localKey);
   if (!parts) return;
 
-  const encKey = await getTeamVaultKey(teamId);
-  const keyVersion = getCachedTeamKeyVersion(teamId) ?? 1;
+  const { key: encKey, version: keyVersion } = await getCurrentTeamKey(teamId);
   const encryptedBlob: number[] = await invoke("encrypt_payload", {
     encKey,
     files: {},
@@ -46,8 +45,7 @@ export function resolveTeamIdForVaultId(vaultId: string | null | undefined): str
 
 export async function hydrateTeamVaultSecrets(teamId: string): Promise<void> {
   try {
-    const [currentKey, records] = await Promise.all([getTeamVaultKey(teamId), listTeamSecrets(teamId)]);
-    const currentVersion = getCachedTeamKeyVersion(teamId);
+    const [current, records] = await Promise.all([getCurrentTeamKey(teamId), listTeamSecrets(teamId)]);
     const previous = teamSecretCache.entries(teamId);
     const next = new Map<string, string>();
 
@@ -58,9 +56,9 @@ export async function hydrateTeamVaultSecrets(teamId: string): Promise<void> {
       if (kept !== undefined) next.set(localKey, kept);
       // Missing key_version means epoch 1, matching the server's COALESCE(...,1).
       const recordVersion = record.key_version ?? 1;
-      const encKey = currentVersion !== undefined && recordVersion !== currentVersion
+      const encKey = recordVersion !== current.version
         ? await getTeamVaultKeyAtVersion(teamId, recordVersion)
-        : currentKey;
+        : current.key;
       const payload = await invoke<BlobPayload>("backup_decrypt", { encKey, blob: base64ToByteArray(record.ciphertext) });
       const value = payload.secrets?.[localKey];
       if (value) next.set(localKey, value);

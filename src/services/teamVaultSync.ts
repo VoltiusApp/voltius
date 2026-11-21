@@ -55,17 +55,19 @@ interface BlobPayload {
 
 // ─── In-memory key cache (process memory only — gone on logout/close) ─────────
 
-const _teamKeyCache = new Map<string, number[]>();
-// Epoch the cached key in _teamKeyCache belongs to, one entry per team.
-// Kept in lockstep with _teamKeyCache: every write/clear of one writes/clears
-// the other, so a caller can never read a key and a version that disagree.
-const _teamKeyVersionCache = new Map<string, number>();
+export interface TeamKey {
+  key: number[];
+  version: number;
+}
+
+// Key and epoch live in one entry so no caller can pair a key with another key's epoch.
+const _teamKeyCache = new Map<string, TeamKey>();
 // In-flight fetch/unwrap promises, keyed by team. Without this, N concurrent
 // getTeamVaultKey(teamId) calls on a cold cache (e.g. decoding N encrypted
 // objects during hydration, #229) each start their own GET vault-key +
 // listMembers + unwrap, stampeding the rate-limited vault-key route until it
 // 429s — which callers then fold into "offline" and silently drop rows.
-const _teamKeyInFlight = new Map<string, Promise<number[]>>();
+const _teamKeyInFlight = new Map<string, Promise<TeamKey>>();
 // Per-team eviction generation. deleteTeamKey/clearTeamKeyCache bump it;
 // getTeamVaultKey captures it before starting a fetch and only writes the
 // resolved key into _teamKeyCache if the generation is still the one it
@@ -97,7 +99,6 @@ export function clearTeamKeyCache(): void {
   const teamIds = new Set([..._teamKeyCache.keys(), ..._teamKeyInFlight.keys(), ..._teamKeyGeneration.keys()]);
   for (const teamId of teamIds) _bumpGeneration(teamId);
   _teamKeyCache.clear();
-  _teamKeyVersionCache.clear();
   _teamKeyInFlight.clear();
   // This is the session-end wipe (logout/vault lock, see teamDataManager's
   // onSessionEnd) — raw historical DEKs must not survive it either, even
@@ -107,19 +108,13 @@ export function clearTeamKeyCache(): void {
   _teamKeyAtVersionCache.clear();
   _teamKeyAtVersionInFlight.clear();
   _keyMismatchHealAttempted.clear();
+  _keyConflictLogged.clear();
 }
 
 export function deleteTeamKey(teamId: string): void {
   _bumpGeneration(teamId);
   _teamKeyCache.delete(teamId);
-  _teamKeyVersionCache.delete(teamId);
   _teamKeyInFlight.delete(teamId);
-}
-
-/** The epoch of the key currently cached for `teamId`, or undefined if nothing
- * is cached yet — call getTeamVaultKey(teamId) first to populate it. */
-export function getCachedTeamKeyVersion(teamId: string): number | undefined {
-  return _teamKeyVersionCache.get(teamId);
 }
 
 // ─── Key management ───────────────────────────────────────────────────────────
@@ -142,6 +137,11 @@ export function getCachedTeamKeyVersion(teamId: string): number | undefined {
  *                        still in flight (e.g. #216's kick eviction)
  */
 export async function getTeamVaultKey(teamId: string): Promise<number[]> {
+  return (await getCurrentTeamKey(teamId)).key;
+}
+
+/** The current epoch's key together with that epoch. Same errors as getTeamVaultKey. */
+export async function getCurrentTeamKey(teamId: string): Promise<TeamKey> {
   const cached = _teamKeyCache.get(teamId);
   if (cached) return cached;
 
@@ -157,15 +157,14 @@ export async function getTeamVaultKey(teamId: string): Promise<number[]> {
   // this chain would only protect the caller that happened to start the
   // fetch.
   const generation = _currentGeneration(teamId);
-  const inFlight = _fetchAndUnwrapTeamVaultKey(teamId).then(({ bytes, version }) => {
+  const inFlight = _fetchAndUnwrapTeamVaultKey(teamId).then((fresh) => {
     // The key was evicted (deleteTeamKey/clearTeamKeyCache) while this fetch
     // was on the wire — most importantly, a member just kicked from the team
     // (#216). Do not resurrect it into the cache, and do not hand it back to
     // any caller either; treat it the same as any other failed fetch.
     if (_currentGeneration(teamId) !== generation) throw "error";
-    _teamKeyCache.set(teamId, bytes);
-    _teamKeyVersionCache.set(teamId, version);
-    return bytes;
+    _teamKeyCache.set(teamId, fresh);
+    return fresh;
   });
   _teamKeyInFlight.set(teamId, inFlight);
   // Detached cleanup subscriber: always drop the in-flight entry once the
@@ -178,12 +177,100 @@ export async function getTeamVaultKey(teamId: string): Promise<number[]> {
   return inFlight;
 }
 
+export type TeamKeyRevalidation = "unchanged" | "replaced" | "revoked" | "conflict";
+
+const _TRANSIENT_KEY_ERRORS = new Set<unknown>(["offline", "error", "update_required"]);
+const _keyConflictLogged = new Set<string>();
+
+function _sameKey(a: number[], b: number[]): boolean {
+  return a.length === b.length && a.every((byte, i) => byte === b[i]);
+}
+
+function _noteKeyConflict(teamId: string, reason: string): TeamKeyRevalidation {
+  if (!_keyConflictLogged.has(teamId)) {
+    _keyConflictLogged.add(teamId);
+    logFailure(`teamVaultSync: kept cached key team=${teamId}`)(new Error(reason));
+  }
+  return "conflict";
+}
+
+/** Re-reads this member's wrap of a cached key; only a newer epoch replaces it. */
+export async function revalidateTeamVaultKey(teamId: string): Promise<TeamKeyRevalidation> {
+  if (!_teamKeyCache.has(teamId)) return "unchanged";
+  const generation = _currentGeneration(teamId);
+  const current = (): TeamKey | undefined =>
+    _currentGeneration(teamId) === generation ? _teamKeyCache.get(teamId) : undefined;
+
+  let wrapped: WrappedTeamKey;
+  try {
+    wrapped = await _fetchWrappedTeamKey(_currentKeyPath(teamId));
+  } catch (err) {
+    if (_TRANSIENT_KEY_ERRORS.has(err) || !current()) return "unchanged";
+    deleteTeamKey(teamId);
+    return "revoked";
+  }
+  const before = current();
+  if (!before || wrapped.version < before.version) return "unchanged";
+
+  let fresh: TeamKey;
+  try {
+    fresh = await _unwrapTeamKey(wrapped);
+  } catch (err) {
+    const cached = current();
+    if (err !== "key_mismatch" || !cached || wrapped.version < cached.version) return "unchanged";
+    // Same epoch: the cached key still opens existing rows. Newer epoch: it must stop sealing new ones.
+    if (wrapped.version === cached.version) return _noteKeyConflict(teamId, "server wrap cannot be opened");
+    deleteTeamKey(teamId);
+    return "revoked";
+  }
+  const cached = current();
+  if (!cached || fresh.version < cached.version) return "unchanged";
+  if (fresh.version === cached.version) {
+    if (_sameKey(fresh.key, cached.key)) return "unchanged";
+    // Rotation always bumps the epoch, so the cached key is the one existing rows were sealed with.
+    return _noteKeyConflict(teamId, "different key under the same epoch");
+  }
+  _teamKeyAtVersionCache.set(`${teamId}:${cached.version}`, cached.key);
+  _teamKeyCache.set(teamId, fresh);
+  return "replaced";
+}
+
+let _revalidationTail: Promise<void> = Promise.resolve();
+let _revalidationQueued = false;
+
+/** One team at a time, and bursts of events collapse into one pending pass, to stay under the vault-key rate limit. */
+export function revalidateCachedTeamKeys(): Promise<void> {
+  if (_revalidationQueued) return _revalidationTail;
+  _revalidationQueued = true;
+  _revalidationTail = _revalidationTail.then(async () => {
+    _revalidationQueued = false;
+    for (const teamId of new Set([..._teamKeyCache.keys(), ..._teamKeyInFlight.keys()])) {
+      // A fetch that left before this event may cache the epoch it replaced.
+      await _teamKeyInFlight.get(teamId)?.catch(() => {});
+      const outcome = await revalidateTeamVaultKey(teamId);
+      // A revoked key reloads in the foreground so the vault shows why it is no longer readable.
+      if (outcome === "replaced" || outcome === "revoked") {
+        fetchTeamData(teamId, { background: outcome === "replaced" }).catch(logFailure(`teamVaultSync: reload after key change team=${teamId}`));
+      }
+    }
+  }).catch(logFailure("teamVaultSync: revalidateCachedTeamKeys"));
+  return _revalidationTail;
+}
+
 /** Shared by the "current epoch" and "specific historical epoch" fetch paths:
  * GET the given vault-key URL, resolve the wrapping member, unwrap. Thrown
  * error strings match _fetchAndUnwrapTeamVaultKey's existing contract. */
-async function _fetchAndUnwrapVaultKeyUrl(
-  path: string,
-): Promise<{ bytes: number[]; version: number }> {
+interface WrappedTeamKey {
+  wrappedKey: string;
+  wrappedBy: string;
+  version: number;
+}
+
+async function _fetchAndUnwrapVaultKeyUrl(path: string): Promise<TeamKey> {
+  return _unwrapTeamKey(await _fetchWrappedTeamKey(path));
+}
+
+async function _fetchWrappedTeamKey(path: string): Promise<WrappedTeamKey> {
   if (!navigator.onLine) throw "offline";
 
   const serverUrl = await getServerUrl();
@@ -205,29 +292,35 @@ async function _fetchAndUnwrapVaultKeyUrl(
   const { wrapped_key, wrapped_by_user_id, key_version } = await res.json() as {
     wrapped_key: string;
     wrapped_by_user_id: string;
-    key_version: number;
+    key_version?: number;
   };
+  // Servers before epochs (#217) omit key_version; their rows are all epoch 1.
+  return { wrappedKey: wrapped_key, wrappedBy: wrapped_by_user_id, version: key_version ?? 1 };
+}
 
+async function _unwrapTeamKey({ wrappedKey, wrappedBy, version }: WrappedTeamKey): Promise<TeamKey> {
   // Looked up directly rather than via the current member roster: a
   // historical epoch's key can be wrapped by someone since removed from the
   // team — the very event that triggers rotation — and the roster would
   // never find them again, permanently blocking recovery of that epoch.
-  const wrapper = await teamService.getUserPublicKey(wrapped_by_user_id).catch(() => {
+  const wrapper = await teamService.getUserPublicKey(wrappedBy).catch(() => {
     throw "error";
   });
   if (!wrapper) throw "error";
 
   let rawKey: Uint8Array;
   try {
-    rawKey = await unwrapSessionKey(wrapped_key, wrapper.public_key);
+    rawKey = await unwrapSessionKey(wrappedKey, wrapper.public_key);
   } catch {
     throw "key_mismatch";
   }
-  return { bytes: Array.from(rawKey), version: key_version };
+  return { key: Array.from(rawKey), version };
 }
 
-async function _fetchAndUnwrapTeamVaultKey(teamId: string): Promise<{ bytes: number[]; version: number }> {
-  return _fetchAndUnwrapVaultKeyUrl(`/v1/teams/${teamId}/vault-key`);
+const _currentKeyPath = (teamId: string): string => `/v1/teams/${teamId}/vault-key`;
+
+async function _fetchAndUnwrapTeamVaultKey(teamId: string): Promise<TeamKey> {
+  return _fetchAndUnwrapVaultKeyUrl(_currentKeyPath(teamId));
 }
 
 // Historical-epoch key cache, keyed by "teamId:version" — separate from the
@@ -259,9 +352,9 @@ export async function getTeamVaultKeyAtVersion(teamId: string, version: number):
   if (existing) return existing;
 
   const inFlight = _fetchAndUnwrapVaultKeyUrl(`/v1/teams/${teamId}/vault-key/${version}`).then(
-    ({ bytes }) => {
-      _teamKeyAtVersionCache.set(cacheKey, bytes);
-      return bytes;
+    ({ key }) => {
+      _teamKeyAtVersionCache.set(cacheKey, key);
+      return key;
     },
   );
   _teamKeyAtVersionInFlight.set(cacheKey, inFlight);
@@ -274,9 +367,8 @@ export async function getTeamVaultKeyAtVersion(teamId: string, version: number):
 // same three-line shape at every call site that decodes a versioned row
 // (this file's own blob path, teamObjectEnvelope.ts, teamVaultSecrets.ts) —
 // deliberately NOT extracted into a shared helper here. Their unit tests each
-// mock this whole module down to just getTeamVaultKey/getCachedTeamKeyVersion/
-// getTeamVaultKeyAtVersion so they can exercise the branch as *their own*
-// logic; a helper living in this module would be undefined under that mock,
+// mock this whole module down to just getCurrentTeamKey/getTeamVaultKeyAtVersion
+// so they can exercise the branch as *their own* logic; a helper living in this module would be undefined under that mock,
 // which would silently swap "test the branch" for "test that a mock was
 // called." See #217 task-2 brief.
 
@@ -295,13 +387,17 @@ export async function initTeamVaultKey(
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
   let rawKey: Uint8Array;
+  let keyVersion: number;
   let mintedFreshKey = false;
   try {
-    const existingBytes = await getTeamVaultKey(teamId); // also primes the version cache
-    rawKey = new Uint8Array(existingBytes);
+    const existing = await getCurrentTeamKey(teamId);
+    rawKey = new Uint8Array(existing.key);
+    keyVersion = existing.version;
   } catch (err) {
     if (err !== "awaiting_key") throw new Error(i18n.t("common.error.keyFetchFailed", { error: String(err) }));
     rawKey = crypto.getRandomValues(new Uint8Array(32));
+    // A team's first-ever key is always epoch 1.
+    keyVersion = 1;
     mintedFreshKey = true;
   }
 
@@ -323,14 +419,10 @@ export async function initTeamVaultKey(
     keys.push({ user_id: member.user_id, wrapped_key: wrapped });
   }
 
-  const res = await putVaultKeys(serverUrl, teamId, keys, mintedFreshKey ? 1 : getCachedTeamKeyVersion(teamId));
+  const res = await putVaultKeys(serverUrl, teamId, keys, keyVersion);
   if (!res.ok) throw new Error(i18n.t("common.error.failedToUploadVaultKeys", { status: res.status }));
 
-  _teamKeyCache.set(teamId, Array.from(rawKey));
-  // A reused existing key already had its version cached by getTeamVaultKey
-  // above — never clobber that. Only a freshly minted key has no epoch on
-  // the server yet, and a team's first-ever key is always epoch 1.
-  if (mintedFreshKey) _teamKeyVersionCache.set(teamId, 1);
+  if (mintedFreshKey) _teamKeyCache.set(teamId, { key: Array.from(rawKey), version: keyVersion });
 }
 
 /**
@@ -347,13 +439,13 @@ export async function distributeKeyToNewMember(
   if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
   for (let attempt = 0; ; attempt++) {
-    let rawKey: number[];
+    let current: TeamKey;
     try {
-      rawKey = await getTeamVaultKey(teamId);
+      current = await getCurrentTeamKey(teamId);
     } catch {
       return;
     }
-    const version = getCachedTeamKeyVersion(teamId);
+    const { key: rawKey, version } = current;
     const wrapped = await wrapSessionKeyForUser(new Uint8Array(rawKey), memberPublicKey);
     const res = await putVaultKeys(serverUrl, teamId, [{ user_id: memberUserId, wrapped_key: wrapped }], version);
     // 409: another member rotated since this key was cached; wrap the new one instead.
@@ -522,9 +614,9 @@ async function _loadTeamData(teamId: string, options: TeamVaultRefreshOptions): 
     }
   }
 
-  let key: number[];
+  let current: TeamKey;
   try {
-    key = await getTeamVaultKey(teamId);
+    current = await getCurrentTeamKey(teamId);
   } catch (err) {
     // A 403 here means one of two very different things: the caller was removed
     // from the team, or their role simply lacks VIEW_SECRETS (connect-only,
@@ -563,13 +655,13 @@ async function _loadTeamData(teamId: string, options: TeamVaultRefreshOptions): 
       return false;
     }
     const { blob: blobB64, key_version: blobVersion } = await res.json() as {
-      blob: string; updated_at: string; key_version: number;
+      blob: string; updated_at: string; key_version?: number;
     };
     const blobBytes = base64ToByteArray(blobB64);
-    const currentVersion = getCachedTeamKeyVersion(teamId);
-    const blobKey = currentVersion !== undefined && blobVersion !== currentVersion
-      ? await getTeamVaultKeyAtVersion(teamId, blobVersion)
-      : key;
+    const blobEpoch = blobVersion ?? 1;
+    const blobKey = blobEpoch !== current.version
+      ? await getTeamVaultKeyAtVersion(teamId, blobEpoch)
+      : current.key;
     blobPayload = await invoke<BlobPayload>("backup_decrypt", { encKey: blobKey, blob: blobBytes });
   } catch {
     if (options.background) return false;
