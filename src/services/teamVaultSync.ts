@@ -24,7 +24,8 @@ import { wrapSessionKeyForUser, unwrapSessionKey, publishMyPublicKey } from "@/s
 import * as teamService from "@/services/teamService";
 import { getServerUrl } from "@/services/authTokens";
 import { fetchAuthRateLimited as fetchWithAuth } from "@/services/authFetch";
-import { useTeamVaultStateStore, type TeamVaultStatus } from "@/stores/teamVaultStateStore";
+import { undecryptableTotal, useTeamVaultStateStore, type TeamVaultStatus } from "@/stores/teamVaultStateStore";
+import type { DecodeFailureCounts } from "@/services/teamObjectRows";
 import { purgeLocalSecrets } from "@/services/vault";
 import { teamSecretCache } from "@/services/teamSecretCache";
 import { logFailure } from "@/lib/logger";
@@ -37,7 +38,7 @@ import {
   TeamVaultRefreshQueue,
   type TeamVaultRefreshOptions,
 } from "@/services/teamVaultRefresh";
-import { classifyTeamObjectListError, isAccessRevoked } from "@/services/teamVaultLoadErrors";
+import { classifyTeamObjectListError, isAccessRevoked, isTeamKeyError } from "@/services/teamVaultLoadErrors";
 import {
   base64ToByteArray,
   bytesToBase64,
@@ -532,6 +533,27 @@ async function _healKeyMismatchOnce(teamId: string, err: unknown): Promise<boole
 
 // ─── Data fetch / save ────────────────────────────────────────────────────────
 
+function keyFailureStatus(err: unknown): TeamVaultStatus {
+  return isTeamKeyError(err) ? err : "error";
+}
+
+/**
+ * Every live row failed to decode. The key fetch names the cause when it is the
+ * key; otherwise the rows themselves are unreadable, which is never an empty vault.
+ */
+async function _settleUnreadableVault(teamId: string, failures: DecodeFailureCounts, options: TeamVaultRefreshOptions): Promise<false> {
+  if (options.background) return false;
+  useTeamVaultStateStore.getState().setUndecryptable(teamId, failures);
+  const keyError = await getTeamVaultKey(teamId).then(() => null, (e: unknown) => e);
+  const memberView = keyError === "forbidden" ? await _memberViewStatus(teamId) : null;
+  const status = keyError === null || keyError === "error" || memberView === "loaded"
+    ? "undecryptable"
+    : memberView ?? keyFailureStatus(keyError);
+  await clearTeamStoresAndSecrets(teamId);
+  useTeamVaultStateStore.getState().setStatus(teamId, status);
+  return false;
+}
+
 /**
  * Fetch the team blob, decrypt it, and populate the in-memory store slices.
  * Sets teamVaultStatus to the appropriate state. Never throws — all errors are
@@ -570,8 +592,11 @@ async function _loadTeamData(teamId: string, options: TeamVaultRefreshOptions): 
   try {
     const objects = await listTeamObjects(teamId);
     (await import("@/services/revokedConnections")).noteListedConnections(teamId, objects);
-    if (objects.length > 0) {
-      await _hydrateTeamObjectStores(teamId, objects);
+    if (objects.length === 0) stateStore.setUndecryptable(teamId, {});
+    else {
+      const hydration = await _hydrateTeamObjectStores(teamId, objects);
+      if (isUnreadable(hydration)) return await _settleUnreadableVault(teamId, hydration.failures, options);
+      stateStore.setUndecryptable(teamId, hydration.failures);
       // Background migration of rows predating #229. Never blocks the load, and
       // a failure leaves the remaining rows for the next connect.
       void import("@/services/teamObjectReencrypt")
@@ -630,9 +655,7 @@ async function _loadTeamData(teamId: string, options: TeamVaultRefreshOptions): 
       if (isAccessRevoked(err)) teamSecretCache.clearTeam(teamId);
       return false;
     }
-    const validStatuses = ["offline", "forbidden", "payment_required", "update_required", "awaiting_key", "key_mismatch", "error"] as const;
-    type Thrown = typeof validStatuses[number];
-    const status = memberView ?? (validStatuses.includes(err as Thrown) ? (err as Thrown) : "error");
+    const status = memberView ?? keyFailureStatus(err);
     // Clear team store slices so stale data doesn't linger
     await clearTeamStoresAndSecrets(teamId);
     stateStore.setStatus(teamId, status);
@@ -749,10 +772,16 @@ async function _memberViewStatus(teamId: string): Promise<"loaded" | "plan_lapse
   return planLapsedFor(team, useTeamStore.getState().rolesByTeam[teamId] ?? []) ? "plan_lapsed" : "loaded";
 }
 
-export async function _hydrateTeamObjectStores(teamId: string, objects: TeamObjectRecord[]): Promise<void> {
+export interface TeamObjectHydration {
+  active: number;
+  failures: DecodeFailureCounts;
+}
+
+/** Leaves every store untouched when no live row decodes: an unreadable vault must not replace a readable one. */
+export async function _hydrateTeamObjectStores(teamId: string, objects: TeamObjectRecord[]): Promise<TeamObjectHydration> {
   const active = objects.filter((o) => !o.deleted_at);
 
-  const { decodeTeamObject, noteTeamRows, acceptsPlaintextRows } = await import("@/services/teamObjectRows");
+  const { decodeTeamObject, decodeFailureOf, noteTeamRows, acceptsPlaintextRows } = await import("@/services/teamObjectRows");
   noteTeamRows(teamId, active);
   const allowPlaintext = acceptsPlaintextRows(teamId);
 
@@ -760,10 +789,13 @@ export async function _hydrateTeamObjectStores(teamId: string, objects: TeamObje
   // A row that will not decrypt is dropped rather than spread: a half-object
   // with no id or host is worse in the stores than an absent one, and it would
   // be written straight back on the next save.
+  const failures: DecodeFailureCounts = {};
   const decoded = await Promise.all(
     active.map(async (o) => {
-      const metadata = await decodeTeamObject(teamId, o, allowPlaintext).catch((e) => {
-        logFailure(`teamVaultSync: decode object team=${teamId} object=${o.object_id}`)(e);
+      const metadata = await decodeTeamObject(teamId, o, allowPlaintext).catch((e: unknown) => {
+        const reason = decodeFailureOf(e);
+        failures[reason] = (failures[reason] ?? 0) + 1;
+        logFailure(`teamVaultSync: decode object team=${teamId} object=${o.object_id} reason=${reason}`)(e);
         return null;
       });
       return metadata === null ? null : { ...o, metadata };
@@ -771,6 +803,8 @@ export async function _hydrateTeamObjectStores(teamId: string, objects: TeamObje
   );
 
   const usable = decoded.filter((o): o is TeamObjectRecord & { metadata: object } => o !== null);
+  const result = { active: active.length, failures };
+  if (isUnreadable(result)) return result;
 
   const { buildAccessEntries } = await import("@/services/teamObjectAccess");
   const { useTeamObjectAccessStore } = await import("@/stores/teamObjectAccessStore");
@@ -803,8 +837,10 @@ export async function _hydrateTeamObjectStores(teamId: string, objects: TeamObje
 
   const { useTeamObjectPrefsStore } = await import("@/stores/teamObjectPrefsStore");
   await useTeamObjectPrefsStore.getState().load(teamId).catch(() => {});
+  return result;
 }
 
+const isUnreadable = ({ active, failures }: TeamObjectHydration) => active > 0 && undecryptableTotal(failures) === active;
 
 async function purgeLocalCopies(keys: string[]): Promise<string[]> {
   try {

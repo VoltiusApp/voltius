@@ -5,8 +5,7 @@ import { SectionAddButton, SectionHeader } from "@/components/shared/SectionHead
 import { useTranslation } from "react-i18next";
 import { matchesSearch, compareConnections } from "@/utils/connectionFilter";
 import { ErrorBanner } from "@/components/shared/ErrorBanner";
-import { TeamCredentialsNote } from "@/components/shared/VaultUnavailableNote";
-import { useTeamCredentialsUnavailable } from "@/hooks/useBlockedTeamVault";
+import { TeamVaultNotes } from "@/components/shared/VaultUnavailableNote";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { useConnectionStore, connectionToFormData } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
@@ -169,7 +168,6 @@ export default function HostsPage() {
   const scopedVaultId = useScopedVaultId();
   const can = usePermissions();
   const canCreate = selectedVaultIds.some((vid) => can("EDIT_CONNECTIONS", vid));
-  const teamCredentialsUnavailable = useTeamCredentialsUnavailable();
 
   const vaultOptions = useVaultOptions();
 
@@ -647,7 +645,7 @@ export default function HostsPage() {
 
         {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
 
-        {teamCredentialsUnavailable && <TeamCredentialsNote reason={teamCredentialsUnavailable} className="mx-5 mt-3" />}
+        <TeamVaultNotes className="mx-5 mt-3" />
 
         <DragSelectSurface
           selectionAreaRef={selectionAreaRef}

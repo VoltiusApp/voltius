@@ -209,6 +209,9 @@
     "vaultUnavailable": {
       "note": "Não foi possível ler o cofre, então os segredos armazenados não são exibidos aqui. Deixe um campo vazio para manter o que está guardado; digitar um novo valor o substitui."
     },
+    "teamVaultUndecryptable_one": "{{count}} item deste cofre de equipa não pôde ser desencriptado e está oculto. A chave de encriptação da equipa pode estar indisponível ou dessincronizada neste dispositivo.",
+    "teamVaultUndecryptable_many": "{{count}} itens deste cofre de equipa não puderam ser desencriptados e estão ocultos. A chave de encriptação da equipa pode estar indisponível ou dessincronizada neste dispositivo.",
+    "teamVaultUndecryptable_other": "{{count}} itens deste cofre de equipa não puderam ser desencriptados e estão ocultos. A chave de encriptação da equipa pode estar indisponível ou dessincronizada neste dispositivo.",
     "teamCredentials": {
       "unavailable": "Não foi possível carregar as credenciais armazenadas deste cofre de equipe, então hosts que precisam de uma palavra-passe, chave ou frase secreta guardada falharão ao conectar. Peça a um administrador do cofre para conceder acesso aos segredos do cofre à sua função."
     },

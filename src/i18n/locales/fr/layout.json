@@ -118,6 +118,8 @@
         "paymentRequiredBodyMember": "L'abonnement du propriétaire a expiré. Les coffres d'équipe nécessitent un abonnement actif.",
         "keyMismatchTitle": "Cet appareil ne peut pas ouvrir la clé du coffre",
         "keyMismatchBody": "Votre clé est bien sur le serveur, mais les clés de compte de cet appareil ne correspondent pas. Déconnectez-vous de ce compte puis reconnectez-vous avec votre mot de passe principal.",
+        "undecryptableTitle": "Impossible de déchiffrer ce coffre d'équipe",
+        "undecryptableBody": "Le serveur a envoyé les éléments de ce coffre, mais aucun n'a pu être déchiffré sur cet appareil. La clé de chiffrement de l'équipe est peut-être indisponible ou désynchronisée. Réessayez, ou demandez à un propriétaire du coffre de vérifier la clé de l'équipe.",
         "errorTitle": "Impossible de charger le coffre d'équipe",
         "errorBody": "Une erreur s'est produite. Réessayez.",
         "updateRequiredTitle": "Mise à jour requise",

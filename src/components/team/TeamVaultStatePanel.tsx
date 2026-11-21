@@ -79,6 +79,11 @@ export default function TeamVaultStatePanel({
       title: t("layout.mainPanel.teamVault.keyMismatchTitle"),
       body: t("layout.mainPanel.teamVault.keyMismatchBody"),
     },
+    undecryptable: {
+      icon: "lucide:file-lock",
+      title: t("layout.mainPanel.teamVault.undecryptableTitle"),
+      body: t("layout.mainPanel.teamVault.undecryptableBody"),
+    },
     error: {
       icon: "lucide:triangle-alert",
       title: t("layout.mainPanel.teamVault.errorTitle"),
@@ -129,7 +134,7 @@ export default function TeamVaultStatePanel({
             {t("layout.mainPanel.checkForUpdates")}
           </button>
         )}
-        {(!status || status === "error" || status === "awaiting_key") && (
+        {(!status || status === "error" || status === "awaiting_key" || status === "undecryptable") && (
           <button
             onClick={() => fetchTeamData(teamId).catch(() => {})}
             className="mt-2 text-sm px-3 py-1.5 rounded-lg"

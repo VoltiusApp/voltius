@@ -71,6 +71,7 @@ import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { compareStrings, formatRelative } from "@/utils/localeFormat";
 import { refuseWhilePreviewing, snippetTarget, whenWritable } from "@/services/previewGuard";
+import { TeamVaultNotes } from "@/components/shared/VaultUnavailableNote";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -810,6 +811,8 @@ export function SnippetsPage() {
         </div>
       ) : (
       <>
+
+      <TeamVaultNotes secrets={false} className="mx-5 mt-3" />
 
       {/* ── Main content ── */}
       <DragSelectSurface

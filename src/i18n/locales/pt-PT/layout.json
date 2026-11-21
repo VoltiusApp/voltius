@@ -118,6 +118,8 @@
         "paymentRequiredBodyMember": "A assinatura do proprietário terminou. Cofres de equipe exigem um plano ativo.",
         "keyMismatchTitle": "Este dispositivo não pode abrir a chave do cofre",
         "keyMismatchBody": "Sua chave está no servidor, mas as chaves de conta deste dispositivo não correspondem a ela. Saia desta conta e entre novamente com sua palavra-passe mestra.",
+        "undecryptableTitle": "Não foi possível desencriptar este cofre de equipa",
+        "undecryptableBody": "O servidor enviou os itens deste cofre, mas nenhum pôde ser desencriptado neste dispositivo. A chave de encriptação da equipa pode estar indisponível ou dessincronizada. Tente novamente ou peça a um proprietário do cofre para verificar a chave da equipa.",
         "errorTitle": "Não foi possível carregar o cofre da equipe",
         "errorBody": "Algo deu errado. Tente novamente.",
         "updateRequiredTitle": "Atualização necessária",

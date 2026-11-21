@@ -55,6 +55,7 @@ import { useSearchMatcher } from "@/utils/search";
 import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
 import { folderTarget, refuseWhilePreviewing, ruleTarget, whenWritable } from "@/services/previewGuard";
 import { usePreviewActive } from "@/hooks/previewScope";
+import { TeamVaultNotes } from "@/components/shared/VaultUnavailableNote";
 
 function sortRules(rules: PortForwardingRule[], mode: SortMode): PortForwardingRule[] {
   return [...rules].sort((a, b) => {
@@ -439,6 +440,8 @@ export function PortForwardingPage() {
           selectedCount={[...selectedIdSet].filter((id) => filteredRuleIdSet.has(id)).length}
           onDeleteSelected={[...selectedIdSet].some((id) => filteredRuleIdSet.has(id)) ? () => setConfirmDeleteIds([...selectedIdSet].filter((id) => filteredRuleIdSet.has(id))) : undefined}
         />
+
+        <TeamVaultNotes secrets={false} className="mx-5 mt-3" />
 
         <DragSelectSurface
           selectionAreaRef={selectionAreaRef}

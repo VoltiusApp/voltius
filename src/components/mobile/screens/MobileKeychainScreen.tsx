@@ -26,6 +26,7 @@ import { folderItemCounter } from "@/utils/folderTree";
 import type { SshKey, Identity, Folder } from "@/types";
 import { compareStrings, formatDate } from "@/utils/localeFormat";
 import { useSearchMatcher } from "@/utils/search";
+import { TeamVaultNotes } from "@/components/shared/VaultUnavailableNote";
 
 const KEY_ICON = "lucide:key-round";
 const IDENTITY_ICON = "lucide:user";
@@ -103,6 +104,7 @@ export default function MobileKeychainScreen() {
       <MobileFolderBreadcrumb path={nav.folderPath} onNavigate={(i) => (i < 0 ? nav.navigateToRoot() : nav.navigateTo(i))} />
 
       <div ref={axisRef} data-mobile-folder-level className="flex-1 overflow-y-auto pb-4">
+        <TeamVaultNotes className="mx-4 mt-3" />
         {!search && subFolders.length > 0 && (
           <div className="px-2 pt-1">
             {subFolders.map((f) => (

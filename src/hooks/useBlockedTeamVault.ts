@@ -1,6 +1,6 @@
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
-import { isBlockedTeamVaultStatus, useTeamVaultStateStore, type TeamVaultStatus } from "@/stores/teamVaultStateStore";
+import { isBlockedTeamVaultStatus, undecryptableTotal, useTeamVaultStateStore, type TeamVaultStatus } from "@/stores/teamVaultStateStore";
 import { selectedTeamId } from "@/services/teamVaultFirstAccess";
 import { planLapsedFor } from "@/services/permissions";
 
@@ -38,4 +38,10 @@ export function useTeamCredentialsUnavailable(): TeamCredentialsReason | null {
   const lapsed = useTeamStore((s) => !!teamId && planLapsedFor(s.teams.find((t) => t.id === teamId), s.rolesByTeam[teamId] ?? []));
   if (!unavailable) return null;
   return lapsed ? "plan_lapsed" : "unavailable";
+}
+
+/** Live rows of the team vault on screen that the last load could not decrypt. */
+export function useTeamUndecryptableCount(): number {
+  const teamId = useSelectedTeamId();
+  return useTeamVaultStateStore((s) => (teamId ? undecryptableTotal(s.undecryptableByTeamId[teamId]) : 0));
 }

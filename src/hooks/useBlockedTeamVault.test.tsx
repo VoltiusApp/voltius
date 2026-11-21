@@ -2,13 +2,13 @@ import { test, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
+  useTranslation: () => ({ t: (k: string, o?: { count?: number }) => (o?.count === undefined ? k : `${k}:${o.count}`) }),
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 
 import { useTeamCredentialsUnavailable } from "./useBlockedTeamVault";
-import { TeamCredentialsNote } from "@/components/shared/VaultUnavailableNote";
+import { TeamCredentialsNote, TeamVaultNotes } from "@/components/shared/VaultUnavailableNote";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
@@ -52,5 +52,19 @@ test("no warning while the credentials loaded, lapsed or not", () => {
   selectTeam({ owner_tier: "teams", permission_allow: PERM_BITS.VIEW | PERM_BITS.CONNECT });
   useTeamVaultStateStore.getState().setCredentialsUnavailable("t1", false);
   const { container } = render(<Warning />);
+  expect(container.innerHTML).toBe("");
+});
+
+test("undecryptable rows are reported with their count, on pages without secrets too", () => {
+  selectTeam({ owner_tier: "business" });
+  useTeamVaultStateStore.getState().setCredentialsUnavailable("t1", false);
+  useTeamVaultStateStore.getState().setUndecryptable("t1", { key: 2, mismatch: 1 });
+  render(<TeamVaultNotes secrets={false} />);
+  expect(screen.getByText("shared.teamVaultUndecryptable:3")).toBeTruthy();
+});
+
+test("a page without secrets never shows the credentials warning", () => {
+  selectTeam({ owner_tier: "business" });
+  const { container } = render(<TeamVaultNotes secrets={false} />);
   expect(container.innerHTML).toBe("");
 });

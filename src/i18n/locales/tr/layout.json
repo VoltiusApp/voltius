@@ -118,6 +118,8 @@
         "paymentRequiredBodyMember": "Sahibin aboneliği sona erdi. Ekip kasaları etkin bir plan gerektirir.",
         "keyMismatchTitle": "Bu cihaz kasa anahtarını açamıyor",
         "keyMismatchBody": "Anahtarınız sunucuda, ancak bu cihazdaki hesap anahtarları onunla eşleşmiyor. Bu hesabın oturumunu kapatın, ardından ana parolanızla yeniden oturum açın.",
+        "undecryptableTitle": "Bu ekip kasasının şifresi çözülemedi",
+        "undecryptableBody": "Sunucu bu kasanın öğelerini gönderdi, ancak hiçbirinin şifresi bu cihazda çözülemedi. Ekip şifreleme anahtarı kullanılamıyor veya eşitlenmemiş olabilir. Yeniden deneyin ya da bir kasa sahibinden ekip anahtarını kontrol etmesini isteyin.",
         "errorTitle": "Ekip kasası yüklenemedi",
         "errorBody": "Bir sorun oluştu. Tekrar deneyin.",
         "updateRequiredTitle": "Güncelleme gerekli",

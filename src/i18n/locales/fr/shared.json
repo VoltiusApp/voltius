@@ -225,6 +225,9 @@
     "vaultUnavailable": {
       "note": "Le coffre n'a pas pu être lu, les secrets enregistrés ne sont donc pas affichés ici. Laissez un champ vide pour conserver ce qui est enregistré ; saisir une nouvelle valeur la remplace."
     },
+    "teamVaultUndecryptable_one": "{{count}} élément de ce coffre d'équipe n'a pas pu être déchiffré et reste masqué. La clé de chiffrement de l'équipe est peut-être indisponible ou désynchronisée sur cet appareil.",
+    "teamVaultUndecryptable_many": "{{count}} éléments de ce coffre d'équipe n'ont pas pu être déchiffrés et restent masqués. La clé de chiffrement de l'équipe est peut-être indisponible ou désynchronisée sur cet appareil.",
+    "teamVaultUndecryptable_other": "{{count}} éléments de ce coffre d'équipe n'ont pas pu être déchiffrés et restent masqués. La clé de chiffrement de l'équipe est peut-être indisponible ou désynchronisée sur cet appareil.",
     "teamCredentials": {
       "unavailable": "Les identifiants enregistrés de ce coffre d'équipe n'ont pas pu être chargés : les hôtes qui utilisent un mot de passe, une clé ou une phrase secrète enregistrés échoueront à la connexion. Demandez à un administrateur du coffre d'accorder à votre rôle l'accès aux secrets du coffre."
     },

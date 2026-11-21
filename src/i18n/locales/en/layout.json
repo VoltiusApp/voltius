@@ -118,6 +118,8 @@
         "paymentRequiredBodyMember": "The owner's subscription has ended. Team vaults require an active plan.",
         "keyMismatchTitle": "This device can't open the vault key",
         "keyMismatchBody": "Your key is on the server, but this device's account keys don't match it. Sign out of this account and sign back in with your master password.",
+        "undecryptableTitle": "Couldn't decrypt this team vault",
+        "undecryptableBody": "The server sent this vault's items, but none of them could be decrypted on this device. The team encryption key may be unavailable or out of sync. Try again, or ask a vault owner to check the team key.",
         "errorTitle": "Couldn't load team vault",
         "errorBody": "Something went wrong. Try again.",
         "updateRequiredTitle": "Update required",

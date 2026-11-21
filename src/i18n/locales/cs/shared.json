@@ -229,6 +229,10 @@
     "vaultUnavailable": {
       "note": "Trezor se nepodařilo přečíst, uložená tajemství proto nejsou zobrazena. Pokud pole necháte prázdné, uložená hodnota zůstane; zadáním nové hodnoty ji nahradíte."
     },
+    "teamVaultUndecryptable_one": "{{count}} položku tohoto týmového trezoru se nepodařilo dešifrovat, a proto je skrytá. Šifrovací klíč týmu může být na tomto zařízení nedostupný nebo nesynchronizovaný.",
+    "teamVaultUndecryptable_few": "{{count}} položky tohoto týmového trezoru se nepodařilo dešifrovat, a proto jsou skryté. Šifrovací klíč týmu může být na tomto zařízení nedostupný nebo nesynchronizovaný.",
+    "teamVaultUndecryptable_many": "{{count}} položky tohoto týmového trezoru se nepodařilo dešifrovat, a proto jsou skryté. Šifrovací klíč týmu může být na tomto zařízení nedostupný nebo nesynchronizovaný.",
+    "teamVaultUndecryptable_other": "{{count}} položek tohoto týmového trezoru se nepodařilo dešifrovat, a proto jsou skryté. Šifrovací klíč týmu může být na tomto zařízení nedostupný nebo nesynchronizovaný.",
     "teamCredentials": {
       "unavailable": "Uložené přihlašovací údaje tohoto týmového trezoru se nepodařilo načíst. Připojení k hostům vyžadujícím uložené heslo, klíč nebo heslo ke klíči proto selže. Požádejte správce trezoru, aby vaší roli udělil přístup k tajemstvím trezoru."
     },

@@ -2,7 +2,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { statusSurface } from "./statusSurface";
 import type { StoredSecretsState } from "@/hooks/useStoredSecrets";
-import type { TeamCredentialsReason } from "@/hooks/useBlockedTeamVault";
+import { useTeamCredentialsUnavailable, useTeamUndecryptableCount, type TeamCredentialsReason } from "@/hooks/useBlockedTeamVault";
 
 /** One warning row: an icon and a sentence on the shared warning surface. */
 export function WarningNote({ icon, text, className }: { icon: string; text: string; className?: string }) {
@@ -52,5 +52,22 @@ export function TeamCredentialsNote({ reason, className }: { reason: TeamCredent
       text={t(lapsed ? "layout.mainPanel.teamVault.planLapsedBody" : "shared.teamCredentials.unavailable")}
       className={className}
     />
+  );
+}
+
+/** The warnings a team vault shows above its list when it loaded only part of what it holds. */
+export function TeamVaultNotes({ className, secrets = true }: { className?: string; secrets?: boolean }) {
+  const { t } = useTranslation();
+  const unavailable = useTeamCredentialsUnavailable();
+  const credentials = secrets ? unavailable : null;
+  const undecryptable = useTeamUndecryptableCount();
+  if (!credentials && undecryptable === 0) return null;
+  return (
+    <div className={`flex flex-col gap-2 ${className ?? ""}`}>
+      {undecryptable > 0 && (
+        <WarningNote icon="lucide:file-lock" text={t("shared.teamVaultUndecryptable", { count: undecryptable })} />
+      )}
+      {credentials && <TeamCredentialsNote reason={credentials} />}
+    </div>
   );
 }
