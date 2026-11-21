@@ -11,7 +11,10 @@ vi.mock("@/services/multiplayerService", () => ({
   publishMyPublicKey: vi.fn(),
 }));
 
-import { getTeamVaultKey, clearTeamKeyCache, deleteTeamKey, getCachedTeamKeyVersion, revalidateTeamVaultKey } from "./teamVaultSync.ts";
+import {
+  getTeamVaultKey, getCurrentTeamKey, getTeamVaultKeyAtVersion, clearTeamKeyCache, deleteTeamKey,
+  revalidateTeamVaultKey, revalidateCachedTeamKeys, type TeamKey,
+} from "./teamVaultSync.ts";
 
 function futureJwt(): string {
   const exp = Math.floor(Date.now() / 1000) + 3600;
@@ -24,6 +27,19 @@ const keychain = (map: Record<string, string | null>) =>
 
 const res = (status: number, body: unknown = {}) =>
   ({ status, ok: status >= 200 && status < 300, json: async () => body, headers: { get: () => null } });
+
+async function offline<T>(read: () => Promise<T>): Promise<T | undefined> {
+  Object.defineProperty(navigator, "onLine", { value: false, configurable: true });
+  try {
+    return await read();
+  } catch {
+    return undefined;
+  } finally {
+    Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
+  }
+}
+
+const cached = (): Promise<TeamKey | undefined> => offline(() => getCurrentTeamKey("t1"));
 
 beforeEach(() => {
   h.invoke.mockReset(); h.appFetch.mockReset(); h.getUserPublicKey.mockReset(); h.unwrap.mockReset();
@@ -69,20 +85,29 @@ test("caches the key_version alongside the key", async () => {
   h.unwrap.mockResolvedValue(new Uint8Array([1, 2, 3]));
 
   await getTeamVaultKey("t1");
-  expect(getCachedTeamKeyVersion("t1")).toBe(3);
+  expect(await cached()).toEqual({ key: [1, 2, 3], version: 3 });
 });
 
-test("clearTeamKeyCache/deleteTeamKey also clear the cached version", async () => {
+test("a server that omits key_version is epoch 1", async () => {
+  keychain({ server_url: "https://s", jwt: futureJwt() });
+  h.appFetch.mockResolvedValue(res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1" }));
+  h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
+  h.unwrap.mockResolvedValue(new Uint8Array([1]));
+
+  expect(await getCurrentTeamKey("t1")).toEqual({ key: [1], version: 1 });
+});
+
+test("deleteTeamKey clears the cached key and its version", async () => {
   keychain({ server_url: "https://s", jwt: futureJwt() });
   h.appFetch.mockResolvedValue(res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1", key_version: 2 }));
   h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
   h.unwrap.mockResolvedValue(new Uint8Array([1]));
 
   await getTeamVaultKey("t1");
-  expect(getCachedTeamKeyVersion("t1")).toBe(2);
+  expect((await cached())?.version).toBe(2);
 
   deleteTeamKey("t1");
-  expect(getCachedTeamKeyVersion("t1")).toBeUndefined();
+  expect(await cached()).toBeUndefined();
 });
 
 test("a local unwrap failure → 'key_mismatch', not 'error'", async () => {
@@ -185,37 +210,46 @@ test("revalidate: a re-wrap of the same DEK and epoch keeps the cached key", asy
   serveKey([1, 2, 3], 2);
 
   expect(await revalidateTeamVaultKey("t1")).toBe("unchanged");
-  expect(await getTeamVaultKey("t1")).toEqual([1, 2, 3]);
+  expect(await cached()).toEqual({ key: [1, 2, 3], version: 2 });
   expect(h.appFetch).toHaveBeenCalledTimes(2);
 });
 
-test("revalidate: a different DEK in the same epoch is a conflict and keeps the cached key", async () => {
-  await primeKey([1, 2, 3], 2);
-  serveKey([7, 7, 7], 2);
-
-  expect(await revalidateTeamVaultKey("t1")).toBe("conflict");
-  expect(await getTeamVaultKey("t1")).toEqual([1, 2, 3]);
-  expect(getCachedTeamKeyVersion("t1")).toBe(2);
-});
-
-test("revalidate: a new epoch replaces the cached key and version", async () => {
+test("revalidate: a newer epoch replaces the cached key and keeps the old one for its rows", async () => {
   await primeKey([1, 2, 3], 2);
   serveKey([4, 5, 6], 3);
 
   expect(await revalidateTeamVaultKey("t1")).toBe("replaced");
-  expect(await getTeamVaultKey("t1")).toEqual([4, 5, 6]);
-  expect(getCachedTeamKeyVersion("t1")).toBe(3);
+  expect(await cached()).toEqual({ key: [4, 5, 6], version: 3 });
+  expect(await offline(() => getTeamVaultKeyAtVersion("t1", 2))).toEqual([1, 2, 3]);
 });
 
-test("revalidate: a wrap this device cannot open or no longer holds evicts the key", async () => {
-  for (const failure of ["key_mismatch", 404, 403] as const) {
+test("revalidate: an older epoch never overwrites a newer cached one", async () => {
+  await primeKey([4, 5, 6], 3);
+  serveKey([1, 2, 3], 2);
+
+  expect(await revalidateTeamVaultKey("t1")).toBe("unchanged");
+  expect(await cached()).toEqual({ key: [4, 5, 6], version: 3 });
+});
+
+test("revalidate: a different DEK under the same epoch, or a wrap this device cannot open, keeps the cached key", async () => {
+  for (const served of [[7, 7, 7], new Error("aead::Error")]) {
     clearTeamKeyCache();
     await primeKey([1, 2, 3], 2);
-    if (failure === "key_mismatch") serveKey(new Error("aead::Error"), 2);
-    else h.appFetch.mockResolvedValueOnce(res(failure));
+    serveKey(served, 2);
+
+    expect(await revalidateTeamVaultKey("t1")).toBe("conflict");
+    expect(await cached()).toEqual({ key: [1, 2, 3], version: 2 });
+  }
+});
+
+test("revalidate: a wrap this member no longer holds evicts the key", async () => {
+  for (const status of [404, 403]) {
+    clearTeamKeyCache();
+    await primeKey([1, 2, 3], 2);
+    h.appFetch.mockResolvedValueOnce(res(status));
 
     expect(await revalidateTeamVaultKey("t1")).toBe("revoked");
-    expect(getCachedTeamKeyVersion("t1")).toBeUndefined();
+    expect(await cached()).toBeUndefined();
   }
 });
 
@@ -224,8 +258,7 @@ test("revalidate: a transient failure keeps the cached key", async () => {
   h.appFetch.mockResolvedValueOnce(res(500));
 
   expect(await revalidateTeamVaultKey("t1")).toBe("unchanged");
-  expect(await getTeamVaultKey("t1")).toEqual([1, 2, 3]);
-  expect(getCachedTeamKeyVersion("t1")).toBe(2);
+  expect(await cached()).toEqual({ key: [1, 2, 3], version: 2 });
 });
 
 test("revalidate: an eviction that lands mid-check is not undone", async () => {
@@ -236,8 +269,18 @@ test("revalidate: an eviction that lands mid-check is not undone", async () => {
 
   const pending = revalidateTeamVaultKey("t1");
   deleteTeamKey("t1");
-  resolveFetch(res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1", key_version: 2 }));
+  resolveFetch(res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1", key_version: 3 }));
 
   expect(await pending).toBe("unchanged");
-  expect(getCachedTeamKeyVersion("t1")).toBeUndefined();
+  expect(await cached()).toBeUndefined();
+});
+
+test("a burst of key-change events runs one revalidation pass", async () => {
+  await primeKey([1, 2, 3], 2);
+  h.appFetch.mockResolvedValue(res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1", key_version: 2 }));
+  h.unwrap.mockResolvedValue(new Uint8Array([1, 2, 3]));
+
+  await Promise.all([revalidateCachedTeamKeys(), revalidateCachedTeamKeys(), revalidateCachedTeamKeys()]);
+
+  expect(h.appFetch).toHaveBeenCalledTimes(2);
 });

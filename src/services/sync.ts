@@ -1458,7 +1458,7 @@ export async function handleRealtimeEvent(eventData: string, myDeviceId: string)
   } else if (eventData === "vault_key_changed") {
     const { refreshAwaitingKeyTeams } = await import("@/services/teamDataManager");
     refreshAwaitingKeyTeams().catch(logFailure("vault_key_changed: refreshAwaitingKeyTeams"));
-    revalidateCachedTeamKeys().catch(logFailure("vault_key_changed: revalidateCachedTeamKeys"));
+    void revalidateCachedTeamKeys();
   } else if (eventData.startsWith("presence:")) {
     const parts = eventData.split(":");
     const userId = parts[1];

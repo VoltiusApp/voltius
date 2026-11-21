@@ -1,5 +1,5 @@
 import { invoke } from "@/lib/invoke";
-import { getTeamVaultKey, getCachedTeamKeyVersion, getTeamVaultKeyAtVersion } from "@/services/teamVaultSync";
+import { getCurrentTeamKey, getTeamVaultKeyAtVersion } from "@/services/teamVaultSync";
 import { bytesToBase64, base64ToByteArray } from "@/services/teamVaultSyncCore";
 
 /**
@@ -27,8 +27,7 @@ export function isEncryptedEnvelope(metadata: unknown): metadata is EncryptedEnv
 }
 
 export async function encodeObjectMetadata(teamId: string, item: object): Promise<EncryptedEnvelope> {
-  const encKey = await getTeamVaultKey(teamId);
-  const kv = getCachedTeamKeyVersion(teamId) ?? 1;
+  const { key: encKey, version: kv } = await getCurrentTeamKey(teamId);
   const blob: number[] = await invoke("encrypt_payload", {
     encKey,
     files: { [METADATA_FILE]: JSON.stringify(item) },
@@ -47,11 +46,10 @@ export async function decodeObjectMetadata(teamId: string, metadata: unknown): P
   if (!isEncryptedEnvelope(metadata)) return (metadata ?? {}) as object;
 
   const targetVersion = metadata.kv ?? 1;
-  const currentKey = await getTeamVaultKey(teamId); // always resolves first; primes the version cache
-  const currentVersion = getCachedTeamKeyVersion(teamId);
-  const encKey = currentVersion !== undefined && targetVersion !== currentVersion
+  const current = await getCurrentTeamKey(teamId);
+  const encKey = targetVersion !== current.version
     ? await getTeamVaultKeyAtVersion(teamId, targetVersion)
-    : currentKey;
+    : current.key;
   const payload = await invoke<{ files: Record<string, string> }>("backup_decrypt", {
     encKey,
     blob: base64ToByteArray(metadata.enc),

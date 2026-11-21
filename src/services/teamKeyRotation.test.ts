@@ -25,8 +25,7 @@ vi.mock("@/services/multiplayerService", () => ({
   publishMyPublicKey: vi.fn(async () => "me-published-pk"),
 }));
 vi.mock("@/services/teamVaultSync", () => ({
-  getTeamVaultKey: vi.fn(async () => [1, 2, 3]),
-  getCachedTeamKeyVersion: vi.fn(() => 1),
+  getCurrentTeamKey: vi.fn(async () => ({ key: [1, 2, 3], version: 1 })),
   getTeamVaultKeyAtVersion: vi.fn(async (teamId: string, version: number) => {
     h.getTeamVaultKeyAtVersionCalls.push([teamId, version]);
     return [7, 7, 7];
@@ -74,7 +73,7 @@ vi.mock("@/services/teamVaultSyncCore", () => ({
 }));
 
 import { checkAndRotateTeamKey, getLastRotationPass } from "./teamKeyRotation";
-import { getTeamVaultKeyAtVersion, getCachedTeamKeyVersion } from "@/services/teamVaultSync";
+import { getTeamVaultKeyAtVersion, getCurrentTeamKey } from "@/services/teamVaultSync";
 import { PERM_BITS } from "@/services/permissions";
 
 beforeEach(() => {
@@ -186,7 +185,7 @@ test("draining: re-encrypts a stale secret by decrypting with its OLD key versio
   // Decrypted using the secret's own (stale) key_version, never the new one.
   expect(getTeamVaultKeyAtVersion).toHaveBeenCalledWith("t1", 0);
 
-  // Re-wrapped under the current epoch (mocked getCachedTeamKeyVersion === 1),
+  // Re-wrapped under the current epoch (mocked getCurrentTeamKey version 1),
   // with ciphertext reflecting the fresh encrypt_payload call ([9,9,9]).
   expect(h.reencryptSecretCalls.flat()).toEqual([
     { secret_id: "s1", ciphertext: "b64(9,9,9)", key_version: 1 },
@@ -218,7 +217,7 @@ test("draining: does not touch a secret already at or ahead of the current versi
 test("draining: a legacy secret with no key_version fetches epoch 1, not vault-key/undefined", async () => {
   // The team has already rotated once (current epoch 2), so an undefined
   // key_version (epoch 1) is genuinely stale and must be re-encrypted.
-  vi.mocked(getCachedTeamKeyVersion).mockReturnValueOnce(2);
+  vi.mocked(getCurrentTeamKey).mockResolvedValueOnce({ key: [1, 2, 3], version: 2 });
   h.status = { stale: false, draining: true };
   h.objects = [
     { object_id: "c1", object_type: "connection", metadata: { v: 2, enc: "c1", kv: 2 } },
