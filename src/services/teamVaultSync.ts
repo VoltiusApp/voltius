@@ -373,8 +373,8 @@ export async function getTeamVaultKeyAtVersion(teamId: string, version: number):
 // called." See #217 task-2 brief.
 
 /**
- * Initialise the team vault key. Tries to reuse any existing key first (404 →
- * generates fresh). Uploads wrapped copies for self and all provided members.
+ * Initialise the team vault key. Reuses the existing key; mints a fresh one only
+ * when the team has no key holder at all. Uploads wrapped copies for self and all provided members.
  *
  * Call once when sharing is first enabled, and again when re-distributing to
  * all members (idempotent).
@@ -395,6 +395,8 @@ export async function initTeamVaultKey(
     keyVersion = existing.version;
   } catch (err) {
     if (err !== "awaiting_key") throw new Error(i18n.t("common.error.keyFetchFailed", { error: String(err) }));
+    // 404 only means no wrap for us yet; minting over a keyed team would orphan its data.
+    if ((await teamService.getVaultKeyHolders(teamId)).length > 0) return;
     rawKey = crypto.getRandomValues(new Uint8Array(32));
     // A team's first-ever key is always epoch 1.
     keyVersion = 1;
