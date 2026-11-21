@@ -21,7 +21,7 @@ export interface SnapshotSerialConfig {
 export interface SnapshotSession {
   /** ORIGINAL session UUID — the tmux key voltius_<id> derives from it. */
   id: string;
-  type: "ssh" | "local" | "serial";
+  type: "ssh" | "local" | "serial" | "web";
   connectionId: string;
   connectionName: string;
   /** User-given tab name, so a rename survives a restart. */
@@ -31,6 +31,8 @@ export interface SnapshotSession {
   cwd?: string;
   localShell?: string;
   serialConfig?: SnapshotSerialConfig;
+  /** Web tabs only: the page the tab shows. */
+  webUrl?: string;
   encoding?: string;
   /** Lines the viewport was scrolled up from the live prompt (baseY - viewportY)
    * when snapshotted. Omitted when 0 (at bottom). Re-applied best-effort after
@@ -68,16 +70,18 @@ export interface SessionInput {
   encoding?: string;
   localShell?: string;
   serialConfig?: SnapshotSerialConfig;
+  webUrl?: string;
   containerExec?: unknown;
   locked?: boolean;
 }
 
-/** A session can be restored when it's a plain ssh/local/serial tab.
+/** A session can be restored when it's a plain ssh/local/serial/web tab.
  * Multiplayer views, docker/lxc exec tabs (their parent session id would be
  * stale), and ephemeral serial tabs that never got a config are skipped. */
 export function isSnapshotable(s: SessionInput): boolean {
-  if (s.type !== "ssh" && s.type !== "local" && s.type !== "serial") return false;
+  if (s.type !== "ssh" && s.type !== "local" && s.type !== "serial" && s.type !== "web") return false;
   if (s.containerExec) return false;
+  if (s.type === "web" && !s.webUrl) return false;
   if (s.type === "serial" && !s.serialConfig) return false;
   return true;
 }
@@ -103,6 +107,7 @@ export function buildSnapshot(input: {
       cwd: input.cwds[s.id],
       localShell: s.localShell,
       serialConfig: s.serialConfig,
+      ...(s.type === "web" ? { webUrl: s.webUrl } : {}),
       encoding: s.encoding,
       ...(offset > 0 ? { scrollLinesFromBottom: offset } : {}),
       ...(s.locked ? { locked: true } : {}),
@@ -131,7 +136,7 @@ function isValidSession(x: unknown): x is SnapshotSession {
     typeof s.id === "string" &&
     typeof s.connectionId === "string" &&
     typeof s.connectionName === "string" &&
-    (s.type === "ssh" || s.type === "local" || s.type === "serial")
+    (s.type === "ssh" || s.type === "local" || s.type === "serial" || s.type === "web")
   );
 }
 

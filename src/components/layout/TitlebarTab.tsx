@@ -18,6 +18,7 @@ export function sessionTabIcon(
   tone: StatusTone,
 ): ReactNode {
   const isLocal = session.type === "local";
+  const glyph = isLocal ? "lucide:terminal" : session.type === "web" ? "lucide:globe" : null;
   const connectionIcon = !isLocal && connection ? (connection.icon || connection.distro) : null;
   const distroIcon = connectionIcon ? getConnectionIcon(connectionIcon) : null;
   const distroBg = connectionIcon ? getConnectionIconColor(connectionIcon) : null;
@@ -32,13 +33,20 @@ export function sessionTabIcon(
       </span>
     );
   }
-  if (isLocal) {
+  if (session.type === "web" && session.webIcon) {
+    return (
+      <span className="flex items-center justify-center size-6 rounded-md shrink-0">
+        <img src={session.webIcon} alt="" width={16} height={16} className="size-4 object-contain" />
+      </span>
+    );
+  }
+  if (glyph) {
     return (
       <span
         className="flex items-center justify-center size-6 rounded-md shrink-0"
         style={{ color: active ? "var(--t-tab-active-text)" : STATUS_TONE_COLOR[tone] }}
       >
-        <Icon icon="lucide:terminal" width={14} />
+        <Icon icon={glyph} width={14} />
       </span>
     );
   }

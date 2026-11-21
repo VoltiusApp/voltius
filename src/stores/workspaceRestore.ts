@@ -21,7 +21,8 @@ function toTerminalSession(s: SnapshotSession): TerminalSession {
     connectionId: s.connectionId,
     connectionName: s.connectionName,
     title: s.title,
-    status: "connecting",
+    // A web tab has nothing to connect: its page loads when the tab is shown.
+    status: s.type === "web" ? "connected" : "connecting",
     persist: s.persist,
     // Snapshot sessions existed on the host: reconnects must attach, not create.
     everConnected: true,
@@ -29,6 +30,7 @@ function toTerminalSession(s: SnapshotSession): TerminalSession {
     encoding: s.encoding,
     localShell: s.localShell,
     serialConfig: s.serialConfig as SerialConnectParams | undefined,
+    webUrl: s.webUrl,
     locked: s.locked,
   };
 }
@@ -126,6 +128,7 @@ export async function restoreWorkspaceOnLaunch(): Promise<void> {
   await Promise.allSettled(
     snapshot.sessions.map(async (s) => {
       if (closed.has(s.id)) return; // killed on another device
+      if (s.type === "web") return;
       if (s.type === "ssh" || s.type === "serial") {
         await reconnect(s.id, { restore: s.persist });
         // Launched offline, the `online` event may never come: the loop must own the retry.

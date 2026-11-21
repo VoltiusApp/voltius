@@ -43,6 +43,8 @@
     "quickConnect": {
       "connectTo": "Conectar a {{user}}@{{host}}",
       "portSsh": "Porta {{port}} — SSH",
+      "openWeb": "Abrir {{host}}:{{port}}",
+      "portWeb": "{{protocol}} — página web",
       "serialConnection": "Conexão serial",
       "configurePortAndBaud": "Configurar porta e baud",
       "localShellNamed": "Shell local ({{shell}})",

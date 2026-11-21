@@ -1,6 +1,6 @@
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
-import { buildQuickConnectConnection, type QuickConnectTarget } from "@/services/quickConnect";
+import { buildQuickConnectConnection, buildWebQuickConnectConnection, type QuickConnectTarget } from "@/services/quickConnect";
 import { connectionTarget, refuseWhilePreviewing } from "@/services/previewGuard";
 
 /** Bring the terminal view forward, closing the panels that would cover it. */
@@ -18,12 +18,14 @@ export function launchHost(connectionId: string): void {
   goToTerminal();
 }
 
-/** Launch an SSH/serial/local quick-connect intent, then switch to the terminal view. */
+/** Launch an SSH/web/serial/local quick-connect intent, then switch to the terminal view. */
 export function launchQuickConnect(intent: QuickConnectTarget): void {
   if (refuseWhilePreviewing()) return;
   const s = useSessionStore.getState();
   if (intent.kind === "ssh") {
     s.connectDirect(buildQuickConnectConnection(intent)).catch(() => {});
+  } else if (intent.kind === "web") {
+    s.connectDirect(buildWebQuickConnectConnection(intent)).catch(() => {});
   } else if (intent.kind === "serial") {
     s.connectSerialEphemeral(intent.port).catch(() => {});
   } else {

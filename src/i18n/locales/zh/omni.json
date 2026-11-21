@@ -42,6 +42,8 @@
     "quickConnect": {
       "connectTo": "连接到 {{user}}@{{host}}",
       "portSsh": "端口 {{port}} — SSH",
+      "openWeb": "打开 {{host}}:{{port}}",
+      "portWeb": "{{protocol}} — 网页",
       "serialConnection": "串口连接",
       "configurePortAndBaud": "配置端口和波特率",
       "localShellNamed": "本地 Shell ({{shell}})",

@@ -36,6 +36,8 @@
       "disableReachability": "Disable reachability check",
       "connectTitle": "Connect (or double-click)",
       "openFilesTitle": "Open files (or double-click)",
+      "openWebTitle": "Open in a web view (or double-click)",
+      "openWebWindow": "Open in a separate window",
       "inUseBy": "In use by {{name}}",
       "inUseByOverflow_one": "In use by {{name}} + {{count}} other",
       "inUseByOverflow_other": "In use by {{name}} + {{count}} others",

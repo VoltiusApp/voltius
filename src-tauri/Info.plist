@@ -8,5 +8,12 @@
 	<array>
 		<string>_voltius._tcp</string>
 	</array>
+	<!-- Web hosts (http://) open in a webview; without this macOS blocks plain-HTTP pages in a
+	     release build. It applies to web content only, not to the app's own connections. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoadsInWebContent</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

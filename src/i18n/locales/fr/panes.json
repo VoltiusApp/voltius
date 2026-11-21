@@ -4,7 +4,8 @@
       "ssh": "SSH",
       "serial": "SERIAL",
       "multiplayer": "MPX",
-      "local": "LOCAL"
+      "local": "LOCAL",
+      "web": "WEB"
     },
     "header": {
       "copied": "Copié !",

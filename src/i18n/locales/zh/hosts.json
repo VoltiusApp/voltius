@@ -36,6 +36,8 @@
       "disableReachability": "禁用可达性检查",
       "connectTitle": "连接（或双击）",
       "openFilesTitle": "打开文件（或双击）",
+      "openWebTitle": "打开网页（或双击）",
+      "openWebWindow": "在单独窗口中打开",
       "inUseBy": "正在被 {{name}} 使用",
       "inUseByOverflow_one": "正在被 {{name}} + {{count}} 人使用",
       "inUseByOverflow_other": "正在被 {{name}} + {{count}} 人使用",

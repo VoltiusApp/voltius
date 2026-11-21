@@ -36,6 +36,8 @@
       "disableReachability": "Désactiver la vérification d'accessibilité",
       "connectTitle": "Se connecter (ou double-clic)",
       "openFilesTitle": "Ouvrir les fichiers (ou double-clic)",
+      "openWebTitle": "Ouvrir la page web (ou double-clic)",
+      "openWebWindow": "Ouvrir dans une fenêtre séparée",
       "inUseBy": "Utilisé par {{name}}",
       "inUseByOverflow_one": "Utilisé par {{name}} + {{count}} autre",
       "inUseByOverflow_many": "Utilisé par {{name}} + {{count}} autres",

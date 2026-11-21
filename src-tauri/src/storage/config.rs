@@ -42,6 +42,8 @@ pub enum ConnectionType {
     Serial,
     Ftp,
     Webdav,
+    /// A web UI (HTTP/HTTPS) opened in a webview instead of a terminal.
+    Web,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -230,6 +232,9 @@ pub struct Connection {
     pub ftp_secure: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub webdav_url: Option<String>,
+    /// Web only: use HTTPS instead of HTTP.
+    #[serde(default)]
+    pub web_secure: bool,
     /// Free-form user notes for this host (reminders, maintenance windows, …).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
@@ -318,6 +323,8 @@ pub struct ConnectionFormData {
     pub ftp_secure: bool,
     #[serde(default)]
     pub webdav_url: Option<String>,
+    #[serde(default)]
+    pub web_secure: bool,
     #[serde(default)]
     pub notes: Option<String>,
 }
@@ -1179,6 +1186,7 @@ mod tests {
             serial_auto_reconnect: Some(true),
             ftp_secure: false,
             webdav_url: None,
+            web_secure: false,
             notes: Some("maintenance window: Sat".into()),
             updated_at: "2026-01-02T00:00:00Z".into(),
             deleted_at: None,

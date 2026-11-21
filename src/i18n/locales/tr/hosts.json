@@ -36,6 +36,8 @@
       "disableReachability": "Ulaşılabilirlik denetimini devre dışı bırak",
       "connectTitle": "Bağlan (veya çift tıklayın)",
       "openFilesTitle": "Dosyaları aç (veya çift tıklayın)",
+      "openWebTitle": "Web sayfasını aç (veya çift tıklayın)",
+      "openWebWindow": "Ayrı pencerede aç",
       "inUseBy": "{{name}} tarafından kullanılıyor",
       "inUseByOverflow_one": "{{name}} ve {{count}} kişi daha tarafından kullanılıyor",
       "inUseByOverflow_other": "{{name}} ve {{count}} kişi daha tarafından kullanılıyor",

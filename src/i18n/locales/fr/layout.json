@@ -128,7 +128,7 @@
       "checkForUpdates": "Rechercher des mises à jour"
     },
     "newSession": {
-      "searchPlaceholder": "ssh utilisateur@hôte · série · local …",
+      "searchPlaceholder": "ssh utilisateur@hôte · série · local · https host:port …",
       "sectionQuickConnect": "Connexion rapide",
       "sectionRecent": "Récents",
       "sectionLocal": "Local",

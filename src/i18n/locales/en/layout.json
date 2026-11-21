@@ -128,7 +128,7 @@
       "checkForUpdates": "Check for updates"
     },
     "newSession": {
-      "searchPlaceholder": "ssh user@host · serial · local …",
+      "searchPlaceholder": "ssh user@host · serial · local · https host:port …",
       "sectionQuickConnect": "Quick Connect",
       "sectionRecent": "Recent",
       "sectionLocal": "Local",
