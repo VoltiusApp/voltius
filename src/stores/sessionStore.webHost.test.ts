@@ -5,9 +5,9 @@ import type { Connection } from "@/types";
 const web = { id: "w1", name: "pve", host: "10.0.0.2", port: 8006, username: "", connection_type: "web", web_secure: true } as unknown as Connection;
 const ssh = { id: "s1", name: "srv", host: "h1", port: 22, username: "root", password: "pw", connection_type: "ssh" } as unknown as Connection;
 
-const closeWebPane = vi.fn(async () => {});
-const revealSession = vi.fn();
-const appToast = vi.fn();
+const closeWebPane = vi.fn(async (_id: string) => {});
+const revealSession = vi.fn((_id: string) => {});
+const appToast = vi.fn((..._args: unknown[]) => {});
 let mobile = false;
 
 vi.mock("@/services/webHost", () => ({ closeWebPane: (id: string) => closeWebPane(id) }));
