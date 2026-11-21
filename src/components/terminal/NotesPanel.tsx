@@ -9,6 +9,7 @@ import { usePermissions } from "@/hooks/usePermission";
 import { pasteToSession } from "@/services/terminalPaste";
 import { connectionToFormData, useConnectionStore } from "@/stores/connectionStore";
 import { findTeamEntry } from "@/stores/teamVaultMap";
+import { acceptsTerminalInput } from "@/utils/sessionType";
 import type { Connection, TerminalSession } from "@/types";
 
 async function saveHostNotes(id: string, notes: string | undefined): Promise<void> {
@@ -35,7 +36,7 @@ function NotesPanelBody({ session, connection }: { session: TerminalSession; con
   const save = useCallback((notes: string | undefined) => saveHostNotes(connection.id, notes), [connection.id]);
   const notes = useNotesDraft(connection.notes, save);
 
-  const runCode = session.type === "multiplayer"
+  const runCode = !acceptsTerminalInput(session)
     ? undefined
     : (code: string) => void pasteToSession(session.id, code);
 

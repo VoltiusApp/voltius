@@ -8,13 +8,9 @@ import { snippetScriptText } from "@/services/snippetSteps";
 import { readClipboard } from "@/utils/clipboard";
 import type { Snippet, TerminalSession } from "@/types";
 import { refuseWhilePreviewing, snippetTarget } from "@/services/previewGuard";
+import { isRunnableSession } from "@/utils/sessionType";
 
-/** A session a snippet can run into: connected and not a multiplayer mirror.
- *  Shared so the mobile target-picker gate and sheet stay in lockstep with the
- *  selection used here. */
-export function isRunnableSession(s: Pick<TerminalSession, "status" | "type">): boolean {
-  return s.status === "connected" && s.type !== "multiplayer";
-}
+export { isRunnableSession };
 
 /** The focused tab, when it can take an injection. No fallback to another tab:
  *  injecting into a terminal the user is not looking at is worse than nothing. */

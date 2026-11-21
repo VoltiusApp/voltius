@@ -130,7 +130,7 @@
       "checkForUpdates": "检查更新"
     },
     "newSession": {
-      "searchPlaceholder": "ssh user@host · 串口 · 本地 …",
+      "searchPlaceholder": "ssh user@host · 串口 · 本地 · https host:port …",
       "sectionQuickConnect": "快速连接",
       "sectionRecent": "最近",
       "sectionLocal": "本地",

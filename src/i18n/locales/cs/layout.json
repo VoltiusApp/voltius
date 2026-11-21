@@ -130,7 +130,7 @@
       "checkForUpdates": "Zkontrolovat aktualizace"
     },
     "newSession": {
-      "searchPlaceholder": "ssh user@host · serial · local …",
+      "searchPlaceholder": "ssh user@host · serial · local · https host:port …",
       "sectionQuickConnect": "Rychlé připojení",
       "sectionRecent": "Nedávné",
       "sectionLocal": "Lokální",

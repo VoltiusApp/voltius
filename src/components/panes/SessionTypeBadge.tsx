@@ -6,6 +6,7 @@ const BADGE_KEY = {
   serial: "panes.badge.serial",
   multiplayer: "panes.badge.multiplayer",
   local: "panes.badge.local",
+  web: "panes.badge.web",
 } as const;
 
 export function SessionTypeBadge({ type }: { type: TerminalSession["type"] }) {

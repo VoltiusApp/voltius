@@ -1,7 +1,9 @@
 import type { Connection } from "@/types";
+import { webDefaultPort } from "@/utils/connectionType";
 
 export type QuickConnectTarget =
   | { kind: "ssh"; user: string; host: string; port: number }
+  | { kind: "web"; host: string; port: number; secure: boolean }
   | { kind: "serial"; port?: string }
   | { kind: "local"; shell?: string };
 
@@ -11,6 +13,8 @@ export type QuickConnectIntent = QuickConnectTarget | QuickConnectInvalidPort | 
 
 const DEVICE_PATH_RE = /^(\/dev\/tty\S+|\/dev\/cu\.\S+|COM\d+)$/i;
 const BARE_WORD_RE = /^[\w.-]+$/;
+
+const WEB_RE = /^(https?)(?:\s*:\/\/|\s+)(\S+)$/i;
 
 export function parseQuickConnect(raw: string): QuickConnectIntent {
   const trimmed = raw.trim();
@@ -28,6 +32,17 @@ export function parseQuickConnect(raw: string): QuickConnectIntent {
   const serialMatch = /^serial\s+(\S+)$/.exec(trimmed);
   if (serialMatch) return { kind: "serial", port: serialMatch[1] };
   if (DEVICE_PATH_RE.test(trimmed)) return { kind: "serial", port: trimmed };
+
+  // Before ssh, which takes any ":port".
+  const webMatch = WEB_RE.exec(trimmed);
+  const webAddress = webMatch && splitHostPort(webMatch[2].split(/[/?#]/, 1)[0]);
+  if (webMatch && webAddress) {
+    const secure = webMatch[1].toLowerCase() === "https";
+    if (webAddress.port === undefined) return { kind: "web", host: webAddress.host, port: webDefaultPort(secure), secure };
+    const port = parsePort(webAddress.port);
+    if (port === null) return { kind: "invalid-port", port: webAddress.port };
+    return { kind: "web", host: webAddress.host, port, secure };
+  }
 
   // ssh
   const hasSshPrefix = /^ssh\s+/i.test(trimmed);
@@ -88,17 +103,10 @@ function parsePort(text: string): number | null {
   return port >= 1 && port <= 65535 ? port : null;
 }
 
-/** Ephemeral, unsaved Connection for an SSH quick-connect target. */
-export function buildQuickConnectConnection(
-  intent: Extract<QuickConnectTarget, { kind: "ssh" }>,
-): Connection {
+function ephemeralConnection(fields: Pick<Connection, "name" | "host" | "port" | "username"> & Partial<Connection>): Connection {
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
-    name: `${intent.user}@${intent.host}`,
-    host: intent.host,
-    port: intent.port,
-    username: intent.user,
     auth_type: "password",
     tags: [],
     vault_id: "personal",
@@ -106,5 +114,21 @@ export function buildQuickConnectConnection(
     updated_at: now,
     last_used_at: null,
     clocks: {},
+    ...fields,
   };
+}
+
+/** Ephemeral, unsaved Connection for an SSH quick-connect target. */
+export function buildQuickConnectConnection(
+  intent: Extract<QuickConnectTarget, { kind: "ssh" }>,
+): Connection {
+  return ephemeralConnection({ name: `${intent.user}@${intent.host}`, host: intent.host, port: intent.port, username: intent.user });
+}
+
+/** Ephemeral, unsaved Connection for a web quick-connect target. */
+export function buildWebQuickConnectConnection(
+  intent: Extract<QuickConnectTarget, { kind: "web" }>,
+): Connection {
+  const name = intent.port === webDefaultPort(intent.secure) ? intent.host : `${intent.host}:${intent.port}`;
+  return ephemeralConnection({ name, host: intent.host, port: intent.port, username: "", connection_type: "web", web_secure: intent.secure });
 }

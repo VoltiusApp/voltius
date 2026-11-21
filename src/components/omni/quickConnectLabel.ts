@@ -16,6 +16,12 @@ export function quickConnectLabel(
         subtitle: t("omni.quickConnect.portSsh", { port: intent.port }),
         icon: "lucide:arrow-right",
       };
+    case "web":
+      return {
+        title: t("omni.quickConnect.openWeb", { host: intent.host, port: intent.port }),
+        subtitle: t("omni.quickConnect.portWeb", { protocol: intent.secure ? "HTTPS" : "HTTP" }),
+        icon: "lucide:globe",
+      };
     case "serial":
       return {
         title: t("omni.quickConnect.serialConnection"),

@@ -1,4 +1,4 @@
-import { findLeaf, firstLeaf, useLayoutStore } from "@/stores/layoutStore";
+import { findLeaf, findSessionPane, firstLeaf, useLayoutStore } from "@/stores/layoutStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
 
@@ -21,4 +21,11 @@ export function activateSplitTabPane(tabId: string, paneId?: string): void {
   const leaf = findLeaf(layout.root, layout.activePaneId) ?? firstLeaf(layout.root);
   if (leaf) useSessionStore.getState().setActive(leaf.sessionId);
   useUIStore.getState().setActiveNav("terminal");
+}
+
+/** Bring a session forward wherever it lives: its own tab, or its pane in a split. */
+export function revealSession(sessionId: string): void {
+  const pane = findSessionPane(useLayoutStore.getState().splitTabs, sessionId);
+  if (pane) activateSplitTabPane(pane.tabId, pane.paneId);
+  else activateSessionTab(sessionId);
 }

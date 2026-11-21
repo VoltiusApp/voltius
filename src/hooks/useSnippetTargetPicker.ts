@@ -9,6 +9,7 @@ import { useIsMobile } from "@/utils/platform";
 import { getSnippetInjectionTargetIds, waitForConnectedSessionIds } from "@/components/shared/sessionPickerTargets";
 import { useLocalShells } from "@/hooks/useLocalShells";
 import { refuseWhilePreviewing } from "@/services/previewGuard";
+import { isRunnableSession } from "@/utils/sessionType";
 
 export function useSnippetTargetPicker() {
   const sessions = useSessionStore((s) => s.sessions);
@@ -21,7 +22,7 @@ export function useSnippetTargetPicker() {
   const isMobile = useIsMobile();
 
   const activeSessions = useMemo(
-    () => sessions.filter((s) => s.status === "connected" && s.type !== "multiplayer"),
+    () => sessions.filter(isRunnableSession),
     [sessions],
   );
 

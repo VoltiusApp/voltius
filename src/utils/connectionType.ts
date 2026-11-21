@@ -4,11 +4,28 @@ export function isFileOnlyProtocol(c: Pick<Connection, "connection_type">): bool
   return c.connection_type === "ftp" || c.connection_type === "webdav";
 }
 
-export function protocolLabel(c: Pick<Connection, "connection_type" | "ftp_secure">): string {
+/** Web hosts (HTTP/HTTPS) open a web UI in a webview: no terminal and no file browser. */
+export function isWebProtocol(c: Pick<Connection, "connection_type">): boolean {
+  return c.connection_type === "web";
+}
+
+export function webDefaultPort(secure: boolean | undefined): number {
+  return secure ? 443 : 80;
+}
+
+/** URL a web host opens. Brackets a bare IPv6 literal and drops the scheme's default port. */
+export function webUrl(c: Pick<Connection, "host" | "port" | "web_secure">): string {
+  const host = c.host.includes(":") && !c.host.startsWith("[") ? `[${c.host}]` : c.host;
+  const port = c.port && c.port !== webDefaultPort(c.web_secure) ? `:${c.port}` : "";
+  return `${c.web_secure ? "https" : "http"}://${host}${port}/`;
+}
+
+export function protocolLabel(c: Pick<Connection, "connection_type" | "ftp_secure" | "web_secure">): string {
   switch (c.connection_type) {
     case "serial": return "SERIAL";
     case "ftp": return c.ftp_secure ? "FTPS" : "FTP";
     case "webdav": return "WebDAV";
+    case "web": return c.web_secure ? "HTTPS" : "HTTP";
     default: return "SSH";
   }
 }

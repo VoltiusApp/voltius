@@ -130,7 +130,7 @@
       "checkForUpdates": "Verificar atualizações"
     },
     "newSession": {
-      "searchPlaceholder": "ssh user@host · serial · local …",
+      "searchPlaceholder": "ssh user@host · serial · local · https host:port …",
       "sectionQuickConnect": "Conexão Rápida",
       "sectionRecent": "Recentes",
       "sectionLocal": "Local",

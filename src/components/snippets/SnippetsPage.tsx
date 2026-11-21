@@ -70,6 +70,7 @@ import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { copyingRulesOf } from "@/services/ruleSetIntent";
 import { compareStrings, formatRelative } from "@/utils/localeFormat";
+import { acceptsTerminalInput } from "@/utils/sessionType";
 import { refuseWhilePreviewing, snippetTarget, whenWritable } from "@/services/previewGuard";
 import { TeamVaultNotes } from "@/components/shared/VaultUnavailableNote";
 
@@ -583,7 +584,7 @@ export function SnippetsPage() {
     const allSessions = useSessionStore.getState().sessions;
     const targetSessions = sessionIds
       .map((id) => allSessions.find((s) => s.id === id))
-      .filter((s) => s && s.type !== "multiplayer") as typeof allSessions;
+      .filter((s) => s && acceptsTerminalInput(s)) as typeof allSessions;
     if (targetSessions.length === 0) return;
 
     // The prompt goes to the global modal: the session picker navigates to the

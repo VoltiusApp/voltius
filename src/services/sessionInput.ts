@@ -3,6 +3,7 @@ import { localResize, localSendInput, onLocalOutput } from "@/services/local";
 import { onSerialOutput, serialWrite } from "@/services/serial";
 import { onSshOutput, sshResize, sshSendInput } from "@/services/ssh";
 import type { TerminalSession } from "@/types";
+import { acceptsTerminalInput } from "@/utils/sessionType";
 
 // Concurrent invokes run as separate backend tasks and land in any order under load.
 const inputTails = new Map<string, Promise<void>>();
@@ -17,14 +18,14 @@ const inputTails = new Map<string, Promise<void>>();
  * swallow inside here would hide a failed MCP write.
  *
  * A `multiplayer` tab holds no transport of its own — its keystrokes travel the
- * relay — so it is a no-op here rather than a misrouted SSH write.
+ * relay — and a web tab has none at all, so both are a no-op here rather than a misrouted SSH write.
  */
 export function sendSessionInput(
   sessionId: string,
   sessionType: TerminalSession["type"],
   data: Uint8Array,
 ): Promise<void> {
-  if (sessionType === "multiplayer") return Promise.resolve();
+  if (!acceptsTerminalInput({ type: sessionType })) return Promise.resolve();
   const write = () => {
     if (sessionType === "local") return localSendInput(sessionId, data);
     if (sessionType === "serial") return serialWrite(sessionId, data);
@@ -57,7 +58,7 @@ export async function onSessionOutput(
 ): Promise<UnlistenFn> {
   if (sessionType === "local") return onLocalOutput(sessionId, callback);
   if (sessionType === "serial") return onSerialOutput(sessionId, callback);
-  if (sessionType === "multiplayer") return () => {};
+  if (!acceptsTerminalInput({ type: sessionType })) return () => {};
   return onSshOutput(sessionId, callback);
 }
 

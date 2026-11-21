@@ -17,6 +17,7 @@ import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/
 import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 import { formatRelative } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
+import { acceptsTerminalInput } from "@/utils/sessionType";
 
 interface HistoryItem {
   id: string;
@@ -226,7 +227,7 @@ export function HistoryPanel({ onInjected }: { onInjected?: () => void } = {}) {
     ? Infinity
     : rowBatch.filterKey === filterKey ? rowBatch.limit : ROW_BATCH;
 
-  const canInject = !!activeSession && activeSession.type !== "multiplayer";
+  const canInject = !!activeSession && acceptsTerminalInput(activeSession);
   const filteringCurrent = !!activeSession && hostFilter?.id === activeSession.connectionId;
 
   useEffect(() => {
@@ -282,7 +283,7 @@ export function HistoryPanel({ onInjected }: { onInjected?: () => void } = {}) {
   }, [hasMoreRows, rowLimit, filterKey]);
 
   async function inject(text: string, execute: boolean) {
-    if (!activeSession || activeSession.type === "multiplayer") return;
+    if (!activeSession || !acceptsTerminalInput(activeSession)) return;
     try {
       await broadcastSnippetInject([activeSession], text, execute);
       onInjected?.();
