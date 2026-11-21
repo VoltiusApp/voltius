@@ -11,6 +11,7 @@ const h = vi.hoisted(() => ({
   wrap: vi.fn(),
   unwrap: vi.fn(),
   publishPublicKey: vi.fn(),
+  getVaultKeyHolders: vi.fn(),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
@@ -20,6 +21,7 @@ vi.mock("@/services/teamService", () => ({
   getUserPublicKey: h.getUserPublicKey,
   getMyUserId: h.getMyUserId,
   updatePublicKey: h.updatePublicKey,
+  getVaultKeyHolders: h.getVaultKeyHolders,
 }));
 vi.mock("@/services/multiplayerService", () => ({
   wrapSessionKeyForUser: h.wrap,
@@ -49,9 +51,10 @@ beforeEach(() => {
   h.getMyUserId.mockResolvedValue("me");
   h.updatePublicKey.mockResolvedValue(undefined);
   h.wrap.mockImplementation(async (_key: Uint8Array, pub: string) => `wrapped-for-${pub}`);
+  h.getVaultKeyHolders.mockResolvedValue([]);
 });
 
-test("initTeamVaultKey generates a fresh key when none exists (404) and wraps for self + members", async () => {
+test("initTeamVaultKey generates a fresh key when the team has no key holder (404) and wraps for self + members", async () => {
   h.appFetch.mockImplementation(async (url: string, init?: RequestInit) => {
     if (url.endsWith("/vault-key") && (!init || init.method === "GET")) return res(404);
     if (url.endsWith("/vault-key") && init?.method === "PUT") return res(200);
@@ -70,6 +73,20 @@ test("initTeamVaultKey generates a fresh key when none exists (404) and wraps fo
   const ids = body.keys.map((k: any) => k.user_id).sort();
   expect(ids).toEqual(["me", "u2"]); // self first + one eligible member; u3 skipped
   expect(body.keys[0]).toEqual({ user_id: "me", wrapped_key: "wrapped-for-MYPUB" });
+});
+
+test("initTeamVaultKey never mints a replacement key when only this member's wrap is missing", async () => {
+  h.getVaultKeyHolders.mockResolvedValue(["owner"]);
+  h.appFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+    if (url.endsWith("/vault-key") && (!init || init.method === "GET")) return res(404);
+    throw new Error(`unexpected ${init?.method ?? "GET"} ${url}`);
+  });
+
+  await initTeamVaultKey("team-joined", [{ user_id: "owner", public_key: "ownerpk" }] as any);
+
+  expect(h.getVaultKeyHolders).toHaveBeenCalledWith("team-joined");
+  expect(h.wrap).not.toHaveBeenCalled();
+  await expect(getCurrentTeamKey("team-joined")).rejects.toBe("awaiting_key");
 });
 
 test("initTeamVaultKey reuses the existing key when the server already has one", async () => {
