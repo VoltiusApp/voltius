@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.80.0] - 2026-11-21
+
+### Added
+
+- Web (HTTP/HTTPS) hosts: open a host's web interface (Proxmox, a router, a NAS) in a tab next to its SSH sessions, from the host list or quick connect (`https host:port`). Self-signed HTTPS certificates are pinned on first use and listed under Known Hosts; a different certificate later is refused. Desktop only (#918)
+
+### Fixed
+
+- Team vaults: an app that is already running now picks up a rotated team key right away, instead of keeping the old key until it restarts (#912)
+- Team vaults: a newly invited Owner or Manager no longer creates a replacement team key on sign-in, which could leave existing members unable to see shared hosts (#911)
+- Team vaults: items that cannot be decrypted are now reported, with a count on the vault pages, instead of disappearing silently or showing the vault as empty (#913)
+
 ## [0.79.0] - 2026-11-18
 
 ### Added
