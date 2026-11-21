@@ -198,18 +198,33 @@ function _noteKeyConflict(teamId: string, reason: string): TeamKeyRevalidation {
 export async function revalidateTeamVaultKey(teamId: string): Promise<TeamKeyRevalidation> {
   if (!_teamKeyCache.has(teamId)) return "unchanged";
   const generation = _currentGeneration(teamId);
-  let fresh: TeamKey;
+  const current = (): TeamKey | undefined =>
+    _currentGeneration(teamId) === generation ? _teamKeyCache.get(teamId) : undefined;
+
+  let wrapped: WrappedTeamKey;
   try {
-    fresh = await _fetchAndUnwrapTeamVaultKey(teamId);
+    wrapped = await _fetchWrappedTeamKey(_currentKeyPath(teamId));
   } catch (err) {
-    if (_TRANSIENT_KEY_ERRORS.has(err) || _currentGeneration(teamId) !== generation) return "unchanged";
-    // A wrap this device cannot open says nothing about whether the cached key still works.
-    if (err === "key_mismatch") return _noteKeyConflict(teamId, "server wrap cannot be opened");
+    if (_TRANSIENT_KEY_ERRORS.has(err) || !current()) return "unchanged";
     deleteTeamKey(teamId);
     return "revoked";
   }
-  const cached = _teamKeyCache.get(teamId);
-  if (!cached || _currentGeneration(teamId) !== generation || fresh.version < cached.version) return "unchanged";
+  const before = current();
+  if (!before || wrapped.version < before.version) return "unchanged";
+
+  let fresh: TeamKey;
+  try {
+    fresh = await _unwrapTeamKey(wrapped);
+  } catch (err) {
+    const cached = current();
+    if (err !== "key_mismatch" || !cached || wrapped.version < cached.version) return "unchanged";
+    // Same epoch: the cached key still opens existing rows. Newer epoch: it must stop sealing new ones.
+    if (wrapped.version === cached.version) return _noteKeyConflict(teamId, "server wrap cannot be opened");
+    deleteTeamKey(teamId);
+    return "revoked";
+  }
+  const cached = current();
+  if (!cached || fresh.version < cached.version) return "unchanged";
   if (fresh.version === cached.version) {
     if (_sameKey(fresh.key, cached.key)) return "unchanged";
     // Rotation always bumps the epoch, so the cached key is the one existing rows were sealed with.
@@ -229,13 +244,15 @@ export function revalidateCachedTeamKeys(): Promise<void> {
   _revalidationQueued = true;
   _revalidationTail = _revalidationTail.then(async () => {
     _revalidationQueued = false;
-    const reloads: Promise<void>[] = [];
-    for (const teamId of [..._teamKeyCache.keys()]) {
+    for (const teamId of new Set([..._teamKeyCache.keys(), ..._teamKeyInFlight.keys()])) {
+      // A fetch that left before this event may cache the epoch it replaced.
+      await _teamKeyInFlight.get(teamId)?.catch(() => {});
       const outcome = await revalidateTeamVaultKey(teamId);
       // A revoked key reloads in the foreground so the vault shows why it is no longer readable.
-      if (outcome === "replaced" || outcome === "revoked") reloads.push(fetchTeamData(teamId, { background: outcome === "replaced" }));
+      if (outcome === "replaced" || outcome === "revoked") {
+        fetchTeamData(teamId, { background: outcome === "replaced" }).catch(logFailure(`teamVaultSync: reload after key change team=${teamId}`));
+      }
     }
-    await Promise.allSettled(reloads);
   }).catch(logFailure("teamVaultSync: revalidateCachedTeamKeys"));
   return _revalidationTail;
 }
@@ -243,7 +260,17 @@ export function revalidateCachedTeamKeys(): Promise<void> {
 /** Shared by the "current epoch" and "specific historical epoch" fetch paths:
  * GET the given vault-key URL, resolve the wrapping member, unwrap. Thrown
  * error strings match _fetchAndUnwrapTeamVaultKey's existing contract. */
+interface WrappedTeamKey {
+  wrappedKey: string;
+  wrappedBy: string;
+  version: number;
+}
+
 async function _fetchAndUnwrapVaultKeyUrl(path: string): Promise<TeamKey> {
+  return _unwrapTeamKey(await _fetchWrappedTeamKey(path));
+}
+
+async function _fetchWrappedTeamKey(path: string): Promise<WrappedTeamKey> {
   if (!navigator.onLine) throw "offline";
 
   const serverUrl = await getServerUrl();
@@ -267,28 +294,33 @@ async function _fetchAndUnwrapVaultKeyUrl(path: string): Promise<TeamKey> {
     wrapped_by_user_id: string;
     key_version?: number;
   };
+  // Servers before epochs (#217) omit key_version; their rows are all epoch 1.
+  return { wrappedKey: wrapped_key, wrappedBy: wrapped_by_user_id, version: key_version ?? 1 };
+}
 
+async function _unwrapTeamKey({ wrappedKey, wrappedBy, version }: WrappedTeamKey): Promise<TeamKey> {
   // Looked up directly rather than via the current member roster: a
   // historical epoch's key can be wrapped by someone since removed from the
   // team — the very event that triggers rotation — and the roster would
   // never find them again, permanently blocking recovery of that epoch.
-  const wrapper = await teamService.getUserPublicKey(wrapped_by_user_id).catch(() => {
+  const wrapper = await teamService.getUserPublicKey(wrappedBy).catch(() => {
     throw "error";
   });
   if (!wrapper) throw "error";
 
   let rawKey: Uint8Array;
   try {
-    rawKey = await unwrapSessionKey(wrapped_key, wrapper.public_key);
+    rawKey = await unwrapSessionKey(wrappedKey, wrapper.public_key);
   } catch {
     throw "key_mismatch";
   }
-  // Servers before epochs (#217) omit key_version; their rows are all epoch 1.
-  return { key: Array.from(rawKey), version: key_version ?? 1 };
+  return { key: Array.from(rawKey), version };
 }
 
+const _currentKeyPath = (teamId: string): string => `/v1/teams/${teamId}/vault-key`;
+
 async function _fetchAndUnwrapTeamVaultKey(teamId: string): Promise<TeamKey> {
-  return _fetchAndUnwrapVaultKeyUrl(`/v1/teams/${teamId}/vault-key`);
+  return _fetchAndUnwrapVaultKeyUrl(_currentKeyPath(teamId));
 }
 
 // Historical-epoch key cache, keyed by "teamId:version" — separate from the

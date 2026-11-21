@@ -242,6 +242,14 @@ test("revalidate: a different DEK under the same epoch, or a wrap this device ca
   }
 });
 
+test("revalidate: a newer epoch this device cannot open evicts the older key", async () => {
+  await primeKey([1, 2, 3], 2);
+  serveKey(new Error("aead::Error"), 3);
+
+  expect(await revalidateTeamVaultKey("t1")).toBe("revoked");
+  expect(await cached()).toBeUndefined();
+});
+
 test("revalidate: a wrap this member no longer holds evicts the key", async () => {
   for (const status of [404, 403]) {
     clearTeamKeyCache();
@@ -281,6 +289,22 @@ test("a burst of key-change events runs one revalidation pass", async () => {
   h.unwrap.mockResolvedValue(new Uint8Array([1, 2, 3]));
 
   await Promise.all([revalidateCachedTeamKeys(), revalidateCachedTeamKeys(), revalidateCachedTeamKeys()]);
+
+  expect(h.appFetch).toHaveBeenCalledTimes(2);
+});
+
+test("a key fetch in flight when the event lands is checked once it settles", async () => {
+  keychain({ server_url: "https://s", jwt: futureJwt() });
+  h.getUserPublicKey.mockResolvedValue({ user_id: "u1", handle: "u1", public_key: "pk" });
+  let resolveFetch!: (value: unknown) => void;
+  h.appFetch.mockReturnValueOnce(new Promise((resolve) => { resolveFetch = resolve; }));
+  h.unwrap.mockResolvedValueOnce(new Uint8Array([1, 2, 3]));
+  const loading = getCurrentTeamKey("t1");
+
+  const pass = revalidateCachedTeamKeys();
+  serveKey([1, 2, 3], 2);
+  resolveFetch(res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1", key_version: 2 }));
+  await Promise.all([loading, pass]);
 
   expect(h.appFetch).toHaveBeenCalledTimes(2);
 });
