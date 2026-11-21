@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { TerminalSession } from "@/types";
-import { closeWebPane, fetchWebFavicon, syncWebPane } from "@/services/webHost";
+import { fetchWebFavicon, syncWebPane } from "@/services/webHost";
 import { useSessionStore } from "@/stores/sessionStore";
 import { notifyError } from "@/utils/notifyError";
 
@@ -32,11 +32,7 @@ function overlayOver(pane: DOMRect, home: Element | null): boolean {
   return false;
 }
 
-/**
- * Whether a popover, menu, dialog or toast is drawn over `el`. Those are portalled into `<body>`,
- * outside the app's root. The native page above would hide them, so the caller hides the page
- * meanwhile.
- */
+/** Whether a portalled popover, menu, dialog or toast is drawn over `el`: the native page would hide it. */
 function useCoveredByOverlay(el: React.RefObject<HTMLElement | null>, active: boolean): boolean {
   const [covered, setCovered] = useState(false);
   useEffect(() => {
@@ -55,7 +51,6 @@ function useCoveredByOverlay(el: React.RefObject<HTMLElement | null>, active: bo
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(check);
     };
-    // Overlays come and go as body children, and change inside the ones that stay (a toast stack).
     // The app's own tree is not watched: a terminal repaints it constantly.
     const inner = new MutationObserver(schedule);
     const watchChildren = () => {
@@ -80,14 +75,7 @@ function useCoveredByOverlay(el: React.RefObject<HTMLElement | null>, active: bo
   return covered;
 }
 
-/**
- * The page of a web host. The page is a native webview laid over this element rather than DOM, so
- * its position is pushed to the backend whenever the element moves or resizes, and it is hidden
- * (kept loaded) while the tab is not showing.
- *
- * Being native, the page sits above everything the app draws, so it is hidden while a popover or
- * modal is open over this area.
- */
+/** A native webview kept over this element; hidden, not closed, while the tab is not shown. */
 export function WebPane({ session, visible: tabShown }: { session: TerminalSession; visible: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const covered = useCoveredByOverlay(ref, tabShown);
@@ -103,8 +91,7 @@ export function WebPane({ session, visible: tabShown }: { session: TerminalSessi
       const r = el.getBoundingClientRect();
       const shown = visible && r.width > 0 && r.height > 0;
       const bounds = shown ? { x: r.left, y: r.top, width: r.width, height: r.height } : null;
-      // Showing the page takes the keyboard from the app: when it comes back into view while a
-      // field has focus (a popover's search box), give the keyboard back.
+      // Showing the native page steals the keyboard from a focused app field (a popover's search box).
       const refocusApp = shown && !wasShown.current && isTextFieldFocused();
       wasShown.current = shown;
       syncWebPane(id, webUrl, bounds, refocusApp).catch((err) => {
@@ -124,9 +111,8 @@ export function WebPane({ session, visible: tabShown }: { session: TerminalSessi
     };
   }, [id, webUrl, visible]);
 
-  // The tab shows the page's own icon; the globe stays when there is none.
   useEffect(() => {
-    if (!webUrl) return;
+    if (!webUrl || useSessionStore.getState().sessions.find((s) => s.id === id)?.webIcon) return;
     let cancelled = false;
     fetchWebFavicon(webUrl)
       .then((icon) => {
@@ -138,7 +124,10 @@ export function WebPane({ session, visible: tabShown }: { session: TerminalSessi
     };
   }, [id, webUrl]);
 
-  useEffect(() => () => void closeWebPane(id).catch(() => {}), [id]);
+  // Unmounting is a move between tab and split: the page closes only with its session (sessionStore).
+  useEffect(() => () => {
+    if (webUrl) void syncWebPane(id, webUrl, null).catch(() => {});
+  }, [id, webUrl]);
 
   return <div ref={ref} className="absolute inset-0 bg-(--t-bg-terminal)" />;
 }

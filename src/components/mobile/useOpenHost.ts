@@ -1,7 +1,7 @@
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
-import { isFileOnlyProtocol } from "@/utils/connectionType";
+import { isFileOnlyProtocol, isWebProtocol } from "@/utils/connectionType";
 import { connectionTarget, refuseWhilePreviewing } from "@/services/previewGuard";
 
 /** Open a host the way tapping it on Hosts does: a new terminal session (and the terminal tab),
@@ -19,6 +19,6 @@ export function useOpenHost(): (id: string) => void {
       return;
     }
     void connect(id).catch(console.error);
-    setTab("terminal");
+    if (!(c && isWebProtocol(c))) setTab("terminal");
   };
 }

@@ -9,11 +9,14 @@ export function isWebProtocol(c: Pick<Connection, "connection_type">): boolean {
   return c.connection_type === "web";
 }
 
+export function webDefaultPort(secure: boolean | undefined): number {
+  return secure ? 443 : 80;
+}
+
 /** URL a web host opens. Brackets a bare IPv6 literal and drops the scheme's default port. */
 export function webUrl(c: Pick<Connection, "host" | "port" | "web_secure">): string {
   const host = c.host.includes(":") && !c.host.startsWith("[") ? `[${c.host}]` : c.host;
-  const defaultPort = c.web_secure ? 443 : 80;
-  const port = c.port && c.port !== defaultPort ? `:${c.port}` : "";
+  const port = c.port && c.port !== webDefaultPort(c.web_secure) ? `:${c.port}` : "";
   return `${c.web_secure ? "https" : "http"}://${host}${port}/`;
 }
 

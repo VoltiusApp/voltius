@@ -10,11 +10,10 @@ import { sessionMenuItems } from "@/utils/sessionMenuItems";
 import { sessionStatusTone } from "@/utils/statusTone";
 import { sessionStatusLine } from "@/utils/sessionStatusLine";
 import { useConnectedSince } from "@/services/sessionUptime";
-import { activateSessionTab, activateSplitTabPane } from "@/services/tabActivation";
+import { revealSession } from "@/services/tabActivation";
 import { closeSessionTabs } from "@/services/closeSession";
 import { TabCloseControl } from "@/components/shared/TabCloseControl";
 import { openInSplit } from "@/services/hostStack";
-import { findSessionPane, useLayoutStore } from "@/stores/layoutStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useDragStore, shouldSuppressDragClick } from "@/stores/dragStore";
 import { stackGroupKey, titlebarGroupOf } from "@/utils/titlebarItems";
@@ -127,12 +126,7 @@ function HostSessionRowItem({
 
   const activate = () => {
     if (shouldSuppressDragClick()) return;
-    if (splitTabId) {
-      const paneId = findSessionPane(useLayoutStore.getState().splitTabs, session.id)?.paneId;
-      activateSplitTabPane(splitTabId, paneId);
-    } else {
-      activateSessionTab(session.id);
-    }
+    revealSession(session.id);
     onActivate();
   };
 

@@ -2,7 +2,7 @@ import { forwardRef, type RefAttributes, useCallback, useEffect, useImperativeHa
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { ConnectionFormData, AuthType, JumpHost, EnvVar, ProxyOverride, ConnectionType, PortKnockSettings } from "@/types";
-import { parseWebdavUrl } from "@/utils/connectionType";
+import { parseWebdavUrl, webDefaultPort } from "@/utils/connectionType";
 import type { KeepalivePreset } from "@/utils/keepalive";
 import { useKeepaliveSelect } from "@/hooks/useKeepaliveSelect";
 import { useIdentityStore } from "@/stores/identityStore";
@@ -252,7 +252,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
         data: {
           name: name.trim() || undefined,
           host: webdavTarget?.host ?? host,
-          port: webdavTarget?.port ?? (port || (isWeb ? (webSecure ? 443 : 80) : DEFAULT_PORT.ftp)),
+          port: webdavTarget?.port ?? (port || (isWeb ? webDefaultPort(webSecure) : DEFAULT_PORT.ftp)),
           username,
           auth_type: "password",
           tags,
@@ -620,7 +620,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                   onChange={(v) => {
                     markDirty();
                     setWebSecure(v);
-                    setPort((p) => (p === 80 || p === 443 ? (v ? 443 : 80) : p));
+                    setPort((p) => (p === webDefaultPort(!v) ? webDefaultPort(v) : p));
                   }}
                 />
               </SettingRow>

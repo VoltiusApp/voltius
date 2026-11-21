@@ -1,12 +1,5 @@
-//! Web hosts (HTTP/HTTPS): show the host's web UI (Proxmox, a router, a dashboard…)
-//! instead of a terminal. Two ways to show it:
-//!
-//! - a **pane**: a webview embedded in the main window, kept over the tab's area by the
-//!   frontend (`web_pane_sync` / `web_pane_close`);
-//! - a **separate window** (`web_host_open`).
-//!
-//! Both load remote content, so they get no Tauri capability: the page cannot call
-//! `invoke` into Voltius. Desktop only — mobile has no multi-webview windows.
+//! Web hosts as a webview pane over a tab, or in their own window. Desktop only.
+//! Remote content gets no Tauri capability: the page cannot `invoke` into Voltius.
 
 use crate::error::AppError;
 use crate::known_hosts::KnownHostsStore;
@@ -15,7 +8,7 @@ use serde::Deserialize;
 use std::sync::Arc;
 use tauri::State;
 
-/// Where a pane sits in the main window, in logical (CSS) pixels from its top-left corner.
+/// In logical (CSS) pixels from the main window's top-left corner.
 #[derive(Debug, Clone, Copy, Deserialize)]
 pub struct PaneBounds {
     pub x: f64,
@@ -44,10 +37,8 @@ pub async fn web_host_open(
     .await
 }
 
-/// Create, move or hide the pane of a session. `Some(bounds)` shows it there (creating the
-/// webview on first use); `None` hides it, keeping the page loaded for when its tab returns.
-/// Showing a native webview takes the keyboard from the app's own; `refocus_app` gives it back
-/// (the page was only uncovered while the user types in a popover).
+/// `Some(bounds)` shows the pane there, creating it on first use; `None` hides it, still loaded.
+/// `refocus_app` gives the keyboard back to the app, which showing a native webview takes.
 #[tauri::command]
 pub async fn web_pane_sync(
     app: tauri::AppHandle,
@@ -70,9 +61,7 @@ pub async fn web_pane_sync(
     .await
 }
 
-/// The icon of a web page as a `data:` URL, for its tab: the page's `<link rel="icon">`, else
-/// `/favicon.ico`. `None` when the host has none or cannot be reached. Goes through the same
-/// pinned-certificate TLS as the page itself.
+/// The page's `<link rel="icon">`, else `/favicon.ico`, as a `data:` URL, over the pinned TLS.
 #[tauri::command]
 pub async fn web_favicon(
     known_hosts: State<'_, Arc<KnownHostsStore>>,
@@ -81,7 +70,6 @@ pub async fn web_favicon(
     Ok(favicon::fetch(Arc::clone(&known_hosts), &url).await)
 }
 
-/// Destroy the pane of a session that was closed. Succeeds when there is none.
 #[tauri::command]
 pub async fn web_pane_close(
     app: tauri::AppHandle,
@@ -92,47 +80,6 @@ pub async fn web_pane_close(
     proxies.stop(&label_for("web-pane", &session_id)).await;
     Ok(())
 }
-
-/// A proxied page runs on plain `http://127.0.0.1`, which breaks two things a page may assume of
-/// its HTTPS origin, so the script undoes them in every frame (Proxmox's console is an iframe):
-/// - WebKit drops cookies a script sets with `Secure` (Proxmox does, to store its login ticket).
-///   Strip that flag, as the proxy does for `Set-Cookie` headers.
-/// - A `wss://` socket to the page's own address meets a proxy that only speaks plain HTTP
-///   (Proxmox's noVNC always asks for `wss://`). Open it as `ws://`; the proxy still talks TLS to
-///   the host.
-#[cfg(desktop)]
-const PROXIED_PAGE_SCRIPT: &str = r#"(function () {
-  var d = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');
-  if (d && d.set) {
-    Object.defineProperty(document, 'cookie', {
-      configurable: true,
-      get: function () { return d.get.call(document); },
-      set: function (v) {
-        d.set.call(document, String(v)
-          .replace(/;\s*secure\s*(?=;|$)/ig, '')
-          .replace(/;\s*samesite\s*=\s*none/ig, '; SameSite=Lax'));
-      }
-    });
-  }
-  var WS = window.WebSocket;
-  if (WS) {
-    // A plain function that returns a real WebSocket, not a subclass: noVNC checks that the
-    // socket's direct prototype owns `send`, `close`, ..., which a subclass prototype does not.
-    var Wrapped = function WebSocket(url, protocols) {
-      try {
-        var u = new URL(url, location.href);
-        if (u.protocol === 'wss:' && u.host === location.host) {
-          u.protocol = 'ws:';
-          url = u.href;
-        }
-      } catch (e) {}
-      return protocols === undefined ? new WS(url) : new WS(url, protocols);
-    };
-    Wrapped.prototype = WS.prototype;
-    ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'].forEach(function (k) { Wrapped[k] = WS[k]; });
-    window.WebSocket = Wrapped;
-  }
-})();"#;
 
 #[cfg(desktop)]
 fn app_error(e: tauri::Error) -> AppError {
@@ -150,7 +97,7 @@ fn parse_web_url(url: &str) -> Result<tauri::Url, AppError> {
     Ok(parsed)
 }
 
-/// One window per host: opening an already-open host just brings it to the front.
+/// One window per host: reopening brings it to the front.
 #[cfg(desktop)]
 async fn open_window(
     app: tauri::AppHandle,
@@ -170,17 +117,16 @@ async fn open_window(
         return Ok(());
     }
 
-    // A host whose certificate no CA vouches for is shown through a local proxy.
     let resolved = proxies.resolve(&label, url, known_hosts).await?;
     let mut builder = WebviewWindowBuilder::new(
         &app,
         label.clone(),
-        WebviewUrl::External(parse_web_url(&resolved)?),
+        WebviewUrl::External(parse_web_url(&resolved.url)?),
     )
     .title(title)
     .inner_size(1280.0, 800.0);
-    if resolved != url {
-        builder = builder.initialization_script_for_all_frames(PROXIED_PAGE_SCRIPT);
+    if let Some(script) = resolved.page_script {
+        builder = builder.initialization_script_for_all_frames(script);
     }
     let window = builder.build().map_err(app_error)?;
     let handle = app.clone();
@@ -231,9 +177,9 @@ async fn sync_pane(
             parse_web_url(url)?;
             let resolved = proxies.resolve(&label, url, known_hosts).await?;
             let mut builder =
-                WebviewBuilder::new(label, WebviewUrl::External(parse_web_url(&resolved)?));
-            if resolved != url {
-                builder = builder.initialization_script_for_all_frames(PROXIED_PAGE_SCRIPT);
+                WebviewBuilder::new(label, WebviewUrl::External(parse_web_url(&resolved.url)?));
+            if let Some(script) = resolved.page_script {
+                builder = builder.initialization_script_for_all_frames(script);
             }
             let window = app
                 .get_window("main")
@@ -355,7 +301,6 @@ mod favicon {
         Some((content_type, body))
     }
 
-    /// The image type to give the browser, from the response or else the file extension.
     pub(super) fn image_mime(content_type: &str, path: &str) -> Option<String> {
         let declared = content_type.split(';').next().unwrap_or_default().trim();
         if declared.starts_with("image/") {
@@ -370,7 +315,7 @@ mod favicon {
             "gif" => "image/gif",
             _ => return None,
         };
-        // A page served instead of the icon (a login redirect, an error page).
+        // A login or error page served instead of the icon.
         (!declared.starts_with("text/")).then(|| mime.to_string())
     }
 
@@ -418,7 +363,6 @@ mod favicon {
 }
 
 /// Tauri labels allow only `a-zA-Z0-9`, `-`, `/`, `:` and `_`.
-#[cfg(any(desktop, test))]
 fn label_for(prefix: &str, id: &str) -> String {
     let safe: String = id
         .chars()

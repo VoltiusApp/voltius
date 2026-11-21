@@ -29,6 +29,7 @@ import { StatusDot } from "@/components/shared/StatusDot";
 import { SessionTypeBadge } from "@/components/panes/SessionTypeBadge";
 import { latencyColor, sessionStatusTone } from "@/utils/statusTone";
 import type { TerminalSession } from "@/types";
+import { acceptsTerminalInput } from "@/utils/sessionType";
 import { useCopiedFlash } from "@/hooks/useCopiedFlash";
 
 interface ConnectedSystemInfo {
@@ -127,7 +128,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
   const [latencyRect, setLatencyRect] = useState<DOMRect | null>(null);
 
   const isMaximized = maximizedPaneId === paneId;
-  const excludedFromBroadcast = broadcastActive && (session.type === "multiplayer" || (!!mpState && mpState.controlHolder !== "" && mpState.controlHolder !== mpState.myUserId));
+  const excludedFromBroadcast = broadcastActive && (!acceptsTerminalInput(session) || (!!mpState && mpState.controlHolder !== "" && mpState.controlHolder !== mpState.myUserId));
   const connectionIcon = session.type === "ssh" && connection ? (connection.icon || connection.distro) : null;
   const displayConnectionIcon = connectionIcon ? getConnectionIcon(connectionIcon) : null;
   const localOsName = localSystemInfo?.os_name ?? "linux";

@@ -21,8 +21,7 @@ export function fetchWebFavicon(url: string): Promise<string | null> {
   return invoke<string | null>("web_favicon", { url });
 }
 
-/** One queue per session: a move must not overtake the call that creates the webview, or a close
- *  the call that precedes it. */
+/** Per session, so a move never overtakes the create, nor a close the call before it. */
 const queues = new Map<string, Promise<unknown>>();
 
 function enqueue(sessionId: string, run: () => Promise<void>): Promise<void> {
@@ -31,8 +30,7 @@ function enqueue(sessionId: string, run: () => Promise<void>): Promise<void> {
   return next;
 }
 
-/** Show a session's web page at `bounds`, creating it on first use; `null` hides it (page kept). `refocusApp` hands the keyboard back to the app after showing it, for a
- *  page uncovered while the user is typing in the app. */
+/** Show a session's page at `bounds`, creating it on first use; `null` hides it, keeping it loaded. */
 export function syncWebPane(
   sessionId: string,
   url: string,

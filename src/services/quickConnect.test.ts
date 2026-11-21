@@ -18,6 +18,7 @@ describe("parseQuickConnect: web", () => {
 
   it("reads a bracketed IPv6 host", () => {
     expect(parseQuickConnect("https [::1]:8443")).toEqual({ kind: "web", host: "::1", port: 8443, secure: true });
+    expect(parseQuickConnect("https fe80::1")).toEqual({ kind: "web", host: "fe80::1", port: 443, secure: true });
   });
 
   it("is not read as ssh, and ssh is unaffected", () => {
@@ -29,8 +30,8 @@ describe("parseQuickConnect: web", () => {
   it("ignores an incomplete or invalid address", () => {
     expect(parseQuickConnect("https")).toBeNull();
     expect(parseQuickConnect("https ")).toBeNull();
-    expect(parseQuickConnect("https host:99999")?.kind).not.toBe("web");
-    expect(parseQuickConnect("https a:b:c")?.kind).not.toBe("web");
+    expect(parseQuickConnect("https host:99999")).toEqual({ kind: "invalid-port", port: "99999" });
+    expect(parseQuickConnect("https [::1")?.kind).not.toBe("web");
   });
 
   it("builds an unsaved web connection", () => {

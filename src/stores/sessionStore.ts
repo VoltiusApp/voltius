@@ -39,6 +39,9 @@ import { isFileOnlyProtocol, isWebProtocol, webUrl } from "@/utils/connectionTyp
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { onConnectionsRevoked } from "@/services/connectionRevocations";
 import { appToast } from "@/services/appToast";
+import { revealSession } from "@/services/tabActivation";
+import { isMobileShell } from "@/utils/platform";
+import { closeWebPane } from "@/services/webHost";
 import { connectionTarget, refuseOrThrow, refuseWhilePreviewing } from "@/services/previewGuard";
 
 /** `background: true` opens the session without taking the user's active tab. */
@@ -589,40 +592,40 @@ async function materializeSavedConnection(
   return target;
 }
 
-/** A web host's page, in a tab: an open one is brought forward instead of opening a second. */
-function openWebSession(set: SessionSetter, connection: Connection) {
-  // A saved host counts as used (Recent lists by it); an unsaved quick-connect target is not one.
+/** A web host's page in a tab; an already-open one is brought forward. Null on mobile. */
+function openWebSession(set: SessionSetter, connection: Connection): string | null {
+  if (isMobileShell()) {
+    appToast("info", i18n.t("common.toast.webHostDesktopOnly"));
+    return null;
+  }
   if (!ephemeralConnections.has(connection.id)) {
     useConnectionStore.getState().setLastUsed(connection.id).catch(() => {});
   }
   const existing = useSessionStore.getState().sessions.find((s) => s.type === "web" && s.connectionId === connection.id);
   if (existing) {
-    set(() => ({ activeSessionId: existing.id }));
-    useLayoutStore.getState().setSplitTabActive(false);
-    return;
+    revealSession(existing.id);
+    return existing.id;
   }
+  const id = crypto.randomUUID();
   addSession(set, {
-    id: crypto.randomUUID(),
+    id,
     connectionId: connection.id,
     connectionName: connectionDisplayName(connection),
     status: "connected",
     type: "web",
     webUrl: webUrl(connection),
   });
+  return id;
 }
 
-/** Hosts without a terminal open their own view instead of an SSH session: FTP/WebDAV hosts the file
- *  browser, web hosts (HTTP/HTTPS) a tab with their page. False when the host has a terminal. */
-function openWithoutTerminal(set: SessionSetter, connection: Connection): boolean {
+/** FTP/WebDAV hosts open the file browser, web hosts a page tab. Null when the host has a terminal. */
+function openWithoutTerminal(set: SessionSetter, connection: Connection, sessionId: string): string | null {
   if (isFileOnlyProtocol(connection)) {
     useUIStore.getState().openSftpWith(connection.id);
-    return true;
+    return sessionId;
   }
-  if (isWebProtocol(connection)) {
-    openWebSession(set, connection);
-    return true;
-  }
-  return false;
+  if (isWebProtocol(connection)) return openWebSession(set, connection) ?? sessionId;
+  return null;
 }
 
 function beginConnection(set: SessionSetter, connectionId: string, initialCwd?: string): string {
@@ -631,7 +634,8 @@ function beginConnection(set: SessionSetter, connectionId: string, initialCwd?: 
 
   const sessionId = crypto.randomUUID();
 
-  if (openWithoutTerminal(set, connection)) return sessionId;
+  const opened = openWithoutTerminal(set, connection, sessionId);
+  if (opened) return opened;
 
   if (connection.connection_type === "serial") {
     const serialParams = createSerialSession(set, connection, sessionId);
@@ -660,7 +664,8 @@ async function connectConnection(
 
   const sessionId = crypto.randomUUID();
 
-  if (openWithoutTerminal(set, connection)) return sessionId;
+  const opened = openWithoutTerminal(set, connection, sessionId);
+  if (opened) return opened;
 
   if (connection.connection_type === "serial") {
     await startSerialSession(set, connection, sessionId, options);
@@ -1251,4 +1256,11 @@ onConnectionsRevoked((revoked) => {
   for (const s of closing) void useSessionStore.getState().disconnect(s.id, { detach: true });
   const hosts = [...new Set(closing.map((s) => s.connectionName))].join(", ");
   appToast("warning", i18n.t("common.toast.hostAccessRevoked", { hosts }), { duration: 10000 });
+});
+
+useSessionStore.subscribe((state, prev) => {
+  if (state.sessions === prev.sessions) return;
+  for (const s of prev.sessions) {
+    if (s.type === "web" && !state.sessions.some((x) => x.id === s.id)) void closeWebPane(s.id).catch(() => {});
+  }
 });

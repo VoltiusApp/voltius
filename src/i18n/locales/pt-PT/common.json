@@ -64,6 +64,7 @@
     "toast": {
       "invitationWithdrawnAtSignup": "O seu convite para {{team}} já não é válido, por isso não foi adicionado. Peça à equipa para lhe enviar um novo.",
       "hostAccessRevoked": "O seu acesso a {{hosts}} foi revogado, por isso as sessões abertas foram fechadas.",
+      "webHostDesktopOnly": "Os anfitriões web abrem-se na aplicação para computador.",
       "proSubscriptionEnded": "A sua assinatura Pro terminou — a sincronização na nuvem foi pausada. Os seus dispositivos continuam a sincronizar na mesma rede.",
       "proSubscriptionEnded_ios": "Sua assinatura Pro terminou — a sincronização foi pausada.",
       "seatEnded": "O seu lugar em {{team}} terminou — a sincronização na nuvem foi pausada. Os seus dispositivos continuam a sincronizar na mesma rede.",
