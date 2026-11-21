@@ -8,7 +8,6 @@ const CONNECT_ONLY = PERM_BITS.CONNECT | PERM_BITS.START_TERMINAL_SESSION
 const h = vi.hoisted(() => ({
   fetchTeamData: vi.fn(async (_teamId: string, _options?: { background?: boolean }) => {}),
   clearTeamKeyCache: vi.fn(),
-  deleteTeamKey: vi.fn(),
   reconcileTeamVaultKeys: vi.fn(async () => {}),
   loadMembers: vi.fn(async () => {}),
   loadRoles: vi.fn(async () => {}),
@@ -29,7 +28,6 @@ const h = vi.hoisted(() => ({
 vi.mock("@/services/teamVaultSync", () => ({
   fetchTeamData: h.fetchTeamData,
   clearTeamKeyCache: h.clearTeamKeyCache,
-  deleteTeamKey: h.deleteTeamKey,
   reconcileTeamVaultKeys: h.reconcileTeamVaultKeys,
 }));
 vi.mock("@/stores/teamStore", () => ({
@@ -96,11 +94,10 @@ test("only teams still waiting on a key are re-read", async () => {
   expect(h.fetchTeamData.mock.calls.map((c) => c[0])).toEqual(["t1", "t4"]);
 });
 
-test("a new key re-reads vaults that hid undecryptable rows, with a fresh key", async () => {
+test("a new key re-reads vaults that hid undecryptable rows", async () => {
   h.statusByTeamId = { t1: "undecryptable", t2: "loaded", t3: "loaded" };
   h.undecryptableByTeamId = { t2: { key: 2 }, t3: {} };
   await refreshAwaitingKeyTeams();
-  expect(h.deleteTeamKey.mock.calls.map((c) => c[0])).toEqual(["t1", "t2"]);
   expect(h.fetchTeamData.mock.calls).toEqual([["t1"], ["t2", { background: true }]]);
 });
 

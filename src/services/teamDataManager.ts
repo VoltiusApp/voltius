@@ -24,7 +24,7 @@ import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useTeamObjectAccessStore } from "@/stores/teamObjectAccessStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { useIdentityPickStore } from "@/stores/identityPickStore";
-import { fetchTeamData, clearTeamKeyCache, deleteTeamKey, reconcileTeamVaultKeys, drainPendingSecretWipes } from "@/services/teamVaultSync";
+import { fetchTeamData, clearTeamKeyCache, reconcileTeamVaultKeys, drainPendingSecretWipes } from "@/services/teamVaultSync";
 import { checkAndRotateTeamKey } from "@/services/teamKeyRotation";
 import { teamSecretCache } from "@/services/teamSecretCache";
 import { resetServerCapabilities } from "@/services/serverCapabilities";
@@ -168,9 +168,8 @@ export async function refreshAwaitingKeyTeams(): Promise<void> {
     Object.keys(statusByTeamId).filter((teamId) => statusByTeamId[teamId] === status);
   const waiting = teamsIn("awaiting_key");
   const unreadable = teamsIn("undecryptable");
-  // A loaded vault keeps its pages on a background re-read; the cached key is what failed, so it goes first.
+  // Cached keys are revalidated by revalidateCachedTeamKeys; a loaded vault keeps its pages on a background re-read.
   const partial = teamsIn("loaded").filter((teamId) => undecryptableTotal(undecryptableByTeamId[teamId]) > 0);
-  [...unreadable, ...partial].forEach(deleteTeamKey);
   await Promise.allSettled([
     ...[...waiting, ...unreadable].map((teamId) => fetchTeamData(teamId)),
     ...partial.map((teamId) => fetchTeamData(teamId, { background: true })),
