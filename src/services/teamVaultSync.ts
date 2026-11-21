@@ -178,6 +178,43 @@ export async function getTeamVaultKey(teamId: string): Promise<number[]> {
   return inFlight;
 }
 
+export type TeamKeyRevalidation = "unchanged" | "replaced" | "revoked" | "conflict";
+
+const _TRANSIENT_KEY_ERRORS = new Set<unknown>(["offline", "error", "update_required"]);
+
+/** Re-reads this member's wrap of a cached key; only a new epoch replaces it. */
+export async function revalidateTeamVaultKey(teamId: string): Promise<TeamKeyRevalidation> {
+  const cached = _teamKeyCache.get(teamId);
+  if (!cached) return "unchanged";
+  const generation = _currentGeneration(teamId);
+  let fresh: { bytes: number[]; version: number };
+  try {
+    fresh = await _fetchAndUnwrapTeamVaultKey(teamId);
+  } catch (err) {
+    if (_TRANSIENT_KEY_ERRORS.has(err) || _currentGeneration(teamId) !== generation) return "unchanged";
+    deleteTeamKey(teamId);
+    return "revoked";
+  }
+  if (_currentGeneration(teamId) !== generation) return "unchanged";
+  if (fresh.version === _teamKeyVersionCache.get(teamId)) {
+    if (fresh.bytes.length === cached.length && fresh.bytes.every((b, i) => b === cached[i])) return "unchanged";
+    // Rotation always bumps the epoch, so the cached key is the one existing rows were sealed with.
+    logFailure(`teamVaultSync: same-epoch key replaced on server team=${teamId}`)(new Error("vault key conflict"));
+    return "conflict";
+  }
+  _teamKeyCache.set(teamId, fresh.bytes);
+  _teamKeyVersionCache.set(teamId, fresh.version);
+  return "replaced";
+}
+
+/** A revoked key reloads in the foreground so the vault shows why it is no longer readable. */
+export async function revalidateCachedTeamKeys(): Promise<void> {
+  await Promise.allSettled([..._teamKeyCache.keys()].map(async (teamId) => {
+    const outcome = await revalidateTeamVaultKey(teamId);
+    if (outcome === "replaced" || outcome === "revoked") await fetchTeamData(teamId, { background: outcome === "replaced" });
+  }));
+}
+
 /** Shared by the "current epoch" and "specific historical epoch" fetch paths:
  * GET the given vault-key URL, resolve the wrapping member, unwrap. Thrown
  * error strings match _fetchAndUnwrapTeamVaultKey's existing contract. */
