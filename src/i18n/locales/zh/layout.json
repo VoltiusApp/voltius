@@ -118,6 +118,8 @@
         "paymentRequiredBodyMember": "所有者的订阅已结束。团队保险库需要有效的套餐。",
         "keyMismatchTitle": "本设备无法打开保险库密钥",
         "keyMismatchBody": "您的密钥已在服务器上，但本设备的账户密钥与之不匹配。请退出该账户，并使用主密码重新登录。",
+        "undecryptableTitle": "无法解密此团队保险库",
+        "undecryptableBody": "服务器已发送此保险库的项目，但在此设备上一个都无法解密。团队加密密钥可能不可用或未同步。请重试，或请保险库所有者检查团队密钥。",
         "errorTitle": "无法加载团队保险库",
         "errorBody": "出错了。请重试。",
         "updateRequiredTitle": "需要更新",

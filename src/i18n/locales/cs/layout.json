@@ -118,6 +118,8 @@
         "paymentRequiredBodyMember": "Předplatné vlastníka skončilo. Týmové trezory vyžadují aktivní tarif.",
         "keyMismatchTitle": "Toto zařízení nemůže otevřít klíč trezoru",
         "keyMismatchBody": "Váš klíč je na serveru, ale klíče účtu na tomto zařízení mu neodpovídají. Odhlaste se z tohoto účtu a znovu se přihlaste hlavním heslem.",
+        "undecryptableTitle": "Tento týmový trezor nelze dešifrovat",
+        "undecryptableBody": "Server odeslal položky tohoto trezoru, ale na tomto zařízení se žádnou z nich nepodařilo dešifrovat. Šifrovací klíč týmu může být nedostupný nebo nesynchronizovaný. Zkuste to znovu nebo požádejte vlastníka trezoru o kontrolu týmového klíče.",
         "errorTitle": "Týmový trezor se nepodařilo načíst",
         "errorBody": "Něco se pokazilo. Zkuste to znovu.",
         "updateRequiredTitle": "Je nutná aktualizace",

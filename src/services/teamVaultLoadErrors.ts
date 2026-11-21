@@ -4,6 +4,14 @@ export type TeamObjectListErrorAction =
   | "fallback"
   | Extract<TeamVaultStatus, "offline" | "forbidden" | "payment_required" | "update_required">;
 
+/** What `getTeamVaultKey` throws; every value is also a vault status. */
+export const TEAM_KEY_ERRORS = ["offline", "forbidden", "payment_required", "update_required", "awaiting_key", "key_mismatch", "error"] as const;
+export type TeamKeyError = typeof TEAM_KEY_ERRORS[number];
+
+export function isTeamKeyError(err: unknown): err is TeamKeyError {
+  return TEAM_KEY_ERRORS.includes(err as TeamKeyError);
+}
+
 export function classifyTeamObjectListError(err: unknown): TeamObjectListErrorAction {
   // Prefer machine-readable classification data (set by fetchTeamApi via
   // apiError) over matching translated message text, which is locale-dependent

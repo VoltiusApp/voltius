@@ -34,8 +34,7 @@ import { usePreviewActive } from "@/hooks/previewScope";
 import { GhostOr } from "@/components/preview/GhostCard";
 import { PreviewSubtitle } from "@/components/preview/PreviewHint";
 import MobileRemoteDeviceSessions from "../MobileRemoteDeviceSessions";
-import { TeamCredentialsNote } from "@/components/shared/VaultUnavailableNote";
-import { useTeamCredentialsUnavailable } from "@/hooks/useBlockedTeamVault";
+import { TeamVaultNotes } from "@/components/shared/VaultUnavailableNote";
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
 import { ManagedBadge } from "@/components/sshConfig/ManagedHost";
@@ -142,7 +141,6 @@ export default function MobileHostsScreen() {
     return [...pinned, ...rest];
   }, [inVault, nav.activeFolderId, connFolderIds, search, isPinnedFn]);
 
-  const teamCredentialsUnavailable = useTeamCredentialsUnavailable();
 
   const canCreateHost = can("EDIT_CONNECTIONS", targetVaultId);
   const canAdd = canCreateHost || canCreateFolder;
@@ -170,7 +168,7 @@ export default function MobileHostsScreen() {
         />
         <div ref={axisRef} data-mobile-folder-level>
           <MobileFolderBreadcrumb path={nav.folderPath} onNavigate={(i) => (i < 0 ? nav.navigateToRoot() : nav.navigateTo(i))} />
-          {teamCredentialsUnavailable && <TeamCredentialsNote reason={teamCredentialsUnavailable} className="mx-4 mt-3" />}
+          <TeamVaultNotes className="mx-4 mt-3" />
           {!nav.activeFolderId && !previewing && <MobileRemoteDeviceSessions />}
           {!search && subFolders.map((f) => (
             <MobileFolderRow

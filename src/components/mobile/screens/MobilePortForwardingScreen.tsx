@@ -29,6 +29,7 @@ import type { PortForwardingRule, Folder, TunnelType } from "@/types";
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
 import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
+import { TeamVaultNotes } from "@/components/shared/VaultUnavailableNote";
 
 type FormRule = PortForwardingRule | TunnelType | null | undefined;
 type AddMode = null | "menu" | "new-folder";
@@ -84,6 +85,7 @@ export default function MobilePortForwardingScreen() {
       <div className="px-4 py-1 text-xs text-(--t-text-dim)">{t("mobile.portForwardingScreen.summary", { total: allRules.length, active: allRules.filter((r) => statusFor(r).status === "active").length })}</div>
 
       <div ref={axisRef} data-mobile-folder-level className="flex-1 overflow-y-auto pb-4">
+        <TeamVaultNotes secrets={false} className="mx-4 mt-3" />
         {!search && nav.folderPath.length === 0 && !previewing && <MobileActiveTunnels />}
         {!search && subfolders.map((f) => (
           <MobileFolderRow key={f.id} folder={f} count={folderCount(f.id)} onOpen={() => nav.navigateInto(f)} onActions={canEditFolder(f) ? () => setFolderSheet(f) : undefined} />

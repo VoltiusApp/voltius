@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { DecodeFailure, DecodeFailureCounts } from "@/services/teamObjectRows";
 
 export type TeamVaultStatus =
   | "idle"
@@ -11,6 +12,7 @@ export type TeamVaultStatus =
   | "update_required"
   | "awaiting_key"
   | "key_mismatch"
+  | "undecryptable"
   | "error";
 
 /**
@@ -26,8 +28,18 @@ const BLOCKED_STATUSES = new Set<TeamVaultStatus>([
   "update_required",
   "awaiting_key",
   "key_mismatch",
+  "undecryptable",
   "error",
 ]);
+
+export function undecryptableTotal(counts: DecodeFailureCounts | undefined): number {
+  return Object.values(counts ?? {}).reduce((sum, n) => sum + (n ?? 0), 0);
+}
+
+function sameCounts(a: DecodeFailureCounts | undefined, b: DecodeFailureCounts): boolean {
+  const keys = new Set([...Object.keys(a ?? {}), ...Object.keys(b)]) as Set<DecodeFailure>;
+  return [...keys].every((k) => (a?.[k] ?? 0) === (b[k] ?? 0));
+}
 
 export function isBlockedTeamVaultStatus(status: TeamVaultStatus | undefined | null): boolean {
   return !!status && BLOCKED_STATUSES.has(status);
@@ -53,9 +65,12 @@ interface TeamVaultStateStore {
    * permissions.
    */
   unencryptedCountByTeamId: Record<string, number>;
+  /** Live rows the last load could not decode, by cause: still on the server, missing from the stores. */
+  undecryptableByTeamId: Record<string, DecodeFailureCounts>;
   setStatus: (teamId: string, s: TeamVaultStatus, error?: string) => void;
   setCredentialsUnavailable: (teamId: string, unavailable: boolean) => void;
   setUnencryptedCount: (teamId: string, count: number) => void;
+  setUndecryptable: (teamId: string, counts: DecodeFailureCounts) => void;
   clearAll: () => void;
 }
 
@@ -64,6 +79,7 @@ export const useTeamVaultStateStore = create<TeamVaultStateStore>((set) => ({
   errorByTeamId: {},
   credentialsUnavailableByTeamId: {},
   unencryptedCountByTeamId: {},
+  undecryptableByTeamId: {},
 
   setStatus: (teamId, s, error) =>
     set((state) => ({
@@ -95,11 +111,19 @@ export const useTeamVaultStateStore = create<TeamVaultStateStore>((set) => ({
           },
     ),
 
+  setUndecryptable: (teamId, counts) =>
+    set((state) =>
+      sameCounts(state.undecryptableByTeamId[teamId], counts)
+        ? state
+        : { undecryptableByTeamId: { ...state.undecryptableByTeamId, [teamId]: counts } },
+    ),
+
   clearAll: () =>
     set({
       statusByTeamId: {},
       errorByTeamId: {},
       credentialsUnavailableByTeamId: {},
       unencryptedCountByTeamId: {},
+      undecryptableByTeamId: {},
     }),
 }));

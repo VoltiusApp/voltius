@@ -8,6 +8,7 @@ import MobileSnippetList, { useMobileSnippetScope } from "../MobileSnippetList";
 import { placementIn } from "@/components/shared/vaultObjectForm";
 import MobileFilterBar from "../MobileFilterBar";
 import AddChoiceSheet from "../sheets/AddChoiceSheet";
+import { TeamVaultNotes } from "@/components/shared/VaultUnavailableNote";
 
 type SnippetsTab = "mine" | "community";
 
@@ -55,7 +56,10 @@ export default function MobileSnippetsScreen() {
       <MobileHeader onAdd={showAdd ? whenWritable(() => setAddMenu(true)) : undefined} />
       <SnippetsTabs value={tab} onChange={setTab} />
       {tab === "mine" ? (
-        <MobileSnippetList scope={scope} addFolderOpen={addFolderOpen} onCloseAddFolder={() => setAddFolderOpen(false)} />
+        <>
+          <TeamVaultNotes secrets={false} className="mx-4 mt-3" />
+          <MobileSnippetList scope={scope} addFolderOpen={addFolderOpen} onCloseAddFolder={() => setAddFolderOpen(false)} />
+        </>
       ) : (
         <div className="flex-1 min-h-0 flex flex-col px-4 pb-4" data-mobile-community>
           <CommunityBrowser

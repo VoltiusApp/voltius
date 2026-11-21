@@ -6,7 +6,7 @@
  */
 
 import { useTeamStore } from "@/stores/teamStore";
-import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
+import { undecryptableTotal, useTeamVaultStateStore, type TeamVaultStatus } from "@/stores/teamVaultStateStore";
 import { useEnrollmentStore } from "@/stores/enrollmentStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useVaultStore } from "@/stores/vaultStore";
@@ -150,7 +150,8 @@ function applyFirstViewNav(teamId: string): void {
 }
 
 /**
- * Re-fetch every team vault currently stuck in `awaiting_key`.
+ * Re-fetch every team vault currently stuck in `awaiting_key`, plus every vault
+ * that hid rows it could not decrypt, since a new key is what recovers those.
  *
  * The server notifies each recipient of a wrapped key with `vault_key_changed`
  * (`put_vault_keys` in server/src/routes/team_sync.rs), not `membership_changed`,
@@ -162,11 +163,17 @@ function applyFirstViewNav(teamId: string): void {
  * the vault would unlock in memory while the panel kept saying "waiting".
  */
 export async function refreshAwaitingKeyTeams(): Promise<void> {
-  const { statusByTeamId } = useTeamVaultStateStore.getState();
-  const waiting = Object.entries(statusByTeamId)
-    .filter(([, status]) => status === "awaiting_key")
-    .map(([teamId]) => teamId);
-  await Promise.allSettled(waiting.map((teamId) => fetchTeamData(teamId)));
+  const { statusByTeamId, undecryptableByTeamId } = useTeamVaultStateStore.getState();
+  const teamsIn = (status: TeamVaultStatus) =>
+    Object.keys(statusByTeamId).filter((teamId) => statusByTeamId[teamId] === status);
+  const waiting = teamsIn("awaiting_key");
+  const unreadable = teamsIn("undecryptable");
+  // Cached keys are revalidated by revalidateCachedTeamKeys; a loaded vault keeps its pages on a background re-read.
+  const partial = teamsIn("loaded").filter((teamId) => undecryptableTotal(undecryptableByTeamId[teamId]) > 0);
+  await Promise.allSettled([
+    ...[...waiting, ...unreadable].map((teamId) => fetchTeamData(teamId)),
+    ...partial.map((teamId) => fetchTeamData(teamId, { background: true })),
+  ]);
 
   // The waiting panel is on screen for exactly one team, and it has just been
   // replaced by that vault's pages — pick the ones the role can use. Any other

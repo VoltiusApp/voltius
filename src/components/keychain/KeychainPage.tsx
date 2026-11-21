@@ -59,6 +59,7 @@ import { useSearchMatcher } from "@/utils/search";
 import { passMoveCancelled } from "@/services/teamObjectPersistence";
 import { describeError } from "@/services/backendErrors";
 import { folderTarget, identityTarget, keyTarget, refuseWhilePreviewing, whenWritable } from "@/services/previewGuard";
+import { TeamVaultNotes } from "@/components/shared/VaultUnavailableNote";
 
 export default function KeychainPage() {
   const { t } = useTranslation();
@@ -635,6 +636,8 @@ export default function KeychainPage() {
         />
 
         {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
+
+        <TeamVaultNotes className="mx-5 mt-3" />
 
         <DragSelectSurface
           selectionAreaRef={selectionAreaRef}

@@ -1,10 +1,24 @@
 import { decodeObjectMetadata, isEncryptedEnvelope } from "@/services/teamObjectEnvelope";
 import type { TeamObjectRecord } from "@/services/teamObjects";
+import { isTeamKeyError } from "@/services/teamVaultLoadErrors";
 
 // The envelope authenticates its payload but binds it to no row, and the server alone decides which
 // rows are plaintext; these are the checks the current wire format allows.
 
 type Row = Pick<TeamObjectRecord, "object_id" | "metadata">;
+
+export type DecodeFailure = "key" | "decrypt" | "untrusted" | "mismatch";
+export type DecodeFailureCounts = Partial<Record<DecodeFailure, number>>;
+
+export class TeamObjectDecodeError extends Error {
+  constructor(readonly reason: DecodeFailure, message: string) {
+    super(message);
+  }
+}
+
+export function decodeFailureOf(err: unknown): DecodeFailure {
+  return err instanceof TeamObjectDecodeError ? err.reason : "decrypt";
+}
 
 const ENCRYPTED_ONLY_KEY = "voltius.team_objects_encrypted_only";
 
@@ -50,13 +64,15 @@ export async function decodeTeamObject(
 ): Promise<object> {
   if (!isEncryptedEnvelope(row.metadata)) {
     if (!isTrustedPlaintextRow(row, allowPlaintext ?? acceptsPlaintextRows(teamId))) {
-      throw new Error(`untrusted plaintext row ${row.object_id} in team ${teamId}`);
+      throw new TeamObjectDecodeError("untrusted", `untrusted plaintext row ${row.object_id} in team ${teamId}`);
     }
     return row.metadata as object;
   }
-  const object = await decodeObjectMetadata(teamId, row.metadata);
+  const object = await decodeObjectMetadata(teamId, row.metadata).catch((e: unknown) => {
+    throw new TeamObjectDecodeError(isTeamKeyError(e) ? "key" : "decrypt", `row ${row.object_id} did not decrypt: ${String(e)}`);
+  });
   if (!isBoundToRow(row, object)) {
-    throw new Error(`row ${row.object_id} carries the metadata of another object`);
+    throw new TeamObjectDecodeError("mismatch", `row ${row.object_id} carries the metadata of another object`);
   }
   return object;
 }

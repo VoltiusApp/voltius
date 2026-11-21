@@ -221,6 +221,8 @@
     "vaultUnavailable": {
       "note": "Kasa okunamadığı için kayıtlı gizli bilgiler burada gösterilmiyor. Kayıtlı değeri korumak için alanı boş bırakın; yeni bir değer yazarsanız kayıtlı değerin yerini alır."
     },
+    "teamVaultUndecryptable_one": "Bu ekip kasasındaki {{count}} öğenin şifresi çözülemedi ve gizlendi. Bu cihazdaki ekip şifreleme anahtarı kullanılamıyor veya eşitlenmemiş olabilir.",
+    "teamVaultUndecryptable_other": "Bu ekip kasasındaki {{count}} öğenin şifresi çözülemedi ve gizlendi. Bu cihazdaki ekip şifreleme anahtarı kullanılamıyor veya eşitlenmemiş olabilir.",
     "teamCredentials": {
       "unavailable": "Bu ekip kasasının kayıtlı kimlik bilgileri yüklenemedi; bu nedenle kayıtlı parola, anahtar veya parola ifadesi gerektiren sunuculara bağlanılamayacak. Bir kasa yöneticisinden, rolünüze kasadaki gizli bilgilere erişim izni vermesini isteyin."
     },

@@ -221,6 +221,8 @@
     "vaultUnavailable": {
       "note": "The vault could not be read, so stored secrets are not shown here. Leave a field empty to keep what is saved; typing a new value replaces it."
     },
+    "teamVaultUndecryptable_one": "{{count}} item in this team vault couldn't be decrypted and is hidden. The team encryption key on this device may be unavailable or out of sync.",
+    "teamVaultUndecryptable_other": "{{count}} items in this team vault couldn't be decrypted and are hidden. The team encryption key on this device may be unavailable or out of sync.",
     "teamCredentials": {
       "unavailable": "Stored credentials for this team vault could not be loaded, so hosts that need a saved password, key, or passphrase will fail to connect. Ask a vault administrator to grant your role access to the vault's secrets."
     },
