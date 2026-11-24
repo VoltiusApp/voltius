@@ -432,7 +432,7 @@ pub fn tmux_session_key(session_id: &str) -> String {
 /// which closes the channel and feeds the reconnect loop into spawning more.
 ///
 /// It then version-gates `truecolor on`, which only screen 5.0+ understands:
-/// older screens print `unknown command 'truecolor'`. `persistent_attach_command` needs no such
+/// older screens would print `unknown command 'truecolor'`. `persistent_attach_command` needs no such
 /// gate — `screen -x` joins the running server, which keeps the setting this rc
 /// gave it at create time.
 ///
@@ -568,7 +568,7 @@ elif command -v screen >/dev/null 2>&1; then
   R screen
   exec screen -x -S {key} <&2
 fi
-R none
+R ""
 printf '\r\n[voltius] session has ended\r\n'
 exit 97
 "#,
@@ -1144,7 +1144,8 @@ mod tests {
     #[test]
     fn no_mux_branch_reports_none() {
         assert!(exec_script().contains("else\n  R none\n  exec sh -c"));
-        assert!(attach_script().contains("fi\nR none\n"));
+        assert!(attach_script().contains("fi\nR \"\"\n"));
+        assert!(!attach_script().contains("R none"));
     }
 
     #[test]
