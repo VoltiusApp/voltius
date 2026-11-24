@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Persistent sessions on hosts without a recent tmux: Voltius offers to install its own tmux in ~/.voltius/bin (no root), so full-screen apps, mouse and true colour work. It keeps that copy up to date unless you turn it off in Settings → Hosts (#938)
+- Persistent sessions on hosts without a recent tmux: Voltius offers to install its own tmux in ~/.voltius/bin (no root), so full-screen apps, mouse and true colour work. It keeps that copy up to date unless you turn it off in Settings → Hosts (#942)
 
 ## [0.83.1] - 2026-11-24
 
