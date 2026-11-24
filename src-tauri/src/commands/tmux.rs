@@ -53,7 +53,8 @@ pub async fn ssh_tmux_status(
     sessions: State<'_, SessionManager>,
     session_id: String,
 ) -> Result<TmuxHostStatus, String> {
-    tmux_install::status(&host(&sessions, &session_id).await?).await
+    let host = host(&sessions, &session_id).await?;
+    tmux_install::status(&host).await
 }
 
 #[tauri::command]
@@ -100,11 +101,8 @@ pub async fn ssh_tmux_remove(
     sessions: State<'_, SessionManager>,
     session_id: String,
 ) -> Result<TmuxHostStatus, String> {
-    sweep(
-        &host(&sessions, &session_id).await?,
-        &tmux_install::remove_script(),
-    )
-    .await
+    let host = host(&sessions, &session_id).await?;
+    sweep(&host, &tmux_install::remove_script()).await
 }
 
 #[tauri::command]
