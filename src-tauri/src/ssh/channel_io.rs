@@ -150,6 +150,7 @@ pub fn spawn_channel_io_split(
 struct MuxMode {
     control: bool,
     tmux: String,
+    fallback: Option<String>,
 }
 
 fn apply(
@@ -174,6 +175,17 @@ fn apply(
                     MuxMode {
                         control: true,
                         tmux,
+                        fallback: None,
+                    },
+                );
+            }
+            Action::Fallback(kind) => {
+                let _ = app.emit(
+                    mux_event,
+                    MuxMode {
+                        control: false,
+                        tmux: String::new(),
+                        fallback: Some(kind),
                     },
                 );
             }

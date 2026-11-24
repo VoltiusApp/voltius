@@ -358,7 +358,8 @@ const TMUX_CC_VERSIONS: &str = r#"*"tmux "3.[2-9]*|*"tmux "[4-9]*|*"tmux "[1-9][
 
 pub const CONTROL_MODE_MARKER: &str = "VOLTIUS_CC";
 
-const RAW_SENTINEL: &str = r"printf '\033P1000r\033\\'";
+const RAW_FN: &str = r#"R() { printf '\033P1000r%s\033\\' "$1"; }"#;
+const RAW_TMUX_OLD: &str = r#"R "$(tmux -V 2>/dev/null)""#;
 
 fn tmux_version_case(arms: &str) -> String {
     format!(r#"case "$(tmux -V 2>/dev/null)" in {arms} esac"#)
@@ -397,20 +398,6 @@ const TMUX_ENV_STRIP: &str = "unset TMUX TMUX_PANE; ";
 /// would otherwise join the wrapper rather than the user's own session.
 const SCREEN_ENV_STRIP: &str = "unset STY WINDOW; ";
 
-/// Shown once, inside the new window, when a session lands on a GNU screen
-/// older than 5.0. Those parse `ESC[38;2;r;g;b` and emit nothing, so TrueColor
-/// TUIs (btop) draw solid blocks instead of shaded braille (#118) — there is no
-/// termcap/terminfo setting that recovers it. screen 5.0 added a `truecolor`
-/// command (off by default) which does pass RGB through; the rc below enables
-/// it, so 5.x reaches this notice only when mktemp gave us no rc to write.
-const SCREEN_DEGRADED_NOTICE: &str = "[voltius] tmux not found - using GNU screen without TrueColor. TUIs like btop may render as solid blocks. Install tmux or GNU screen 5.0+, or turn off persistent sessions for this host to connect without a multiplexer.";
-
-/// Notice printed on the raw pty: CR before each LF because the terminal is
-/// still in raw mode at this point, so a bare LF would stair-step.
-fn notice_printf(message: &str) -> String {
-    format!("printf '\\r\\n{message}\\r\\n'")
-}
-
 /// tmux/screen session name for a session id, sanitized to `[A-Za-z0-9_-]`.
 /// Stable across reconnect so the multiplexer re-attaches the live session.
 pub fn tmux_session_key(session_id: &str) -> String {
@@ -445,8 +432,7 @@ pub fn tmux_session_key(session_id: &str) -> String {
 /// which closes the channel and feeds the reconnect loop into spawning more.
 ///
 /// It then version-gates `truecolor on`, which only screen 5.0+ understands:
-/// older screens print `unknown command 'truecolor'` and get
-/// `SCREEN_DEGRADED_NOTICE` instead. `persistent_attach_command` needs no such
+/// older screens print `unknown command 'truecolor'`. `persistent_attach_command` needs no such
 /// gate — `screen -x` joins the running server, which keeps the setting this rc
 /// gave it at create time.
 ///
@@ -490,7 +476,8 @@ pub fn tmux_session_key(session_id: &str) -> String {
 /// still expands in this outer shell exactly as when it was inlined.
 pub fn persistent_exec_command(session_key: &str, inner: &str) -> String {
     let script = format!(
-        r#"V="{inner}"
+        r#"{raw_fn}
+V="{inner}"
 if command -v tmux >/dev/null 2>&1; then
   V="{tmux_strip}$V"
   TMUX_PREFIX_NONE=
@@ -507,7 +494,7 @@ if command -v tmux >/dev/null 2>&1; then
       S=$(stty size <&2 2>/dev/null)
       [ -n "$S" ] && SZ="-x ${{S#* }} -y ${{S% *}}" ;;
   esac
-  [ -n "$CC" ] || {raw}
+  [ -n "$CC" ] || {raw_tmux_old}
   TMUX_CONF=$(mktemp 2>/dev/null)
   if [ -n "$TMUX_CONF" ]; then
     cat > "$TMUX_CONF" <<'EOF'
@@ -524,7 +511,7 @@ EOF
   fi
   exec tmux -L {socket} $CC new-session -A -s {key} $SZ "$V" <&2
 elif command -v screen >/dev/null 2>&1; then
-  {raw}
+  R screen
   V="{screen_strip}$V"
   screen -wipe >/dev/null 2>&1
   for d in $(screen -ls 2>/dev/null | grep -F .{key} | awk '{{print $1}}' | tail -n +2); do
@@ -544,28 +531,23 @@ EOF
     case "$(screen --version 2>/dev/null)" in
       *"Screen version "[5-9]*|*"Screen version "[1-9][0-9]*)
         echo truecolor on >> "$SCREEN_RC" ;;
-      *) V="{screen_notice}; $V" ;;
     esac
     exec screen -c "$SCREEN_RC" -S {key} -D -R sh -c "$V" <&2
   fi
-  V="{screen_notice}; $V"
   exec screen -S {key} -D -R sh -c "$V" <&2
 else
-  {raw}
-  {no_mux_notice}
+  R none
   exec sh -c "$V" <&2
 fi
 "#,
         socket = TMUX_SOCKET,
         key = session_key,
         inner = inner,
+        raw_fn = RAW_FN,
         tmux_strip = TMUX_ENV_STRIP,
         cc = TMUX_CC_VERSIONS,
-        raw = RAW_SENTINEL,
+        raw_tmux_old = RAW_TMUX_OLD,
         screen_strip = SCREEN_ENV_STRIP,
-        screen_notice = notice_printf(SCREEN_DEGRADED_NOTICE),
-        no_mux_notice =
-            notice_printf("[voltius] tmux/screen not found - session will not survive disconnects"),
     );
     encode_wrapper(&script)
 }
@@ -576,23 +558,25 @@ fi
 /// exit just closes the channel and the caller re-probes.
 pub fn persistent_attach_command(session_key: &str) -> String {
     let script = format!(
-        r#"if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
+        r#"{raw_fn}
+if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
   CC=
   {cc}
-  [ -n "$CC" ] || {raw}
+  [ -n "$CC" ] || {raw_tmux_old}
   exec tmux -L {socket} $CC attach-session -t {key} <&2
 elif command -v screen >/dev/null 2>&1; then
-  {raw}
+  R screen
   exec screen -x -S {key} <&2
 fi
-{raw}
+R none
 printf '\r\n[voltius] session has ended\r\n'
 exit 97
 "#,
         socket = TMUX_SOCKET,
         key = session_key,
         cc = tmux_cc_case("CC=-CC"),
-        raw = RAW_SENTINEL,
+        raw_fn = RAW_FN,
+        raw_tmux_old = RAW_TMUX_OLD,
     );
     encode_wrapper(&script)
 }
@@ -1101,17 +1085,8 @@ mod tests {
         assert!(script.contains("command -v screen"));
         assert!(script.contains("screen -S voltius_s1"));
         assert!(script.contains("screen -c"));
-        // #118: screen 5.0+ passes RGB through once `truecolor` is on; older
-        // screens drop `ESC[38;2;r;g;b` entirely and get the warning instead.
-        // It is prepended to $V so it prints inside the window — screen's
-        // startup clear would wipe anything written before the exec.
         assert!(script.contains(r#"echo truecolor on >> "$SCREEN_RC""#));
         assert!(script.contains(r#"*"Screen version "[5-9]*"#));
-        assert!(script.contains(&format!(
-            r#"V="{}; $V""#,
-            notice_printf(SCREEN_DEGRADED_NOTICE)
-        )));
-        assert!(script.contains("without TrueColor"));
         // #159: the pane shell must not inherit multiplexer env, or the user's
         // own tmux talks to our socket and refuses to attach.
         assert!(script.contains(&format!(r#"V="{TMUX_ENV_STRIP}$V""#)));
@@ -1135,9 +1110,41 @@ mod tests {
         assert!(script.contains("cnorm=\\E[?25h"));
         assert!(script.contains(r"set -ga terminal-overrides ',*:cnorm=\E[?25h:Tc'"));
         assert!(script.contains("ti@:te@:ve=\\E[?25h"));
-        assert!(script.contains("will not survive disconnects"));
         assert!(!inner.contains('"'));
         assert!(script.contains(&inner));
+    }
+
+    fn exec_script() -> String {
+        decode_bootstrap(&persistent_exec_command(
+            "voltius_s1",
+            &ssh_exec_command(""),
+        ))
+    }
+
+    fn attach_script() -> String {
+        decode_bootstrap(&persistent_attach_command("voltius_s1"))
+    }
+
+    #[test]
+    fn screen_branch_reports_screen() {
+        assert!(
+            exec_script().contains("elif command -v screen >/dev/null 2>&1; then\n  R screen\n")
+        );
+        assert!(attach_script().contains("then\n  R screen\n  exec screen -x"));
+    }
+
+    #[test]
+    fn old_tmux_branch_reports_version() {
+        let reports = r#"[ -n "$CC" ] || R "$(tmux -V 2>/dev/null)""#;
+        assert!(exec_script().contains(reports));
+        assert!(attach_script().contains(reports));
+        assert!(exec_script().contains(r"R() { printf '\033P1000r%s\033\\' "));
+    }
+
+    #[test]
+    fn no_mux_branch_reports_none() {
+        assert!(exec_script().contains("else\n  R none\n  exec sh -c"));
+        assert!(attach_script().contains("fi\nR none\n"));
     }
 
     #[test]
