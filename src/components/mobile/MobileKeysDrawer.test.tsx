@@ -10,7 +10,10 @@ vi.mock("@/services/terminalInput", () => ({ sendSpecialKey: h.key }));
 vi.mock("@/hooks/useTerminal", () => ({ writeToSession: h.write }));
 vi.mock("@/lib/haptics", () => ({ haptic: () => true }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (k: string) => k }),
+  initReactI18next: { type: "3rdParty", init: () => {} },
+}));
 vi.mock("./terminalPanelItems", () => ({
   useTerminalPanelItems: () => [{ key: "sftp", icon: "lucide:folder-open", label: "SFTP", onTap: h.panel }],
 }));

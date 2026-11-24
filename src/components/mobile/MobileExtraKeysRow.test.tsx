@@ -7,7 +7,10 @@ const sendSpecialKey = vi.fn();
 vi.mock("@/services/terminalInput", () => ({ sendSpecialKey: (...a: unknown[]) => sendSpecialKey(...a) }));
 vi.mock("@/lib/haptics", () => ({ haptic: () => true }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (k: string) => k }),
+  initReactI18next: { type: "3rdParty", init: () => {} },
+}));
 
 const touch = (x: number, y: number) => ({ touches: [{ clientX: x, clientY: y }], changedTouches: [{ clientX: x, clientY: y }] });
 const popup = () => document.body.querySelector("[data-mobile-key-alt-popup]");
