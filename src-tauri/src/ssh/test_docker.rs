@@ -105,3 +105,29 @@ impl Drop for Container {
         docker(&["rm", "-f", &self.0]);
     }
 }
+
+/// Installs the pinned static tmux in `container` with the app's install script; returns its version.
+pub fn install_voltius_tmux(container: &str) -> String {
+    let pin = crate::tmux_pin::pin();
+    let asset = crate::tmux_pin::asset_for("Linux", std::env::consts::ARCH)
+        .expect("pinned asset for this arch");
+    let script = crate::ssh::tmux_install::install_script(&pin.version, &asset.url, &asset.sha256);
+    let out = docker(&["exec", container, "sh", "-c", &script]);
+    assert!(
+        out.status.success(),
+        "install: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let out = docker(&[
+        "exec",
+        container,
+        "sh",
+        "-c",
+        r#""$HOME/.voltius/bin/tmux" -V"#,
+    ]);
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout).trim(),
+        format!("tmux {}", pin.version)
+    );
+    pin.version.clone()
+}

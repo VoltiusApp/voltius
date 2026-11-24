@@ -258,6 +258,39 @@ pub async fn drain_pipes<C: MsgSource, W: AsyncWrite + Unpin>(
     Ok(code)
 }
 
+const STDIN_CHUNK: usize = 64 * 1024;
+
+/// Runs `cmd`, feeding it `stdin` (`on_sent` sees each chunk's size) and its output to
+/// `on_chunk`. A cancel stops the command with TERM and closes the channel.
+pub async fn run_cancellable<H: russh::client::Handler>(
+    handle: &Handle<H>,
+    cmd: &str,
+    stdin: &[u8],
+    on_sent: &mut (dyn FnMut(usize) + Send),
+    on_chunk: &mut (dyn FnMut(Pipe, &[u8]) + Send),
+    token: &CancellationToken,
+) -> Result<Option<i32>, String> {
+    let mut channel = open_exec(handle, cmd).await?;
+    let ran = async {
+        for chunk in stdin.chunks(STDIN_CHUNK) {
+            tokio::select! {
+                biased;
+                _ = token.cancelled() => return Err(crate::sftp::TRANSFER_CANCELLED.to_string()),
+                r = channel.data(chunk) => r.map_err(|e| format!("Write error: {e}"))?,
+            }
+            on_sent(chunk.len());
+        }
+        let _ = channel.eof().await;
+        drain_pipes(&mut channel, &mut tokio::io::sink(), on_chunk, Some(token)).await
+    }
+    .await;
+    if ran.is_err() {
+        let _ = channel.signal(russh::Sig::TERM).await;
+    }
+    let _ = channel.close().await;
+    ran
+}
+
 /// The error a non-zero — or missing — exit status deserves, or `Ok` when the
 /// command succeeded. `stderr` is used when it says anything.
 pub fn exit_error(label: &str, code: Option<i32>, stderr: &str) -> Result<(), String> {
@@ -360,6 +393,34 @@ mod tests {
         let cmd = wrap(Some(&inside), "echo \"$OUTER$INNER\"");
         let out = stdout_within(&handle, &cmd, Duration::from_secs(5)).await;
         assert_eq!(out, Ok("12\n".to_string()));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn run_cancellable_feeds_stdin_in_chunks() {
+        use crate::ssh::test_proc_server::{proc_server, ProcOptions};
+        let (handle, _) = proc_server(ProcOptions::default()).await;
+        let input = vec![b'x'; 3 * STDIN_CHUNK + 5];
+        let (mut sent, mut out) = (Vec::new(), Vec::new());
+        let code = run_cancellable(
+            &handle,
+            "wc -c",
+            &input,
+            &mut |n| sent.push(n),
+            &mut |pipe, data| {
+                if pipe == Pipe::Stdout {
+                    out.extend_from_slice(data);
+                }
+            },
+            &CancellationToken::new(),
+        )
+        .await;
+        assert_eq!(code, Ok(Some(0)));
+        assert_eq!(sent, [STDIN_CHUNK, STDIN_CHUNK, STDIN_CHUNK, 5]);
+        assert_eq!(
+            String::from_utf8_lossy(&out).trim(),
+            input.len().to_string()
+        );
     }
 
     #[test]

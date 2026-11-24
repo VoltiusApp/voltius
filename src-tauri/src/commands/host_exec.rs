@@ -1,4 +1,4 @@
-use crate::ssh::exec::{drain_pipes, open_exec, Pipe};
+use crate::ssh::exec::{run_cancellable, Pipe};
 use crate::ssh::session::SessionManager;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, State};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
-use tokio::sync::{mpsc, Semaphore};
+use tokio::sync::{mpsc, OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
 
 // sshd's MaxSessions (default 10) is shared with the terminal, SFTP, metrics and processes.
@@ -28,7 +28,7 @@ pub struct HostExecs {
 }
 
 impl HostExecs {
-    fn register(&self, id: &str) -> Result<Registration<'_>, String> {
+    pub(crate) fn register(&self, id: &str) -> Result<Registration<'_>, String> {
         let mut running = self.running.lock().unwrap();
         if running.contains_key(id) {
             return Err(format!("exec id \"{id}\" is already running"));
@@ -45,17 +45,27 @@ impl HostExecs {
         })
     }
 
-    fn slot(&self, session_id: &str) -> Arc<Semaphore> {
-        self.slots
+    /// One of the session's exec slots, or `None` when `token` is cancelled first.
+    pub(crate) async fn slot(
+        &self,
+        session_id: &str,
+        token: &CancellationToken,
+    ) -> Result<Option<OwnedSemaphorePermit>, String> {
+        let slot = self
+            .slots
             .lock()
             .unwrap()
             .entry(session_id.to_string())
             .or_insert_with(|| Arc::new(Semaphore::new(PER_SESSION)))
-            .clone()
+            .clone();
+        tokio::select! {
+            p = slot.acquire_owned() => p.map(Some).map_err(|e| e.to_string()),
+            _ = token.cancelled() => Ok(None),
+        }
     }
 
     /// A cancel that beats its exec's registration is remembered for a minute.
-    fn cancel(&self, id: &str) {
+    pub(crate) fn cancel(&self, id: &str) {
         if let Some(token) = self.running.lock().unwrap().get(id) {
             return token.cancel();
         }
@@ -65,10 +75,10 @@ impl HostExecs {
     }
 }
 
-struct Registration<'a> {
+pub(crate) struct Registration<'a> {
     execs: &'a HostExecs,
     id: String,
-    token: CancellationToken,
+    pub(crate) token: CancellationToken,
 }
 
 impl Drop for Registration<'_> {
@@ -221,10 +231,11 @@ pub async fn host_exec(
 ) -> Result<HostExecResult, String> {
     let registration = execs.register(&request.exec_id)?;
     let token = registration.token.clone();
-    let slot = execs.slot(&request.session_id);
-    let _permit = tokio::select! {
-        p = slot.acquire_owned() => p.map_err(|e| e.to_string())?,
-        _ = token.cancelled() => return Ok(HostExecResult { cancelled: true, ..Default::default() }),
+    let Some(_permit) = execs.slot(&request.session_id, &token).await? else {
+        return Ok(HostExecResult {
+            cancelled: true,
+            ..Default::default()
+        });
     };
 
     let target = if request.is_remote {
@@ -334,26 +345,15 @@ async fn run_remote<H: russh::client::Handler>(
     output: &mut Output,
     token: &CancellationToken,
 ) -> Result<Option<i32>, String> {
-    let mut channel = open_exec(handle, command).await?;
-    if let Some(input) = stdin {
-        channel
-            .data(input.as_bytes())
-            .await
-            .map_err(|e| format!("Write error: {e}"))?;
-    }
-    let _ = channel.eof().await;
-    let drained = drain_pipes(
-        &mut channel,
-        &mut tokio::io::sink(),
+    run_cancellable(
+        handle,
+        command,
+        stdin.unwrap_or_default().as_bytes(),
+        &mut |_| {},
         &mut |pipe, data| output.push(pipe, data),
-        Some(token),
+        token,
     )
-    .await;
-    if drained.is_err() {
-        let _ = channel.signal(russh::Sig::TERM).await;
-    }
-    let _ = channel.close().await;
-    drained
+    .await
 }
 
 async fn run_local(

@@ -1357,8 +1357,8 @@ mod docker_harness {
         persistent_attach_command, persistent_exec_command, tmux_session_key,
     };
     use crate::ssh::test_docker::{
-        container_name, docker, ensure_image, ensure_image_with, wait_for, Container as Host,
-        TMUX_BASES,
+        container_name, docker, ensure_image, ensure_image_with, install_voltius_tmux, wait_for,
+        Container as Host, TMUX_BASES,
     };
     use std::io::{Read, Write};
     use std::process::{Command, Stdio};
@@ -1504,46 +1504,6 @@ mod docker_harness {
         format!(r#""$HOME/.voltius/bin/tmux-{version}""#)
     }
 
-    /// Installs the pinned static tmux the way the app will: verified against the pin, then
-    /// `~/.voltius/bin/tmux-<ver>` plus the `tmux` pointer. Returns the version.
-    fn install_voltius_tmux(host: &Host) -> String {
-        let pin = crate::tmux_pin::pin();
-        let asset = crate::tmux_pin::asset_for("Linux", std::env::consts::ARCH)
-            .expect("pinned asset for this arch");
-        let script = r#"set -e
-d=$HOME/.voltius/bin
-mkdir -p "$d"
-curl -fsSL "$URL" -o "$d/dl"
-echo "$SHA  $d/dl" | sha256sum -c - >/dev/null
-chmod 755 "$d/dl"
-mv "$d/dl" "$d/tmux-$VER"
-ln -sfn "tmux-$VER" "$d/tmux"
-"$d/tmux" -V"#;
-        let out = docker(&[
-            "exec",
-            "-e",
-            &format!("URL={}", asset.url),
-            "-e",
-            &format!("SHA={}", asset.sha256),
-            "-e",
-            &format!("VER={}", pin.version),
-            &host.0,
-            "sh",
-            "-c",
-            script,
-        ]);
-        assert!(
-            out.status.success(),
-            "install: {}",
-            String::from_utf8_lossy(&out.stderr)
-        );
-        assert_eq!(
-            String::from_utf8_lossy(&out.stdout).trim(),
-            format!("tmux {}", pin.version)
-        );
-        pin.version.clone()
-    }
-
     fn has_session(host: &Host, tmux: &str, socket: &str, key: &str) -> bool {
         host_sh(host, &format!("{tmux} -L {socket} has-session -t {key}"))
             .status
@@ -1559,7 +1519,7 @@ ln -sfn "tmux-$VER" "$d/tmux"
             &["--init", &image, "sleep", "infinity"],
         );
         assert!(!host_sh(&host, "command -v tmux").status.success());
-        let version = install_voltius_tmux(&host);
+        let version = install_voltius_tmux(&host.0);
         let key = tmux_session_key("copy");
         let settle = Duration::from_secs(5);
 
@@ -1603,7 +1563,7 @@ ln -sfn "tmux-$VER" "$d/tmux"
             has_session(&host, "tmux", "voltius", &key).then_some(())
         });
 
-        let version = install_voltius_tmux(&host);
+        let version = install_voltius_tmux(&host.0);
         let attached = connect(&host, &key, &persistent_attach_command(&key), settle);
         assert_eq!(mux(&attached), old, "{attached:?}");
         assert!(emitted(&attached).contains("old-session-output"));

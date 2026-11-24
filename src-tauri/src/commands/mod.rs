@@ -43,6 +43,7 @@ pub mod sync;
 pub mod sysinfo;
 pub mod team_crypto;
 pub mod termius;
+pub mod tmux;
 pub mod uploads;
 pub mod vault;
 pub mod vault_object;

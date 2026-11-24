@@ -362,16 +362,33 @@ const TMUX_CC_VERSIONS: &str = tmux_cc_versions!();
 
 /// `F KEY` finds KEY on system tmux's `-L voltius` or a Voltius copy's `-L voltius-<ver>`,
 /// leaving its binary in `$T` and socket in `$S` for `t`; `c BIN` leaves `BIN -V` in `$W`.
-macro_rules! tmux_find {
+macro_rules! tmux_helpers {
     () => {
         concat!(
             r#"t() { "$T" -L "$S" "$@"; }
 c() { W=$("$1" -V 2>/dev/null) && case $W in "#,
             tmux_cc_versions!(),
             r#") ;; *) false ;; esac; }
-F() {
+"#
+        )
+    };
+}
+
+macro_rules! tmux_copy_socket {
+    () => {
+        "S=voltius${T##*tmux}"
+    };
+}
+
+macro_rules! tmux_find {
+    () => {
+        concat!(
+            tmux_helpers!(),
+            r#"F() {
   for T in tmux "$HOME"/.voltius/bin/tmux-*; do
-    S=voltius${T##*tmux}
+    "#,
+            tmux_copy_socket!(),
+            r#"
     { [ "$T" = tmux ] || [ -x "$T" ]; } && t has-session -t "$1" 2>/dev/null && return
   done
   T=
@@ -383,6 +400,8 @@ F() {
 }
 
 const TMUX_FIND: &str = tmux_find!();
+pub(crate) const TMUX_HELPERS: &str = tmux_helpers!();
+pub(crate) const TMUX_COPY_SOCKET: &str = tmux_copy_socket!();
 
 /// `P` picks the tmux for a new session (empty `$T` when there is none): system tmux 3.2+,
 /// else the Voltius copy 3.2+ through its `tmux-<ver>` file (named as `F` names it), else any.
@@ -954,7 +973,7 @@ pub fn wsl_exec_command() -> String {
     encode_wrapper(WSL_WRAPPER)
 }
 
-fn encode_wrapper(script: &str) -> String {
+pub(crate) fn encode_wrapper(script: &str) -> String {
     format!("printf '{}' | sh", printf_escape(script))
 }
 
