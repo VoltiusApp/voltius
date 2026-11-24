@@ -5,6 +5,7 @@ on:
     branches: [main, dev]
   pull_request:
     branches: [main, dev]
+  workflow_dispatch:
 
 jobs:
   # Pre-flight for the hash guard in publish-plugins.yml, which is the last line
