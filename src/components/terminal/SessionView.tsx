@@ -87,12 +87,13 @@ export function HostAwareTerminalView({
   );
 }
 
-export function SessionConnectionOverlay({ session }: { session: TerminalSession }) {
+/** `banner`: a session that was already connected reconnects under a slim bar instead of the full overlay. */
+export function SessionConnectionOverlay({ session, banner }: { session: TerminalSession; banner?: boolean }) {
   if (!needsConnectionOverlay(session)) return null;
-  return <SessionConnectionOverlayPanel session={session} />;
+  return <SessionConnectionOverlayPanel session={session} banner={banner} />;
 }
 
-function SessionConnectionOverlayPanel({ session }: { session: TerminalSession }) {
+function SessionConnectionOverlayPanel({ session, banner }: { session: TerminalSession; banner?: boolean }) {
   const { t } = useTranslation();
   const connection = useConnection(session.connectionId);
   const { plan } = useCredentialPlan(connection ?? NO_CONNECTION);
@@ -104,7 +105,11 @@ function SessionConnectionOverlayPanel({ session }: { session: TerminalSession }
   const enableLegacyAlgorithms = useSessionStore((s) => s.enableLegacyAlgorithms);
   const onDismiss = () => closeSessionTabs([session.id]);
   const onRetry = () => void reconnect(session.id);
-  const reconnectProps = { reconnectWait: session.reconnectWait, onRetryNow: () => wakeBackoff(session.id) };
+  const reconnectProps = {
+    reconnectWait: session.reconnectWait,
+    onRetryNow: () => wakeBackoff(session.id),
+    variant: banner && session.everConnected ? ("banner" as const) : undefined,
+  };
 
   if (session.type === "serial") {
     const isEphemeral = session.connectionId === "serial-ephemeral";

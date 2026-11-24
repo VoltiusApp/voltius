@@ -279,6 +279,10 @@
         },
         "retryNow": "Zkusit nyní"
       },
+      "reconnectBanner": {
+        "reconnecting": "Znovu se připojuje…",
+        "closeTab": "Zavřít kartu"
+      },
       "connectionError": {
         "title": "Připojení se nezdařilo",
         "retry": "Zkusit znovu",

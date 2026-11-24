@@ -1,3 +1,4 @@
+import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { SLOW_RETRY_MS, type ReconnectWait } from "@/stores/reconnectBackoffCore";
 import { useDismissBlocked } from "./dismissBlocked";
@@ -84,5 +85,52 @@ export function ConnectionErrorPanel({
         onDismiss={onDismiss}
       />
     </div>
+  );
+}
+
+/** Slim reconnect bar over a terminal that stays visible and scrollable (mobile). */
+export function ReconnectBanner({
+  wait,
+  onRetryNow,
+  onDismiss,
+}: {
+  wait?: ReconnectWait;
+  onRetryNow?: () => void;
+  onDismiss?: () => void;
+}) {
+  const { t } = useTranslation();
+  const dismissBlocked = useDismissBlocked();
+  return (
+    <>
+      <div aria-hidden className="absolute inset-0 z-10 pointer-events-none"
+        style={{ background: "color-mix(in srgb, var(--t-bg-terminal) 45%, transparent)" }} />
+      <div data-reconnect-banner role="status"
+        className="absolute inset-x-0 top-0 z-30 flex items-center gap-2.5 pl-3 pr-2 py-2 border-b"
+        style={{ background: "var(--t-bg-chrome)", borderColor: "var(--t-border)" }}>
+        <Icon icon={wait === "offline" ? "lucide:wifi-off" : "lucide:loader-circle"} width={16}
+          className={wait === "offline" ? "shrink-0 text-yellow-400" : "shrink-0 animate-spin text-(--t-accent)"} />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-(--t-text-bright) truncate">
+            {wait ? t(`terminal.overlay.reconnectWait.${wait}.title`) : t("terminal.overlay.reconnectBanner.reconnecting")}
+          </p>
+          {wait && (
+            <p className="text-xs text-(--t-text-secondary) truncate">
+              {t(`terminal.overlay.reconnectWait.${wait}.subtitle`, { seconds: SLOW_RETRY_MS / 1000 })}
+            </p>
+          )}
+        </div>
+        {wait === "slow" && onRetryNow && (
+          <button onClick={onRetryNow} className="vt-hit shrink-0 px-2.5 py-1.5 rounded-md text-xs font-medium"
+            style={{ background: "var(--t-accent)", color: "var(--t-on-accent)" }}>
+            {t("terminal.overlay.reconnectWait.retryNow")}
+          </button>
+        )}
+        <button onClick={onDismiss} disabled={!!dismissBlocked} title={dismissBlocked}
+          className="vt-hit shrink-0 px-2.5 py-1.5 rounded-md text-xs font-medium text-(--t-text-primary) disabled:opacity-40"
+          style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}>
+          {t("terminal.overlay.reconnectBanner.closeTab")}
+        </button>
+      </div>
+    </>
   );
 }
