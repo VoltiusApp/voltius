@@ -2,6 +2,7 @@ import {
   linesFromPixelDelta,
   fontSizeFromPinch,
   touchDistance,
+  flingStep,
 } from "./mobileTerminalGesturesCore.ts";
 import { test } from "vitest";
 
@@ -22,4 +23,15 @@ eq(fontSizeFromPinch(14, 100, 1000, 8, 32), 32, "runaway spread clamps to max");
 eq(fontSizeFromPinch(14, 100, 110, 8, 32), 15, "small spread rounds to whole px");
 // A zero start distance (both fingers on one point) must not divide by zero.
 eq(fontSizeFromPinch(14, 0, 50, 8, 32), 14, "zero start distance is a no-op");
+});
+
+test("flingStep decays and stops", () => {
+  const a = flingStep(1, 16);
+  if (!(a.dy > 15 && a.dy < 16 && a.v < 1 && a.v > 0.9)) throw new Error(`first frame ${JSON.stringify(a)}`);
+  let v = 1, travelled = 0, frames = 0;
+  while (v !== 0 && frames < 1000) { const s = flingStep(v, 16); travelled += s.dy; v = s.v; frames += 1; }
+  if (v !== 0 || frames >= 1000) throw new Error("fling never stopped");
+  if (travelled > 325 || travelled < 300) throw new Error(`travel ${travelled}`);
+  const up = flingStep(-1, 16);
+  if (!(up.dy < 0 && up.v < 0)) throw new Error("upward fling keeps its sign");
 });

@@ -18,7 +18,8 @@
       "newFolderTitle": "New folder"
     },
     "terminalGestures": {
-      "paste": "Paste"
+      "paste": "Paste",
+      "jumpToBottom": "Jump to bottom"
     },
     "terminalTopBar": {
       "exitAriaLabel": "Exit terminal",

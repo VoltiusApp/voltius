@@ -541,6 +541,7 @@ export interface TerminalApi {
   line(i: number): IBufferLine | undefined;
   font(): { family: string; size: number };
   scrollToLine(line: number): void;
+  scrollToBottom(): void;
   mouseMode(): boolean;
   /** Full-screen apps (vim, less, htop, tmux) run in the alternate buffer, which has no scrollback. */
   alternateScreen(): boolean;
@@ -569,6 +570,7 @@ export function getTerminalApi(sessionId: string): TerminalApi | null {
     line: (i) => term.buffer.active.getLine(i),
     font: () => ({ family: term.options.fontFamily ?? "monospace", size: term.options.fontSize ?? 14 }),
     scrollToLine: (line) => term.scrollToLine(line),
+    scrollToBottom: () => term.scrollToBottom(),
     mouseMode: () => term.modes.mouseTrackingMode !== "none",
     alternateScreen: () => term.buffer.active.type === "alternate",
     paste: (text) => term.paste(text),

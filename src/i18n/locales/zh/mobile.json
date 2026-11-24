@@ -18,7 +18,8 @@
       "newFolderTitle": "新建文件夹"
     },
     "terminalGestures": {
-      "paste": "粘贴"
+      "paste": "粘贴",
+      "jumpToBottom": "跳到底部"
     },
     "terminalTopBar": {
       "exitAriaLabel": "退出终端",

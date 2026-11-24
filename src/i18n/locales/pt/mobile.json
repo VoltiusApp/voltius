@@ -18,7 +18,8 @@
       "newFolderTitle": "Nova pasta"
     },
     "terminalGestures": {
-      "paste": "Colar"
+      "paste": "Colar",
+      "jumpToBottom": "Ir para o fim"
     },
     "terminalTopBar": {
       "exitAriaLabel": "Sair do terminal",

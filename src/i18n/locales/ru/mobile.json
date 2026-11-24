@@ -18,7 +18,8 @@
       "newFolderTitle": "Новая папка"
     },
     "terminalGestures": {
-      "paste": "Вставить"
+      "paste": "Вставить",
+      "jumpToBottom": "Вниз"
     },
     "terminalTopBar": {
       "exitAriaLabel": "Выйти из терминала",

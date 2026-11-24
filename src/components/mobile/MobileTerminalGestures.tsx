@@ -5,16 +5,17 @@ import { sendSpecialKey } from "@/services/terminalInput";
 import { showAndroidKeyboard, hideAndroidKeyboard, setAndroidKeyboardTarget, setSelectionTouchFeed } from "@/services/androidKeyboard";
 import { useIsAndroid } from "@/utils/platform";
 import { isDoubleTap, type TapPoint } from "./doubleTap";
-import { fontSizeFromPinch, linesFromPixelDelta, touchDistance } from "./mobileTerminalGesturesCore";
+import { FLING_MIN_V, flingStep, fontSizeFromPinch, linesFromPixelDelta, touchDistance } from "./mobileTerminalGesturesCore";
 import { createNativeSelection } from "./nativeSelectionOverlay";
 import { readClipboard } from "@/utils/clipboard";
 import { MAX_TERMINAL_FONT_SIZE, MIN_TERMINAL_FONT_SIZE, useUIStore } from "@/stores/uiStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { haptic } from "@/lib/haptics";
-import { animate, motionMs, SESSION_MOTION } from "@/lib/motion";
+import { animate, motionMs, prefersReducedMotion, SESSION_MOTION } from "@/lib/motion";
 import { mobileSessions } from "./useMobileSessions";
 import { useSessionStore } from "@/stores/sessionStore";
 import { VelocityTracker } from "./sheets/sheetDrag";
+import MobileLivePill, { TERMINAL_CHIP_STYLE } from "./MobileLivePill";
 import { adjacentSessionId, claimSwipeAxis, inEdgeZone, sessionSwipeStep, SWIPE_FOLLOW } from "./sessionSwipeCore";
 
 const LONG_PRESS_MS = 380;
@@ -46,6 +47,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
   const lastTap = useRef<TapPoint | null>(null);
   const pinch = useRef<{ dist: number; size: number } | null>(null);
   const swipeVelocity = useRef(new VelocityTracker());
+  const scrollVelocity = useRef(new VelocityTracker());
 
   const cellHeight = (): number => {
     const api = getTerminalApi(sessionId);
@@ -113,6 +115,24 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
       }
     };
 
+    let flingFrame = 0;
+    const stopFling = () => { cancelAnimationFrame(flingFrame); flingFrame = 0; };
+    const startFling = (v0: number, x: number, y: number) => {
+      const ch = cellHeight();
+      if (Math.abs(v0) < FLING_MIN_V || !ch || prefersReducedMotion()) return;
+      let v = v0, carry = 0, last = performance.now();
+      const frame = (now: number) => {
+        const step = flingStep(v, now - last);
+        last = now;
+        v = step.v;
+        const acc = linesFromPixelDelta(step.dy, ch, carry);
+        carry = acc.carry;
+        if (acc.lines !== 0) scrollByTouch(-acc.lines, ch, x, y);
+        flingFrame = v === 0 ? 0 : requestAnimationFrame(frame);
+      };
+      flingFrame = requestAnimationFrame(frame);
+    };
+
     const reset = () => {
       phase.current = "idle";
       pinch.current = null;
@@ -124,6 +144,8 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
     };
 
     const onTouchStart = (e: TouchEvent) => {
+      stopFling();
+      if ((e.target as Element | null)?.closest("[data-mobile-live-pill]")) return;
       if (sel.isSelecting()) { reset(); return; }
       if (pasteOpen.current) {
         if ((e.target as Element | null)?.closest("[data-mobile-term-toolbar]")) return;
@@ -208,6 +230,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
         } else {
           phase.current = "scrolling";
           lastY.current = t.clientY;
+          scrollVelocity.current.reset();
         }
       }
 
@@ -220,6 +243,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
 
       if (phase.current === "scrolling") {
         e.preventDefault();
+        scrollVelocity.current.add(e.timeStamp, t.clientY);
         const ch = cellHeight();
         if (!ch) return;
         const dy = t.clientY - lastY.current;
@@ -259,6 +283,8 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
 
       if (longPressFired.current || wasPhase === "scrolling") {
         e.preventDefault();
+        const t = e.changedTouches[0];
+        if (wasPhase === "scrolling" && t) startFling(scrollVelocity.current.velocity(e.timeStamp), t.clientX, t.clientY);
         if (longPressFired.current) e.stopPropagation();
         reset();
         return;
@@ -318,6 +344,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
       container.removeEventListener("touchcancel", onTouchCancel, rm);
       container.removeEventListener("contextmenu", onContextMenu, rm);
       clearLongPress();
+      stopFling();
       lastTap.current = null;
       sel.dispose();
       holdSessionFit(sessionId, false);
@@ -341,16 +368,13 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
 
   return (
     <div ref={rootRef} className="absolute inset-0 pointer-events-none flex items-center justify-center z-20">
+      <MobileLivePill sessionId={sessionId} />
       {hintKey > 0 && (
         <span
           key={hintKey}
           data-tab-hint
           className="animate-tab-hint rounded-full px-3 py-1 text-sm font-semibold"
-          style={{
-            background: "color-mix(in srgb, var(--t-bg-base) 80%, #000 20%)",
-            color: "var(--t-text-bright)",
-            border: "1px solid var(--t-border)",
-          }}
+          style={TERMINAL_CHIP_STYLE}
         >
           Tab
         </span>

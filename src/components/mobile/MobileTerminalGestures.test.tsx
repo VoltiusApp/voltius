@@ -13,7 +13,10 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 const term = vi.hoisted(() => ({ api: null as null | Record<string, unknown> }));
-vi.mock("@/hooks/useTerminal", () => ({ focusSession: vi.fn(), getTerminalApi: () => term.api, holdSessionFit: vi.fn() }));
+vi.mock("@/hooks/useTerminal", () => ({
+  focusSession: vi.fn(), getTerminalApi: () => term.api, holdSessionFit: vi.fn(),
+  getScrollOffset: () => 0, subscribeTerminalScroll: () => () => {},
+}));
 vi.mock("./nativeSelectionOverlay", async (actual) => {
   const mod = await actual<typeof import("./nativeSelectionOverlay")>();
   return { ...mod, createNativeSelection: vi.fn(mod.createNativeSelection) };
