@@ -144,6 +144,8 @@
       "failed": {
         "download": "Impossible de télécharger tmux pour {{host}}",
         "checksum": "Le téléchargement de tmux pour {{host}} ne correspondait pas à sa somme de contrôle et a été supprimé",
+        "noSha256": "Cet hôte n'a ni sha256sum ni shasum : Voltius ne peut donc pas vérifier le téléchargement.",
+        "version": "tmux n'a pas pu s'exécuter depuis ~/.voltius/bin sur cet hôte (le dossier personnel est-il monté en noexec ?)",
         "unsupported": "{{host}} n'est pas pris en charge : Voltius installe tmux uniquement sur Linux x86_64 et arm64",
         "inside": "Installez tmux depuis une session sur {{host}} lui-même, pas dans un conteneur",
         "newer": "{{host}} a déjà un tmux plus récent installé par Voltius",

@@ -136,6 +136,8 @@
       "failed": {
         "download": "无法为 {{host}} 下载 tmux",
         "checksum": "为 {{host}} 下载的 tmux 与校验和不符，已删除",
+        "noSha256": "此主机没有 sha256sum 或 shasum，因此 Voltius 无法校验下载的文件。",
+        "version": "无法在此主机上从 ~/.voltius/bin 运行 tmux（主目录是否以 noexec 方式挂载？）",
         "unsupported": "不支持 {{host}}：Voltius 仅在 Linux x86_64 和 arm64 上安装 tmux",
         "inside": "请从直接连接 {{host}} 的会话中安装 tmux，而不是在容器内",
         "newer": "{{host}} 上已有 Voltius 安装的更新版 tmux",

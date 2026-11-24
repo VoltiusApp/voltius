@@ -71,9 +71,10 @@ test("the pin version is fetched once, and again after a failure", async () => {
 });
 
 test("install rejections map to a failure kind", () => {
-  for (const kind of ["download", "checksum", "unsupported", "inside", "newer", "cancelled"] as const) {
+  for (const kind of ["download", "checksum", "version", "unsupported", "inside", "newer", "cancelled"] as const) {
     expect(tmuxFailure(kind)).toBe(kind);
   }
-  expect(tmuxFailure("no-sha256")).toBe("other");
+  expect(tmuxFailure("no-sha256")).toBe("noSha256");
+  expect(tmuxFailure("noSha256")).toBe("other");
   expect(tmuxFailure(new Error("newer"))).toBe("other");
 });

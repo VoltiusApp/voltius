@@ -140,6 +140,8 @@
       "failed": {
         "download": "{{host}} için tmux indirilemedi",
         "checksum": "{{host}} için indirilen tmux sağlama toplamıyla eşleşmedi ve silindi",
+        "noSha256": "Bu ana makinede sha256sum veya shasum yok, bu yüzden Voltius indirilen dosyayı doğrulayamıyor.",
+        "version": "tmux bu ana makinede ~/.voltius/bin içinden çalıştırılamadı (ana klasör noexec ile mi bağlanmış?)",
         "unsupported": "{{host}} desteklenmiyor: Voltius tmux'u yalnızca Linux x86_64 ve arm64 üzerine kurar",
         "inside": "tmux'u bir kapsayıcının içinden değil, doğrudan {{host}} üzerindeki bir oturumdan kurun",
         "newer": "{{host}} üzerinde Voltius'un kurduğu daha yeni bir tmux zaten var",

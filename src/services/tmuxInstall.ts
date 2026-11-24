@@ -23,13 +23,32 @@ export interface TmuxInstallProgress {
   progress: number;
 }
 
-/** What an install rejection means, for picking its message; Rust's `tmux_install` error strings. */
-export type TmuxInstallFailure = "download" | "checksum" | "unsupported" | "inside" | "newer" | "cancelled" | "other";
+/** What an install rejection means, named as its `notifications.tmux.failed.*` message. */
+export type TmuxInstallFailure =
+  | "download"
+  | "checksum"
+  | "noSha256"
+  | "version"
+  | "unsupported"
+  | "inside"
+  | "newer"
+  | "cancelled"
+  | "other";
 
-const FAILURES: readonly TmuxInstallFailure[] = ["download", "checksum", "unsupported", "inside", "newer", "cancelled"];
+/** Keyed by Rust's `tmux_install` error strings. */
+const FAILURES = new Map<unknown, TmuxInstallFailure>([
+  ["download", "download"],
+  ["checksum", "checksum"],
+  ["no-sha256", "noSha256"],
+  ["version", "version"],
+  ["unsupported", "unsupported"],
+  ["inside", "inside"],
+  ["newer", "newer"],
+  ["cancelled", "cancelled"],
+]);
 
 export function tmuxFailure(e: unknown): TmuxInstallFailure {
-  return FAILURES.find((f) => f === e) ?? "other";
+  return FAILURES.get(e) ?? "other";
 }
 
 export const tmuxStatus = (sessionId: string) => invoke<TmuxHostStatus>("ssh_tmux_status", { sessionId });

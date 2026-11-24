@@ -144,6 +144,8 @@
       "failed": {
         "download": "Não foi possível transferir o tmux para {{host}}",
         "checksum": "A transferência do tmux para {{host}} não correspondia à soma de verificação e foi eliminada",
+        "noSha256": "Este anfitrião não tem sha256sum nem shasum, por isso o Voltius não consegue verificar a transferência.",
+        "version": "Não foi possível executar o tmux a partir de ~/.voltius/bin neste anfitrião (a pasta pessoal está montada com noexec?)",
         "unsupported": "{{host}} não é suportado: o Voltius só instala o tmux em Linux x86_64 e arm64",
         "inside": "Instale o tmux a partir de uma sessão no próprio {{host}}, não dentro de um contentor",
         "newer": "{{host}} já tem um tmux mais recente instalado pelo Voltius",

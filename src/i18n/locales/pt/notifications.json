@@ -144,6 +144,8 @@
       "failed": {
         "download": "Não foi possível baixar o tmux para {{host}}",
         "checksum": "O download do tmux para {{host}} não correspondeu ao checksum e foi excluído",
+        "noSha256": "Este host não tem sha256sum nem shasum, então o Voltius não consegue verificar o download.",
+        "version": "Não foi possível executar o tmux a partir de ~/.voltius/bin neste host (a pasta pessoal está montada com noexec?)",
         "unsupported": "{{host}} não é compatível: o Voltius só instala o tmux em Linux x86_64 e arm64",
         "inside": "Instale o tmux a partir de uma sessão no próprio {{host}}, não dentro de um contêiner",
         "newer": "{{host}} já tem um tmux mais recente instalado pelo Voltius",

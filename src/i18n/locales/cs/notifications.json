@@ -148,6 +148,8 @@
       "failed": {
         "download": "tmux pro {{host}} se nepodařilo stáhnout",
         "checksum": "Stažený tmux pro {{host}} neodpovídal kontrolnímu součtu a byl smazán",
+        "noSha256": "Tento hostitel nemá sha256sum ani shasum, takže Voltius nemůže stažený soubor ověřit.",
+        "version": "tmux se na tomto hostiteli nepodařilo spustit z ~/.voltius/bin (není domovská složka připojená s noexec?)",
         "unsupported": "{{host}} není podporován: Voltius instaluje tmux jen na Linux x86_64 a arm64",
         "inside": "Nainstalujte tmux z relace přímo na hostu {{host}}, ne uvnitř kontejneru",
         "newer": "{{host}} už má novější tmux od Voltius",
