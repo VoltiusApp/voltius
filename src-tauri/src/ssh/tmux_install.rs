@@ -1,9 +1,10 @@
 use crate::shell_integration::{encode_wrapper, TMUX_COPY_SOCKET, TMUX_HELPERS};
 use crate::ssh::exec::{exit_error, run_cancellable, run_captured, sh_c, shell_quote, Pipe};
-use crate::tmux_pin::{asset_for, TmuxAsset};
+use crate::tmux_pin::{asset_for, pin, TmuxAsset};
 use russh::client::{Handle, Handler};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
+use std::cmp::Ordering;
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
@@ -17,6 +18,7 @@ pub const CANCELLED: &str = "cancelled";
 pub const NEWER: &str = "newer";
 
 const BIN_DIR: &str = "$HOME/.voltius/bin";
+const CONTROL_MODE_MIN: &str = "3.2";
 const STALE_PARTS: &str =
     r#"find "$D" -maxdepth 1 -name '.tmux-*.part' -mmin +60 -exec rm -f {} + 2>/dev/null"#;
 const STEP: &str = "VOLTIUS_STEP ";
@@ -66,11 +68,14 @@ pub struct Progress {
 pub type OnProgress<'a> = dyn Fn(Step, u8) + Sync + 'a;
 
 #[derive(Debug, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TmuxHostStatus {
     pub supported: bool,
     pub system: Option<String>,
     pub active: Option<String>,
     pub copies: Vec<TmuxCopy>,
+    pub outdated: bool,
+    pub system_control_capable: bool,
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
@@ -210,14 +215,23 @@ fn parse_copy(value: &str) -> Option<TmuxCopy> {
 }
 
 pub fn parse_status(out: &str) -> TmuxHostStatus {
+    parse_status_against(out, &pin().version)
+}
+
+fn parse_status_against(out: &str, pinned: &str) -> TmuxHostStatus {
+    let system = field(out, "system").map(|v| v.strip_prefix("tmux ").unwrap_or(v));
+    let active = field(out, "active");
     TmuxHostStatus {
         supported: host_asset_in(out).is_some(),
-        system: field(out, "system").map(|v| v.strip_prefix("tmux ").unwrap_or(v).to_string()),
-        active: field(out, "active").map(str::to_string),
+        system: system.map(str::to_string),
+        active: active.map(str::to_string),
         copies: out
             .lines()
             .filter_map(|l| parse_copy(l.strip_prefix("copy=")?))
             .collect(),
+        outdated: active.is_some_and(|a| is_newer(pinned, a)),
+        system_control_capable: system
+            .is_some_and(|s| compare(s, CONTROL_MODE_MIN).is_some_and(Ordering::is_ge)),
     }
 }
 
@@ -252,9 +266,13 @@ fn tmux_version(v: &str) -> Option<(u32, u32, &str)> {
     Some((major.parse().ok()?, minor.parse().ok()?, suffix))
 }
 
+fn compare(a: &str, b: &str) -> Option<Ordering> {
+    Some(tmux_version(a)?.cmp(&tmux_version(b)?))
+}
+
 /// Whether tmux `version` is newer than `than`; an unparsable version never is.
 pub fn is_newer(version: &str, than: &str) -> bool {
-    matches!((tmux_version(version), tmux_version(than)), (Some(a), Some(b)) if a > b)
+    compare(version, than) == Some(Ordering::Greater)
 }
 
 fn outcome(code: Option<i32>, stderr: &str) -> Result<(), String> {
@@ -429,7 +447,7 @@ mod tests {
         let out = "os=Linux\narch=x86_64\nsystem=tmux 3.0a\nactive=3.8\n\
                    copy=3.4 sessions=2\ncopy=3.8 sessions=       0\nkept=3.4\n";
         assert_eq!(
-            parse_status(out),
+            parse_status_against(out, "3.8"),
             TmuxHostStatus {
                 supported: true,
                 system: Some("3.0a".into()),
@@ -444,6 +462,8 @@ mod tests {
                         sessions: 0
                     },
                 ],
+                outdated: false,
+                system_control_capable: false,
             }
         );
         let bare = parse_status("os=Linux\narch=aarch64\nsystem=\nactive=\n");
@@ -454,6 +474,29 @@ mod tests {
                 ..Default::default()
             }
         );
+    }
+
+    #[test]
+    fn status_flags_outdated_copy_and_capable_system() {
+        let flags = |system: &str, active: &str| {
+            let out = format!("os=Linux\narch=x86_64\nsystem={system}\nactive={active}\n");
+            let s = parse_status_against(&out, "3.8");
+            (s.outdated, s.system_control_capable)
+        };
+        assert_eq!(flags("tmux 3.0a", "3.5a"), (true, false));
+        assert_eq!(flags("tmux 3.2", "3.8"), (false, true));
+        assert_eq!(flags("tmux 3.10", "3.9"), (false, true));
+        assert_eq!(flags("tmux 3.1c", ""), (false, false));
+        assert_eq!(flags("tmux next-3.6", "next-3.9"), (false, false));
+        assert_eq!(flags("", ""), (false, false));
+    }
+
+    #[test]
+    fn status_serializes_camel_case() {
+        let json = serde_json::to_value(TmuxHostStatus::default()).unwrap();
+        assert_eq!(json["outdated"], serde_json::Value::Bool(false));
+        assert_eq!(json["systemControlCapable"], serde_json::Value::Bool(false));
+        assert!(json.get("system_control_capable").is_none());
     }
 
     #[test]

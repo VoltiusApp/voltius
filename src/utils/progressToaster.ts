@@ -16,6 +16,9 @@ export function progressToaster(base: ToastFields) {
       if (id) store.updateToast(id, fields);
     },
     adopt(existing: string) { id = existing; },
+    dismiss() {
+      if (id) store.dismissToast(id);
+    },
   };
 }
 

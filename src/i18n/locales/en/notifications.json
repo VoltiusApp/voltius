@@ -125,6 +125,7 @@
       "old": "{{host}} has tmux {{version}}, too old for full support",
       "none": "{{host}} has no tmux: this session ends when you disconnect",
       "install": "Install tmux",
+      "connectFirst": "Connect to this host first",
       "installing": "Installing tmux {{version}}… {{step}}",
       "step": {
         "download": "downloading",

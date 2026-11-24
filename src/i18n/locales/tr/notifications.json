@@ -125,6 +125,7 @@
       "old": "{{host}} üzerindeki tmux {{version}}, tam destek için çok eski",
       "none": "{{host}} üzerinde tmux yok: bu oturum bağlantıyı kestiğinizde sona erer",
       "install": "tmux'u kur",
+      "connectFirst": "Önce bu sunucuya bağlanın",
       "installing": "tmux {{version}} kuruluyor… {{step}}",
       "step": {
         "download": "indiriliyor",

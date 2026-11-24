@@ -121,6 +121,7 @@
       "old": "{{host}} 的 tmux {{version}} 版本过旧，无法获得完整支持",
       "none": "{{host}} 没有 tmux：断开连接后此会话将结束",
       "install": "安装 tmux",
+      "connectFirst": "请先连接到此主机",
       "installing": "正在安装 tmux {{version}}… {{step}}",
       "step": {
         "download": "下载中",

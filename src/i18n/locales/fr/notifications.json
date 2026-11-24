@@ -129,6 +129,7 @@
       "old": "{{host}} a tmux {{version}}, trop ancien pour une prise en charge complète",
       "none": "{{host}} n'a pas tmux : cette session se termine à la déconnexion",
       "install": "Installer tmux",
+      "connectFirst": "Connectez-vous d'abord à cet hôte",
       "installing": "Installation de tmux {{version}}… {{step}}",
       "step": {
         "download": "téléchargement",

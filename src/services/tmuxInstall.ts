@@ -12,6 +12,8 @@ export interface TmuxHostStatus {
   system: string | null;
   active: string | null;
   copies: TmuxCopy[];
+  outdated: boolean;
+  systemControlCapable: boolean;
 }
 
 export type TmuxInstallStep = "download" | "upload" | "verify" | "link" | "done";

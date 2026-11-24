@@ -129,6 +129,7 @@
       "old": "{{host}} tem o tmux {{version}}, demasiado antigo para suporte completo",
       "none": "{{host}} não tem tmux: esta sessão termina quando se desligar",
       "install": "Instalar tmux",
+      "connectFirst": "Ligue-se primeiro a este host",
       "installing": "A instalar o tmux {{version}}… {{step}}",
       "step": {
         "download": "a transferir",
@@ -144,7 +145,7 @@
         "download": "Não foi possível transferir o tmux para {{host}}",
         "checksum": "A transferência do tmux para {{host}} não correspondia à soma de verificação e foi eliminada",
         "unsupported": "{{host}} não é suportado: o Voltius só instala o tmux em Linux x86_64 e arm64",
-        "inside": "Instale o tmux a partir de uma sessão no próprio {{host}}, não dentro de um contêiner",
+        "inside": "Instale o tmux a partir de uma sessão no próprio {{host}}, não dentro de um contentor",
         "newer": "{{host}} já tem um tmux mais recente instalado pelo Voltius",
         "other": "Não foi possível instalar o tmux em {{host}}"
       }

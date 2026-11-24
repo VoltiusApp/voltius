@@ -7,7 +7,7 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: (...a: unknown[]) => listen(..
 
 import { tmuxFailure, tmuxInstall, tmuxPinVersion, tmuxStatus, type TmuxHostStatus } from "./tmuxInstall";
 
-const STATUS: TmuxHostStatus = { supported: true, system: null, active: "3.8", copies: [{ version: "3.8", sessions: 0 }] };
+const STATUS: TmuxHostStatus = { supported: true, system: null, active: "3.8", copies: [{ version: "3.8", sessions: 0 }], outdated: false, systemControlCapable: false };
 
 beforeEach(() => {
   invoke.mockReset();

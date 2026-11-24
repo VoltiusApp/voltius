@@ -133,6 +133,7 @@
       "old": "{{host}} má tmux {{version}}, který je pro plnou podporu příliš starý",
       "none": "{{host}} nemá tmux: tato relace skončí, jakmile se odpojíte",
       "install": "Nainstalovat tmux",
+      "connectFirst": "Nejprve se k tomuto hostu připojte",
       "installing": "Instalace tmux {{version}}… {{step}}",
       "step": {
         "download": "stahování",

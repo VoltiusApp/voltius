@@ -3,7 +3,7 @@ import { useHostMuxStore, muxFromMode, needsNotify } from "./hostMuxStore.ts";
 
 const get = () => useHostMuxStore.getState();
 
-beforeEach(() => useHostMuxStore.setState({ hosts: {} }));
+beforeEach(() => useHostMuxStore.setState({ hosts: {}, installing: {}, lastFailure: {} }));
 
 test("muxFromMode maps control mode to tmux-cc with the version", () => {
   expect(muxFromMode({ control: true, tmux: "3.8", fallback: null })).toEqual({ kind: "tmux-cc", version: "3.8" });
@@ -59,4 +59,17 @@ test("needsNotify is false for tmux-cc and unsupported", () => {
   get().record("b", { kind: "unsupported" });
   expect(needsNotify(get().hosts.a)).toBe(false);
   expect(needsNotify(get().hosts.b)).toBe(false);
+});
+
+test("install progress and failures are set, cleared and never persisted", () => {
+  get().setInstalling("c1", { step: "verify", progress: 85, quiet: true });
+  get().setFailure("c1", "checksum");
+  expect(get().installing.c1).toEqual({ step: "verify", progress: 85, quiet: true });
+  expect(get().lastFailure.c1).toBe("checksum");
+  const persisted = useHostMuxStore.persist.getOptions().partialize!(get());
+  expect(Object.keys(persisted)).toEqual(["hosts"]);
+  get().setInstalling("c1", undefined);
+  get().setFailure("c1", undefined);
+  expect(get().installing).toEqual({});
+  expect(get().lastFailure).toEqual({});
 });
