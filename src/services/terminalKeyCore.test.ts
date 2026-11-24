@@ -24,6 +24,19 @@ assertEqual(keyToBytes("Backspace", { ctrl: false, alt: false, appCursor: false 
 assertEqual(keyToBytes("Backspace", { ctrl: true, alt: false, appCursor: false }), "\b", "Ctrl+Backspace → BS (xterm.js)");
 assertEqual(keyToBytes("Backspace", { ctrl: false, alt: true, appCursor: false }), "\x1b\x7f", "Alt+Backspace → ESC DEL (backward-kill-word)");
 assertEqual(keyToBytes("Delete", { ctrl: false, alt: false, appCursor: true }), "\x1b[3~", "Delete ignores appcursor");
+const none = { ctrl: false, alt: false, appCursor: false };
+assertEqual(keyToBytes("Insert", none), "\x1b[2~", "Insert");
+assertEqual(keyToBytes("F1", none), "\x1bOP", "F1 → SS3 P");
+assertEqual(keyToBytes("F12", none), "\x1b[24~", "F12");
+assertEqual(keyToBytes("Left", { ...none, ctrl: true }), "\x1b[1;5D", "Ctrl+Left → CSI 1;5D (backward-word)");
+assertEqual(keyToBytes("Up", { ...none, alt: true, appCursor: true }), "\x1b[1;3A", "Alt+Up ignores appcursor, CSI 1;3A");
+assertEqual(keyToBytes("Home", { ...none, shift: true }), "\x1b[1;2H", "Shift+Home");
+assertEqual(keyToBytes("F1", { ...none, shift: true }), "\x1b[1;2P", "Shift+F1");
+assertEqual(keyToBytes("F5", { ...none, shift: true }), "\x1b[15;2~", "Shift+F5");
+assertEqual(keyToBytes("Delete", { ...none, ctrl: true }), "\x1b[3;5~", "Ctrl+Delete");
+assertEqual(keyToBytes("Tab", { ...none, shift: true }), "\x1b[Z", "Shift+Tab latch → back-tab");
+assertEqual(keyToBytes("Home", { ...none, appCursor: true }), "\x1b[H", "Home stays CSI in appcursor");
+assertEqual(applyLatchToChar("a", { ctrl: false, alt: false, shift: true }), "A", "latch Shift+a → A");
 // applyLatchToChar — virtual Ctrl/Alt latch applied to a soft-keyboard char
 assertEqual(applyLatchToChar("c", { ctrl: true, alt: false }), "\x03", "latch Ctrl+c → ETX");
 assertEqual(applyLatchToChar("C", { ctrl: true, alt: false }), "\x03", "latch Ctrl+C (uppercase) → ETX");

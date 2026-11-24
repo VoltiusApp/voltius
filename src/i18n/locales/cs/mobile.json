@@ -25,6 +25,29 @@
       "newSessionAriaLabel": "Nová relace",
       "panelsAriaLabel": "Panely"
     },
+    "keysDrawer": {
+      "toggleAriaLabel": "Další klávesy",
+      "tabs": {
+        "nav": "Nav",
+        "edit": "Úpravy",
+        "fn": "Fn",
+        "panels": "Panely"
+      },
+      "captions": {
+        "lineStart": "začátek",
+        "lineEnd": "konec",
+        "wordLeft": "slovo ←",
+        "wordRight": "slovo →",
+        "search": "hledat",
+        "clear": "vymazat",
+        "deleteWordLeft": "smaž slovo ←",
+        "deleteWordRight": "smaž slovo →",
+        "deleteToStart": "smaž k začátku",
+        "deleteToEnd": "smaž ke konci",
+        "interrupt": "přerušit",
+        "endInput": "konec vstupu"
+      }
+    },
     "panelItems": {
       "sftp": "SFTP"
     },

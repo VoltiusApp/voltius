@@ -19,7 +19,7 @@ beforeEach(() => {
 
 test("Enter sent as a key event goes out as the Enter special key", () => {
   w.__voltiusTermKey("Enter");
-  expect(h.key).toHaveBeenCalledWith("s1", "Enter", { ctrl: false, alt: false });
+  expect(h.key).toHaveBeenCalledWith("s1", "Enter", { ctrl: false, alt: false, shift: false });
 });
 
 test("Enter committed as a newline character is a carriage return too", () => {

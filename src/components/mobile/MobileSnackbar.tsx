@@ -8,7 +8,7 @@ import { VelocityTracker } from "./sheets/sheetDrag";
 import { avoidLift, dockedInset, snackbarDuration, swipeAction, swipeOpacity } from "./snackbarCore";
 
 /** Docked bottom chrome the snackbar sits above (plus `data-snackbar-anchor` for screen-specific bars). */
-const DOCKED = "[data-mobile-tab-bar], [data-mobile-extra-keys], [data-snackbar-anchor]";
+const DOCKED = "[data-mobile-tab-bar], [data-mobile-keys-drawer], [data-mobile-extra-keys], [data-snackbar-anchor]";
 
 const visible = (el: Element) => el.checkVisibility?.({ visibilityProperty: true }) ?? getComputedStyle(el).visibility !== "hidden";
 

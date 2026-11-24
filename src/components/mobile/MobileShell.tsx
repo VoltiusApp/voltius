@@ -14,7 +14,7 @@ import HostActionsSheet from "./sheets/HostActionsSheet";
 import MobileSessionLayer from "./MobileSessionLayer";
 import MobileTerminalScreen from "./screens/MobileTerminalScreen";
 import MobileExtraKeysRow from "./MobileExtraKeysRow";
-import MobileTerminalPanelsRow from "./MobileTerminalPanelsRow";
+import MobileKeysDrawer from "./MobileKeysDrawer";
 import MobileKeychainScreen from "./screens/MobileKeychainScreen";
 import MobileKeyEditScreen from "./screens/MobileKeyEditScreen";
 import MobileIdentityEditScreen from "./screens/MobileIdentityEditScreen";
@@ -95,7 +95,7 @@ export default function MobileShell() {
     () => document.querySelector<HTMLElement>("[data-mobile-tab-content]"));
   const hasSessions = useSessionStore((s) => s.sessions.length > 0);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
-  const panelsRowOpen = useUIStore((s) => s.terminalPanelsRowOpen);
+  const keysDrawerOpen = useUIStore((s) => s.terminalKeysDrawerOpen);
   const notificationsOpen = useUIStore((s) => s.notificationCenterOpen);
   const mobileScreens = usePluginStore((s) => s.mobileScreens);
   const pop = useMobileNavStore((s) => s.pop);
@@ -215,7 +215,7 @@ export default function MobileShell() {
           {/* Extra-keys row: always present while the terminal is foreground with a session — usable
               even when the keyboard is closed (keys write to the PTY without needing input focus).
               When the keyboard opens, the shell shrinks to usableHeight so the row sits above it. */}
-          {terminalVisible && hasSessions && panelsRowOpen && <MobileTerminalPanelsRow />}
+          {terminalVisible && hasSessions && keysDrawerOpen && <MobileKeysDrawer keyboardOpen={keyboardVisible} />}
           {terminalVisible && hasSessions && <MobileExtraKeysRow keyboardOpen={keyboardVisible} />}
           {/* Pushed full-screen pages overlay everything. Each layer's wrapper is layout-neutral
               (display: contents); transitions and predictive back animate its first child. */}

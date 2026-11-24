@@ -25,6 +25,29 @@
       "newSessionAriaLabel": "新建会话",
       "panelsAriaLabel": "面板"
     },
+    "keysDrawer": {
+      "toggleAriaLabel": "更多按键",
+      "tabs": {
+        "nav": "导航",
+        "edit": "编辑",
+        "fn": "Fn",
+        "panels": "面板"
+      },
+      "captions": {
+        "lineStart": "行首",
+        "lineEnd": "行尾",
+        "wordLeft": "词 ←",
+        "wordRight": "词 →",
+        "search": "搜索",
+        "clear": "清屏",
+        "deleteWordLeft": "删词 ←",
+        "deleteWordRight": "删词 →",
+        "deleteToStart": "删至行首",
+        "deleteToEnd": "删至行尾",
+        "interrupt": "中断",
+        "endInput": "结束输入"
+      }
+    },
     "panelItems": {
       "sftp": "SFTP"
     },

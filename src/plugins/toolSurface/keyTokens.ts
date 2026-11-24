@@ -1,19 +1,15 @@
 import { ctrlByte, keyToBytes, type SpecialKey } from "@/services/terminalKeyCore";
 
-/** Verb-facing key names that terminalKeyCore already maps, under its own names. */
+/** Verb-facing key names, under terminalKeyCore's own names. */
 const DELEGATED: Record<string, SpecialKey> = {
-  Escape: "Esc", Tab: "Tab", ShiftTab: "ShiftTab",
-  Up: "Up", Down: "Down", Left: "Left", Right: "Right",
+  Escape: "Esc", Tab: "Tab", ShiftTab: "ShiftTab", Enter: "Enter", Backspace: "Backspace",
+  Delete: "Delete", Insert: "Insert", Up: "Up", Down: "Down", Left: "Left", Right: "Right",
   Home: "Home", End: "End", PageUp: "PgUp", PageDown: "PgDn",
+  F1: "F1", F2: "F2", F3: "F3", F4: "F4", F5: "F5", F6: "F6",
+  F7: "F7", F8: "F8", F9: "F9", F10: "F10", F11: "F11", F12: "F12",
 };
 
-/** Keys terminalKeyCore has no need for on the mobile row. */
-const EXTRA: Record<string, string> = {
-  Enter: "\r", Space: " ", Backspace: "\x7f", Delete: "\x1b[3~", Insert: "\x1b[2~",
-  F1: "\x1bOP", F2: "\x1bOQ", F3: "\x1bOR", F4: "\x1bOS",
-  F5: "\x1b[15~", F6: "\x1b[17~", F7: "\x1b[18~", F8: "\x1b[19~",
-  F9: "\x1b[20~", F10: "\x1b[21~", F11: "\x1b[23~", F12: "\x1b[24~",
-};
+const EXTRA: Record<string, string> = { Space: " " };
 
 export const KEY_NAMES: readonly string[] = [
   ...Object.keys(DELEGATED), ...Object.keys(EXTRA), "C-<char>", "M-<char>",

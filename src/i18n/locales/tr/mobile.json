@@ -25,6 +25,29 @@
       "newSessionAriaLabel": "Yeni oturum",
       "panelsAriaLabel": "Paneller"
     },
+    "keysDrawer": {
+      "toggleAriaLabel": "Daha fazla tuş",
+      "tabs": {
+        "nav": "Gezinme",
+        "edit": "Düzen",
+        "fn": "Fn",
+        "panels": "Paneller"
+      },
+      "captions": {
+        "lineStart": "satır başı",
+        "lineEnd": "satır sonu",
+        "wordLeft": "kelime ←",
+        "wordRight": "kelime →",
+        "search": "ara",
+        "clear": "temizle",
+        "deleteWordLeft": "kelime sil ←",
+        "deleteWordRight": "kelime sil →",
+        "deleteToStart": "başa kadar sil",
+        "deleteToEnd": "sona kadar sil",
+        "interrupt": "kes",
+        "endInput": "girdi sonu"
+      }
+    },
     "panelItems": {
       "sftp": "SFTP"
     },

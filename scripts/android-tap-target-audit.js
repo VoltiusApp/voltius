@@ -48,9 +48,10 @@
       if (clip && (x < clip.left || x > clip.right || y < clip.top || y > clip.bottom)) return false;
       return !owns(el, document.elementFromPoint(x, y));
     });
-    // Extra-keys row: 10 keys share the screen width like an IME row (Termius/JuiceSSH do the
-    // same). Full 48 dp height, width = 1/10 of the screen; widening them would need a scroller.
-    if (miss.length && el.closest('[data-mobile-extra-keys]') && r.height >= MIN - 0.5 && !miss.some(([dx, dy]) => dy)) { exceptions.push(name(el)); continue; }
+    // Extra-keys row and drawer: keys tile the strip like an IME (Termux/Gboard sizes), so a probe
+    // past a key's edge lands on the neighbouring key, never on nothing.
+    const strip = el.closest('[data-mobile-extra-keys], [data-mobile-keys-drawer]');
+    if (miss.length && strip && miss.every(([dx, dy]) => strip.contains(document.elementFromPoint(cx + dx, cy + dy)))) { exceptions.push(name(el)); continue; }
     if (miss.length) out.push(`${Math.round(r.width)}x${Math.round(r.height)}  ${name(el)}  misses:${miss.map(([dx, dy]) => dx < 0 ? 'L' : dx > 0 ? 'R' : dy < 0 ? 'T' : 'B').join('')}`);
   }
   return { small: out, exceptions, checked: seen.size, skipped };

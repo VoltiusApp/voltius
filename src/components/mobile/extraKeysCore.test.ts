@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { EXTRA_KEYS, keyForGesture, keyGesture, modTapAction, MOD_DOUBLE_TAP_MS } from "./extraKeysCore";
+import { DRAWER_KEYS, EXTRA_KEYS, keyForGesture, keyGesture, modTapAction, MOD_DOUBLE_TAP_MS } from "./extraKeysCore";
 import { keyToBytes } from "@/services/terminalKeyCore";
 
 const byKey = (k: string) => EXTRA_KEYS.find((x) => x.key === k)!;
@@ -69,5 +69,24 @@ describe("modTapAction", () => {
     expect(modTapAction("off", null, 5)).toBe("tap");
     expect(modTapAction("off", 1000, 1100)).toBe("tap");
     expect(modTapAction("locked", 1000, 1100)).toBe("tap");
+  });
+});
+
+describe("drawer keys", () => {
+  test("every key tab fills two rows of six with unique labels", () => {
+    for (const keys of Object.values(DRAWER_KEYS)) {
+      expect(keys).toHaveLength(12);
+      expect(new Set(keys.map((k) => k.label)).size).toBe(12);
+    }
+  });
+
+  test("Nav shows every swipe-up alternate of the row as a visible key", () => {
+    const nav = new Set(DRAWER_KEYS.nav.flatMap((k) => (k.kind === "key" ? [k.key] : [])));
+    for (const k of EXTRA_KEYS) expect(nav.has(k.alt!)).toBe(true);
+  });
+
+  test("readline chords send their control or meta bytes", () => {
+    const bytes = Object.fromEntries(DRAWER_KEYS.edit.flatMap((k) => (k.kind === "chord" ? [[k.label, k.bytes]] : [])));
+    expect(bytes).toMatchObject({ "^A": "\x01", "^W": "\x17", "^C": "\x03", "⌥B": "\x1bb", "⌥D": "\x1bd" });
   });
 });
