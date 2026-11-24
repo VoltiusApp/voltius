@@ -21,6 +21,15 @@ export interface TmuxInstallProgress {
   progress: number;
 }
 
+/** What an install rejection means, for picking its message; Rust's `tmux_install` error strings. */
+export type TmuxInstallFailure = "download" | "checksum" | "unsupported" | "inside" | "newer" | "cancelled" | "other";
+
+const FAILURES: readonly TmuxInstallFailure[] = ["download", "checksum", "unsupported", "inside", "newer", "cancelled"];
+
+export function tmuxFailure(e: unknown): TmuxInstallFailure {
+  return FAILURES.find((f) => f === e) ?? "other";
+}
+
 export const tmuxStatus = (sessionId: string) => invoke<TmuxHostStatus>("ssh_tmux_status", { sessionId });
 
 export const tmuxRemove = (sessionId: string) => invoke<TmuxHostStatus>("ssh_tmux_remove", { sessionId });

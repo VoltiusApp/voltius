@@ -5,7 +5,7 @@ const listen = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invoke(...a) }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: (...a: unknown[]) => listen(...a) }));
 
-import { tmuxInstall, tmuxPinVersion, tmuxStatus, type TmuxHostStatus } from "./tmuxInstall";
+import { tmuxFailure, tmuxInstall, tmuxPinVersion, tmuxStatus, type TmuxHostStatus } from "./tmuxInstall";
 
 const STATUS: TmuxHostStatus = { supported: true, system: null, active: "3.8", copies: [{ version: "3.8", sessions: 0 }] };
 
@@ -68,4 +68,12 @@ test("the pin version is fetched once, and again after a failure", async () => {
   await expect(tmuxPinVersion()).resolves.toBe("3.8");
   await expect(tmuxPinVersion()).resolves.toBe("3.8");
   expect(invoke.mock.calls.filter(([cmd]) => cmd === "ssh_tmux_pin_version")).toHaveLength(2);
+});
+
+test("install rejections map to a failure kind", () => {
+  for (const kind of ["download", "checksum", "unsupported", "inside", "newer", "cancelled"] as const) {
+    expect(tmuxFailure(kind)).toBe(kind);
+  }
+  expect(tmuxFailure("no-sha256")).toBe("other");
+  expect(tmuxFailure(new Error("newer"))).toBe("other");
 });

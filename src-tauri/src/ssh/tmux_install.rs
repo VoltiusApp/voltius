@@ -14,8 +14,11 @@ pub const CHECKSUM_MISMATCH: &str = "checksum";
 pub const NO_SHA256: &str = "no-sha256";
 pub const BAD_VERSION: &str = "version";
 pub const CANCELLED: &str = "cancelled";
+pub const NEWER: &str = "newer";
 
 const BIN_DIR: &str = "$HOME/.voltius/bin";
+const STALE_PARTS: &str =
+    r#"find "$D" -maxdepth 1 -name '.tmux-*.part' -mmin +60 -exec rm -f {} + 2>/dev/null"#;
 const STEP: &str = "VOLTIUS_STEP ";
 const APP_DOWNLOAD: (u8, u8) = (5, 45);
 const UPLOAD: (u8, u8) = (45, 80);
@@ -76,19 +79,28 @@ pub struct TmuxCopy {
     pub sessions: u32,
 }
 
-fn part_name(version: &str) -> String {
-    format!(".tmux-{version}.part")
+fn prelude() -> String {
+    format!("{TMUX_HELPERS}D={BIN_DIR}\n")
 }
 
-fn staged(version: &str) -> String {
+/// The upload's temp file, named per install so concurrent installs never share one.
+fn part_name(version: &str, run: &str) -> String {
+    let run: String = run
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
+        .collect();
+    format!(".tmux-{version}.{run}.part")
+}
+
+fn staged(version: &str, part: &str) -> String {
     format!(
-        r#"{TMUX_HELPERS}D={BIN_DIR}
-V={v}
+        r#"{prelude}V={v}
 P=$D/{part}
 mkdir -p "$D" && chmod 700 "$D/.." "$D" || exit 1
+{STALE_PARTS}
 "#,
+        prelude = prelude(),
         v = shell_quote(version),
-        part = shell_quote(&part_name(version)),
     )
 }
 
@@ -102,7 +114,7 @@ fi
 [ "${{X%% *}}" = {sha} ] || {{ rm -f "$P"; exit 11; }}
 chmod 755 "$P" && c "$P" && [ "${{W#tmux }}" = "$V" ] || {{ rm -f "$P"; exit 13; }}
 echo {STEP}link
-mv -f "$P" "$D/tmux-$V" && ln -sfn "tmux-$V" "$D/.tmux.new" && mv -f "$D/.tmux.new" "$D/tmux" || exit 1
+mv -f "$P" "$D/tmux-$V" && ln -sfn "tmux-$V" "$D/.tmux.$$.new" && mv -f "$D/.tmux.$$.new" "$D/tmux" || exit 1
 echo {STEP}done
 "#,
         sha = shell_quote(sha256),
@@ -116,28 +128,28 @@ rm -f "$P"
 {{ command -v curl >/dev/null 2>&1 && curl -fsSL -o "$P" {url}; }} ||
 {{ command -v wget >/dev/null 2>&1 && wget -qO "$P" {url}; }} || {{ rm -f "$P"; exit 10; }}
 {link}"#,
-        staged = staged(version),
+        staged = staged(version, ".tmux-$V.$$.part"),
         url = shell_quote(url),
         link = verify_and_link(sha256),
     )
 }
 
-pub fn finish_script(version: &str, sha256: &str) -> String {
-    format!("{}{}", staged(version), verify_and_link(sha256))
+pub fn finish_script(version: &str, sha256: &str, run: &str) -> String {
+    let part = shell_quote(&part_name(version, run));
+    format!("{}{}", staged(version, &part), verify_and_link(sha256))
 }
 
 /// One line on purpose: it is not piped into `sh` (stdin carries the binary), so the login shell parses it.
-fn upload_command(version: &str) -> String {
+fn upload_command(version: &str, run: &str) -> String {
     sh_c(
         &format!(r#"cat > "{BIN_DIR}/$1""#),
-        &[part_name(version).as_str()],
+        &[part_name(version, run).as_str()],
     )
 }
 
 pub fn status_script() -> String {
     format!(
-        r#"{TMUX_HELPERS}D={BIN_DIR}
-echo "os=$(uname -s)"
+        r#"{prelude}echo "os=$(uname -s)"
 echo "arch=$(uname -m)"
 echo "system=$(tmux -V 2>/dev/null)"
 A=
@@ -148,21 +160,22 @@ for T in "$D"/tmux-*; do
   {TMUX_COPY_SOCKET}
   echo "copy=${{T##*tmux-}} sessions=$(t ls 2>/dev/null | wc -l)"
 done
-"#
+"#,
+        prelude = prelude(),
     )
 }
 
 /// Deletes every `tmux-<ver>` but `tmux-$A` whose `-L voltius-<ver>` server is not running.
 fn sweep(head: &str) -> String {
     format!(
-        r#"{TMUX_HELPERS}D={BIN_DIR}
-{head}
+        r#"{prelude}{head}
 for T in "$D"/tmux-*; do
   [ -e "$T" ] && [ "$T" != "$D/tmux-$A" ] || continue
   {TMUX_COPY_SOCKET}
   if [ -x "$T" ] && t ls >/dev/null 2>&1; then echo "kept=${{T##*tmux-}}"; else rm -f "$T"; fi
 done
-"#
+"#,
+        prelude = prelude(),
     )
 }
 
@@ -171,7 +184,9 @@ pub fn remove_script() -> String {
 }
 
 pub fn prune_script() -> String {
-    sweep("c \"$D/tmux\" || exit 0\nA=${W#tmux }")
+    sweep(&format!(
+        "{STALE_PARTS}\nc \"$D/tmux\" || exit 0\nA=${{W#tmux }}"
+    ))
 }
 
 fn field<'a>(out: &'a str, key: &str) -> Option<&'a str> {
@@ -212,13 +227,34 @@ pub async fn run_script<H: Handler>(handle: &Handle<H>, script: &str) -> Result<
     Ok(out.stdout_text())
 }
 
-pub async fn status<H: Handler>(handle: &Handle<H>) -> Result<TmuxHostStatus, String> {
-    Ok(parse_status(&run_script(handle, &status_script()).await?))
+/// The host's status and the pinned asset for its OS and arch, from one status run.
+pub async fn inspect<H: Handler>(
+    handle: &Handle<H>,
+) -> Result<(TmuxHostStatus, Option<&'static TmuxAsset>), String> {
+    let out = run_script(handle, &status_script()).await?;
+    Ok((parse_status(&out), host_asset_in(&out)))
 }
 
-/// The pinned asset for the host's OS and arch, or `UNSUPPORTED`.
-pub async fn host_asset<H: Handler>(handle: &Handle<H>) -> Result<&'static TmuxAsset, String> {
-    host_asset_in(&run_script(handle, &status_script()).await?).ok_or_else(|| UNSUPPORTED.into())
+pub async fn status<H: Handler>(handle: &Handle<H>) -> Result<TmuxHostStatus, String> {
+    Ok(inspect(handle).await?.0)
+}
+
+/// `3.5a` as `(3, 5, "a")`; `None` for anything else, such as `next-3.9`.
+fn tmux_version(v: &str) -> Option<(u32, u32, &str)> {
+    let (major, rest) = v.split_once('.')?;
+    let (minor, suffix) = rest.split_at(
+        rest.find(|c: char| !c.is_ascii_digit())
+            .unwrap_or(rest.len()),
+    );
+    if !suffix.chars().all(|c| c.is_ascii_lowercase()) {
+        return None;
+    }
+    Some((major.parse().ok()?, minor.parse().ok()?, suffix))
+}
+
+/// Whether tmux `version` is newer than `than`; an unparsable version never is.
+pub fn is_newer(version: &str, than: &str) -> bool {
+    matches!((tmux_version(version), tmux_version(than)), (Some(a), Some(b)) if a > b)
 }
 
 fn outcome(code: Option<i32>, stderr: &str) -> Result<(), String> {
@@ -326,6 +362,7 @@ pub async fn install<H: Handler>(
     handle: &Handle<H>,
     asset: &TmuxAsset,
     version: &str,
+    run: &str,
     token: &CancellationToken,
     on_progress: &OnProgress<'_>,
 ) -> Result<(), String> {
@@ -335,8 +372,15 @@ pub async fn install<H: Handler>(
         done => return done,
     }
     let body = fetch(&asset.url, &asset.sha256, token, on_progress).await?;
-    run_steps(handle, &upload_command(version), &body, token, on_progress).await?;
-    let finish = finish_script(version, &asset.sha256);
+    run_steps(
+        handle,
+        &upload_command(version, run),
+        &body,
+        token,
+        on_progress,
+    )
+    .await?;
+    let finish = finish_script(version, &asset.sha256, run);
     run_steps(handle, &encode_wrapper(&finish), &[], token, on_progress).await
 }
 
@@ -350,7 +394,7 @@ mod tests {
     fn scripts() -> Vec<String> {
         vec![
             install_script("3.8", "https://example.com/tmux-3.8-x86_64", SHA),
-            finish_script("3.8", SHA),
+            finish_script("3.8", SHA, "run-1"),
             status_script(),
             remove_script(),
             prune_script(),
@@ -359,7 +403,10 @@ mod tests {
 
     #[test]
     fn install_script_checks_sha_before_link() {
-        for script in [install_script("3.8", "u", SHA), finish_script("3.8", SHA)] {
+        for script in [
+            install_script("3.8", "u", SHA),
+            finish_script("3.8", SHA, "r"),
+        ] {
             let sha = script.find("sha256sum").unwrap();
             let check = script.find("exit 11").unwrap();
             let link = script.find("ln -sfn").unwrap();
@@ -457,7 +504,31 @@ mod tests {
         for script in scripts() {
             assert!(encode_wrapper(&script).len() < MAX_EXEC_COMMAND_LEN);
         }
-        assert!(!upload_command("3.8").contains('\n'));
+        assert!(!upload_command("3.8", "r").contains('\n'));
+    }
+
+    #[test]
+    fn temp_files_are_per_run_and_never_escape_the_dir() {
+        assert_eq!(part_name("3.8", "ab-1/../x y"), ".tmux-3.8.ab-1xy.part");
+        assert!(install_script("3.8", "u", SHA).contains("P=$D/.tmux-$V.$$.part\n"));
+        assert!(finish_script("3.8", SHA, "r").contains("P=$D/'.tmux-3.8.r.part'\n"));
+        for script in scripts() {
+            assert!(!script.contains(".tmux.new\""), "{script}");
+        }
+    }
+
+    #[test]
+    fn tmux_versions_compare_numerically() {
+        assert!(is_newer("3.10", "3.8"));
+        assert!(is_newer("3.8", "3.5a"));
+        assert!(is_newer("3.5a", "3.5"));
+        assert!(is_newer("4.0", "3.9"));
+        assert!(!is_newer("3.8", "3.8"));
+        assert!(!is_newer("3.5", "3.5a"));
+        assert!(!is_newer("3.8", "3.10"));
+        for odd in ["next-3.9", "3", "3.x1", "", "3.9-rc"] {
+            assert!(!is_newer(odd, "3.8"), "{odd}");
+        }
     }
 
     #[cfg(unix)]
@@ -488,17 +559,33 @@ mod tests {
         }
 
         fn run(dir: &Path, script: &str, live: &str) -> (Option<i32>, String) {
+            run_with(dir, script, &[("LIVE", live)])
+        }
+
+        fn run_with(dir: &Path, script: &str, env: &[(&str, &str)]) -> (Option<i32>, String) {
             let out = Command::new("/bin/sh")
                 .arg("-c")
                 .arg(script)
                 .env("HOME", dir.join("home"))
-                .env("LIVE", live)
+                .envs(env.iter().copied())
                 .output()
                 .expect("sh runs");
             (
                 out.status.code(),
                 String::from_utf8_lossy(&out.stdout).into_owned(),
             )
+        }
+
+        fn sha_of(path: &Path) -> String {
+            format!("{:x}", Sha256::digest(std::fs::read(path).unwrap()))
+        }
+
+        fn has_curl() -> bool {
+            Command::new("curl").arg("--version").output().is_ok()
+        }
+
+        fn file_url(path: &Path) -> String {
+            format!("file://{}", path.display())
         }
 
         fn bin(dir: &Path) -> PathBuf {
@@ -518,14 +605,14 @@ mod tests {
 
         #[test]
         fn file_url_install_verifies_links_and_reports() {
-            if Command::new("curl").arg("--version").output().is_err() {
+            if !has_curl() {
                 return;
             }
             let dir = scratch("file");
             let asset = dir.join("asset");
             write_exec(&asset, &fake_tmux("3.8"));
-            let sha = format!("{:x}", Sha256::digest(std::fs::read(&asset).unwrap()));
-            let url = format!("file://{}", asset.display());
+            let sha = sha_of(&asset);
+            let url = file_url(&asset);
 
             let (code, out) = run(&dir, &install_script("3.8", &url, &"0".repeat(64)), "");
             assert_eq!(code, Some(11), "{out}");
@@ -560,13 +647,47 @@ mod tests {
         }
 
         #[test]
+        fn a_concurrent_install_never_gets_its_bytes_linked() {
+            if !has_curl() {
+                return;
+            }
+            let dir = scratch("race");
+            let (good, evil, fake) = (dir.join("good"), dir.join("evil"), dir.join("fake"));
+            write_exec(&good, &fake_tmux("3.8"));
+            write_exec(&evil, &format!("{}# evil\n", fake_tmux("3.8")));
+            std::fs::create_dir_all(&fake).unwrap();
+            write_exec(
+                &fake.join("chmod"),
+                "#!/bin/sh\n[ \"$1\" = 755 ] && sh -c \"$SECOND\" >/dev/null\nexec /bin/chmod \"$@\"\n",
+            );
+            let sha = sha_of(&good);
+            let second = install_script("3.8", &file_url(&evil), &sha);
+            let downloading = &second[..second.find("echo VOLTIUS_STEP verify").unwrap()];
+            let path = format!("{}:{}", fake.display(), std::env::var("PATH").unwrap());
+
+            let first = install_script("3.8", &file_url(&good), &sha);
+            let env = [("PATH", path.as_str()), ("SECOND", downloading)];
+            let (code, out) = run_with(&dir, &first, &env);
+            assert_eq!(code, Some(0), "{out}");
+            assert_eq!(sha_of(&bin(&dir).join("tmux")), sha);
+            let parts: Vec<_> = std::fs::read_dir(bin(&dir))
+                .unwrap()
+                .map(|e| e.unwrap().path())
+                .filter(|p| p.extension().is_some_and(|x| x == "part"))
+                .collect();
+            assert_eq!(parts.len(), 1, "{parts:?}");
+            assert_eq!(sha_of(&parts[0]), sha_of(&evil));
+            let _ = std::fs::remove_dir_all(&dir);
+        }
+
+        #[test]
         fn uploaded_copy_is_verified_and_linked() {
             let dir = scratch("upload");
             std::fs::create_dir_all(bin(&dir)).unwrap();
             let asset = fake_tmux("3.8");
             let sha = format!("{:x}", Sha256::digest(asset.as_bytes()));
             let mut upload = Command::new("/bin/sh")
-                .args(["-c", upload_command("3.8").as_str()])
+                .args(["-c", upload_command("3.8", "up-1").as_str()])
                 .env("HOME", dir.join("home"))
                 .stdin(std::process::Stdio::piped())
                 .spawn()
@@ -582,7 +703,7 @@ mod tests {
             }
             assert!(upload.wait().unwrap().success());
 
-            let (code, out) = run(&dir, &finish_script("3.8", &sha), "");
+            let (code, out) = run(&dir, &finish_script("3.8", &sha, "up-1"), "");
             assert_eq!(code, Some(0), "{out}");
             assert_eq!(
                 std::fs::read_to_string(bin(&dir).join("tmux")).unwrap(),
@@ -608,9 +729,28 @@ mod tests {
                 names
             };
 
+            let (stale, fresh) = (
+                bin(&dir).join(".tmux-3.8.1.part"),
+                bin(&dir).join(".tmux-3.8.2.part"),
+            );
+            for part in [&stale, &fresh] {
+                std::fs::write(part, "partial").unwrap();
+            }
+            let hours_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(7200);
+            std::fs::File::options()
+                .write(true)
+                .open(&stale)
+                .unwrap()
+                .set_modified(hours_ago)
+                .unwrap();
+
             let (code, out) = run(&dir, &prune_script(), "voltius-3.4");
             assert_eq!((code, out.as_str()), (Some(0), "kept=3.4\n"));
-            assert_eq!(present(), ["tmux", "tmux-3.4", "tmux-3.8"]);
+            assert_eq!(
+                present(),
+                [".tmux-3.8.2.part", "tmux", "tmux-3.4", "tmux-3.8"]
+            );
+            std::fs::remove_file(&fresh).unwrap();
 
             let (code, out) = run(&dir, &remove_script(), "voltius-3.8");
             assert_eq!((code, out.as_str()), (Some(0), "kept=3.8\n"));

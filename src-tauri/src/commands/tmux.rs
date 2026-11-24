@@ -1,13 +1,13 @@
 use crate::commands::host_exec::HostExecs;
 use crate::ssh::client::SshClient;
 use crate::ssh::session::SessionManager;
-use crate::ssh::tmux_install::{self, Progress, Step, TmuxHostStatus, CANCELLED, INSIDE};
-use crate::tmux_pin::pin;
+use crate::ssh::tmux_install::{
+    self, Progress, Step, TmuxHostStatus, CANCELLED, INSIDE, NEWER, UNSUPPORTED,
+};
+use crate::tmux_pin::{pin, TmuxAsset};
 use russh::client::Handle;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
-
-type Host = Arc<Handle<SshClient>>;
 
 fn on_host(inside: Option<&str>) -> Result<(), String> {
     match inside {
@@ -16,10 +16,26 @@ fn on_host(inside: Option<&str>) -> Result<(), String> {
     }
 }
 
-async fn host(sessions: &SessionManager, session_id: &str) -> Result<Host, String> {
+async fn host(
+    sessions: &SessionManager,
+    session_id: &str,
+) -> Result<Arc<Handle<SshClient>>, String> {
     let machine = sessions.get_machine(session_id).await?;
     on_host(machine.inside.as_deref())?;
     Ok(machine.handle)
+}
+
+/// The asset to install over `status`, refusing an unsupported host or a newer active copy.
+fn installable(
+    status: &TmuxHostStatus,
+    asset: Option<&'static TmuxAsset>,
+    pin: &str,
+) -> Result<&'static TmuxAsset, String> {
+    let asset = asset.ok_or(UNSUPPORTED)?;
+    match &status.active {
+        Some(active) if tmux_install::is_newer(active, pin) => Err(NEWER.into()),
+        _ => Ok(asset),
+    }
 }
 
 async fn sweep(
@@ -27,10 +43,10 @@ async fn sweep(
     session_id: &str,
     script: String,
 ) -> Result<TmuxHostStatus, String> {
-    let handle = host(sessions, session_id).await?;
-    tmux_install::host_asset(&handle).await?;
-    tmux_install::run_script(&handle, &script).await?;
-    tmux_install::status(&handle).await
+    let host = host(sessions, session_id).await?;
+    let handle: &Handle<SshClient> = &host;
+    tmux_install::run_script(handle, &script).await?;
+    tmux_install::status(handle).await
 }
 
 #[tauri::command]
@@ -43,7 +59,9 @@ pub async fn ssh_tmux_status(
     sessions: State<'_, SessionManager>,
     session_id: String,
 ) -> Result<TmuxHostStatus, String> {
-    tmux_install::status(&host(&sessions, &session_id).await?).await
+    let host = host(&sessions, &session_id).await?;
+    let handle: &Handle<SshClient> = &host;
+    tmux_install::status(handle).await
 }
 
 #[tauri::command]
@@ -56,8 +74,11 @@ pub async fn ssh_tmux_install(
 ) -> Result<TmuxHostStatus, String> {
     let registration = execs.register(&install_id)?;
     let token = &registration.token;
-    let handle = host(&sessions, &session_id).await?;
-    let asset = tmux_install::host_asset(&handle).await?;
+    let host = host(&sessions, &session_id).await?;
+    let handle: &Handle<SshClient> = &host;
+    let version = &pin().version;
+    let (status, asset) = tmux_install::inspect(handle).await?;
+    let asset = installable(&status, asset, version)?;
     let Some(_permit) = execs.slot(&session_id, token).await? else {
         return Err(CANCELLED.into());
     };
@@ -67,14 +88,15 @@ pub async fn ssh_tmux_install(
     };
     // Boxed: Tauri builds a command's future on the main thread, whose stack is 1 MiB on Windows.
     Box::pin(tmux_install::install(
-        &handle,
+        handle,
         asset,
-        &pin().version,
+        version,
+        &install_id,
         token,
         &emit,
     ))
     .await?;
-    tmux_install::status(&handle).await
+    tmux_install::status(handle).await
 }
 
 #[tauri::command]
@@ -101,11 +123,28 @@ pub async fn ssh_tmux_prune(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tmux_pin::asset_for;
 
     #[test]
     fn install_refuses_inside_machine() {
         assert_eq!(on_host(Some("docker exec -i 'c'")), Err(INSIDE.to_string()));
         assert_eq!(on_host(Some("pct exec 7 --")), Err(INSIDE.to_string()));
         assert_eq!(on_host(None), Ok(()));
+    }
+
+    #[test]
+    fn install_never_downgrades_a_newer_copy() {
+        let asset = asset_for("Linux", "x86_64");
+        let active = |v: Option<&str>| TmuxHostStatus {
+            supported: true,
+            active: v.map(str::to_string),
+            ..Default::default()
+        };
+        let refused = |status, asset| installable(&status, asset, "3.8").err();
+        assert_eq!(refused(active(Some("3.9")), asset).as_deref(), Some(NEWER));
+        for ok in [None, Some("3.8"), Some("3.5a"), Some("next-3.9")] {
+            assert!(installable(&active(ok), asset, "3.8").is_ok(), "{ok:?}");
+        }
+        assert_eq!(refused(active(None), None).as_deref(), Some(UNSUPPORTED));
     }
 }
