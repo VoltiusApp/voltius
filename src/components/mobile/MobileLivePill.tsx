@@ -26,7 +26,7 @@ export function LivePillButton({ onPress }: { onPress: () => void }) {
   const { t } = useTranslation();
   return (
     <button data-mobile-live-pill
-      className="absolute bottom-3 right-3 pointer-events-auto flex items-center gap-1.5 h-9 pl-3 pr-3.5 rounded-full text-xs font-semibold"
+      className="absolute bottom-3 left-1/2 -translate-x-1/2 pointer-events-auto flex items-center gap-1.5 h-9 pl-3 pr-3.5 rounded-full text-xs font-semibold whitespace-nowrap"
       style={{ ...TERMINAL_CHIP_STYLE, boxShadow: "var(--t-elev-2)" }}
       onMouseDown={(e) => e.preventDefault()}
       onClick={onPress}>
