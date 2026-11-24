@@ -6,9 +6,6 @@ on:
       version:
         description: tmux release tag, e.g. 3.8 (default is the latest upstream release)
         required: false
-  push:
-    branches: [feat/on-demand-tmux]
-    paths: [.github/workflows/tmux-static.yml]
 
 permissions:
   contents: read
