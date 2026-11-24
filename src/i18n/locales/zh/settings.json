@@ -1273,6 +1273,14 @@
         "title": "自动更新 Voltius 的 tmux",
         "desc": "在 Voltius 安装了 tmux 的主机上，连接时自动安装新版本。正在运行的会话会保留其版本直到结束。每次下载都会用此 Voltius 版本附带的校验和进行校验。关闭后只能在主机设置中更新。"
       },
+      "voltiusTmux": {
+        "title": "Voltius 安装的 tmux",
+        "desc": "tmux {{active}} · ~/.voltius/bin",
+        "available": "可用版本 {{pin}}",
+        "stillUsed_other": "{{old}} 仍被 {{count}} 个会话使用，会话结束后将被移除",
+        "updateNow": "立即更新",
+        "installing": "正在安装…"
+      },
       "detachedTtl": {
         "title": "关闭空闲的已分离会话",
         "desc": "当没有任何设备在所选时间内连接到主机上的持久会话时将其关闭，但仅限会话中没有任何程序在运行时。适用于装有 tmux 3.2 或更高版本的 Linux 主机；screen 和更旧的 tmux 仍保持会话不变。更改将在该会话下次连接时生效。",

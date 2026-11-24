@@ -1092,6 +1092,15 @@
         "title": "Voltius'un tmux'unu otomatik güncelle",
         "desc": "Voltius'un tmux kurduğu sunucularda, bağlandığınızda yeni sürümleri kurar. Çalışan oturumlar bitene kadar kendi sürümlerini korur. Her indirme, bu Voltius sürümüyle gelen sağlama toplamına göre doğrulanır. Yalnızca sunucu ayarlarından güncellemek için kapatın."
       },
+      "voltiusTmux": {
+        "title": "Voltius'un kurduğu tmux",
+        "desc": "tmux {{active}} · ~/.voltius/bin",
+        "available": "{{pin}} mevcut",
+        "stillUsed_one": "{{old}} hâlâ {{count}} oturumda kullanılıyor, bittiğinde kaldırılır",
+        "stillUsed_other": "{{old}} hâlâ {{count}} oturumda kullanılıyor, bitince kaldırılır",
+        "updateNow": "Şimdi güncelle",
+        "installing": "Kuruluyor…"
+      },
       "detachedTtl": {
         "title": "Boştaki ayrılmış oturumları kapat",
         "desc": "Seçilen süre boyunca hiçbir cihaz bağlı değilse, sunucudaki kalıcı oturumu kapatır; ancak yalnızca içinde çalışan bir şey yoksa. tmux 3.2 veya daha yenisi olan Linux sunucularında çalışır; screen ve daha eski tmux sürümleri oturumları eskisi gibi korur. Bir değişiklik, oturuma bir sonraki bağlanışınızda uygulanır.",

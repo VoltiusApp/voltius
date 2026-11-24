@@ -1481,6 +1481,17 @@
         "title": "Automaticky aktualizovat tmux od Voltius",
         "desc": "Na hostech, kam Voltius nainstaloval tmux, nainstaluje při připojení nové verze. Běžící relace si ponechají svou verzi, dokud neskončí. Každé stažení se ověřuje kontrolním součtem dodaným s tímto vydáním Voltius. Po vypnutí lze aktualizovat jen z nastavení hostu."
       },
+      "voltiusTmux": {
+        "title": "tmux nainstalovaný Voltiusem",
+        "desc": "tmux {{active}} · ~/.voltius/bin",
+        "available": "k dispozici {{pin}}",
+        "stillUsed_one": "{{old}} stále používá {{count}} relace, odstraní se po jejím skončení",
+        "stillUsed_few": "{{old}} stále používají {{count}} relace, odstraní se po jejich skončení",
+        "stillUsed_many": "{{old}} stále používá {{count}} relace, odstraní se po jejich skončení",
+        "stillUsed_other": "{{old}} stále používá {{count}} relací, odstraní se po jejich skončení",
+        "updateNow": "Aktualizovat",
+        "installing": "Instaluje se…"
+      },
       "detachedTtl": {
         "title": "Zavírat nečinné odpojené relace",
         "desc": "Zavře trvalou relaci na hostu, pokud k ní po zvolenou dobu nebylo připojeno žádné zařízení, ale jen když v ní nic neběží. Funguje na linuxových hostech s tmux 3.2 nebo novějším; screen a starší tmux ponechávají relace jako dříve. Změna se u relace projeví při jejím příštím připojení.",

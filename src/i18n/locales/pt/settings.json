@@ -1250,6 +1250,16 @@
         "title": "Atualizar o tmux do Voltius automaticamente",
         "desc": "Nos hosts onde o Voltius instalou o tmux, instala novas versões quando você se conecta. Sessões em execução mantêm sua versão até terminarem. Cada download é verificado com o checksum incluído nesta versão do Voltius. Desative para atualizar apenas pelas configurações do host."
       },
+      "voltiusTmux": {
+        "title": "tmux instalado pelo Voltius",
+        "desc": "tmux {{active}} · ~/.voltius/bin",
+        "available": "{{pin}} disponível",
+        "stillUsed_one": "{{old}} ainda usado por {{count}} sessão, removido quando terminar",
+        "stillUsed_many": "{{old}} ainda usado por {{count}} sessões, removido quando terminarem",
+        "stillUsed_other": "{{old}} ainda usado por {{count}} sessões, removido quando terminarem",
+        "updateNow": "Atualizar agora",
+        "installing": "A instalar…"
+      },
       "detachedTtl": {
         "title": "Encerrar sessões desanexadas inativas",
         "desc": "Encerra uma sessão persistente no host quando nenhum dispositivo está anexado a ela pelo tempo escolhido, mas somente se nada estiver em execução nela. Funciona em hosts Linux com tmux 3.2 ou mais recente; screen e versões mais antigas do tmux mantêm as sessões como antes. Uma alteração se aplica a uma sessão na próxima vez que ela for anexada.",

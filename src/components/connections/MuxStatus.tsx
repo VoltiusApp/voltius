@@ -1,13 +1,8 @@
-import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import { ConfirmModal } from "@/components/shared/ConfirmModal";
-import { applyTmuxStatus, liveSession, startTmuxInstall } from "@/services/tmuxOnConnect";
-import { tmuxRemove, useTmuxPinVersion } from "@/services/tmuxInstall";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { useTmuxPinVersion } from "@/services/tmuxInstall";
 import { useHostMuxStore } from "@/stores/hostMuxStore";
-import { useSessionStore } from "@/stores/sessionStore";
-import { notifyError } from "@/utils/notifyError";
+import { useTmuxHostActions } from "./useTmuxHostActions";
 
 const BTN_BASE =
   "shrink-0 text-[11px] px-2 py-1 rounded-md font-medium bg-(--t-bg-input) transition-opacity hover:opacity-75 disabled:opacity-50 disabled:cursor-not-allowed";
@@ -24,18 +19,12 @@ export default function MuxStatus({ connectionId, persistOn }: Props) {
   const host = useHostMuxStore((s) => (connectionId ? s.hosts[connectionId] : undefined));
   const installing = useHostMuxStore((s) => (connectionId ? s.installing[connectionId] : undefined));
   const failure = useHostMuxStore((s) => (connectionId ? s.lastFailure[connectionId] : undefined));
-  const live = useSessionStore(() => (connectionId ? liveSession(connectionId) : undefined));
-  const hostName = useConnectionStore((s) => {
-    const all = [...s.connections, ...Object.values(s.teamConnections).flat()];
-    return all.find((c) => c.id === connectionId)?.name ?? "";
-  });
   const pin = useTmuxPinVersion();
-  const [confirmRemove, setConfirmRemove] = useState(false);
+  const { live, hostName, gate, install: runInstall, askRemove, removeModal } = useTmuxHostActions(connectionId);
 
   if (!persistOn || !connectionId) return null;
 
   const connectFirst = t("connections.form.mux.connectFirst");
-  const gate = live ? undefined : connectFirst;
 
   const line = (icon: string, color: string, text: string, actions?: React.ReactNode, spin = false) => (
     <div className="flex items-start gap-1.5 pl-[19px] pb-1 text-[11px] leading-snug text-(--t-text-dim)">
@@ -45,22 +34,12 @@ export default function MuxStatus({ connectionId, persistOn }: Props) {
     </div>
   );
   const install = (label: string, disabled = !live, title = gate) => (
-    <button type="button" className={`${BTN_BASE} text-(--t-text-primary)`} disabled={disabled} title={title} onClick={() => live && startTmuxInstall(live, connectionId, hostName)}>
+    <button type="button" className={`${BTN_BASE} text-(--t-text-primary)`} disabled={disabled} title={title} onClick={runInstall}>
       {label}
     </button>
   );
   const installPlain = install(t("connections.form.mux.install"));
   const installPinned = install(pin ? t("connections.form.mux.installPin", { version: pin }) : t("connections.form.mux.install"));
-
-  const remove = async () => {
-    setConfirmRemove(false);
-    if (!live) return;
-    try {
-      applyTmuxStatus(connectionId, await tmuxRemove(live));
-    } catch (e) {
-      notifyError(e);
-    }
-  };
 
   let body: React.ReactNode;
   if (installing) {
@@ -85,7 +64,7 @@ export default function MuxStatus({ connectionId, persistOn }: Props) {
       t("connections.form.mux.voltius", { version: host.voltius.active }),
       <>
         {host.voltius.outdated && installPinned}
-        <button type="button" className={`${BTN_BASE} text-(--t-text-muted)`} disabled={!live} title={gate} onClick={() => setConfirmRemove(true)}>
+        <button type="button" className={`${BTN_BASE} text-(--t-text-muted)`} disabled={!live} title={gate} onClick={askRemove}>
           {t("connections.form.mux.remove")}
         </button>
       </>,
@@ -102,15 +81,7 @@ export default function MuxStatus({ connectionId, persistOn }: Props) {
     <>
       {body}
       {failure && !installing && line("lucide:triangle-alert", "var(--t-status-error)", t(`notifications.tmux.failed.${failure}`, { host: hostName }))}
-      {confirmRemove && (
-        <ConfirmModal
-          title={t("connections.form.mux.removeTitle")}
-          message={t("connections.form.mux.removeMessage")}
-          confirmLabel={t("connections.form.mux.remove")}
-          onConfirm={remove}
-          onCancel={() => setConfirmRemove(false)}
-        />
-      )}
+      {removeModal}
     </>
   );
 }

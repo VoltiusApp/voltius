@@ -1241,6 +1241,15 @@
         "title": "Update Voltius's tmux automatically",
         "desc": "On hosts where Voltius installed tmux, install new versions when you connect. Running sessions keep their version until they end. Each download is checked against the checksum shipped with this Voltius release. Turn off to update only from the host's settings."
       },
+      "voltiusTmux": {
+        "title": "tmux installed by Voltius",
+        "desc": "tmux {{active}} · ~/.voltius/bin",
+        "available": "{{pin}} available",
+        "stillUsed_one": "{{old}} still used by {{count}} session, removed when it ends",
+        "stillUsed_other": "{{old}} still used by {{count}} sessions, removed when they end",
+        "updateNow": "Update now",
+        "installing": "Installing…"
+      },
       "detachedTtl": {
         "title": "Close idle detached sessions",
         "desc": "Close a persistent session on the host once no device has been attached to it for the chosen time, but only if nothing is running in it. Works on Linux hosts with tmux 3.2 or newer; screen and older tmux keep sessions as before. A change applies to a session the next time it is attached.",

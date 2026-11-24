@@ -1250,6 +1250,16 @@
         "title": "Mettre à jour automatiquement le tmux de Voltius",
         "desc": "Sur les hôtes où Voltius a installé tmux, installe les nouvelles versions à la connexion. Les sessions en cours gardent leur version jusqu'à leur fin. Chaque téléchargement est vérifié avec la somme de contrôle fournie avec cette version de Voltius. Désactivez pour ne mettre à jour que depuis les paramètres de l'hôte."
       },
+      "voltiusTmux": {
+        "title": "tmux installé par Voltius",
+        "desc": "tmux {{active}} · ~/.voltius/bin",
+        "available": "{{pin}} disponible",
+        "stillUsed_one": "{{old}} encore utilisé par {{count}} session, supprimé à sa fin",
+        "stillUsed_many": "{{old}} encore utilisé par {{count}} sessions, supprimé à leur fin",
+        "stillUsed_other": "{{old}} encore utilisé par {{count}} sessions, supprimé à leur fin",
+        "updateNow": "Mettre à jour",
+        "installing": "Installation…"
+      },
       "detachedTtl": {
         "title": "Fermer les sessions détachées inactives",
         "desc": "Ferme une session persistante sur l'hôte lorsqu'aucun appareil n'y est attaché depuis la durée choisie, mais seulement si rien n'y tourne. Fonctionne sur les hôtes Linux avec tmux 3.2 ou plus récent ; screen et les anciennes versions de tmux conservent les sessions comme avant. Un changement s'applique à une session la prochaine fois qu'elle est attachée.",
