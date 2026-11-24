@@ -5,7 +5,7 @@ import { sendSpecialKey } from "@/services/terminalInput";
 import { showAndroidKeyboard, hideAndroidKeyboard, setAndroidKeyboardTarget, setSelectionTouchFeed } from "@/services/androidKeyboard";
 import { useIsAndroid } from "@/utils/platform";
 import { isDoubleTap, type TapPoint } from "./doubleTap";
-import { FLING_MIN_V, flingStep, fontSizeFromPinch, linesFromPixelDelta, panArrows, touchDistance } from "./mobileTerminalGesturesCore";
+import { FLING_MIN_V, flingStep, fontSizeFromPinch, linesFromPixelDelta, panArrows, touchCentroidX, touchDistance, twoFingerIntent, type TwoFingerIntent } from "./mobileTerminalGesturesCore";
 import { createNativeSelection } from "./nativeSelectionOverlay";
 import { readClipboard } from "@/utils/clipboard";
 import { MAX_TERMINAL_FONT_SIZE, MIN_TERMINAL_FONT_SIZE, useUIStore } from "@/stores/uiStore";
@@ -22,14 +22,14 @@ const LONG_PRESS_MS = 380;
 const DOUBLE_TAP = { ms: 300, px: 24 };
 const NO_MODS = { ctrl: false, alt: false };
 
-type Phase = "idle" | "pending" | "scrolling" | "swiping" | "panning" | "native" | "pinching";
+type Phase = "idle" | "pending" | "scrolling" | "swiping" | "native" | "pinching";
 
 /** Terminal sessions in chip order (the top bar hides multiplayer ones too). */
 const sessionIds = () => mobileSessions(useSessionStore.getState().sessions).map((s) => s.id);
 
-/** Mobile terminal gestures: drag scrolls, a sideways swipe switches session (pans a full-screen
- *  app), long-press selects natively (Paste on blank), double-tap sends Tab, pinch sets the font
- *  size (#159); single taps reach xterm. */
+/** Mobile terminal gestures: drag scrolls, a sideways swipe switches session, long-press selects
+ *  natively (Paste on blank), double-tap sends Tab, pinch sets the font size (#159), a two-finger
+ *  sideways drag sends Left/Right (#938); single taps reach xterm. */
 export default function MobileTerminalGestures({ sessionId, active }: { sessionId: string; active: boolean }) {
   const { t } = useTranslation();
   const isAndroid = useIsAndroid();
@@ -47,7 +47,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFired = useRef(false);
   const lastTap = useRef<TapPoint | null>(null);
-  const pinch = useRef<{ dist: number; size: number } | null>(null);
+  const pinch = useRef<{ dist: number; size: number; x: number; intent: TwoFingerIntent } | null>(null);
   const swipeVelocity = useRef(new VelocityTracker());
   const scrollVelocity = useRef(new VelocityTracker());
 
@@ -163,6 +163,8 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
         pinch.current = {
           dist: touchDistance(e.touches[0], e.touches[1]),
           size: useThemeStore.getState().getActiveTheme().terminalFontSize,
+          x: touchCentroidX(e.touches[0], e.touches[1]),
+          intent: null,
         };
         return;
       }
@@ -203,15 +205,18 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
         const p = pinch.current;
         if (!p || e.touches.length < 2) return;
         e.preventDefault();
-        const size = fontSizeFromPinch(
-          p.size,
-          p.dist,
-          touchDistance(e.touches[0], e.touches[1]),
-          MIN_TERMINAL_FONT_SIZE,
-          MAX_TERMINAL_FONT_SIZE,
-        );
-        if (size !== useThemeStore.getState().getActiveTheme().terminalFontSize) {
-          useUIStore.getState().setTerminalFontSize(size);
+        const dist = touchDistance(e.touches[0], e.touches[1]);
+        const dx = touchCentroidX(e.touches[0], e.touches[1]) - p.x;
+        p.intent ??= twoFingerIntent(dist - p.dist, dx);
+        if (p.intent === "pan") {
+          const want = panArrows(dx, container.clientWidth || window.innerWidth);
+          for (; panSent.current < want; panSent.current++) sendSpecialKey(sessionId, "Right", NO_MODS);
+          for (; panSent.current > want; panSent.current--) sendSpecialKey(sessionId, "Left", NO_MODS);
+        } else if (p.intent === "pinch") {
+          const size = fontSizeFromPinch(p.size, p.dist, dist, MIN_TERMINAL_FONT_SIZE, MAX_TERMINAL_FONT_SIZE);
+          if (size !== useThemeStore.getState().getActiveTheme().terminalFontSize) {
+            useUIStore.getState().setTerminalFontSize(size);
+          }
         }
         return;
       }
@@ -225,11 +230,9 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
         if (!axis) return;
         clearLongPress();
         sel.disarm();
-        // Sideways = Left/Right arrows in a full-screen app (less -S cuts long lines), else a session
-        // swipe unless it started in the back-gesture strips or there is nowhere to go.
-        if (axis === "x" && getTerminalApi(sessionId)?.alternateScreen()) {
-          phase.current = "panning";
-        } else if (axis === "x" && sessionIds().length > 1 && !inEdgeZone(s.x, window.innerWidth)) {
+        // Sideways = session swipe, unless it started in the system back-gesture strips or
+        // there is nowhere to go; anything else (diagonals too) scrolls the scrollback.
+        if (axis === "x" && sessionIds().length > 1 && !inEdgeZone(s.x, window.innerWidth)) {
           phase.current = "swiping";
           swipeVelocity.current.reset();
         } else {
@@ -243,14 +246,6 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
         e.preventDefault();
         swipeVelocity.current.add(e.timeStamp, t.clientX);
         follow(t.clientX - s.x);
-        return;
-      }
-
-      if (phase.current === "panning") {
-        e.preventDefault();
-        const want = panArrows(t.clientX - s.x, container.clientWidth || window.innerWidth);
-        for (; panSent.current < want; panSent.current++) sendSpecialKey(sessionId, "Right", NO_MODS);
-        for (; panSent.current > want; panSent.current--) sendSpecialKey(sessionId, "Left", NO_MODS);
         return;
       }
 
@@ -294,7 +289,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
         return;
       }
 
-      if (longPressFired.current || wasPhase === "scrolling" || wasPhase === "panning") {
+      if (longPressFired.current || wasPhase === "scrolling") {
         e.preventDefault();
         const t = e.changedTouches[0];
         if (wasPhase === "scrolling" && t) startFling(scrollVelocity.current.velocity(e.timeStamp), t.clientX, t.clientY);

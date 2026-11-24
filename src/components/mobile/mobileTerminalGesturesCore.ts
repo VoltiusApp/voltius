@@ -49,3 +49,18 @@ export function panArrows(dx: number, width: number): number {
   if (width <= 0) return 0;
   return -Math.sign(dx) * Math.floor((Math.abs(dx) + width / 4) / (width / 2));
 }
+
+export function touchCentroidX(a: { clientX: number }, b: { clientX: number }): number {
+  return (a.clientX + b.clientX) / 2;
+}
+
+export const TWO_FINGER_SLOP_PX = 16;
+export type TwoFingerIntent = "pinch" | "pan" | null;
+
+/** Two fingers moving sideways together pan; fingers spreading or closing pinch. Null until one
+ *  passes the slop. */
+export function twoFingerIntent(distDelta: number, centroidDx: number): TwoFingerIntent {
+  const spread = Math.abs(distDelta), slide = Math.abs(centroidDx);
+  if (spread < TWO_FINGER_SLOP_PX && slide < TWO_FINGER_SLOP_PX) return null;
+  return slide > spread * 2 ? "pan" : "pinch";
+}
