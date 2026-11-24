@@ -123,6 +123,34 @@
       "detachedProxied_one": "Um host cuja entrada ~/.ssh/config agora usa ProxyCommand não segue mais o arquivo.",
       "detachedProxied_other": "{{count}} hosts cujas entradas ~/.ssh/config agora usam ProxyCommand não seguem mais o arquivo.",
       "detachedProxied_many": "{{count}} hosts cujas entradas ~/.ssh/config agora usam ProxyCommand não seguem mais o arquivo."
+    },
+    "tmux": {
+      "screen": "{{host}} usa o GNU screen: apps em tela cheia e o mouse ficam limitados",
+      "old": "{{host}} tem o tmux {{version}}, antigo demais para suporte completo",
+      "none": "{{host}} não tem tmux: esta sessão termina quando você desconectar",
+      "install": "Instalar tmux",
+      "connectFirst": "Conecte-se a este host primeiro",
+      "installing": "Instalando o tmux {{version}}… {{step}}",
+      "step": {
+        "download": "baixando",
+        "upload": "enviando",
+        "verify": "verificando",
+        "link": "finalizando",
+        "done": "concluído"
+      },
+      "installed": "tmux {{version}} instalado. Novas sessões têm suporte completo.",
+      "updated": "tmux atualizado para {{version}} em {{host}}",
+      "openNewTab": "Abrir nova aba",
+      "failed": {
+        "download": "Não foi possível baixar o tmux para {{host}}",
+        "checksum": "O download do tmux para {{host}} não correspondeu ao checksum e foi excluído",
+        "noSha256": "Este host não tem sha256sum nem shasum, então o Voltius não consegue verificar o download.",
+        "version": "Não foi possível executar o tmux a partir de ~/.voltius/bin neste host (a pasta pessoal está montada com noexec?)",
+        "unsupported": "{{host}} não é compatível: o Voltius só instala o tmux em Linux x86_64 e arm64",
+        "inside": "Instale o tmux a partir de uma sessão no próprio {{host}}, não dentro de um contêiner",
+        "newer": "{{host}} já tem um tmux mais recente instalado pelo Voltius",
+        "other": "Não foi possível instalar o tmux em {{host}}"
+      }
     }
   }
 }

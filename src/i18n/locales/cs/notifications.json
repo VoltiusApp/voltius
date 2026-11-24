@@ -127,6 +127,34 @@
       "detachedProxied_few": "{{count}} hosty, jejichž záznamy v ~/.ssh/config teď používají ProxyCommand, už soubor nesledují.",
       "detachedProxied_many": "{{count}} hostů, jejichž záznamy v ~/.ssh/config teď používají ProxyCommand, už soubor nesleduje.",
       "detachedProxied_other": "{{count}} hostů, jejichž záznamy v ~/.ssh/config teď používají ProxyCommand, už soubor nesleduje."
+    },
+    "tmux": {
+      "screen": "{{host}} používá GNU screen: celoobrazovkové aplikace a myš jsou omezené",
+      "old": "{{host}} má tmux {{version}}, který je pro plnou podporu příliš starý",
+      "none": "{{host}} nemá tmux: tato relace skončí, jakmile se odpojíte",
+      "install": "Nainstalovat tmux",
+      "connectFirst": "Nejprve se k tomuto hostu připojte",
+      "installing": "Instalace tmux {{version}}… {{step}}",
+      "step": {
+        "download": "stahování",
+        "upload": "nahrávání",
+        "verify": "ověřování",
+        "link": "dokončování",
+        "done": "hotovo"
+      },
+      "installed": "tmux {{version}} je nainstalován. Nové relace mají plnou podporu.",
+      "updated": "tmux na hostu {{host}} aktualizován na {{version}}",
+      "openNewTab": "Otevřít novou kartu",
+      "failed": {
+        "download": "tmux pro {{host}} se nepodařilo stáhnout",
+        "checksum": "Stažený tmux pro {{host}} neodpovídal kontrolnímu součtu a byl smazán",
+        "noSha256": "Tento hostitel nemá sha256sum ani shasum, takže Voltius nemůže stažený soubor ověřit.",
+        "version": "tmux se na tomto hostiteli nepodařilo spustit z ~/.voltius/bin (není domovská složka připojená s noexec?)",
+        "unsupported": "{{host}} není podporován: Voltius instaluje tmux jen na Linux x86_64 a arm64",
+        "inside": "Nainstalujte tmux z relace přímo na hostu {{host}}, ne uvnitř kontejneru",
+        "newer": "{{host}} už má novější tmux od Voltius",
+        "other": "tmux se na {{host}} nepodařilo nainstalovat"
+      }
     }
   }
 }

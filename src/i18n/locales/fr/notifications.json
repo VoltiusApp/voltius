@@ -123,6 +123,34 @@
       "detachedProxied_one": "Un hôte dont l'entrée ~/.ssh/config utilise désormais ProxyCommand ne suit plus le fichier.",
       "detachedProxied_many": "{{count}} hôtes dont les entrées ~/.ssh/config utilisent désormais ProxyCommand ne suivent plus le fichier.",
       "detachedProxied_other": "{{count}} hôtes dont les entrées ~/.ssh/config utilisent désormais ProxyCommand ne suivent plus le fichier."
+    },
+    "tmux": {
+      "screen": "{{host}} utilise GNU screen : les applications plein écran et la souris sont limitées",
+      "old": "{{host}} a tmux {{version}}, trop ancien pour une prise en charge complète",
+      "none": "{{host}} n'a pas tmux : cette session se termine à la déconnexion",
+      "install": "Installer tmux",
+      "connectFirst": "Connectez-vous d'abord à cet hôte",
+      "installing": "Installation de tmux {{version}}… {{step}}",
+      "step": {
+        "download": "téléchargement",
+        "upload": "envoi",
+        "verify": "vérification",
+        "link": "finalisation",
+        "done": "terminé"
+      },
+      "installed": "tmux {{version}} installé. Les nouvelles sessions sont entièrement prises en charge.",
+      "updated": "tmux mis à jour vers {{version}} sur {{host}}",
+      "openNewTab": "Ouvrir un nouvel onglet",
+      "failed": {
+        "download": "Impossible de télécharger tmux pour {{host}}",
+        "checksum": "Le téléchargement de tmux pour {{host}} ne correspondait pas à sa somme de contrôle et a été supprimé",
+        "noSha256": "Cet hôte n'a ni sha256sum ni shasum : Voltius ne peut donc pas vérifier le téléchargement.",
+        "version": "tmux n'a pas pu s'exécuter depuis ~/.voltius/bin sur cet hôte (le dossier personnel est-il monté en noexec ?)",
+        "unsupported": "{{host}} n'est pas pris en charge : Voltius installe tmux uniquement sur Linux x86_64 et arm64",
+        "inside": "Installez tmux depuis une session sur {{host}} lui-même, pas dans un conteneur",
+        "newer": "{{host}} a déjà un tmux plus récent installé par Voltius",
+        "other": "Impossible d'installer tmux sur {{host}}"
+      }
     }
   }
 }

@@ -3,13 +3,15 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 const MARKER: &[u8] = b"\x1bP1000p";
-const RAW_SENTINEL: &[u8] = b"\x1bP1000r\x1b\\";
+const RAW_PREFIX: &[u8] = b"\x1bP1000r";
+const ST: &[u8] = b"\x1b\\";
+const FALLBACK_KIND_MAX: usize = 64;
 const MARKER_WINDOW: usize = 64 * 1024;
 
 #[derive(Debug, PartialEq)]
 pub enum Event {
     Passthrough(Vec<u8>),
-    RawMode,
+    RawMode { fallback: String },
     Output { pane: String, data: Vec<u8> },
     Reply { ok: bool, lines: Vec<Vec<u8>> },
 }
@@ -39,6 +41,39 @@ pub struct Demux {
 
 fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack.windows(needle.len()).position(|w| w == needle)
+}
+
+enum Sentinel {
+    Complete {
+        start: usize,
+        end: usize,
+        kind: String,
+    },
+    Pending {
+        start: usize,
+    },
+}
+
+fn scan_sentinel(buf: &[u8]) -> Option<Sentinel> {
+    let mut from = 0;
+    while let Some(rel) = find(&buf[from..], RAW_PREFIX) {
+        let start = from + rel;
+        let body = &buf[start + RAW_PREFIX.len()..];
+        match find(body, ST) {
+            Some(len) if len <= FALLBACK_KIND_MAX => {
+                return Some(Sentinel::Complete {
+                    start,
+                    end: start + RAW_PREFIX.len() + len + ST.len(),
+                    kind: String::from_utf8_lossy(&body[..len]).into_owned(),
+                });
+            }
+            None if body.len() < FALLBACK_KIND_MAX + ST.len() => {
+                return Some(Sentinel::Pending { start });
+            }
+            _ => from = start + 1,
+        }
+    }
+    None
 }
 
 fn held_prefix(buf: &[u8], needle: &[u8]) -> usize {
@@ -101,36 +136,39 @@ impl Demux {
 
     fn decide(&mut self, events: &mut Vec<Event>) -> bool {
         let marker = find(&self.buf, MARKER);
-        let sentinel = find(&self.buf, RAW_SENTINEL);
-        if let Some(m) = marker.filter(|&m| sentinel.is_none_or(|s| m < s)) {
+        let sentinel = scan_sentinel(&self.buf);
+        let sentinel_start = match &sentinel {
+            Some(Sentinel::Complete { start, .. } | Sentinel::Pending { start }) => Some(*start),
+            None => None,
+        };
+        if let Some(m) = marker.filter(|&m| sentinel_start.is_none_or(|s| m < s)) {
             self.passthrough(m, events);
             self.buf.drain(..MARKER.len());
             self.mode = Mode::Control;
             return true;
         }
-        match sentinel {
-            Some(s) => {
-                self.passthrough(s, events);
-                self.buf.drain(..RAW_SENTINEL.len());
-                self.go_raw(events);
-                false
-            }
-            None => {
-                let held = held_prefix(&self.buf, MARKER).max(held_prefix(&self.buf, RAW_SENTINEL));
-                let ready = self.buf.len() - held;
-                self.scanned += ready;
-                self.passthrough(ready, events);
-                if self.scanned >= MARKER_WINDOW {
-                    self.go_raw(events);
-                }
-                false
-            }
+        if let Some(Sentinel::Complete { start, end, kind }) = sentinel {
+            self.passthrough(start, events);
+            self.buf.drain(..end - start);
+            self.go_raw(kind, events);
+            return false;
         }
+        let held = match sentinel_start {
+            Some(start) => self.buf.len() - start,
+            None => held_prefix(&self.buf, MARKER).max(held_prefix(&self.buf, RAW_PREFIX)),
+        };
+        let ready = self.buf.len() - held;
+        self.scanned += ready;
+        self.passthrough(ready, events);
+        if self.scanned >= MARKER_WINDOW {
+            self.go_raw(String::new(), events);
+        }
+        false
     }
 
-    fn go_raw(&mut self, events: &mut Vec<Event>) {
+    fn go_raw(&mut self, fallback: String, events: &mut Vec<Event>) {
         self.mode = Mode::Raw;
-        events.push(Event::RawMode);
+        events.push(Event::RawMode { fallback });
         let rest = self.buf.len();
         self.passthrough(rest, events);
     }
@@ -431,6 +469,7 @@ pub enum Action {
     Send(Vec<u8>),
     WindowChange(u32, u32),
     Started { tmux: String },
+    Fallback(String),
 }
 
 #[derive(Default)]
@@ -511,7 +550,8 @@ impl ControlSession {
         for event in self.demux.feed(bytes) {
             match event {
                 Event::Passthrough(data) => actions.push(Action::Emit(data)),
-                Event::RawMode => {
+                Event::RawMode { fallback } => {
+                    actions.push(Action::Fallback(fallback));
                     if let Phase::Undecided(queued) = std::mem::replace(&mut self.phase, Phase::Raw)
                     {
                         if !queued.is_empty() {
@@ -683,7 +723,7 @@ mod tests {
         let filler = vec![b'x'; MARKER_WINDOW + 10];
         assert_eq!(
             d.feed(&filler),
-            vec![Event::Passthrough(filler.clone()), Event::RawMode]
+            vec![Event::Passthrough(filler.clone()), raw_mode("")]
         );
         let events = d.feed(b"\x1bP1000p%exit\r\n");
         assert_eq!(
@@ -715,7 +755,7 @@ mod tests {
             d.feed(b"motd\x1bP1000r\x1b\\$ prompt"),
             vec![
                 Event::Passthrough(b"motd".to_vec()),
-                Event::RawMode,
+                raw_mode(""),
                 Event::Passthrough(b"$ prompt".to_vec())
             ]
         );
@@ -724,6 +764,63 @@ mod tests {
             vec![Event::Passthrough(b"\x1bP1000p".to_vec())]
         );
         assert!(!d.is_control());
+    }
+
+    fn raw_mode(fallback: &str) -> Event {
+        Event::RawMode {
+            fallback: fallback.into(),
+        }
+    }
+
+    #[test]
+    fn raw_sentinel_carries_fallback_kind() {
+        let mut d = Demux::default();
+        assert_eq!(
+            d.feed(b"x\x1bP1000rscreen\x1b\\y"),
+            vec![
+                Event::Passthrough(b"x".to_vec()),
+                raw_mode("screen"),
+                Event::Passthrough(b"y".to_vec())
+            ]
+        );
+    }
+
+    #[test]
+    fn raw_sentinel_split_across_reads_is_held() {
+        let mut d = Demux::default();
+        let mut events = d.feed(b"x\x1bP1000rscr");
+        events.extend(d.feed(b"een\x1b"));
+        events.extend(d.feed(b"\\y"));
+        assert_eq!(
+            events,
+            vec![
+                Event::Passthrough(b"x".to_vec()),
+                raw_mode("screen"),
+                Event::Passthrough(b"y".to_vec())
+            ]
+        );
+    }
+
+    #[test]
+    fn empty_kind_still_raw_mode() {
+        let mut d = Demux::default();
+        assert_eq!(d.feed(b"\x1bP1000r\x1b\\"), vec![raw_mode("")]);
+    }
+
+    #[test]
+    fn overlong_kind_is_not_a_sentinel() {
+        let mut d = Demux::default();
+        let mut bytes = b"\x1bP1000r".to_vec();
+        bytes.extend(vec![b'k'; FALLBACK_KIND_MAX + 1]);
+        bytes.extend_from_slice(b"\x1b\\");
+        let mut out = Vec::new();
+        for e in d.feed(&bytes) {
+            assert!(matches!(e, Event::Passthrough(_)));
+            if let Event::Passthrough(b) = e {
+                out.extend(b);
+            }
+        }
+        assert_eq!(out, bytes);
     }
 
     #[test]
@@ -736,7 +833,7 @@ mod tests {
         assert_eq!(d.feed(b"0r\x1b"), vec![]);
         assert_eq!(
             d.feed(b"\\b"),
-            vec![Event::RawMode, Event::Passthrough(b"b".to_vec())]
+            vec![raw_mode(""), Event::Passthrough(b"b".to_vec())]
         );
     }
 
@@ -1102,6 +1199,7 @@ mod tests {
         assert_eq!(
             s.on_output(b"\x1bP1000r\x1b\\$ "),
             vec![
+                Action::Fallback(String::new()),
                 Action::Send(b"export A=1\n".to_vec()),
                 Action::Emit(b"$ ".to_vec())
             ]
@@ -1255,8 +1353,12 @@ mod tests {
 #[cfg(test)]
 mod docker_harness {
     use super::*;
+    use crate::shell_integration::{
+        persistent_attach_command, persistent_exec_command, tmux_session_key,
+    };
     use crate::ssh::test_docker::{
-        container_name, docker, ensure_image, wait_for, Container as Host, TMUX_BASES,
+        container_name, docker, ensure_image, ensure_image_with, install_voltius_tmux, wait_for,
+        Container as Host, TMUX_BASES,
     };
     use std::io::{Read, Write};
     use std::process::{Command, Stdio};
@@ -1277,15 +1379,16 @@ mod docker_harness {
         host
     }
 
-    fn attach(
-        host: &Host,
-        colors: Option<TerminalColors>,
+    /// Runs `docker args`, feeding its output to `session` for `settle` and its
+    /// `Send`s back to its stdin; returns every other action in order.
+    fn drive(
+        args: &[&str],
+        mut session: ControlSession,
+        preamble: &[u8],
         settle: Duration,
-    ) -> (vt100::Parser, Vec<String>) {
+    ) -> Vec<Action> {
         let mut child = Command::new("docker")
-            .args([
-                "exec", "-i", &host.0, "tmux", "-L", "t", "-C", "attach", "-t", "s",
-            ])
+            .args(args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
@@ -1301,29 +1404,176 @@ mod docker_harness {
                 }
             }
         });
-        let mut session = ControlSession::new("s".into(), 80, 24, colors);
-        let mut parser = vt100::Parser::new(24, 80, 100_000);
-        let mut started = Vec::new();
-        let mut feed = |bytes: &[u8], parser: &mut vt100::Parser, started: &mut Vec<String>| {
-            for action in session.on_output(bytes) {
-                match action {
-                    Action::Emit(b) => parser.process(&b),
-                    Action::Send(b) => stdin.write_all(&b).unwrap(),
-                    Action::Started { tmux } => started.push(tmux),
-                    Action::WindowChange(..) => {}
+        let mut actions = Vec::new();
+        let mut chunk = preamble.to_vec();
+        let deadline = Instant::now() + settle;
+        loop {
+            if !chunk.is_empty() {
+                for action in session.on_output(&chunk) {
+                    match action {
+                        Action::Send(b) => {
+                            let _ = stdin.write_all(&b);
+                        }
+                        other => actions.push(other),
+                    }
                 }
             }
-        };
-        feed(b"\x1bP1000p", &mut parser, &mut started);
-        let deadline = Instant::now() + settle;
-        while Instant::now() < deadline {
-            if let Ok(chunk) = rx.recv_timeout(Duration::from_millis(50)) {
-                feed(&chunk, &mut parser, &mut started);
+            if Instant::now() >= deadline {
+                break;
             }
+            chunk = rx
+                .recv_timeout(Duration::from_millis(50))
+                .unwrap_or_default();
         }
         let _ = child.kill();
         let _ = child.wait();
+        actions
+    }
+
+    fn attach(
+        host: &Host,
+        colors: Option<TerminalColors>,
+        settle: Duration,
+    ) -> (vt100::Parser, Vec<String>) {
+        let args = [
+            "exec", "-i", &host.0, "tmux", "-L", "t", "-C", "attach", "-t", "s",
+        ];
+        let session = ControlSession::new("s".into(), 80, 24, colors);
+        let mut parser = vt100::Parser::new(24, 80, 100_000);
+        let mut started = Vec::new();
+        for action in drive(&args, session, b"\x1bP1000p", settle) {
+            match action {
+                Action::Emit(b) => parser.process(&b),
+                Action::Started { tmux } => started.push(tmux),
+                _ => {}
+            }
+        }
         (parser, started)
+    }
+
+    /// Runs a persistent-session wrapper in a pty, as the SSH exec channel would.
+    fn connect(host: &Host, key: &str, cmd: &str, settle: Duration) -> Vec<Action> {
+        let env = format!("C={cmd}");
+        let args = [
+            "exec",
+            "-i",
+            "-e",
+            "TERM=xterm-256color",
+            "-e",
+            &env,
+            &host.0,
+            "sh",
+            "-c",
+            r#"script -qfc "stty rows 24 cols 80; $C" /dev/null"#,
+        ];
+        drive(
+            &args,
+            ControlSession::new(key.into(), 80, 24, None),
+            b"",
+            settle,
+        )
+    }
+
+    /// What the wrapper reported: `control <tmux version>` or `raw <fallback kind>`, in order.
+    fn mux(actions: &[Action]) -> Vec<String> {
+        actions
+            .iter()
+            .filter_map(|a| match a {
+                Action::Started { tmux } => Some(format!("control {tmux}")),
+                Action::Fallback(kind) => Some(format!("raw {kind}")),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn emitted(actions: &[Action]) -> String {
+        let mut bytes = Vec::new();
+        for action in actions {
+            if let Action::Emit(b) = action {
+                bytes.extend_from_slice(b);
+            }
+        }
+        String::from_utf8_lossy(&bytes).into_owned()
+    }
+
+    fn host_sh(host: &Host, script: &str) -> std::process::Output {
+        docker(&["exec", &host.0, "sh", "-c", script])
+    }
+
+    fn voltius_tmux(version: &str) -> String {
+        format!(r#""$HOME/.voltius/bin/tmux-{version}""#)
+    }
+
+    fn has_session(host: &Host, tmux: &str, socket: &str, key: &str) -> bool {
+        host_sh(host, &format!("{tmux} -L {socket} has-session -t {key}"))
+            .status
+            .success()
+    }
+
+    #[test]
+    #[ignore = "needs docker"]
+    fn voltius_copy_runs_control_mode_on_versioned_socket() {
+        let image = ensure_image_with("debian:bookworm", "screen curl ca-certificates");
+        let host = Host::run(
+            container_name("voltius-copy", &image),
+            &["--init", &image, "sleep", "infinity"],
+        );
+        assert!(!host_sh(&host, "command -v tmux").status.success());
+        let version = install_voltius_tmux(&host.0);
+        let key = tmux_session_key("copy");
+        let settle = Duration::from_secs(5);
+
+        let created = connect(
+            &host,
+            &key,
+            &persistent_exec_command(&key, "exec sh"),
+            settle,
+        );
+        let control = [format!("control {version}")];
+        assert_eq!(mux(&created), control, "{created:?}");
+        let ls = host_sh(
+            &host,
+            &format!("{} -L voltius-{version} ls", voltius_tmux(&version)),
+        );
+        assert!(String::from_utf8_lossy(&ls.stdout).contains(&key));
+
+        let attached = connect(&host, &key, &persistent_attach_command(&key), settle);
+        assert_eq!(mux(&attached), control, "{attached:?}");
+    }
+
+    #[test]
+    #[ignore = "needs docker"]
+    fn old_socket_session_survives_voltius_install() {
+        let image = ensure_image_with("debian:bullseye", "tmux curl ca-certificates");
+        let host = Host::run(
+            container_name("voltius-old", &image),
+            &["--init", &image, "sleep", "infinity"],
+        );
+        let key = tmux_session_key("old");
+        let settle = Duration::from_secs(3);
+        let inner = "echo old-session-output; exec sh";
+
+        let created = connect(&host, &key, &persistent_exec_command(&key, inner), settle);
+        let old = mux(&created);
+        assert!(
+            old.len() == 1 && old[0].starts_with("raw tmux 3.1"),
+            "{created:?}"
+        );
+        wait_for("old session up", Duration::from_secs(10), || {
+            has_session(&host, "tmux", "voltius", &key).then_some(())
+        });
+
+        let version = install_voltius_tmux(&host.0);
+        let attached = connect(&host, &key, &persistent_attach_command(&key), settle);
+        assert_eq!(mux(&attached), old, "{attached:?}");
+        assert!(emitted(&attached).contains("old-session-output"));
+        assert!(has_session(&host, "tmux", "voltius", &key));
+        assert!(!has_session(
+            &host,
+            &voltius_tmux(&version),
+            &format!("voltius-{version}"),
+            &key
+        ));
     }
 
     fn tmux_screen(host: &Host) -> Vec<String> {

@@ -19,14 +19,18 @@ pub const TMUX_BASES: &[&str] = &[
     "ubuntu:26.04",
 ];
 
-/// Builds `base` with tmux and procps once; the tag hashes the Dockerfile, so a
-/// cached image always matches the current install line.
 pub fn ensure_image(base: &str) -> String {
+    ensure_image_with(base, "tmux")
+}
+
+/// Builds `base` with `packages` and procps once; the tag hashes the Dockerfile, so a
+/// cached image always matches the current install line.
+pub fn ensure_image_with(base: &str, packages: &str) -> String {
     static BUILD: Mutex<()> = Mutex::new(());
     let install = if base.starts_with("rockylinux") {
-        "dnf -y -q install tmux procps-ng >/dev/null && dnf clean all"
+        format!("dnf -y -q install {packages} procps-ng >/dev/null && dnf clean all")
     } else {
-        "apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get -qq install -y tmux procps >/dev/null && rm -rf /var/lib/apt/lists/*"
+        format!("apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get -qq install -y {packages} procps >/dev/null && rm -rf /var/lib/apt/lists/*")
     };
     let dockerfile = format!("FROM {base}\nRUN {install}\n");
     let fnv = dockerfile.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| {
@@ -100,4 +104,30 @@ impl Drop for Container {
     fn drop(&mut self) {
         docker(&["rm", "-f", &self.0]);
     }
+}
+
+/// Installs the pinned static tmux in `container` with the app's install script; returns its version.
+pub fn install_voltius_tmux(container: &str) -> String {
+    let pin = crate::tmux_pin::pin();
+    let asset = crate::tmux_pin::asset_for("Linux", std::env::consts::ARCH)
+        .expect("pinned asset for this arch");
+    let script = crate::ssh::tmux_install::install_script(&pin.version, &asset.url, &asset.sha256);
+    let out = docker(&["exec", container, "sh", "-c", &script]);
+    assert!(
+        out.status.success(),
+        "install: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let out = docker(&[
+        "exec",
+        container,
+        "sh",
+        "-c",
+        r#""$HOME/.voltius/bin/tmux" -V"#,
+    ]);
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout).trim(),
+        format!("tmux {}", pin.version)
+    );
+    pin.version.clone()
 }

@@ -1466,7 +1466,21 @@
       },
       "persistentSessions": {
         "title": "Sessões persistentes",
-        "desc": "Mantenha seu shell e os processos em execução vivos entre desconexões envolvendo o shell remoto no tmux (recorre ao screen). Requer tmux ou screen no host. Pode ser substituído por host, em Avançado nas configurações da conexão."
+        "desc": "Mantenha seu shell e os processos em execução vivos entre desconexões envolvendo o shell remoto no tmux (recorre ao screen). Requer tmux ou screen no host. Pode ser substituído por host, em Avançado nas configurações da conexão. Se o host não tiver tmux, o Voltius pode instalar o seu próprio (sem root) a partir das definições do host."
+      },
+      "tmuxAutoUpdate": {
+        "title": "Atualizar automaticamente o tmux do Voltius",
+        "desc": "Nos hosts onde o Voltius instalou o tmux, instala as novas versões quando se liga. As sessões em curso mantêm a sua versão até terminarem. Cada transferência é verificada com a soma de verificação incluída nesta versão do Voltius. Desative para atualizar apenas a partir das definições do host."
+      },
+      "voltiusTmux": {
+        "title": "tmux instalado pelo Voltius",
+        "desc": "tmux {{active}} · ~/.voltius/bin",
+        "available": "{{pin}} disponível",
+        "stillUsed_one": "{{old}} ainda usado por {{count}} sessão, removido quando terminar",
+        "stillUsed_many": "{{old}} ainda usado por {{count}} sessões, removido quando terminarem",
+        "stillUsed_other": "{{old}} ainda usado por {{count}} sessões, removido quando terminarem",
+        "updateNow": "Atualizar agora",
+        "installing": "A instalar…"
       },
       "detachedTtl": {
         "title": "Terminar sessões desanexadas inativas",
@@ -1620,6 +1634,9 @@
       },
       "persistentSessions": {
         "label": "Sessões persistentes"
+      },
+      "tmuxAutoUpdate": {
+        "label": "Atualizar automaticamente o tmux do Voltius"
       },
       "detachedSessionTtl": {
         "label": "Terminar sessões desanexadas inativas"

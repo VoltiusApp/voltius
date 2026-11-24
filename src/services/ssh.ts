@@ -196,11 +196,17 @@ export async function sshSetTerminalColors(sessionId: string, colors: TerminalCo
   return invoke("ssh_set_terminal_colors", { sessionId, colors });
 }
 
+export interface MuxModeEvent {
+  control: boolean;
+  tmux: string;
+  fallback: string | null;
+}
+
 export async function onSshMuxMode(
   sessionId: string,
-  callback: (mode: { control: boolean; tmux: string }) => void,
+  callback: (mode: MuxModeEvent) => void,
 ): Promise<UnlistenFn> {
-  return listen<{ control: boolean; tmux: string }>(`ssh-mux-mode-${sessionId}`, (event) => {
+  return listen<MuxModeEvent>(`ssh-mux-mode-${sessionId}`, (event) => {
     callback(event.payload);
   });
 }

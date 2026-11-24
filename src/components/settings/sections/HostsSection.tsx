@@ -19,6 +19,7 @@ import { SshConfigHostsDialog } from "@/components/sshConfig/SshConfigHostsDialo
 import { Setting } from "@/components/settings/Setting";
 import { useSettingState } from "@/components/settings/registry/useSettingState";
 import { SettingRow, SettingsGroup } from "./shared";
+import { VoltiusTmuxGroup } from "./VoltiusTmuxGroup";
 
 export default function HostsSection() {
   const { t } = useTranslation();
@@ -188,9 +189,12 @@ export default function HostsSection() {
           )}
         </div>
         <Setting id="toggles.persistent-sessions" />
+        <Setting id="toggles.tmux-auto-update" />
         <Setting id="toggles.detached-session-ttl" />
         {detachedTtlOn && <Setting id="connectivity.detachedTtlHours" />}
       </SettingsGroup>
+
+      <VoltiusTmuxGroup />
 
       <SshConfigGroup />
 

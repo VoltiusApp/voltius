@@ -195,6 +195,7 @@ vi.mock("./DistroIconPicker", () => ({ DistroIconPicker: () => null }));
 vi.mock("./IdentitySelector", () => ({ default: () => null }));
 vi.mock("./KeySelector", () => ({ default: () => null }));
 vi.mock("./JumpHostsPanel", () => ({ default: () => null }));
+vi.mock("./MuxStatus", () => ({ default: () => null }));
 vi.mock("./EnvVarsPanel", () => ({ default: () => null }));
 
 import { useSshConfigStore } from "@/stores/sshConfigStore";

@@ -51,6 +51,7 @@ mod system_bars;
 mod terminal_kbd;
 mod terminal_output;
 mod tls;
+mod tmux_pin;
 mod updater;
 mod vault_auth;
 mod web_proxy;
@@ -642,6 +643,12 @@ pub fn run() {
             commands::processes::process_kill,
             commands::host_exec::host_exec,
             commands::host_exec::host_exec_cancel,
+            commands::tmux::ssh_tmux_pin_version,
+            commands::tmux::ssh_tmux_status,
+            commands::tmux::ssh_tmux_install,
+            commands::tmux::ssh_tmux_cancel,
+            commands::tmux::ssh_tmux_remove,
+            commands::tmux::ssh_tmux_prune,
             commands::sysinfo::get_system_info,
             commands::sysinfo::get_connected_system_info,
             commands::fonts::list_system_fonts,

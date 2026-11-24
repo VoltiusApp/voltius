@@ -15,6 +15,7 @@ import { retagPersonal } from "@/stores/retagPersonal";
 import { managedOwnedOf } from "@/stores/sshConfigStore";
 import { keepOwned } from "@/services/sshConfig/hostFields";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
+import { useHostMuxStore } from "@/stores/hostMuxStore";
 
 /** "linux" is detection's fallback for an unrecognised OS, so it never replaces a saved distro. */
 export function detectionChangesDistro(saved: string | undefined, detected: string): boolean {
@@ -227,6 +228,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
 
   deleteConnection: async (id) => {
     assertNotPreviewing();
+    useHostMuxStore.getState().forget(id);
     const teamEntry = findTeamEntry(get().teamConnections, id);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;

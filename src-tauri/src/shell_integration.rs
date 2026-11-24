@@ -352,30 +352,81 @@ pub fn ssh_exec_command(prefix: &str) -> String {
 /// auth succeeds (#85). Kept under that with room for the session key.
 pub const MAX_EXEC_COMMAND_LEN: usize = 8192;
 
-const TMUX_SOCKET: &str = "voltius";
+macro_rules! tmux_cc_versions {
+    () => {
+        r#"*"tmux "3.[2-9]*|*"tmux "3.[1-9][0-9]*|*"tmux "[4-9]*|*"tmux "[1-9][0-9]*"#
+    };
+}
 
-const TMUX_CC_VERSIONS: &str = r#"*"tmux "3.[2-9]*|*"tmux "[4-9]*|*"tmux "[1-9][0-9]*"#;
+pub(crate) const TMUX_CC_VERSIONS: &str = tmux_cc_versions!();
+
+/// `F KEY` finds KEY on `-L voltius` or `-L voltius-<ver>`, leaving `$T`/`$S` for `t`; `c BIN` leaves
+/// `BIN -V` in `$W`. Exact `=KEY` only where `c` passes: tmux 1.8 reads `=` as part of the name.
+macro_rules! tmux_helpers {
+    () => {
+        concat!(
+            r#"t() { "$T" -L "$S" "$@"; }
+c() { W=$("$1" -V 2>/dev/null) && case $W in "#,
+            tmux_cc_versions!(),
+            r#") ;; *) false ;; esac; }
+"#
+        )
+    };
+}
+
+macro_rules! tmux_copy_socket {
+    () => {
+        "S=voltius${T##*tmux}"
+    };
+}
+
+macro_rules! tmux_find {
+    () => {
+        concat!(
+            tmux_helpers!(),
+            r#"F() {
+  for T in tmux "$HOME"/.voltius/bin/tmux-*; do
+    "#,
+            tmux_copy_socket!(),
+            r#"
+    { [ "$T" = tmux ] || [ -x "$T" ]; } && { c "$T" && E== || E=; } && t has-session -t "$E$1" 2>/dev/null && return
+  done
+  T=
+  return 1
+}
+"#
+        )
+    };
+}
+
+const TMUX_FIND: &str = tmux_find!();
+pub(crate) const TMUX_HELPERS: &str = tmux_helpers!();
+pub(crate) const TMUX_COPY_SOCKET: &str = tmux_copy_socket!();
+
+/// `P` picks the tmux for a new session (empty `$T` when there is none): system tmux 3.2+,
+/// else the Voltius copy 3.2+ through its `tmux-<ver>` file (named as `F` names it), else any.
+const TMUX_PICK: &str = r#"P() {
+  T=tmux S=voltius U=$HOME/.voltius/bin/tmux
+  c tmux || { c "$U" && U=$U-${W#tmux } && [ -x "$U" ] && T=$U S=voltius${U##*tmux}; } || command -v tmux >/dev/null 2>&1 || T=
+}
+"#;
 
 pub const CONTROL_MODE_MARKER: &str = "VOLTIUS_CC";
 
-const RAW_SENTINEL: &str = r"printf '\033P1000r\033\\'";
+const RAW_FN: &str = r#"R() { printf '\033P1000r%s\033\\' "$1"; }"#;
+const TMUX_CC_OR_RAW: &str = r#"CC=; c "$T" && CC=-CC || R "$W""#;
 
-fn tmux_version_case(arms: &str) -> String {
-    format!(r#"case "$(tmux -V 2>/dev/null)" in {arms} esac"#)
-}
-
-fn tmux_cc_arm(action: &str) -> String {
-    format!("{TMUX_CC_VERSIONS}) {action} ;;")
-}
-
-fn tmux_cc_case(action: &str) -> String {
-    tmux_version_case(&tmux_cc_arm(action))
-}
-
-fn tmux_gate(arms: &str) -> String {
+fn tmux_gate(session_key: &str, arms: &str) -> String {
     format!(
-        "command -v tmux >/dev/null 2>&1 || exit 0\n{}\n",
-        tmux_version_case(arms)
+        r#"{TMUX_FIND}command -v tmux >/dev/null 2>&1 || [ -d "$HOME/.voltius/bin" ] || exit 0
+i=0
+until F {session_key}; do
+  [ $i -ge 15 ] && exit 0
+  sleep 1
+  i=$((i+1))
+done
+case "$("$T" -V 2>/dev/null)" in {arms} esac
+"#
     )
 }
 
@@ -396,20 +447,6 @@ const TMUX_ENV_STRIP: &str = "unset TMUX TMUX_PANE; ";
 /// screen's equivalent of [`TMUX_ENV_STRIP`]. `screen -x` inside a session
 /// would otherwise join the wrapper rather than the user's own session.
 const SCREEN_ENV_STRIP: &str = "unset STY WINDOW; ";
-
-/// Shown once, inside the new window, when a session lands on a GNU screen
-/// older than 5.0. Those parse `ESC[38;2;r;g;b` and emit nothing, so TrueColor
-/// TUIs (btop) draw solid blocks instead of shaded braille (#118) — there is no
-/// termcap/terminfo setting that recovers it. screen 5.0 added a `truecolor`
-/// command (off by default) which does pass RGB through; the rc below enables
-/// it, so 5.x reaches this notice only when mktemp gave us no rc to write.
-const SCREEN_DEGRADED_NOTICE: &str = "[voltius] tmux not found - using GNU screen without TrueColor. TUIs like btop may render as solid blocks. Install tmux or GNU screen 5.0+, or turn off persistent sessions for this host to connect without a multiplexer.";
-
-/// Notice printed on the raw pty: CR before each LF because the terminal is
-/// still in raw mode at this point, so a bare LF would stair-step.
-fn notice_printf(message: &str) -> String {
-    format!("printf '\\r\\n{message}\\r\\n'")
-}
 
 /// tmux/screen session name for a session id, sanitized to `[A-Za-z0-9_-]`.
 /// Stable across reconnect so the multiplexer re-attaches the live session.
@@ -445,8 +482,7 @@ pub fn tmux_session_key(session_id: &str) -> String {
 /// which closes the channel and feeds the reconnect loop into spawning more.
 ///
 /// It then version-gates `truecolor on`, which only screen 5.0+ understands:
-/// older screens print `unknown command 'truecolor'` and get
-/// `SCREEN_DEGRADED_NOTICE` instead. `persistent_attach_command` needs no such
+/// older screens would print `unknown command 'truecolor'`. `persistent_attach_command` needs no such
 /// gate — `screen -x` joins the running server, which keeps the setting this rc
 /// gave it at create time.
 ///
@@ -478,7 +514,7 @@ pub fn tmux_session_key(session_id: &str) -> String {
 /// it also gives up the prefix key: `prefix None` leaves `C-b` to the user's own
 /// tmux instead of being swallowed by ours (#159). Nothing here needs a prefix —
 /// the status line is off and every Voltius command addresses the session by
-/// name over the `-L voltius` socket. It is set two ways because a config file
+/// name over its `-L voltius*` socket. It is set two ways because a config file
 /// is only read when the server starts: `-f` covers a cold server, and the
 /// `set -g` push covers one an earlier session already left running. Both are
 /// version-gated to tmux 2.1+, the first release that accepts `None` as a key.
@@ -490,24 +526,21 @@ pub fn tmux_session_key(session_id: &str) -> String {
 /// still expands in this outer shell exactly as when it was inlined.
 pub fn persistent_exec_command(session_key: &str, inner: &str) -> String {
     let script = format!(
-        r#"V="{inner}"
-if command -v tmux >/dev/null 2>&1; then
+        r#"{raw_fn}
+{find}{pick}F {key} || P
+V="{inner}"
+if [ -n "$T" ]; then
   V="{tmux_strip}$V"
+  {tmux_cc}
   TMUX_PREFIX_NONE=
-  case "$(tmux -V 2>/dev/null)" in
+  case $W in
     *"tmux "[3-9]*|*"tmux "[1-9][0-9]*|*"tmux "2.[1-9]*)
-      tmux -L {socket} set -g prefix None >/dev/null 2>&1
+      t set -g prefix None >/dev/null 2>&1
       TMUX_PREFIX_NONE=1 ;;
   esac
-  CC=
   SZ=
-  case "$(tmux -V 2>/dev/null)" in
-    {cc})
-      CC=-CC
-      S=$(stty size <&2 2>/dev/null)
-      [ -n "$S" ] && SZ="-x ${{S#* }} -y ${{S% *}}" ;;
-  esac
-  [ -n "$CC" ] || {raw}
+  Z=$(stty size <&2 2>/dev/null)
+  [ -n "$CC" ] && [ -n "$Z" ] && SZ="-x ${{Z#* }} -y ${{Z% *}}"
   TMUX_CONF=$(mktemp 2>/dev/null)
   if [ -n "$TMUX_CONF" ]; then
     cat > "$TMUX_CONF" <<'EOF'
@@ -520,11 +553,11 @@ set -g destroy-unattached off
 set -ga terminal-overrides ',*:cnorm=\E[?25h:Tc'
 EOF
     [ -n "$TMUX_PREFIX_NONE" ] && echo "set -g prefix None" >> "$TMUX_CONF"
-    exec tmux -L {socket} -f "$TMUX_CONF" $CC new-session -A -s {key} $SZ "$V" <&2
+    exec "$T" -L "$S" -f "$TMUX_CONF" $CC new-session -A -s {key} $SZ "$V" <&2
   fi
-  exec tmux -L {socket} $CC new-session -A -s {key} $SZ "$V" <&2
+  exec "$T" -L "$S" $CC new-session -A -s {key} $SZ "$V" <&2
 elif command -v screen >/dev/null 2>&1; then
-  {raw}
+  R screen
   V="{screen_strip}$V"
   screen -wipe >/dev/null 2>&1
   for d in $(screen -ls 2>/dev/null | grep -F .{key} | awk '{{print $1}}' | tail -n +2); do
@@ -544,28 +577,23 @@ EOF
     case "$(screen --version 2>/dev/null)" in
       *"Screen version "[5-9]*|*"Screen version "[1-9][0-9]*)
         echo truecolor on >> "$SCREEN_RC" ;;
-      *) V="{screen_notice}; $V" ;;
     esac
     exec screen -c "$SCREEN_RC" -S {key} -D -R sh -c "$V" <&2
   fi
-  V="{screen_notice}; $V"
   exec screen -S {key} -D -R sh -c "$V" <&2
 else
-  {raw}
-  {no_mux_notice}
+  R none
   exec sh -c "$V" <&2
 fi
 "#,
-        socket = TMUX_SOCKET,
         key = session_key,
         inner = inner,
+        raw_fn = RAW_FN,
+        find = TMUX_FIND,
+        pick = TMUX_PICK,
         tmux_strip = TMUX_ENV_STRIP,
-        cc = TMUX_CC_VERSIONS,
-        raw = RAW_SENTINEL,
+        tmux_cc = TMUX_CC_OR_RAW,
         screen_strip = SCREEN_ENV_STRIP,
-        screen_notice = notice_printf(SCREEN_DEGRADED_NOTICE),
-        no_mux_notice =
-            notice_printf("[voltius] tmux/screen not found - session will not survive disconnects"),
     );
     encode_wrapper(&script)
 }
@@ -576,46 +604,43 @@ fi
 /// exit just closes the channel and the caller re-probes.
 pub fn persistent_attach_command(session_key: &str) -> String {
     let script = format!(
-        r#"if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
-  CC=
-  {cc}
-  [ -n "$CC" ] || {raw}
-  exec tmux -L {socket} $CC attach-session -t {key} <&2
+        r#"{RAW_FN}
+{TMUX_FIND}if F {session_key}; then
+  {TMUX_CC_OR_RAW}
+  exec "$T" -L "$S" $CC attach-session -t {session_key} <&2
 elif command -v screen >/dev/null 2>&1; then
-  {raw}
-  exec screen -x -S {key} <&2
+  R screen
+  exec screen -x -S {session_key} <&2
 fi
-{raw}
+R ""
 printf '\r\n[voltius] session has ended\r\n'
 exit 97
-"#,
-        socket = TMUX_SOCKET,
-        key = session_key,
-        cc = tmux_cc_case("CC=-CC"),
-        raw = RAW_SENTINEL,
+"#
     );
     encode_wrapper(&script)
 }
 
 /// One-shot existence probe mirroring the wrapper's tmux-first order. Prints
 /// VOLTIUS_PRESENT when the session is alive, VOLTIUS_NOMUX when the host has
-/// neither multiplexer; `screen -wipe` first so a dead entry doesn't read as present.
+/// neither multiplexer (a Voltius-installed tmux counts as one); `screen -wipe` first so a
+/// dead entry doesn't read as present.
 pub fn persistent_probe_command(session_key: &str) -> String {
     let script = format!(
-        r#"if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
+        r#"{TMUX_FIND}{TMUX_PICK}if F {session_key}; then
   printf VOLTIUS_PRESENT
 elif command -v screen >/dev/null 2>&1; then
   screen -wipe >/dev/null 2>&1
-  screen -ls 2>/dev/null | grep -qF .{key} && printf VOLTIUS_PRESENT
-elif ! command -v tmux >/dev/null 2>&1; then
+  screen -ls 2>/dev/null | grep -qF .{session_key} && printf VOLTIUS_PRESENT
+elif P; [ -z "$T" ]; then
   printf VOLTIUS_NOMUX
 fi
-true"#,
-        socket = TMUX_SOCKET,
-        key = session_key,
+true"#
     );
     encode_wrapper(&script)
 }
+
+const LEGACY_TMUX_ARMS: &str =
+    r#"*"tmux "3.[01]|*"tmux "3.[01][!0-9]*) NC=1 ;; *"tmux "2.[6-9]*) ;; *) exit 0 ;;"#;
 
 /// Legacy tmux (< 3.2) only: Enter leaves wheel-entered copy-mode, a drag keeps
 /// its highlight (3.0+), and the selection takes the theme colours.
@@ -626,38 +651,24 @@ pub fn persistent_legacy_setup_command(
     let style = colors
         .map(|c| {
             format!(
-                "printf '%s\\n' \"set -g mode-style '{}'\" >> \"$F\"\n",
+                "printf '%s\\n' \"set -g mode-style '{}'\" >> \"$M\"\n",
                 mode_style(c)
             )
         })
         .unwrap_or_default();
     let script = format!(
         r#"NC=
-{gate}{wait}F=$(mktemp 2>/dev/null) || exit 0
-for t in copy-mode copy-mode-vi; do
-  printf 'bind -T %s Enter send -X cancel \; send-keys Enter\n' $t
-  [ -n "$NC" ] && printf 'bind -T %s MouseDragEnd1Pane send -X copy-selection-no-clear\n' $t
-done > "$F"
-{style}tmux -L {socket} source-file "$F"
-rm -f "$F"
+{gate}M=$(mktemp 2>/dev/null) || exit 0
+for m in copy-mode copy-mode-vi; do
+  printf 'bind -T %s Enter send -X cancel \; send-keys Enter\n' $m
+  [ -n "$NC" ] && printf 'bind -T %s MouseDragEnd1Pane send -X copy-selection-no-clear\n' $m
+done > "$M"
+{style}t source-file "$M"
+rm -f "$M"
 "#,
-        socket = TMUX_SOCKET,
-        gate = tmux_gate(r#"*"tmux "3.[01]*) NC=1 ;; *"tmux "2.[6-9]*) ;; *) exit 0 ;;"#),
-        wait = tmux_wait_session(session_key),
+        gate = tmux_gate(session_key, LEGACY_TMUX_ARMS),
     );
     encode_wrapper(&script)
-}
-
-fn tmux_wait_session(session_key: &str) -> String {
-    format!(
-        r#"i=0
-until tmux -L {TMUX_SOCKET} has-session -t ={session_key} 2>/dev/null; do
-  [ $i -ge 15 ] && exit 0
-  sleep 1
-  i=$((i+1))
-done
-"#
-    )
 }
 
 /// tmux < 3.2 fires `client-detached` only for `detach-client`, never for a lost client.
@@ -726,16 +737,17 @@ const TTL_IDLE_CHECK: &str = ttl_idle_check!();
 /// Every failed check exits 0 without killing.
 pub(crate) const TTL_REAPER: &str = concat!(
     ttl_idle_check!(),
-    r#"S=$1
-T="tmux -L voltius"
-case $S in voltius_*) ;; *) exit 0 ;; esac
-L=$($T show -v -t "=$S:" @voltius_ttl 2>/dev/null)
+    tmux_find!(),
+    r#"K=$1
+case $K in voltius_*) ;; *) exit 0 ;; esac
+F "$K" || exit 0
+L=$(t show -v -t "=$K:" @voltius_ttl 2>/dev/null)
 case $L in ''|0?*|*[!0-9]*|??????????*) exit 0 ;; esac
 voltius_held() {
-  $T has-session -t "=$S" 2>/dev/null &&
-  [ "$($T display -p -t "=$S:" '#{session_attached}' 2>/dev/null)" = 0 ] &&
-  [ "$($T show -v -t "=$S:" @voltius_ttl 2>/dev/null)" = "$L" ] &&
-  { [ -z "$D" ] || [ "$($T show -v -t "=$S:" @voltius_detached_at 2>/dev/null)" = "$D" ]; }
+  t has-session -t "=$K" 2>/dev/null &&
+  [ "$(t display -p -t "=$K:" '#{session_attached}' 2>/dev/null)" = 0 ] &&
+  [ "$(t show -v -t "=$K:" @voltius_ttl 2>/dev/null)" = "$L" ] &&
+  { [ -z "$D" ] || [ "$(t show -v -t "=$K:" @voltius_detached_at 2>/dev/null)" = "$D" ]; }
 }
 voltius_now() {
   N=$(date +%s 2>/dev/null)
@@ -746,7 +758,7 @@ voltius_held || exit 0
 voltius_now
 D="$N.$$"
 E=$((N + L))
-$T set -t "=$S:" @voltius_detached_at "$D" 2>/dev/null || exit 0
+t set -t "=$K:" @voltius_detached_at "$D" 2>/dev/null || exit 0
 while voltius_now; [ "$N" -lt "$E" ]; do
   w=$((E - N))
   [ "$w" -le 300 ] || w=300
@@ -754,7 +766,7 @@ while voltius_now; [ "$N" -lt "$E" ]; do
   voltius_held || exit 0
 done
 voltius_held || exit 0
-P=$($T list-panes -s -t "=$S:" -F '#{pane_pid}' 2>/dev/null) && [ -n "$P" ] || exit 0
+P=$(t list-panes -s -t "=$K:" -F '#{pane_pid}' 2>/dev/null) && [ -n "$P" ] || exit 0
 c=
 for i in 1 2 3; do
   [ $i = 1 ] || sleep 5 || exit 0
@@ -763,7 +775,7 @@ for i in 1 2 3; do
   c=$n
 done
 voltius_held || exit 0
-$T kill-session -t "=$S" 2>/dev/null
+t kill-session -t "=$K" 2>/dev/null
 exit 0
 "#
 );
@@ -782,38 +794,39 @@ const MAX_TTL_SECS: u64 = 999_999_999;
 
 pub fn persistent_ttl_command(session_key: &str, ttl_secs: Option<u64>) -> String {
     let action = match ttl_secs {
+        // `H` repeats F's socket-to-binary mapping in a form the hook expands when it fires.
         Some(secs) => format!(
-            r#"$T set -g {TTL_REAPER_OPTION} {reaper} &&
-$T set -t ={key}: @voltius_ttl {secs} &&
-$T set-hook -t ={key}: client-detached 'run-shell -b "sh -c \"\$(printf \"\$(tmux -L {socket} show -gv {TTL_REAPER_OPTION})\")\" voltius-reap #{{session_name}} >/dev/null 2>&1 || :"'
+            r#"H=tmux
+[ "$S" = voltius ] || H='\"\$HOME\"/.voltius/bin/tmux'"${{S#voltius}}"
+t set -g {TTL_REAPER_OPTION} {reaper} &&
+t set -t ={key}: @voltius_ttl {secs} &&
+t set-hook -t ={key}: client-detached 'run-shell -b "sh -c \"\$(printf \"\$('"$H -L $S"' show -gv {TTL_REAPER_OPTION})\")\" voltius-reap #{{session_name}} >/dev/null 2>&1 || :"'
 "#,
             reaper = crate::ssh::exec::shell_quote(&ttl_reaper_option()),
             secs = secs.min(MAX_TTL_SECS),
             key = session_key,
-            socket = TMUX_SOCKET,
         ),
         None => format!(
-            r#"$T set-hook -u -t ={session_key}: client-detached 2>/dev/null
-$T set -u -t ={session_key}: @voltius_ttl 2>/dev/null
+            r#"t set-hook -u -t ={session_key}: client-detached 2>/dev/null
+t set -u -t ={session_key}: @voltius_ttl 2>/dev/null
 true
 "#
         ),
     };
-    let script = format!(
-        r#"{gate}{wait}T="tmux -L {TMUX_SOCKET}"
-{action}"#,
-        gate = tmux_gate(&format!("{TTL_TMUX_VERSIONS}) ;; *) exit 0 ;;")),
-        wait = tmux_wait_session(session_key),
+    let gate = tmux_gate(
+        session_key,
+        &format!("{TTL_TMUX_VERSIONS}) ;; *) exit 0 ;;"),
     );
-    encode_wrapper(&script)
+    encode_wrapper(&format!("{gate}{action}"))
 }
 
-pub fn legacy_mode_style_command(colors: &crate::ssh::control_mode::TerminalColors) -> String {
+pub fn legacy_mode_style_command(
+    session_key: &str,
+    colors: &crate::ssh::control_mode::TerminalColors,
+) -> String {
     let script = format!(
-        r#"{gate}tmux -L {socket} set -g mode-style '{style}' 2>/dev/null
+        r#"{TMUX_FIND}F {session_key} && ! c "$T" && t set -g mode-style '{style}' 2>/dev/null
 true"#,
-        gate = tmux_gate(&tmux_cc_arm("exit 0")),
-        socket = TMUX_SOCKET,
         style = mode_style(colors),
     );
     encode_wrapper(&script)
@@ -838,10 +851,10 @@ true"#,
 /// Exits silently when the multiplexer or session is gone (host rebooted): the
 /// capture is empty and the caller skips replay.
 pub fn capture_history_command(session_key: &str, pty_rows: u32) -> String {
-    format!(
-        r#"if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
-  {cc}
-  tmux -L {socket} capture-pane -t {key} -peJ -S -50000 -E -1 2>/dev/null
+    encode_wrapper(&format!(
+        r#"{find}if F {key}; then
+  c "$T" && {{ printf {CONTROL_MODE_MARKER}; exit 0; }}
+  t capture-pane -t {key} -peJ -S -50000 -E -1 2>/dev/null
 elif command -v screen >/dev/null 2>&1; then
   f=$(mktemp 2>/dev/null) || exit 0
   screen -S {key} -X hardcopy -h "$f" 2>/dev/null
@@ -853,11 +866,10 @@ elif command -v screen >/dev/null 2>&1; then
   rm -f "$f"
 fi
 true"#,
-        socket = TMUX_SOCKET,
+        find = TMUX_FIND,
         key = session_key,
         rows = pty_rows,
-        cc = tmux_cc_case(&format!("printf {CONTROL_MODE_MARKER}; exit 0")),
-    )
+    ))
 }
 
 /// One-shot exec that resolves the current working directory of a persistent
@@ -870,8 +882,8 @@ true"#,
 /// unsupported). Prints the absolute path on success, nothing otherwise.
 pub fn cwd_probe_command(session_key: &str) -> String {
     let script = format!(
-        r#"if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
-  tmux -L {socket} display-message -p -t {key} '#{{pane_current_path}}'
+        r#"{find}if F {key}; then
+  t display-message -p -t {key} '#{{pane_current_path}}'
 elif command -v screen >/dev/null 2>&1; then
   spid=$(screen -ls 2>/dev/null | grep -F .{key} | head -n1 | awk '{{print $1}}' | cut -d. -f1)
   if [ -n "$spid" ]; then
@@ -881,7 +893,7 @@ elif command -v screen >/dev/null 2>&1; then
   fi
 fi
 true"#,
-        socket = TMUX_SOCKET,
+        find = TMUX_FIND,
         key = session_key,
         descent = SCREEN_CWD_DESCENT,
     );
@@ -924,10 +936,10 @@ pub fn is_live_probe_cwd(path: &str) -> bool {
 /// mirror `persistent_exec_command`.
 pub fn persistent_kill_command(session_key: &str, max_clients: usize) -> String {
     let script = format!(
-        r#"K=0
-if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
-  if [ "$(tmux -L {socket} list-clients -t {key} 2>/dev/null | grep -c .)" -le {max} ]; then
-    tmux -L {socket} kill-session -t {key} 2>/dev/null && K=1
+        r#"{find}K=0
+if F {key}; then
+  if [ "$(t list-clients -t {key} 2>/dev/null | grep -c .)" -le {max} ]; then
+    t kill-session -t {key} 2>/dev/null && K=1
   fi
 elif command -v screen >/dev/null 2>&1 && screen -ls 2>/dev/null | grep -qF .{key}; then
   screen -S {key} -X quit >/dev/null 2>&1 && K=1
@@ -936,7 +948,7 @@ else
 fi
 [ "$K" = "1" ] && printf VOLTIUS_KILLED
 true"#,
-        socket = TMUX_SOCKET,
+        find = TMUX_FIND,
         key = session_key,
         max = max_clients,
     );
@@ -961,7 +973,7 @@ pub fn wsl_exec_command() -> String {
     encode_wrapper(WSL_WRAPPER)
 }
 
-fn encode_wrapper(script: &str) -> String {
+pub(crate) fn encode_wrapper(script: &str) -> String {
     format!("printf '{}' | sh", printf_escape(script))
 }
 
@@ -1093,32 +1105,24 @@ mod tests {
         let inner = ssh_exec_command("");
         let cmd = persistent_exec_command("voltius_s1", &inner);
         let script = decode_bootstrap(&cmd);
-        assert!(script.contains("command -v tmux"));
-        assert!(script.contains("tmux -L voltius"));
+        assert!(script.contains(TMUX_FIND));
+        assert!(script.contains(TMUX_PICK));
+        assert!(script.contains("F voltius_s1 || P\n"));
         assert!(script.contains("new-session -A -s voltius_s1"));
         // Shared sessions: creating must never detach another device's client.
         assert!(!script.contains(" -D -s"));
         assert!(script.contains("command -v screen"));
         assert!(script.contains("screen -S voltius_s1"));
         assert!(script.contains("screen -c"));
-        // #118: screen 5.0+ passes RGB through once `truecolor` is on; older
-        // screens drop `ESC[38;2;r;g;b` entirely and get the warning instead.
-        // It is prepended to $V so it prints inside the window — screen's
-        // startup clear would wipe anything written before the exec.
         assert!(script.contains(r#"echo truecolor on >> "$SCREEN_RC""#));
         assert!(script.contains(r#"*"Screen version "[5-9]*"#));
-        assert!(script.contains(&format!(
-            r#"V="{}; $V""#,
-            notice_printf(SCREEN_DEGRADED_NOTICE)
-        )));
-        assert!(script.contains("without TrueColor"));
         // #159: the pane shell must not inherit multiplexer env, or the user's
         // own tmux talks to our socket and refuses to attach.
         assert!(script.contains(&format!(r#"V="{TMUX_ENV_STRIP}$V""#)));
         assert!(script.contains(&format!(r#"V="{SCREEN_ENV_STRIP}$V""#)));
         // #159: C-b belongs to whatever the user runs inside, not to us. Set on
         // both a cold server (via -f) and one left running by a past session.
-        assert!(script.contains(r#"tmux -L voltius set -g prefix None"#));
+        assert!(script.contains("t set -g prefix None"));
         assert!(script.contains(r#"echo "set -g prefix None" >> "$TMUX_CONF""#));
         assert!(script.contains(r#"*"tmux "2.[1-9]*"#));
         // #159 follow-up: screen's escape key belongs to whatever runs inside,
@@ -1135,9 +1139,167 @@ mod tests {
         assert!(script.contains("cnorm=\\E[?25h"));
         assert!(script.contains(r"set -ga terminal-overrides ',*:cnorm=\E[?25h:Tc'"));
         assert!(script.contains("ti@:te@:ve=\\E[?25h"));
-        assert!(script.contains("will not survive disconnects"));
         assert!(!inner.contains('"'));
         assert!(script.contains(&inner));
+    }
+
+    fn exec_script() -> String {
+        decode_bootstrap(&persistent_exec_command(
+            "voltius_s1",
+            &ssh_exec_command(""),
+        ))
+    }
+
+    fn attach_script() -> String {
+        decode_bootstrap(&persistent_attach_command("voltius_s1"))
+    }
+
+    #[test]
+    fn screen_branch_reports_screen() {
+        assert!(
+            exec_script().contains("elif command -v screen >/dev/null 2>&1; then\n  R screen\n")
+        );
+        assert!(attach_script().contains("then\n  R screen\n  exec screen -x"));
+    }
+
+    #[test]
+    fn old_tmux_branch_reports_version() {
+        let reports = r#"CC=; c "$T" && CC=-CC || R "$W""#;
+        assert!(exec_script().contains(reports));
+        assert!(attach_script().contains(reports));
+        assert!(TMUX_FIND.contains(r#"c() { W=$("$1" -V 2>/dev/null) && "#));
+        assert!(exec_script().contains(r"R() { printf '\033P1000r%s\033\\' "));
+    }
+
+    /// `F voltius_k || P` on a host whose system tmux prints `system` (none when empty) and
+    /// whose `~/.voltius/bin/tmux` is `copy`; `session_on` is the socket holding voltius_k.
+    #[cfg(unix)]
+    fn picked(system: &str, copy: &str, session_on: &str) -> String {
+        use std::os::unix::fs::{symlink, PermissionsExt};
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static RUN: AtomicUsize = AtomicUsize::new(0);
+        let dir = ttl_scratch(&format!("pick-{}", RUN.fetch_add(1, Ordering::Relaxed)));
+        let (bin, home) = (dir.join("bin"), dir.join("h o"));
+        let copies = home.join(".voltius/bin");
+        let fake = |v: &str| {
+            format!("#!/bin/sh\n[ \"$1\" = -V ] && {{ {v}; exit; }}\n[ \"$2\" = \"$ON\" ] && [ \"$3\" = has-session ]\n")
+        };
+        std::fs::create_dir_all(&bin).unwrap();
+        std::fs::create_dir_all(&copies).unwrap();
+        if !system.is_empty() {
+            fake_bin_path(&bin, &[("tmux", &fake(&format!("echo '{system}'")))]);
+        }
+        let target = match copy {
+            "" => None,
+            "dangling" => Some("tmux-9.9"),
+            "3.1" => Some("tmux-3.1"),
+            _ => Some("tmux-3.8"),
+        };
+        let reports = match copy {
+            "" | "dangling" => None,
+            "fails" => Some("false"),
+            "3.1" => Some("echo 'tmux 3.1'"),
+            "mismatch" => Some("echo 'tmux 3.9'"),
+            _ => Some("echo 'tmux 3.8'"),
+        };
+        if let (Some(target), Some(reports)) = (target, reports) {
+            fake_bin_path(&copies, &[(target, &fake(reports))]);
+            if copy == "noexec" {
+                let mode = std::fs::Permissions::from_mode(0o644);
+                std::fs::set_permissions(copies.join(target), mode).unwrap();
+            }
+        }
+        if let Some(target) = target {
+            symlink(target, copies.join("tmux")).unwrap();
+        }
+        let out = std::process::Command::new("/bin/sh")
+            .arg("-c")
+            .arg(format!(
+                "{TMUX_FIND}{TMUX_PICK}F voltius_k || P\nprintf '%s|%s' \"${{T#$HOME}}\" \"${{T:+$S}}\""
+            ))
+            .env("PATH", &bin)
+            .env("HOME", &home)
+            .env("ON", session_on)
+            .output()
+            .expect("sh runs");
+        let _ = std::fs::remove_dir_all(&dir);
+        String::from_utf8(out.stdout).unwrap()
+    }
+
+    #[cfg(unix)]
+    const VERSIONED: &str = "/.voltius/bin/tmux-3.8|voltius-3.8";
+
+    #[test]
+    fn exec_prefers_voltius_copy_when_system_tmux_too_old() {
+        let script = exec_script();
+        let copy = script.find("U=$HOME/.voltius/bin/tmux").unwrap();
+        assert!(copy < script.find("elif command -v screen").unwrap());
+        assert!(TMUX_PICK.contains(
+            r#"c tmux || { c "$U" && U=$U-${W#tmux } && [ -x "$U" ] && T=$U S=voltius${U##*tmux}; }"#
+        ));
+        #[cfg(unix)]
+        {
+            assert_eq!(picked("tmux 3.4", "3.8", ""), "tmux|voltius");
+            assert_eq!(picked("tmux 3.0a", "3.8", ""), VERSIONED);
+            assert_eq!(picked("", "3.8", ""), VERSIONED);
+            assert_eq!(picked("", "", ""), "|");
+        }
+    }
+
+    #[test]
+    fn dangling_voltius_tmux_is_skipped() {
+        assert!(TMUX_PICK.contains(r#"[ -x "$U" ] && T=$U"#));
+        assert!(TMUX_FIND.contains(r#"c() { W=$("$1" -V 2>/dev/null) && case $W in "#));
+        assert!(TMUX_FIND.contains(r#"{ [ "$T" = tmux ] || [ -x "$T" ]; } && { c "$T""#));
+        #[cfg(unix)]
+        {
+            for copy in ["dangling", "noexec", "fails", "3.1", "mismatch"] {
+                assert_eq!(picked("tmux 3.0a", copy, ""), "tmux|voltius", "{copy}");
+            }
+            assert_eq!(picked("", "dangling", ""), "|");
+            assert_eq!(picked("", "mismatch", ""), "|");
+            assert_eq!(picked("", "noexec", "voltius-3.8"), "|");
+        }
+    }
+
+    #[test]
+    fn attach_searches_versioned_sockets() {
+        let key = "voltius_s1";
+        for script in [
+            attach_script(),
+            decode_bootstrap(&persistent_probe_command(key)),
+            decode_bootstrap(&persistent_kill_command(key, 1)),
+            decode_bootstrap(&cwd_probe_command(key)),
+            decode_bootstrap(&capture_history_command(key, 40)),
+            decode_bootstrap(&persistent_legacy_setup_command(key, None)),
+            decode_bootstrap(&legacy_mode_style_command(key, &test_colors())),
+            decode_bootstrap(&persistent_ttl_command(key, None)),
+            TTL_REAPER.to_string(),
+        ] {
+            assert!(script.contains(TMUX_FIND), "{script}");
+            assert!(!script.contains("tmux -L voltius"), "{script}");
+        }
+        assert!(TMUX_FIND.contains(r#"for T in tmux "$HOME"/.voltius/bin/tmux-*; do"#));
+        assert!(TMUX_FIND.contains("S=voltius${T##*tmux}\n"));
+        #[cfg(unix)]
+        {
+            assert_eq!(picked("tmux 3.4", "3.8", "voltius-3.8"), VERSIONED);
+            assert_eq!(picked("", "3.8", "voltius-3.8"), VERSIONED);
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn create_keeps_a_session_on_the_socket_it_already_lives_on() {
+        assert_eq!(picked("tmux 3.0a", "3.8", "voltius"), "tmux|voltius");
+        assert_eq!(picked("tmux 3.4", "3.8", "voltius-3.8"), VERSIONED);
+    }
+
+    #[test]
+    fn no_mux_branch_reports_none() {
+        assert!(exec_script().contains("else\n  R none\n  exec sh -c"));
+        assert!(attach_script().contains("fi\nR \"\"\n"));
+        assert!(!attach_script().contains("R none"));
     }
 
     #[test]
@@ -1167,7 +1329,10 @@ mod tests {
             ssh_exec_command("cd '/srv/app' 2>/dev/null; "),
             persistent_exec_command(&key, &ssh_exec_command("")),
             persistent_attach_command(&key),
+            persistent_probe_command(&key),
             persistent_legacy_setup_command(&key, Some(&test_colors())),
+            legacy_mode_style_command(&key, &test_colors()),
+            capture_history_command(&key, 40),
             cwd_probe_command(&key),
             force_kill_command("s1"),
             wsl_exec_command(),
@@ -1219,7 +1384,7 @@ mod tests {
     #[test]
     fn persistent_attach_joins_without_stealing_or_creating() {
         let script = decode_bootstrap(&persistent_attach_command("voltius_s1"));
-        assert!(script.contains("tmux -L voltius has-session -t voltius_s1"));
+        assert!(script.contains(&format!("{TMUX_FIND}if F voltius_s1; then")));
         assert!(script.contains("attach-session -t voltius_s1"));
         // Co-attach: never detach the other device, never create a session.
         assert!(!script.contains("new-session"));
@@ -1232,7 +1397,9 @@ mod tests {
     #[test]
     fn persistent_probe_detects_both_multiplexers() {
         let script = decode_bootstrap(&persistent_probe_command("voltius_s1"));
-        assert!(script.contains("tmux -L voltius has-session -t voltius_s1"));
+        assert!(script.contains(&format!("{TMUX_FIND}{TMUX_PICK}if F voltius_s1; then")));
+        // No multiplexer means none a new session could use, the Voltius copy included.
+        assert!(script.contains("elif P; [ -z \"$T\" ]; then\n  printf VOLTIUS_NOMUX"));
         // Dead screen entries must not read as present (attach -x would fail).
         assert!(script.contains("screen -wipe"));
         assert!(script.contains("grep -qF .voltius_s1"));
@@ -1256,41 +1423,41 @@ mod tests {
             "voltius_s1",
             &ssh_exec_command(""),
         ));
-        assert!(script.contains(&format!("    {TMUX_CC_VERSIONS})")));
-        assert!(script.contains("CC=-CC"));
-        assert!(script.contains("S=$(stty size <&2 2>/dev/null)"));
+        assert!(script.contains(&format!("case $W in {TMUX_CC_VERSIONS})")));
+        assert!(script.contains(TMUX_CC_OR_RAW));
+        assert!(script.contains("Z=$(stty size <&2 2>/dev/null)"));
+        assert!(script.contains(r#"[ -n "$CC" ] && [ -n "$Z" ] && SZ="-x ${Z#* } -y ${Z% *}""#));
         assert!(script.contains(
-            r#"exec tmux -L voltius -f "$TMUX_CONF" $CC new-session -A -s voltius_s1 $SZ "$V" <&2"#
+            r#"exec "$T" -L "$S" -f "$TMUX_CONF" $CC new-session -A -s voltius_s1 $SZ "$V" <&2"#
         ));
-        assert!(script
-            .contains(r#"exec tmux -L voltius $CC new-session -A -s voltius_s1 $SZ "$V" <&2"#));
+        assert!(
+            script.contains(r#"exec "$T" -L "$S" $CC new-session -A -s voltius_s1 $SZ "$V" <&2"#)
+        );
     }
 
     #[test]
     fn every_branch_but_control_mode_announces_raw_output() {
-        let sentinel = r"printf '\033P1000r\033\\'";
-        for script in [
-            decode_bootstrap(&persistent_exec_command(
-                "voltius_s1",
-                &ssh_exec_command(""),
-            )),
-            decode_bootstrap(&persistent_attach_command("voltius_s1")),
-        ] {
-            assert_eq!(script.matches(sentinel).count(), 3, "{script}");
-            assert!(script.contains(&format!(r#"[ -n "$CC" ] || {sentinel}"#)));
+        for script in [exec_script(), attach_script()] {
+            let reports = script
+                .lines()
+                .map(str::trim_start)
+                .filter(|l| l.starts_with("R ") || l.contains(" || R "))
+                .count();
+            assert_eq!(reports, 3, "{script}");
+            assert!(script.contains(r#"c "$T" && CC=-CC || R "$W""#));
         }
     }
 
     #[test]
     fn persistent_attach_uses_control_mode_on_tmux_3_2_and_later() {
-        let script = decode_bootstrap(&persistent_attach_command("voltius_s1"));
+        let script = attach_script();
         assert!(script.contains(TMUX_CC_VERSIONS));
-        assert!(script.contains("exec tmux -L voltius $CC attach-session -t voltius_s1 <&2"));
+        assert!(script.contains(r#"exec "$T" -L "$S" $CC attach-session -t voltius_s1 <&2"#));
     }
 
     #[test]
     fn capture_history_defers_to_the_control_mode_sync() {
-        let cmd = capture_history_command("voltius_s1", 40);
+        let cmd = decode_bootstrap(&capture_history_command("voltius_s1", 40));
         let marker = cmd.find("printf VOLTIUS_CC").expect("marker");
         assert!(marker < cmd.find("capture-pane").unwrap());
         assert!(cmd.contains(TMUX_CC_VERSIONS));
@@ -1302,25 +1469,92 @@ mod tests {
             "voltius_s1",
             Some(&test_colors()),
         ));
-        assert!(script.contains(r#"*"tmux "3.[01]*) NC=1 ;;"#));
-        assert!(script.contains(r#"*"tmux "2.[6-9]*) ;;"#));
-        assert!(script.contains("*) exit 0 ;;"));
-        assert!(script.contains("until tmux -L voltius has-session -t =voltius_s1"));
+        assert!(script.contains(LEGACY_TMUX_ARMS));
+        assert!(script.contains(&format!("{TMUX_FIND}command -v tmux")));
+        assert!(script.contains("until F voltius_s1; do"));
+        assert!(script.contains(r#"case "$("$T" -V 2>/dev/null)" in"#));
         assert!(
-            script.contains(r"printf 'bind -T %s Enter send -X cancel \; send-keys Enter\n' $t")
+            script.contains(r"printf 'bind -T %s Enter send -X cancel \; send-keys Enter\n' $m")
         );
         assert!(script.contains("MouseDragEnd1Pane send -X copy-selection-no-clear"));
         assert!(script.contains("set -g mode-style 'fg=#101820,bg=#c8d0e0'"));
-        assert!(script.contains("tmux -L voltius source-file"));
+        assert!(script.contains(r#"t source-file "$M""#));
         let plain = decode_bootstrap(&persistent_legacy_setup_command("voltius_s1", None));
         assert!(!plain.contains("mode-style"));
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn legacy_setup_sorts_tmux_versions() {
+        for (version, arm) in [
+            ("3.0a", "nc=1"),
+            ("3.1", "nc=1"),
+            ("3.1c", "nc=1"),
+            ("2.9a", "nc="),
+            ("3.2", ""),
+            ("3.10", ""),
+            ("3.10a", ""),
+            ("3.11", ""),
+            ("2.5", ""),
+        ] {
+            let out = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(format!(
+                    "NC=\ncase 'tmux {version}' in {LEGACY_TMUX_ARMS} esac\necho nc=$NC"
+                ))
+                .output()
+                .expect("sh runs");
+            assert_eq!(
+                String::from_utf8_lossy(&out.stdout).trim(),
+                arm,
+                "{version}"
+            );
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn find_matches_the_exact_session_where_tmux_can() {
+        const PREFIX_TMUX: &str = r#"#!/bin/sh
+[ "$1" = -V ] && { echo "$TV"; exit; }
+[ "$3" = has-session ] || exit 1
+case $EXACT$5 in
+  1=*) [ "$LIVE" = "${5#=}" ] ;;
+  *) case $LIVE in "$5"*) ;; *) exit 1 ;; esac ;;
+esac
+"#;
+        let dir = ttl_scratch("exact");
+        let path = fake_bin_path(&dir.join("bin"), &[("tmux", PREFIX_TMUX)]);
+        for (version, exact, live, found) in [
+            ("tmux 1.8", "", "voltius_k", true),
+            ("tmux 3.1c", "", "voltius_k", true),
+            ("tmux 3.4", "1", "voltius_k", true),
+            ("tmux 3.4", "1", "voltius_k2", false),
+            ("tmux 3.10", "1", "voltius_k2", false),
+        ] {
+            let ok = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(format!("{TMUX_FIND}F voltius_k"))
+                .env("PATH", &path)
+                .env("HOME", &dir)
+                .env("TV", version)
+                .env("EXACT", exact)
+                .env("LIVE", live)
+                .status()
+                .expect("sh runs")
+                .success();
+            assert_eq!(ok, found, "{version} {live}");
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn legacy_mode_style_skips_control_mode_hosts() {
-        let script = decode_bootstrap(&legacy_mode_style_command(&test_colors()));
-        assert!(script.contains(&format!("{TMUX_CC_VERSIONS}) exit 0 ;;")));
-        assert!(script.contains("tmux -L voltius set -g mode-style 'fg=#101820,bg=#c8d0e0'"));
+        let script = decode_bootstrap(&legacy_mode_style_command("voltius_s1", &test_colors()));
+        assert!(script.starts_with(TMUX_FIND));
+        assert!(script.contains(
+            r#"F voltius_s1 && ! c "$T" && t set -g mode-style 'fg=#101820,bg=#c8d0e0'"#
+        ));
     }
 
     #[test]
@@ -1331,8 +1565,9 @@ mod tests {
         // Kill only when no client beyond the closer's own is attached.
         assert!(attached.contains("-le 1"));
         assert!(detached.contains("-le 0"));
-        assert!(attached.contains("list-clients -t voltius_s1"));
-        assert!(attached.contains("tmux -L voltius kill-session -t voltius_s1"));
+        assert!(attached.contains(&format!("{TMUX_FIND}K=0\nif F voltius_s1; then")));
+        assert!(attached.contains("t list-clients -t voltius_s1"));
+        assert!(attached.contains("t kill-session -t voltius_s1"));
         assert!(attached.contains("screen -S voltius_s1 -X quit"));
         // Confirmed kill (or already gone) prints the sentinel for the tombstone.
         assert!(attached.contains("VOLTIUS_KILLED"));
@@ -1344,7 +1579,7 @@ mod tests {
         let decoded = decode_bootstrap(&force_kill_command("s1"));
         // Unconditional: the client-count guard uses the force threshold.
         assert!(decoded.contains("-le 1000000"));
-        assert!(decoded.contains("tmux -L voltius kill-session -t voltius_s1"));
+        assert!(decoded.contains("t kill-session -t voltius_s1"));
         assert!(decoded.contains("screen -S voltius_s1 -X quit"));
         assert!(decoded.contains("VOLTIUS_KILLED"));
     }
@@ -1420,8 +1655,8 @@ mod tests {
 
     #[test]
     fn capture_history_dumps_tmux_history_excluding_visible_screen() {
-        let cmd = capture_history_command("voltius_s1", 40);
-        assert!(cmd.contains("tmux -L voltius capture-pane -t voltius_s1"));
+        let cmd = decode_bootstrap(&capture_history_command("voltius_s1", 40));
+        assert!(cmd.contains("t capture-pane -t voltius_s1"));
         // History only: from 50k lines back (-S) to just above the visible
         // screen (-E -1) so the live redraw after attach doesn't duplicate.
         assert!(cmd.contains("-S -50000"));
@@ -1429,7 +1664,7 @@ mod tests {
         // -p print to stdout, -e keep SGR colors, -J join wrapped lines.
         assert!(cmd.contains("-peJ"));
         // Only run tmux when the session actually exists on the socket.
-        assert!(cmd.contains("tmux -L voltius has-session -t voltius_s1"));
+        assert!(cmd.contains(&format!("{TMUX_FIND}if F voltius_s1; then")));
         // Missing multiplexer/session must not error the channel.
         assert!(cmd.contains("2>/dev/null"));
         assert!(cmd.trim_end().ends_with("true"));
@@ -1439,8 +1674,8 @@ mod tests {
     fn cwd_probe_queries_tmux_and_descends_screen_proc() {
         let script = decode_bootstrap(&cwd_probe_command("voltius_s1"));
         // tmux: query pane_current_path on our private socket/session.
-        assert!(script.contains("tmux -L voltius has-session -t voltius_s1"));
-        assert!(script.contains("display-message -p -t voltius_s1 '#{pane_current_path}'"));
+        assert!(script.contains(&format!("{TMUX_FIND}if F voltius_s1; then")));
+        assert!(script.contains("t display-message -p -t voltius_s1 '#{pane_current_path}'"));
         // screen has no cwd query: find the server pid, descend the process
         // tree, and read /proc/<pid>/cwd.
         assert!(script.contains("screen -ls"));
@@ -1544,7 +1779,7 @@ mod tests {
 
     #[test]
     fn capture_history_falls_back_to_screen_hardcopy() {
-        let cmd = capture_history_command("voltius_s1", 40);
+        let cmd = decode_bootstrap(&capture_history_command("voltius_s1", 40));
         // screen has no stdout dump; hardcopy -h writes scrollback to a temp file.
         assert!(cmd.contains("screen -S voltius_s1 -X hardcopy -h"));
         // Trim the live viewport (pty_rows) so the attach redraw isn't duplicated.
@@ -1787,7 +2022,8 @@ mod tests {
         assert!(s.contains("set -t =voltius_s1: @voltius_ttl 86400 "));
         assert!(s.contains("set-hook -t =voltius_s1: client-detached"));
         assert!(s.contains(&format!("set -g {TTL_REAPER_OPTION} ")));
-        assert!(s.contains("until tmux -L voltius has-session -t =voltius_s1"));
+        assert!(s.contains(&format!("{TMUX_FIND}command -v tmux")));
+        assert!(s.contains("until F voltius_s1; do"));
         assert!(!s.contains("set-hook -u"));
     }
 
@@ -1816,7 +2052,8 @@ mod tests {
     fn ttl_reaper_is_self_contained_and_never_ends_a_tmux_argument_with_a_semicolon() {
         assert!(TTL_REAPER.starts_with(TTL_IDLE_CHECK));
         assert!(TTL_REAPER.trim_end().ends_with("\nexit 0"));
-        assert!(TTL_REAPER.contains(&format!("T=\"tmux -L {TMUX_SOCKET}\"")));
+        assert!(TTL_REAPER.contains(&format!("{TMUX_FIND}K=$1\n")));
+        assert!(TTL_REAPER.contains("F \"$K\" || exit 0\n"));
         assert!(!TTL_REAPER.contains("$TMUX"));
     }
 
@@ -2000,6 +2237,7 @@ mod tests {
 for a; do printf '%s\037' "$a"; done >> "$LOG"
 printf '\036' >> "$LOG"
 [ "$1" = -V ] && { echo "$TMUX_V"; exit 0; }
+[ "$2" = "${SOCK:-voltius}" ] || exit 1
 shift 2
 case "$1" in
   has-session) exit "${HAS:-0}" ;;
@@ -2044,10 +2282,12 @@ exit 0
                 ("ps", FAKE_PS),
             ],
         );
+        fake_bin_path(&dir.join(".voltius/bin"), &[("tmux-3.8", FAKE_TMUX)]);
         let log = dir.join("log");
         let out = std::process::Command::new("sh")
             .args(sh_args)
             .env("PATH", path)
+            .env("HOME", &dir)
             .env("LOG", &log)
             .envs(env.iter().copied())
             .output()
@@ -2126,10 +2366,38 @@ exit 0
         for old in ["tmux 2.9a", "tmux 3.0a", "tmux 3.1c", "tmux next-3.5", ""] {
             let calls = fake_tmux_calls(old, &persistent_ttl_command("voltius_s1", Some(3600)));
             assert!(
-                calls.iter().all(|c| c.len() == 1),
+                calls.iter().all(|c| c.len() == 1 || c[2] == "has-session"),
                 "{old:?} must stop after -V: {calls:?}"
             );
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn ttl_arms_a_versioned_session_on_its_own_socket() {
+        let (out, calls) = run_fake_tmux(
+            &["-c", &persistent_ttl_command("voltius_s1", Some(3600))],
+            &[("TMUX_V", "tmux 3.8"), ("SOCK", "voltius-3.8")],
+        );
+        assert!(out.status.success());
+        let hook = r#"run-shell -b "sh -c \"\$(printf \"\$(\"\$HOME\"/.voltius/bin/tmux-3.8 -L voltius-3.8 show -gv @voltius_reap1)\")\" voltius-reap #{session_name} >/dev/null 2>&1 || :""#;
+        assert!(calls.contains(
+            &[
+                "-L",
+                "voltius-3.8",
+                "set-hook",
+                "-t",
+                "=voltius_s1:",
+                "client-detached",
+                hook
+            ]
+            .map(String::from)
+            .to_vec()
+        ));
+        assert!(calls
+            .iter()
+            .filter(|c| c.len() > 2)
+            .all(|c| c[1] == "voltius-3.8" || c[2] == "has-session"));
     }
 
     #[cfg(unix)]
@@ -2196,11 +2464,26 @@ exit 0
 
     #[cfg(unix)]
     fn reaper_killed(calls: &[Vec<String>]) -> bool {
+        reaper_killed_on(calls, "voltius")
+    }
+
+    #[cfg(unix)]
+    fn reaper_killed_on(calls: &[Vec<String>], socket: &str) -> bool {
         calls.contains(
-            &["-L", "voltius", "kill-session", "-t", "=voltius_s1"]
+            &["-L", socket, "kill-session", "-t", "=voltius_s1"]
                 .map(String::from)
                 .to_vec(),
         )
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn reaper_kills_a_versioned_session_on_its_own_socket() {
+        let (dir, idle, _) = reaper_fixture("versioned");
+        let calls = run_reaper(&dir, "voltius_s1", &idle, &[("SOCK", "voltius-3.8")]);
+        assert!(reaper_killed_on(&calls, "voltius-3.8"), "{calls:?}");
+        assert!(!reaper_killed(&calls));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[cfg(unix)]

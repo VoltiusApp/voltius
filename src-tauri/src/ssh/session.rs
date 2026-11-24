@@ -115,7 +115,10 @@ impl SessionManager {
         let (persist, handle) = self
             .with_session(id, |s| (s.persist, Arc::clone(&s.handle)))
             .await?;
-        let style = crate::shell_integration::legacy_mode_style_command(&colors);
+        let style = crate::shell_integration::legacy_mode_style_command(
+            &crate::shell_integration::tmux_session_key(id),
+            &colors,
+        );
         self.send_input(id, SessionInput::Colors(colors), "set colors")
             .await?;
         if persist {

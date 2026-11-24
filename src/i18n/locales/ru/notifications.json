@@ -127,6 +127,34 @@
       "detachedProxied_few": "{{count}} хоста, чьи записи в ~/.ssh/config теперь используют ProxyCommand, больше не следуют за файлом.",
       "detachedProxied_many": "{{count}} хостов, чьи записи в ~/.ssh/config теперь используют ProxyCommand, больше не следуют за файлом.",
       "detachedProxied_other": "{{count}} хостов, чьи записи в ~/.ssh/config теперь используют ProxyCommand, больше не следуют за файлом."
+    },
+    "tmux": {
+      "screen": "{{host}} использует GNU screen: полноэкранные приложения и мышь работают ограниченно",
+      "old": "На {{host}} установлен tmux {{version}} — слишком старый для полной поддержки",
+      "none": "На {{host}} нет tmux: эта сессия завершится при отключении",
+      "install": "Установить tmux",
+      "connectFirst": "Сначала подключитесь к этому хосту",
+      "installing": "Установка tmux {{version}}… {{step}}",
+      "step": {
+        "download": "загрузка",
+        "upload": "передача",
+        "verify": "проверка",
+        "link": "завершение",
+        "done": "готово"
+      },
+      "installed": "tmux {{version}} установлен. Новые сессии получат полную поддержку.",
+      "updated": "tmux на {{host}} обновлён до {{version}}",
+      "openNewTab": "Открыть новую вкладку",
+      "failed": {
+        "download": "Не удалось загрузить tmux для {{host}}",
+        "checksum": "Загруженный для {{host}} tmux не совпал с контрольной суммой и был удалён",
+        "noSha256": "На этом хосте нет ни sha256sum, ни shasum, поэтому Voltius не может проверить загруженный файл.",
+        "version": "Не удалось запустить tmux из ~/.voltius/bin на этом хосте (домашняя папка смонтирована с noexec?)",
+        "unsupported": "{{host}} не поддерживается: Voltius устанавливает tmux только на Linux x86_64 и arm64",
+        "inside": "Установите tmux из сессии на самом {{host}}, а не внутри контейнера",
+        "newer": "На {{host}} уже есть более новый tmux от Voltius",
+        "other": "Не удалось установить tmux на {{host}}"
+      }
     }
   }
 }

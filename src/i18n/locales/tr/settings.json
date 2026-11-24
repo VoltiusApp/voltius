@@ -1086,7 +1086,20 @@
       },
       "persistentSessions": {
         "title": "Kalıcı oturumlar",
-        "desc": "Uzak kabuğu tmux içinde çalıştırarak (tmux yoksa screen kullanılır) kabuğunuzu ve çalışan işlemlerinizi bağlantı kesintilerinde canlı tutar. Sunucuda tmux veya screen gerekir. Bağlantı ayarlarındaki Gelişmiş bölümünden her sunucu için ayrı ayarlanabilir."
+        "desc": "Uzak kabuğu tmux içinde çalıştırarak (tmux yoksa screen kullanılır) kabuğunuzu ve çalışan işlemlerinizi bağlantı kesintilerinde canlı tutar. Sunucuda tmux veya screen gerekir. Bağlantı ayarlarındaki Gelişmiş bölümünden her sunucu için ayrı ayarlanabilir. Sunucuda tmux yoksa Voltius, sunucu ayarlarından kendi tmux'unu (root gerekmeden) kurabilir."
+      },
+      "tmuxAutoUpdate": {
+        "title": "Voltius'un tmux'unu otomatik güncelle",
+        "desc": "Voltius'un tmux kurduğu sunucularda, bağlandığınızda yeni sürümleri kurar. Çalışan oturumlar bitene kadar kendi sürümlerini korur. Her indirme, bu Voltius sürümüyle gelen sağlama toplamına göre doğrulanır. Yalnızca sunucu ayarlarından güncellemek için kapatın."
+      },
+      "voltiusTmux": {
+        "title": "Voltius'un kurduğu tmux",
+        "desc": "tmux {{active}} · ~/.voltius/bin",
+        "available": "{{pin}} mevcut",
+        "stillUsed_one": "{{old}} hâlâ {{count}} oturumda kullanılıyor, bittiğinde kaldırılır",
+        "stillUsed_other": "{{old}} hâlâ {{count}} oturumda kullanılıyor, bitince kaldırılır",
+        "updateNow": "Şimdi güncelle",
+        "installing": "Kuruluyor…"
       },
       "detachedTtl": {
         "title": "Boştaki ayrılmış oturumları kapat",
@@ -1237,6 +1250,9 @@
       },
       "persistentSessions": {
         "label": "Kalıcı Oturumlar"
+      },
+      "tmuxAutoUpdate": {
+        "label": "Voltius'un tmux'unu otomatik güncelle"
       },
       "detachedSessionTtl": {
         "label": "Boştaki Ayrılmış Oturumları Kapat"

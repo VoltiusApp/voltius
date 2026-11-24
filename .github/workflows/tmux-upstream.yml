@@ -1,0 +1,80 @@
+name: tmux upstream
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: dev
+
+      - name: Detect new upstream release
+        id: detect
+        run: |
+          set -eu
+          tag=$(gh api repos/tmux/tmux/releases/latest -q .tag_name)
+          current=$(jq -r .version src-tauri/tmux-pin.json)
+          if [ "$tag" = "$current" ] || gh release view "tmux-${tag}" >/dev/null 2>&1; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Build static binaries
+        if: steps.detect.outputs.needed == 'true'
+        env:
+          TAG: ${{ steps.detect.outputs.tag }}
+        run: |
+          set -eu
+          started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          gh workflow run tmux-static.yml --ref dev -f version="$TAG"
+          run_id=""
+          for _ in $(seq 1 30); do
+            sleep 10
+            run_id=$(gh run list --workflow tmux-static.yml --event workflow_dispatch --json databaseId,createdAt \
+              -q "[.[] | select(.createdAt >= \"$started\")] | sort_by(.createdAt) | .[0].databaseId // empty")
+            [ -n "$run_id" ] && break
+          done
+          [ -n "$run_id" ] || { echo "tmux-static run did not start"; exit 1; }
+          gh run watch "$run_id" --exit-status
+
+      - name: Open bump PR
+        if: steps.detect.outputs.needed == 'true'
+        env:
+          TAG: ${{ steps.detect.outputs.tag }}
+        run: |
+          set -eu
+          mkdir sums
+          gh release download "tmux-${TAG}" --pattern SHA256SUMS --dir sums
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/tmux-${TAG}"
+          jq -n --arg v "$TAG" --arg base "$base" \
+            --arg x86 "$(awk -v f="tmux-${TAG}-x86_64" '$2==f{print $1}' sums/SHA256SUMS)" \
+            --arg arm "$(awk -v f="tmux-${TAG}-aarch64" '$2==f{print $1}' sums/SHA256SUMS)" \
+            '{version:$v,assets:[{arch:"x86_64",url:"\($base)/tmux-\($v)-x86_64",sha256:$x86},{arch:"aarch64",url:"\($base)/tmux-\($v)-aarch64",sha256:$arm}]}' \
+            > src-tauri/tmux-pin.json
+          branch="chore/tmux-${TAG}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add src-tauri/tmux-pin.json
+          git commit -m "chore(deps): bump Voltius tmux to ${TAG}"
+          git push origin "$branch"
+          gh pr create --base dev --head "$branch" \
+            --title "chore(deps): bump Voltius tmux to ${TAG}" \
+            --body "Updates src-tauri/tmux-pin.json to the static tmux ${TAG} build from release tmux-${TAG}."
+          gh workflow run ci.yml --ref "$branch"

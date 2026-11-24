@@ -6,7 +6,8 @@ import { sftpCancelTransfer, sftpClose, sftpDelete, sftpOpen } from "@/services/
 import { pasteToSession } from "@/services/terminalPaste";
 import { sessionAcceptsInput } from "@/hooks/useTerminal";
 import { broadcastActiveForSession } from "@/stores/layoutStore";
-import { APP_SOURCE, useNotificationStore, type ToastEntry, type ToastHost } from "@/stores/notificationStore";
+import { APP_SOURCE, useNotificationStore } from "@/stores/notificationStore";
+import { progressToaster, type ProgressToaster } from "@/utils/progressToaster";
 import { sessionToastHost } from "@/utils/toastHost";
 import { useSessionStore } from "@/stores/sessionStore";
 import { getToggle } from "@/stores/toggleSettingsStore";
@@ -43,25 +44,7 @@ function hostOf(sessionId: string): string {
   return useSessionStore.getState().sessions.find((s) => s.id === sessionId)?.connectionName ?? "";
 }
 
-type ToastFields = Omit<Partial<ToastEntry>, "id" | "createdAt">;
-
-function toaster(thumbnail: string, host: ToastHost | undefined) {
-  const store = useNotificationStore.getState();
-  let id: string | null = null;
-  return {
-    get id() { return id; },
-    show(fields: ToastFields) {
-      if (id) store.updateToast(id, fields);
-      else id = store.addToast({ source: APP_SOURCE, host, type: "progress", severity: "info", duration: 0, message: "", thumbnail, ...fields });
-    },
-    update(fields: ToastFields) {
-      if (id) store.updateToast(id, fields);
-    },
-    adopt(existing: string) { id = existing; },
-  };
-}
-
-async function deleteFromHost(sessionId: string, path: string, toast: ReturnType<typeof toaster>) {
+async function deleteFromHost(sessionId: string, path: string, toast: ProgressToaster) {
   const t = i18n.t;
   try {
     const sftpId = await sftpOpen(sessionId);
@@ -80,7 +63,7 @@ async function upload(sessionId: string, image: ClipboardImage, retryOf?: string
   const t = i18n.t;
   const host = hostOf(sessionId);
   const transferId = crypto.randomUUID();
-  const toast = toaster(image.thumbnail, sessionToastHost(sessionId));
+  const toast = progressToaster({ thumbnail: image.thumbnail, host: sessionToastHost(sessionId) });
   if (retryOf) toast.adopt(retryOf);
   let progress = 0;
   let cancelled = false;

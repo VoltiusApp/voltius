@@ -1475,7 +1475,22 @@
       },
       "persistentSessions": {
         "title": "Trvalé relace",
-        "desc": "Zachovat shell a běžící procesy i při odpojení spuštěním vzdáleného shellu v tmux (případně ve screen). Vyžaduje tmux nebo screen na hostu. Pro jednotlivé hosty lze nastavit jinou volbu v sekci Pokročilé v nastavení připojení."
+        "desc": "Zachovat shell a běžící procesy i při odpojení spuštěním vzdáleného shellu v tmux (případně ve screen). Vyžaduje tmux nebo screen na hostu. Pro jednotlivé hosty lze nastavit jinou volbu v sekci Pokročilé v nastavení připojení. Pokud host tmux nemá, Voltius může nainstalovat vlastní (bez oprávnění root) z nastavení hostu."
+      },
+      "tmuxAutoUpdate": {
+        "title": "Automaticky aktualizovat tmux od Voltius",
+        "desc": "Na hostech, kam Voltius nainstaloval tmux, nainstaluje při připojení nové verze. Běžící relace si ponechají svou verzi, dokud neskončí. Každé stažení se ověřuje kontrolním součtem dodaným s tímto vydáním Voltius. Po vypnutí lze aktualizovat jen z nastavení hostu."
+      },
+      "voltiusTmux": {
+        "title": "tmux nainstalovaný Voltiusem",
+        "desc": "tmux {{active}} · ~/.voltius/bin",
+        "available": "k dispozici {{pin}}",
+        "stillUsed_one": "{{old}} stále používá {{count}} relace, odstraní se po jejím skončení",
+        "stillUsed_few": "{{old}} stále používají {{count}} relace, odstraní se po jejich skončení",
+        "stillUsed_many": "{{old}} stále používá {{count}} relace, odstraní se po jejich skončení",
+        "stillUsed_other": "{{old}} stále používá {{count}} relací, odstraní se po jejich skončení",
+        "updateNow": "Aktualizovat",
+        "installing": "Instaluje se…"
       },
       "detachedTtl": {
         "title": "Zavírat nečinné odpojené relace",
@@ -1632,6 +1647,9 @@
       },
       "persistentSessions": {
         "label": "Trvalé relace"
+      },
+      "tmuxAutoUpdate": {
+        "label": "Automaticky aktualizovat tmux od Voltius"
       },
       "detachedSessionTtl": {
         "label": "Zavírat nečinné odpojené relace"

@@ -150,6 +150,25 @@ pub fn spawn_channel_io_split(
 struct MuxMode {
     control: bool,
     tmux: String,
+    fallback: Option<String>,
+}
+
+impl MuxMode {
+    fn control(tmux: String) -> Self {
+        Self {
+            control: true,
+            tmux,
+            fallback: None,
+        }
+    }
+
+    fn fallback(kind: String) -> Self {
+        Self {
+            control: false,
+            tmux: String::new(),
+            fallback: Some(kind),
+        }
+    }
 }
 
 fn apply(
@@ -169,13 +188,10 @@ fn apply(
                 let _ = writes.send(Write::Resize(cols, rows));
             }
             Action::Started { tmux } => {
-                let _ = app.emit(
-                    mux_event,
-                    MuxMode {
-                        control: true,
-                        tmux,
-                    },
-                );
+                let _ = app.emit(mux_event, MuxMode::control(tmux));
+            }
+            Action::Fallback(kind) => {
+                let _ = app.emit(mux_event, MuxMode::fallback(kind));
             }
         }
     }

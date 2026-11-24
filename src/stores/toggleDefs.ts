@@ -157,6 +157,13 @@ export const TOGGLE_DEFS = {
     keywords: ["persistent", "session", "tmux", "screen", "reconnect", "survive", "resume", "sleep", "reattach", "keep alive"],
     default: true,
   },
+  "tmux-auto-update": {
+    labelKey: "settings.toggleDefs.tmuxAutoUpdate.label",
+    icon: "lucide:refresh-cw",
+    section: "hosts",
+    keywords: ["tmux", "update", "automatic", "multiplexer"],
+    default: true,
+  },
   "detached-session-ttl": {
     labelKey: "settings.toggleDefs.detachedSessionTtl.label",
     icon: "lucide:timer",
