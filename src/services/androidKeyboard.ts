@@ -4,8 +4,9 @@
  * xterm.js's own IME path corrupts terminal input on Android (reordered/duplicated chars,
  * deletes that reinsert composed text). Instead a native overlay owns the IME and forwards
  * clean input here via two globals it calls with `evaluateJavascript`:
- *   - `window.__voltiusTermInput(text, ctrl)` — committed characters, `ctrl` while Volume Down is held
- *   - `window.__voltiusTermKey(name, ctrl)`  — semantic keys (Enter, Backspace, arrows, …)
+ *   - `window.__voltiusTermInput(text, held)` — committed or hardware-typed characters
+ *   - `window.__voltiusTermKey(name, held)`  — named keys (Enter, Backspace, arrows, F-keys, …)
+ * `held` are the modifiers physically down: a hardware keyboard's Ctrl/Alt/Shift, or Volume Down as Ctrl.
  * We route them into the active session exactly like the on-screen extra-keys row, honoring the
  * Ctrl/Alt latch and application-cursor mode. `showAndroidKeyboard` / `hideAndroidKeyboard`
  * drive the native overlay (Rust `terminal_show/hide_keyboard` → `TerminalKeyboard.kt`).
@@ -13,7 +14,7 @@
 import { invoke } from "@/lib/invoke";
 import { writeToSession } from "@/hooks/useTerminal";
 import { sendSpecialKey } from "@/services/terminalInput";
-import { consumeLatchForChar, takeLatchMods } from "@/stores/modifierLatchStore";
+import { consumeLatchForChar, takeLatchMods, type HeldMods } from "@/stores/modifierLatchStore";
 import type { SpecialKey } from "@/services/terminalKeyCore";
 import { useAppLockStore } from "@/stores/appLockStore";
 import { getToggle } from "@/stores/toggleSettingsStore";
@@ -24,29 +25,30 @@ let installed = false;
 
 /** Named keys the native side forwards; each maps onto the same SpecialKey the extra-keys row sends. */
 const IME_KEYS = new Set<string>([
-  "Enter", "Backspace", "Delete", "Left", "Right", "Up", "Down",
+  "Enter", "Backspace", "Delete", "Insert", "Left", "Right", "Up", "Down",
   "Home", "End", "Tab", "Esc", "PgUp", "PgDn", "ShiftTab",
+  "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
 ] satisfies SpecialKey[]);
 
 /** Committed text from the IME. Mirrors the onData path: single chars pass through the
  *  extra-keys Ctrl/Alt latch (latch Ctrl, type "c" → Ctrl-C). */
-function feedText(text: string, heldCtrl = false): void {
+function feedText(text: string, held: HeldMods = {}): void {
   const id = activeSession;
   if (!id || !text || isLocked()) return;
   // Some IMEs commit Enter as "\n"; a TTY's Enter is "\r" (nano reads "\n" as ^J Justify).
   let data = text.replace(/\r?\n/g, "\r");
   if (data.length === 1) {
-    const latched = consumeLatchForChar(data, heldCtrl);
+    const latched = consumeLatchForChar(data, held);
     if (latched !== null) data = latched;
   }
   writeToSession(id, data);
 }
 
-/** Semantic key from the IME, with the latched Ctrl/Alt (or held Volume Down) like a row key. */
-function feedKey(name: string, heldCtrl = false): void {
+/** Named key from the IME or a hardware keyboard, with held and latched modifiers like a row key. */
+function feedKey(name: string, held: HeldMods = {}): void {
   const id = activeSession;
   if (!id || !IME_KEYS.has(name) || isLocked()) return;
-  sendSpecialKey(id, name as SpecialKey, takeLatchMods(heldCtrl));
+  sendSpecialKey(id, name as SpecialKey, takeLatchMods(held));
 }
 
 // The native IME writes through evaluateJavascript, past the lock overlay's DOM guards.
