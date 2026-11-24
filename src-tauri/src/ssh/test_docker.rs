@@ -19,14 +19,18 @@ pub const TMUX_BASES: &[&str] = &[
     "ubuntu:26.04",
 ];
 
-/// Builds `base` with tmux and procps once; the tag hashes the Dockerfile, so a
-/// cached image always matches the current install line.
 pub fn ensure_image(base: &str) -> String {
+    ensure_image_with(base, "tmux")
+}
+
+/// Builds `base` with `packages` and procps once; the tag hashes the Dockerfile, so a
+/// cached image always matches the current install line.
+pub fn ensure_image_with(base: &str, packages: &str) -> String {
     static BUILD: Mutex<()> = Mutex::new(());
     let install = if base.starts_with("rockylinux") {
-        "dnf -y -q install tmux procps-ng >/dev/null && dnf clean all"
+        format!("dnf -y -q install {packages} procps-ng >/dev/null && dnf clean all")
     } else {
-        "apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get -qq install -y tmux procps >/dev/null && rm -rf /var/lib/apt/lists/*"
+        format!("apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get -qq install -y {packages} procps >/dev/null && rm -rf /var/lib/apt/lists/*")
     };
     let dockerfile = format!("FROM {base}\nRUN {install}\n");
     let fnv = dockerfile.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| {

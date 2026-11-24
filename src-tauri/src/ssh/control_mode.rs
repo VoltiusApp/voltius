@@ -1353,8 +1353,12 @@ mod tests {
 #[cfg(test)]
 mod docker_harness {
     use super::*;
+    use crate::shell_integration::{
+        persistent_attach_command, persistent_exec_command, tmux_session_key,
+    };
     use crate::ssh::test_docker::{
-        container_name, docker, ensure_image, wait_for, Container as Host, TMUX_BASES,
+        container_name, docker, ensure_image, ensure_image_with, wait_for, Container as Host,
+        TMUX_BASES,
     };
     use std::io::{Read, Write};
     use std::process::{Command, Stdio};
@@ -1375,15 +1379,16 @@ mod docker_harness {
         host
     }
 
-    fn attach(
-        host: &Host,
-        colors: Option<TerminalColors>,
+    /// Runs `docker args`, feeding its output to `session` for `settle` and its
+    /// `Send`s back to its stdin; returns every other action in order.
+    fn drive(
+        args: &[&str],
+        mut session: ControlSession,
+        preamble: &[u8],
         settle: Duration,
-    ) -> (vt100::Parser, Vec<String>) {
+    ) -> Vec<Action> {
         let mut child = Command::new("docker")
-            .args([
-                "exec", "-i", &host.0, "tmux", "-L", "t", "-C", "attach", "-t", "s",
-            ])
+            .args(args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
@@ -1399,29 +1404,224 @@ mod docker_harness {
                 }
             }
         });
-        let mut session = ControlSession::new("s".into(), 80, 24, colors);
-        let mut parser = vt100::Parser::new(24, 80, 100_000);
-        let mut started = Vec::new();
-        let mut feed = |bytes: &[u8], parser: &mut vt100::Parser, started: &mut Vec<String>| {
-            for action in session.on_output(bytes) {
-                match action {
-                    Action::Emit(b) => parser.process(&b),
-                    Action::Send(b) => stdin.write_all(&b).unwrap(),
-                    Action::Started { tmux } => started.push(tmux),
-                    Action::WindowChange(..) | Action::Fallback(_) => {}
+        let mut actions = Vec::new();
+        let mut chunk = preamble.to_vec();
+        let deadline = Instant::now() + settle;
+        loop {
+            if !chunk.is_empty() {
+                for action in session.on_output(&chunk) {
+                    match action {
+                        Action::Send(b) => {
+                            let _ = stdin.write_all(&b);
+                        }
+                        other => actions.push(other),
+                    }
                 }
             }
-        };
-        feed(b"\x1bP1000p", &mut parser, &mut started);
-        let deadline = Instant::now() + settle;
-        while Instant::now() < deadline {
-            if let Ok(chunk) = rx.recv_timeout(Duration::from_millis(50)) {
-                feed(&chunk, &mut parser, &mut started);
+            if Instant::now() >= deadline {
+                break;
             }
+            chunk = rx
+                .recv_timeout(Duration::from_millis(50))
+                .unwrap_or_default();
         }
         let _ = child.kill();
         let _ = child.wait();
+        actions
+    }
+
+    fn attach(
+        host: &Host,
+        colors: Option<TerminalColors>,
+        settle: Duration,
+    ) -> (vt100::Parser, Vec<String>) {
+        let args = [
+            "exec", "-i", &host.0, "tmux", "-L", "t", "-C", "attach", "-t", "s",
+        ];
+        let session = ControlSession::new("s".into(), 80, 24, colors);
+        let mut parser = vt100::Parser::new(24, 80, 100_000);
+        let mut started = Vec::new();
+        for action in drive(&args, session, b"\x1bP1000p", settle) {
+            match action {
+                Action::Emit(b) => parser.process(&b),
+                Action::Started { tmux } => started.push(tmux),
+                _ => {}
+            }
+        }
         (parser, started)
+    }
+
+    /// Runs a persistent-session wrapper in a pty, as the SSH exec channel would.
+    fn connect(host: &Host, key: &str, cmd: &str, settle: Duration) -> Vec<Action> {
+        let env = format!("C={cmd}");
+        let args = [
+            "exec",
+            "-i",
+            "-e",
+            "TERM=xterm-256color",
+            "-e",
+            &env,
+            &host.0,
+            "sh",
+            "-c",
+            r#"script -qfc "stty rows 24 cols 80; $C" /dev/null"#,
+        ];
+        drive(
+            &args,
+            ControlSession::new(key.into(), 80, 24, None),
+            b"",
+            settle,
+        )
+    }
+
+    fn started(actions: &[Action]) -> Vec<String> {
+        actions
+            .iter()
+            .filter_map(|a| match a {
+                Action::Started { tmux } => Some(tmux.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn fallbacks(actions: &[Action]) -> Vec<String> {
+        actions
+            .iter()
+            .filter_map(|a| match a {
+                Action::Fallback(kind) => Some(kind.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn emitted(actions: &[Action]) -> String {
+        let bytes: Vec<u8> = actions
+            .iter()
+            .filter_map(|a| match a {
+                Action::Emit(b) => Some(b.as_slice()),
+                _ => None,
+            })
+            .flatten()
+            .copied()
+            .collect();
+        String::from_utf8_lossy(&bytes).into_owned()
+    }
+
+    fn host_sh(host: &Host, script: &str) -> std::process::Output {
+        docker(&["exec", &host.0, "sh", "-c", script])
+    }
+
+    /// Installs the pinned static tmux the way the app will: verified against the pin, then
+    /// `~/.voltius/bin/tmux-<ver>` plus the `tmux` pointer. Returns the version.
+    fn install_voltius_tmux(host: &Host) -> String {
+        let pin = crate::tmux_pin::pin();
+        let asset = crate::tmux_pin::asset_for("Linux", std::env::consts::ARCH)
+            .expect("pinned asset for this arch");
+        let script = r#"set -e
+d=$HOME/.voltius/bin
+mkdir -p "$d"
+curl -fsSL "$URL" -o "$d/dl"
+echo "$SHA  $d/dl" | sha256sum -c - >/dev/null
+chmod 755 "$d/dl"
+mv "$d/dl" "$d/tmux-$VER"
+ln -sfn "tmux-$VER" "$d/tmux"
+"$d/tmux" -V"#;
+        let out = docker(&[
+            "exec",
+            "-e",
+            &format!("URL={}", asset.url),
+            "-e",
+            &format!("SHA={}", asset.sha256),
+            "-e",
+            &format!("VER={}", pin.version),
+            &host.0,
+            "sh",
+            "-c",
+            script,
+        ]);
+        assert!(
+            out.status.success(),
+            "install: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert_eq!(
+            String::from_utf8_lossy(&out.stdout).trim(),
+            format!("tmux {}", pin.version)
+        );
+        pin.version.clone()
+    }
+
+    fn has_session(host: &Host, tmux: &str, socket: &str, key: &str) -> bool {
+        host_sh(host, &format!("{tmux} -L {socket} has-session -t {key}"))
+            .status
+            .success()
+    }
+
+    #[test]
+    #[ignore = "needs docker"]
+    fn voltius_copy_runs_control_mode_on_versioned_socket() {
+        let image = ensure_image_with("debian:bookworm", "screen curl ca-certificates");
+        let host = Host::run(
+            container_name("voltius-copy", &image),
+            &["--init", &image, "sleep", "infinity"],
+        );
+        assert!(!host_sh(&host, "command -v tmux").status.success());
+        let version = install_voltius_tmux(&host);
+        let key = tmux_session_key("copy");
+        let settle = Duration::from_secs(5);
+
+        let created = connect(
+            &host,
+            &key,
+            &persistent_exec_command(&key, "exec sh"),
+            settle,
+        );
+        assert_eq!(started(&created), [version.clone()], "{created:?}");
+        assert!(fallbacks(&created).is_empty(), "{created:?}");
+        let copy = format!(r#""$HOME/.voltius/bin/tmux-{version}""#);
+        let ls = host_sh(&host, &format!("{copy} -L voltius-{version} ls"));
+        assert!(String::from_utf8_lossy(&ls.stdout).contains(&key));
+
+        let attached = connect(&host, &key, &persistent_attach_command(&key), settle);
+        assert_eq!(started(&attached), [version], "{attached:?}");
+        assert!(fallbacks(&attached).is_empty(), "{attached:?}");
+    }
+
+    #[test]
+    #[ignore = "needs docker"]
+    fn old_socket_session_survives_voltius_install() {
+        let image = ensure_image_with("debian:bullseye", "tmux curl ca-certificates");
+        let host = Host::run(
+            container_name("voltius-old", &image),
+            &["--init", &image, "sleep", "infinity"],
+        );
+        let key = tmux_session_key("old");
+        let settle = Duration::from_secs(3);
+        let inner = "echo old-session-output; exec sh";
+
+        let created = connect(&host, &key, &persistent_exec_command(&key, inner), settle);
+        let old = fallbacks(&created);
+        assert!(
+            old.len() == 1 && old[0].starts_with("tmux 3.1"),
+            "{created:?}"
+        );
+        wait_for("old session up", Duration::from_secs(10), || {
+            has_session(&host, "tmux", "voltius", &key).then_some(())
+        });
+
+        let version = install_voltius_tmux(&host);
+        let attached = connect(&host, &key, &persistent_attach_command(&key), settle);
+        assert_eq!(fallbacks(&attached), old, "{attached:?}");
+        assert!(started(&attached).is_empty());
+        assert!(emitted(&attached).contains("old-session-output"));
+        assert!(has_session(&host, "tmux", "voltius", &key));
+        let copy = format!(r#""$HOME/.voltius/bin/tmux-{version}""#);
+        assert!(!has_session(
+            &host,
+            &copy,
+            &format!("voltius-{version}"),
+            &key
+        ));
     }
 
     fn tmux_screen(host: &Host) -> Vec<String> {
