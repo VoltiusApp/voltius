@@ -75,6 +75,7 @@
         "old": "tmux {{version}} is too old for full support (needs 3.2+).",
         "none": "No tmux or screen: sessions end when you disconnect.",
         "installing": "Installing tmux {{version}} in ~/.voltius/bin… {{step}}",
+        "installingBare": "Installing tmux in ~/.voltius/bin… {{step}}",
         "voltius": "tmux {{version}} · Voltius copy in ~/.voltius/bin. Applies to new sessions.",
         "system": "tmux {{version}} installed on the host. Full support.",
         "unsupported": "This host isn't supported (Linux x86_64 or arm64 only).",

@@ -9,8 +9,8 @@ import { useHostMuxStore } from "@/stores/hostMuxStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { notifyError } from "@/utils/notifyError";
 
-const SMALL_BTN =
-  "shrink-0 text-[11px] px-2 py-1 rounded-md font-medium bg-(--t-bg-input) text-(--t-text-primary) transition-opacity hover:opacity-75 disabled:opacity-50 disabled:cursor-not-allowed";
+const BTN_BASE =
+  "shrink-0 text-[11px] px-2 py-1 rounded-md font-medium bg-(--t-bg-input) transition-opacity hover:opacity-75 disabled:opacity-50 disabled:cursor-not-allowed";
 const WARN = "var(--t-status-warning)";
 const OK = "var(--t-status-connected)";
 
@@ -45,7 +45,7 @@ export default function MuxStatus({ connectionId, persistOn }: Props) {
     </div>
   );
   const install = (label: string, disabled = !live, title = gate) => (
-    <button type="button" className={SMALL_BTN} disabled={disabled} title={title} onClick={() => live && startTmuxInstall(live, connectionId, hostName)}>
+    <button type="button" className={`${BTN_BASE} text-(--t-text-primary)`} disabled={disabled} title={title} onClick={() => live && startTmuxInstall(live, connectionId, hostName)}>
       {label}
     </button>
   );
@@ -67,7 +67,7 @@ export default function MuxStatus({ connectionId, persistOn }: Props) {
     const step = t(`notifications.tmux.step.${installing.step}`);
     body = (
       <div className="pl-[19px] pb-1 space-y-1">
-        {line("lucide:loader-circle", "var(--t-accent)", t("connections.form.mux.installing", { version: pin ?? "", step }), undefined, true)}
+        {line("lucide:loader-circle", "var(--t-accent)", pin ? t("connections.form.mux.installing", { version: pin, step }) : t("connections.form.mux.installingBare", { step }), undefined, true)}
         <div className="ml-[18px] h-[3px] rounded-full bg-(--t-bg-input) overflow-hidden" role="progressbar" aria-valuenow={Math.round(installing.progress)}>
           <div className="h-full bg-(--t-accent)" style={{ width: `${Math.max(0, Math.min(100, installing.progress))}%` }} />
         </div>
@@ -85,7 +85,7 @@ export default function MuxStatus({ connectionId, persistOn }: Props) {
       t("connections.form.mux.voltius", { version: host.voltius.active }),
       <>
         {host.voltius.outdated && installPinned}
-        <button type="button" className={SMALL_BTN} style={{ color: "var(--t-text-muted)" }} disabled={!live} title={gate} onClick={() => setConfirmRemove(true)}>
+        <button type="button" className={`${BTN_BASE} text-(--t-text-muted)`} disabled={!live} title={gate} onClick={() => setConfirmRemove(true)}>
           {t("connections.form.mux.remove")}
         </button>
       </>,

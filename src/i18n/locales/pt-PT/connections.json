@@ -75,6 +75,7 @@
         "old": "O tmux {{version}} é demasiado antigo para suporte completo (requer 3.2+).",
         "none": "Sem tmux nem screen: as sessões terminam ao desligar.",
         "installing": "A instalar o tmux {{version}} em ~/.voltius/bin… {{step}}",
+        "installingBare": "A instalar o tmux em ~/.voltius/bin… {{step}}",
         "voltius": "tmux {{version}} · cópia do Voltius em ~/.voltius/bin. Aplica-se a novas sessões.",
         "system": "tmux {{version}} instalado no anfitrião. Suporte completo.",
         "unsupported": "Este anfitrião não é suportado (apenas Linux x86_64 ou arm64).",

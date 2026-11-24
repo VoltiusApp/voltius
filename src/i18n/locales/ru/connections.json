@@ -75,6 +75,7 @@
         "old": "tmux {{version}} слишком старый для полной поддержки (нужен 3.2+).",
         "none": "Нет ни tmux, ни screen: сессии завершаются при отключении.",
         "installing": "Установка tmux {{version}} в ~/.voltius/bin… {{step}}",
+        "installingBare": "Установка tmux в ~/.voltius/bin… {{step}}",
         "voltius": "tmux {{version}} · копия Voltius в ~/.voltius/bin. Действует для новых сессий.",
         "system": "tmux {{version}} установлен на хосте. Полная поддержка.",
         "unsupported": "Этот хост не поддерживается (только Linux x86_64 или arm64).",

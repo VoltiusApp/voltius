@@ -75,6 +75,7 @@
         "old": "tmux {{version}} je příliš starý pro plnou podporu (vyžaduje 3.2+).",
         "none": "Žádný tmux ani screen: relace skončí po odpojení.",
         "installing": "Instalace tmux {{version}} do ~/.voltius/bin… {{step}}",
+        "installingBare": "Instalace tmux do ~/.voltius/bin… {{step}}",
         "voltius": "tmux {{version}} · kopie Voltius v ~/.voltius/bin. Platí pro nové relace.",
         "system": "tmux {{version}} je nainstalován na hostiteli. Plná podpora.",
         "unsupported": "Tento hostitel není podporován (pouze Linux x86_64 nebo arm64).",

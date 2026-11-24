@@ -75,6 +75,7 @@
         "old": "tmux {{version}} est trop ancien pour une prise en charge complète (3.2+ requis).",
         "none": "Ni tmux ni screen : les sessions se terminent à la déconnexion.",
         "installing": "Installation de tmux {{version}} dans ~/.voltius/bin… {{step}}",
+        "installingBare": "Installation de tmux dans ~/.voltius/bin… {{step}}",
         "voltius": "tmux {{version}} · copie Voltius dans ~/.voltius/bin. S'applique aux nouvelles sessions.",
         "system": "tmux {{version}} installé sur l'hôte. Prise en charge complète.",
         "unsupported": "Cet hôte n'est pas pris en charge (Linux x86_64 ou arm64 uniquement).",

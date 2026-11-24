@@ -27,7 +27,6 @@ export function applyTmuxStatus(connectionId: string, status: TmuxHostStatus): v
         versions: status.copies.map((c) => c.version),
         inUse: Object.fromEntries(status.copies.map((c) => [c.version, c.sessions])),
         outdated: status.outdated,
-        outdated: status.outdated,
       }
     : undefined;
   useHostMuxStore.getState().setVoltius(connectionId, voltius);

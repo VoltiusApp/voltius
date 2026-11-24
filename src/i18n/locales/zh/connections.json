@@ -75,6 +75,7 @@
         "old": "tmux {{version}} 版本过旧，无法完整支持（需要 3.2+）。",
         "none": "没有 tmux 或 screen：断开连接后会话将结束。",
         "installing": "正在将 tmux {{version}} 安装到 ~/.voltius/bin… {{step}}",
+        "installingBare": "正在将 tmux 安装到 ~/.voltius/bin… {{step}}",
         "voltius": "tmux {{version}} · Voltius 副本，位于 ~/.voltius/bin。适用于新会话。",
         "system": "主机上已安装 tmux {{version}}。完整支持。",
         "unsupported": "不支持此主机（仅支持 Linux x86_64 或 arm64）。",
