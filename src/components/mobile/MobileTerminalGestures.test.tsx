@@ -154,6 +154,40 @@ describe("MobileTerminalGestures drags", () => {
   });
 });
 
+describe("MobileTerminalGestures sideways drags", () => {
+  const sideways = (el: HTMLElement, fromX: number, toX: number) => {
+    fireEvent.touchStart(el, at(100, fromX));
+    fireEvent.touchMove(el, at(100, (fromX + toX) / 2));
+    fireEvent.touchMove(el, at(100, toX));
+    fireEvent.touchEnd(el, at(100, toX));
+  };
+
+  test("pan a full-screen app with arrow keys, Right for a leftward drag", () => {
+    fakeApi({ alternate: true, mouse: false });
+    const { terminal } = mount();
+    sideways(terminal, 600, 600 - window.innerWidth / 4);
+    expect(sendSpecialKey).toHaveBeenCalledTimes(1);
+    expect(sendSpecialKey).toHaveBeenCalledWith("s1", "Right", expect.anything());
+  });
+
+  test("dragging back within one gesture sends Left to undo", () => {
+    fakeApi({ alternate: true, mouse: false });
+    const { terminal } = mount();
+    fireEvent.touchStart(terminal, at(100, 600));
+    fireEvent.touchMove(terminal, at(100, 600 - window.innerWidth / 4));
+    fireEvent.touchMove(terminal, at(100, 600));
+    fireEvent.touchEnd(terminal, at(100, 600));
+    expect(vi.mocked(sendSpecialKey).mock.calls.map((c) => c[1])).toEqual(["Right", "Left"]);
+  });
+
+  test("send no keys in the normal buffer", () => {
+    fakeApi({ alternate: false, mouse: false });
+    const { terminal } = mount();
+    sideways(terminal, 600, 600 - window.innerWidth / 4);
+    expect(sendSpecialKey).not.toHaveBeenCalled();
+  });
+});
+
 describe("MobileTerminalGestures double tap", () => {
   const doubleTap = (el: HTMLElement) => {
     for (let i = 0; i < 2; i++) { fireEvent.touchStart(el, at(100)); fireEvent.touchEnd(el, at(100)); }
