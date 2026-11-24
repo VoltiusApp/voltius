@@ -73,6 +73,7 @@ const SessionTab = memo(function SessionTab({
 }) {
   // Hidden under a vault page, or it refits to the vault layout and back.
   const visible = !showSplitWorkspace && selected && !covered;
+  const shown = selected && !covered && !sftpPanelOpen;
   const onClosed = useCallback(
     (remoteExit: boolean) => sessionClosed(session.type, session.id, remoteExit),
     [session.type, session.id],
@@ -82,7 +83,7 @@ const SessionTab = memo(function SessionTab({
       <SessionConnectionOverlay session={session} />
       {session.type === "multiplayer" ? (
         <div className="absolute inset-0 flex flex-col">
-          <MultiplayerTerminalView localSessionId={session.id} active={selected && !covered} visible={visible} />
+          <MultiplayerTerminalView localSessionId={session.id} active={shown} visible={visible} />
           <MultiplayerBar localSessionId={session.id} />
         </div>
       ) : session.type === "web" ? (
@@ -90,7 +91,7 @@ const SessionTab = memo(function SessionTab({
       ) : (
         <HostAwareTerminalView
           session={session}
-          active={selected && session.status === "connected" && !covered}
+          active={shown && session.status === "connected"}
           visible={visible}
           statusBarVisible={isStatusBarVisible({
             sessionId: session.id,

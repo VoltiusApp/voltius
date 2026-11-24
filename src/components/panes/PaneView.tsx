@@ -57,7 +57,7 @@ export function PaneView({ node, visible }: { node: PaneNode; visible: boolean }
     >
       <PaneHeader paneId={node.id} session={session} active={active} />
       <div className="relative flex-1 min-h-0 min-w-0 overflow-hidden">
-        <PaneTerminal session={session} active={active} visible={visible && !hiddenByMaximize} />
+        <PaneTerminal session={session} active={active && visible} visible={visible && !hiddenByMaximize} />
       </div>
       <DropZones target={{ type: "pane", paneId: node.id }} />
     </div>
