@@ -100,6 +100,19 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
       }
     };
 
+    // The alternate buffer has no scrollback: a drag there is a wheel, which the app gets as mouse
+    // wheel reports, or (no mouse mode) the wheel handler in useTerminal turns into arrow keys.
+    const scrollByTouch = (lines: number, cellH: number, x: number, y: number) => {
+      const api = getTerminalApi(sessionId);
+      if (!api?.alternateScreen()) { api?.scrollLines(lines); return; }
+      const target = api.screenEl();
+      for (let i = 0; i < Math.abs(lines); i++) {
+        target?.dispatchEvent(new WheelEvent("wheel", {
+          deltaY: Math.sign(lines) * cellH, deltaMode: 0, clientX: x, clientY: y, bubbles: true, cancelable: true,
+        }));
+      }
+    };
+
     const reset = () => {
       phase.current = "idle";
       pinch.current = null;
@@ -213,7 +226,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
         lastY.current = t.clientY;
         const acc = linesFromPixelDelta(dy, ch, carry.current);
         carry.current = acc.carry;
-        if (acc.lines !== 0) getTerminalApi(sessionId)?.scrollLines(-acc.lines);
+        if (acc.lines !== 0) scrollByTouch(-acc.lines, ch, t.clientX, t.clientY);
       }
     };
 
@@ -258,7 +271,8 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
         if (t) {
           const now: TapPoint = { t: e.timeStamp, x: t.clientX, y: t.clientY };
           const prev = lastTap.current;
-          if (prev && isDoubleTap(prev, now, DOUBLE_TAP)) {
+          // A mouse-reporting app gets both taps as a double click; elsewhere a double tap is Tab.
+          if (prev && isDoubleTap(prev, now, DOUBLE_TAP) && !getTerminalApi(sessionId)?.mouseMode()) {
             e.preventDefault();
             e.stopPropagation();
             lastTap.current = null; // a triple-tap is not two double-taps
