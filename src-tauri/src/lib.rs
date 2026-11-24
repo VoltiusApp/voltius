@@ -51,6 +51,7 @@ mod system_bars;
 mod terminal_kbd;
 mod terminal_output;
 mod tls;
+mod tmux_pin;
 mod updater;
 mod vault_auth;
 mod web_proxy;
