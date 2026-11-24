@@ -4,14 +4,16 @@ import type { FileEntry } from "./SFTPTypes";
 import { isPlainName } from "./remoteName";
 import { backendErrorCode, describeError, type BackendErrorCode } from "@/services/backendErrors";
 import i18n from "@/i18n";
+import { rememberSftpDir } from "@/services/sftpLastDir";
 
 const toEntry = (f: RemoteFile): FileEntry => ({
   name: f.name, path: f.path, size: f.size, isDir: f.is_dir, modified: f.modified ?? undefined,
   permissions: f.permissions ?? undefined, isSymlink: f.is_symlink,
 });
 
-/** Listing of `cwd`, re-read whenever `reloadKey` changes; results for a location the pane has left are dropped. */
-export function useDirListing(isLocal: boolean, sftpId: string | null, cwd: string, reloadKey: unknown) {
+/** Listing of `cwd`, re-read whenever `reloadKey` changes; results for a location the pane has left are dropped.
+ *  A remote listing that succeeds is remembered under `lastDirKey`. */
+export function useDirListing(isLocal: boolean, sftpId: string | null, cwd: string, reloadKey: unknown, lastDirKey?: string) {
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{ message: string; code: BackendErrorCode | null } | null>(null);
@@ -41,6 +43,7 @@ export function useDirListing(isLocal: boolean, sftpId: string | null, cwd: stri
       .then((e) => {
         if (!current()) return;
         land();
+        if (lastDirKey && !isLocal) rememberSftpDir(lastDirKey, cwd);
         shownFailed.current = false;
         setEntries(e);
         setError(null);
@@ -58,7 +61,7 @@ export function useDirListing(isLocal: boolean, sftpId: string | null, cwd: stri
         shownFailed.current = true;
         setError({ message, code: backendErrorCode(e) });
       });
-  }, [isLocal, sftpId, cwd, reloadKey]);
+  }, [isLocal, sftpId, cwd, reloadKey, lastDirKey]);
 
   useEffect(() => () => { wantedLocation.current = null; }, []);
 

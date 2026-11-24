@@ -353,10 +353,15 @@ export async function fsCopy(from: string, to: string, transferId: string): Prom
   return invoke("fs_copy", { from, to, transferId });
 }
 
+const sftpStat = (sftpId: string, path: string) => invoke<boolean | null>("sftp_stat", { sftpId, path });
+
 /** Returns true if path exists on the remote, false otherwise. */
 export async function sftpExists(sftpId: string, path: string): Promise<boolean> {
-  const result: boolean | null = await invoke("sftp_stat", { sftpId, path });
-  return result !== null;
+  return (await sftpStat(sftpId, path)) !== null;
+}
+
+export async function sftpIsDir(sftpId: string, path: string): Promise<boolean> {
+  return (await sftpStat(sftpId, path)) === true;
 }
 
 /** Returns true if path exists on the local filesystem. */

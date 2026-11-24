@@ -15,6 +15,7 @@ import { useToggle } from "@/stores/toggleSettingsStore";
 import { isVaultErrorCode } from "@/services/vaultErrors";
 import { routeLabel } from "@/services/myDevices";
 import { hostPresentation } from "./hostPresentation";
+import { hostDirTarget, sftpDirKey } from "@/services/sftpLastDir";
 import { useReadOnlyTip } from "@/services/deviceReadOnly";
 import { ReadOnlyBadge } from "@/components/shared/ReadOnlyBadge";
 
@@ -115,7 +116,7 @@ export function SidePane({
   if (phase.tag === "connected" && prevPhaseTagRef.current !== "connected") {
     historyRef.current = [phase.cwd];
     histIdxRef.current = 0;
-    homeCwdRef.current = phase.cwd;
+    homeCwdRef.current = phase.home ?? phase.cwd;
     setHistState({ canBack: false, canForward: false });
   }
   prevPhaseTagRef.current = phase.tag;
@@ -299,6 +300,7 @@ export function SidePane({
             sftpId={phase.sftpId}
             isLocal={host.kind === "local"}
             isDevice={host.kind === "device"}
+            lastDirKey={host.kind === "local" ? undefined : sftpDirKey(hostDirTarget(host))}
             cwd={phase.cwd}
             homeCwd={homeCwdRef.current || undefined}
             hostLabel={hostLabel ?? t("fileTransfer.common.remoteFallback")}

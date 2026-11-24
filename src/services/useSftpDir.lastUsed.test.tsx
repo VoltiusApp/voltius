@@ -11,6 +11,7 @@ vi.mock("@/services/sftpTarget", () => ({ connectFileBackend: vi.fn(async () => 
 vi.mock("@/services/sftp", () => ({
   sftpClose: vi.fn(async () => {}),
   sftpCanonicalize: vi.fn(async () => "/home/u"),
+  sftpIsDir: vi.fn(async () => true),
   sftpListDir: vi.fn(async () => []),
   sftpMkdir: vi.fn(), sftpRename: vi.fn(), sftpDelete: vi.fn(), sftpTouch: vi.fn(),
 }));
@@ -93,4 +94,18 @@ test("revoking the host closes the browser's connection for good", async () => {
 
   expect(sftpClose).toHaveBeenCalledWith("sftp-1");
   expect(result.current.phase).toMatchObject({ tag: "error", final: true });
+});
+
+test("the browser reopens the folder it last listed on that host", async () => {
+  localStorage.clear();
+  const conn = { id: "c-last", host: "box", port: 22, username: "u" } as Connection;
+  const first = renderHook(() => useSftpDir(conn));
+  await waitFor(() => expect(first.result.current.landedCwd).toBe("/home/u"));
+  act(() => first.result.current.navigate("/var/log"));
+  await waitFor(() => expect(first.result.current.landedCwd).toBe("/var/log"));
+  first.unmount();
+
+  const second = renderHook(() => useSftpDir(conn));
+  await waitFor(() => expect(second.result.current.phase.tag).toBe("connected"));
+  expect(second.result.current.cwd).toBe("/var/log");
 });

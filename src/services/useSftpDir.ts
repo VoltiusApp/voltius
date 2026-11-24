@@ -2,10 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import i18n from "@/i18n";
 import {
-  sftpClose, sftpCanonicalize,
+  sftpClose,
   sftpMkdir, sftpRename, sftpDelete, sftpTouch,
 } from "@/services/sftp";
 import { connectFileBackend } from "@/services/sftpTarget";
+import { openingSftpDir, sftpDirKey } from "@/services/sftpLastDir";
 import { connectDevice } from "@/services/deviceFiles";
 import { useReadOnlyFlips } from "@/services/deviceReadOnly";
 import type { MyDevice } from "@/services/myDevices";
@@ -42,7 +43,7 @@ export function breadcrumbs(path: string): { name: string; path: string }[] {
 
 export type SftpDirTarget = Connection | { device: MyDevice };
 
-const targetKey = (t: SftpDirTarget | undefined) => (!t ? undefined : "device" in t ? t.device.deviceId : t.id);
+const targetKey = (t: SftpDirTarget | undefined) => (t ? sftpDirKey(t) : undefined);
 
 export async function connectTarget(
   target: SftpDirTarget, connectId: string, opts: { interactive?: boolean; relink?: string } = {},
@@ -79,9 +80,9 @@ export function useSftpDir(target: SftpDirTarget | undefined) {
         const { sftpId, readOnly } = await connectTarget(target, genId());
         if (cancelled) { sftpClose(sftpId).catch(() => {}); return; }
         sftpIdRef.current = sftpId;
-        const home = await sftpCanonicalize(sftpId, ".");
+        const { cwd: opening } = await openingSftpDir(sftpId, sftpDirKey(target));
         if (cancelled) { sftpClose(sftpId).catch(() => {}); return; }
-        setCwd(home || "/");
+        setCwd(opening);
         setPhase({ tag: "connected", sftpId, readOnly });
       } catch (e) {
         if (!cancelled) setPhase(connectErrorPhase(e));
@@ -120,7 +121,7 @@ export function useSftpDir(target: SftpDirTarget | undefined) {
     setPhase((p) => (p.tag === "connected" && p.sftpId === sftpId ? { ...p, readOnly } : p));
   }, [sftpId]);
   useReadOnlyFlips(sftpId, applyReadOnly);
-  const { entries, loading: listing, landedCwd, error: listError, errorCode: listErrorCode } = useDirListing(false, sftpId, cwd, refreshTick);
+  const { entries, loading: listing, landedCwd, error: listError, errorCode: listErrorCode } = useDirListing(false, sftpId, cwd, refreshTick, key);
   const navigate = useCallback((p: string) => { setCwd(p); }, []);
   const goUp = useCallback(() => setCwd((c) => parentDir(c)), []);
   const mkdir = useCallback(async (name: string) => {
