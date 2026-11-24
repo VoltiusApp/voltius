@@ -18,7 +18,8 @@
       "newFolderTitle": "Nová složka"
     },
     "terminalGestures": {
-      "paste": "Vložit"
+      "paste": "Vložit",
+      "jumpToBottom": "Přejít dolů"
     },
     "terminalTopBar": {
       "exitAriaLabel": "Opustit terminál",

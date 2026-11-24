@@ -18,7 +18,8 @@
       "newFolderTitle": "Nouveau dossier"
     },
     "terminalGestures": {
-      "paste": "Coller"
+      "paste": "Coller",
+      "jumpToBottom": "Aller en bas"
     },
     "terminalTopBar": {
       "exitAriaLabel": "Quitter le terminal",

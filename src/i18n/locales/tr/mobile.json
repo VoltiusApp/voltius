@@ -18,7 +18,8 @@
       "newFolderTitle": "Yeni klasör"
     },
     "terminalGestures": {
-      "paste": "Yapıştır"
+      "paste": "Yapıştır",
+      "jumpToBottom": "En alta git"
     },
     "terminalTopBar": {
       "exitAriaLabel": "Terminalden çık",

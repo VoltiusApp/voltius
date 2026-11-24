@@ -31,3 +31,14 @@ export function fontSizeFromPinch(
   if (startDist <= 0) return startSize;
   return clamp(Math.round(startSize * (dist / startDist)), min, max);
 }
+
+/** px/ms a released scroll must reach to fling, and the speed where a fling stops. */
+export const FLING_MIN_V = 0.3;
+export const FLING_STOP_V = 0.02;
+const FLING_TAU_MS = 325;
+
+/** One animation frame of a fling: the pixels to move and the decayed velocity (exponential, like iOS). */
+export function flingStep(v: number, dtMs: number): { dy: number; v: number } {
+  const next = v * Math.exp(-dtMs / FLING_TAU_MS);
+  return { dy: (v - next) * FLING_TAU_MS, v: Math.abs(next) < FLING_STOP_V ? 0 : next };
+}
