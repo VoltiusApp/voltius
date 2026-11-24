@@ -138,7 +138,7 @@ describe("tmuxOnConnect", () => {
   test("remembers the Voltius copy the host reports", async () => {
     h.status = st({ system: "3.0a", active: "3.5a", copies: [{ version: "3.4", sessions: 2 }, { version: "3.5a", sessions: 1 }] });
     await connectWith(CC);
-    expect(mux().hosts.c1?.voltius).toEqual({ active: "3.5a", versions: ["3.4", "3.5a"], inUse: { "3.4": 2, "3.5a": 1 } });
+    expect(mux().hosts.c1?.voltius).toEqual({ active: "3.5a", versions: ["3.4", "3.5a"], inUse: { "3.4": 2, "3.5a": 1 }, outdated: false });
   });
 
   test("an outdated Voltius copy is updated quietly when the setting is on", async () => {

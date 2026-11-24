@@ -8,7 +8,7 @@ export type MuxKind = "tmux-cc" | "tmux-old" | "screen" | "none" | "unsupported"
 export interface HostMux {
   kind: MuxKind;
   version?: string;
-  voltius?: { active: string; versions: string[]; inUse: Record<string, number> };
+  voltius?: { active: string; versions: string[]; inUse: Record<string, number>; outdated: boolean };
   checkedAt: number;
   notified?: MuxKind;
 }

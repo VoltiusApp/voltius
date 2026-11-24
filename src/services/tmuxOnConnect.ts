@@ -26,6 +26,8 @@ export function applyTmuxStatus(connectionId: string, status: TmuxHostStatus): v
         active: status.active,
         versions: status.copies.map((c) => c.version),
         inUse: Object.fromEntries(status.copies.map((c) => [c.version, c.sessions])),
+        outdated: status.outdated,
+        outdated: status.outdated,
       }
     : undefined;
   useHostMuxStore.getState().setVoltius(connectionId, voltius);
@@ -96,7 +98,7 @@ function hostToast(connectionId: string, hostName: string, severity: ToastEntry[
   useNotificationStore.getState().addToast({ source: APP_SOURCE, host: { connectionId, name: hostName }, type: "toast", severity, duration, message });
 }
 
-function liveSession(connectionId: string, preferred: string): string | undefined {
+export function liveSession(connectionId: string, preferred?: string): string | undefined {
   const live = useSessionStore
     .getState()
     .sessions.filter((s) => s.connectionId === connectionId && s.status === "connected" && isPlainSsh(s));

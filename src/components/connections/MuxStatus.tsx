@@ -1,0 +1,116 @@
+import { useState } from "react";
+import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
+import { ConfirmModal } from "@/components/shared/ConfirmModal";
+import { applyTmuxStatus, liveSession, startTmuxInstall } from "@/services/tmuxOnConnect";
+import { tmuxRemove, useTmuxPinVersion } from "@/services/tmuxInstall";
+import { useConnectionStore } from "@/stores/connectionStore";
+import { useHostMuxStore } from "@/stores/hostMuxStore";
+import { useSessionStore } from "@/stores/sessionStore";
+import { notifyError } from "@/utils/notifyError";
+
+const SMALL_BTN =
+  "shrink-0 text-[11px] px-2 py-1 rounded-md font-medium bg-(--t-bg-input) text-(--t-text-primary) transition-opacity hover:opacity-75 disabled:opacity-50 disabled:cursor-not-allowed";
+const WARN = "var(--t-status-warning)";
+const OK = "var(--t-status-connected)";
+
+interface Props {
+  connectionId: string | undefined;
+  persistOn: boolean;
+}
+
+export default function MuxStatus({ connectionId, persistOn }: Props) {
+  const { t } = useTranslation();
+  const host = useHostMuxStore((s) => (connectionId ? s.hosts[connectionId] : undefined));
+  const installing = useHostMuxStore((s) => (connectionId ? s.installing[connectionId] : undefined));
+  const failure = useHostMuxStore((s) => (connectionId ? s.lastFailure[connectionId] : undefined));
+  const live = useSessionStore(() => (connectionId ? liveSession(connectionId) : undefined));
+  const hostName = useConnectionStore((s) => {
+    const all = [...s.connections, ...Object.values(s.teamConnections).flat()];
+    return all.find((c) => c.id === connectionId)?.name ?? "";
+  });
+  const pin = useTmuxPinVersion();
+  const [confirmRemove, setConfirmRemove] = useState(false);
+
+  if (!persistOn || !connectionId) return null;
+
+  const connectFirst = t("connections.form.mux.connectFirst");
+  const gate = live ? undefined : connectFirst;
+
+  const line = (icon: string, color: string, text: string, actions?: React.ReactNode, spin = false) => (
+    <div className="flex items-start gap-1.5 pl-[19px] pb-1 text-[11px] leading-snug text-(--t-text-dim)">
+      <Icon icon={icon} width={12} className={`mt-px shrink-0 ${spin ? "animate-spin" : ""}`} style={{ color }} />
+      <span className="flex-1 min-w-0">{text}</span>
+      {actions}
+    </div>
+  );
+  const install = (label: string, disabled = !live, title = gate) => (
+    <button type="button" className={SMALL_BTN} disabled={disabled} title={title} onClick={() => live && startTmuxInstall(live, connectionId, hostName)}>
+      {label}
+    </button>
+  );
+  const installPlain = install(t("connections.form.mux.install"));
+  const installPinned = install(pin ? t("connections.form.mux.installPin", { version: pin }) : t("connections.form.mux.install"));
+
+  const remove = async () => {
+    setConfirmRemove(false);
+    if (!live) return;
+    try {
+      applyTmuxStatus(connectionId, await tmuxRemove(live));
+    } catch (e) {
+      notifyError(e);
+    }
+  };
+
+  let body: React.ReactNode;
+  if (installing) {
+    const step = t(`notifications.tmux.step.${installing.step}`);
+    body = (
+      <div className="pl-[19px] pb-1 space-y-1">
+        {line("lucide:loader-circle", "var(--t-accent)", t("connections.form.mux.installing", { version: pin ?? "", step }), undefined, true)}
+        <div className="ml-[18px] h-[3px] rounded-full bg-(--t-bg-input) overflow-hidden" role="progressbar" aria-valuenow={Math.round(installing.progress)}>
+          <div className="h-full bg-(--t-accent)" style={{ width: `${Math.max(0, Math.min(100, installing.progress))}%` }} />
+        </div>
+      </div>
+    );
+  } else if (!host) {
+    body = line("lucide:circle-dashed", "var(--t-text-muted)", t("connections.form.mux.unknown"), install(t("connections.form.mux.install"), true, connectFirst));
+  } else if (host.kind === "unsupported") {
+    const reason = t("connections.form.mux.unsupported");
+    body = line("lucide:triangle-alert", WARN, reason, install(t("connections.form.mux.install"), true, reason));
+  } else if (host.voltius) {
+    body = line(
+      "lucide:circle-check",
+      OK,
+      t("connections.form.mux.voltius", { version: host.voltius.active }),
+      <>
+        {host.voltius.outdated && installPinned}
+        <button type="button" className={SMALL_BTN} style={{ color: "var(--t-text-muted)" }} disabled={!live} title={gate} onClick={() => setConfirmRemove(true)}>
+          {t("connections.form.mux.remove")}
+        </button>
+      </>,
+    );
+  } else if (host.kind === "tmux-cc") {
+    body = line("lucide:circle-check", OK, t("connections.form.mux.system", { version: host.version ?? "" }));
+  } else if (host.kind === "tmux-old") {
+    body = line("lucide:triangle-alert", WARN, t("connections.form.mux.old", { version: host.version ?? "" }), installPinned);
+  } else {
+    body = line("lucide:triangle-alert", WARN, t(`connections.form.mux.${host.kind}`), installPlain);
+  }
+
+  return (
+    <>
+      {body}
+      {failure && !installing && line("lucide:triangle-alert", "var(--t-status-error)", t(`notifications.tmux.failed.${failure}`, { host: hostName }))}
+      {confirmRemove && (
+        <ConfirmModal
+          title={t("connections.form.mux.removeTitle")}
+          message={t("connections.form.mux.removeMessage")}
+          confirmLabel={t("connections.form.mux.remove")}
+          onConfirm={remove}
+          onCancel={() => setConfirmRemove(false)}
+        />
+      )}
+    </>
+  );
+}

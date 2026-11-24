@@ -65,6 +65,7 @@ import {
   formIdentifierProps,
 } from "@/components/shared/Panel";
 import { YouConnectAsRow } from "./YouConnectAsRow";
+import MuxStatus from "./MuxStatus";
 import { FieldError, useReportBlocked, useRequiredField, type MobileEditFormProps } from "@/components/shared/fieldValidation";
 import { SecretInput, TagsAndFolderFields, vaultPickHandler } from "@/components/shared/vaultObjectForm";
 import { normalizeNotes } from "@/components/notes/notesText";
@@ -669,14 +670,17 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                   onChange={(v) => { markDirty(); setKeepalivePreset(v as KeepalivePreset | ""); }}
                 />
                 {proxyFields}
-                <OverrideRow
-                  icon="lucide:layers"
-                  label={t("connections.form.persistentSession")}
-                  locked={persistLock.locked}
-                  value={persistSession}
-                  options={persistOptions}
-                  onChange={(v) => { markDirty(); setPersistSession(v as "" | "on" | "off"); }}
-                />
+                <div>
+                  <OverrideRow
+                    icon="lucide:layers"
+                    label={t("connections.form.persistentSession")}
+                    locked={persistLock.locked}
+                    value={persistSession}
+                    options={persistOptions}
+                    onChange={(v) => { markDirty(); setPersistSession(v as "" | "on" | "off"); }}
+                  />
+                  <MuxStatus connectionId={initial?.id} persistOn={persistSession === "" ? globalPersist : persistSession === "on"} />
+                </div>
 
             </AdvancedDisclosure>
             </>)}

@@ -35,7 +35,7 @@ test("record clears notified when the kind changes", () => {
 
 test("record preserves voltius info", () => {
   get().record("c1", { kind: "none" });
-  get().setVoltius("c1", { active: "3.8", versions: ["3.8"], inUse: {} });
+  get().setVoltius("c1", { active: "3.8", versions: ["3.8"], inUse: {}, outdated: false });
   get().record("c1", { kind: "tmux-cc", version: "3.8" });
   expect(get().hosts.c1.voltius?.active).toBe("3.8");
 });
