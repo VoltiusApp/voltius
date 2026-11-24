@@ -372,7 +372,7 @@ c() { W=$("$1" -V 2>/dev/null) && case $W in "#,
 F() {
   for T in tmux "$HOME"/.voltius/bin/tmux-*; do
     S=voltius${T##*tmux}
-    t has-session -t "$1" 2>/dev/null && return
+    { [ "$T" = tmux ] || [ -x "$T" ]; } && t has-session -t "$1" 2>/dev/null && return
   done
   T=
   return 1
@@ -385,10 +385,10 @@ F() {
 const TMUX_FIND: &str = tmux_find!();
 
 /// `P` picks the tmux for a new session (empty `$T` when there is none): system tmux 3.2+,
-/// else the Voltius copy 3.2+, else any system tmux.
+/// else the Voltius copy 3.2+ through its `tmux-<ver>` file (named as `F` names it), else any.
 const TMUX_PICK: &str = r#"P() {
   T=tmux S=voltius U=$HOME/.voltius/bin/tmux
-  c tmux || { [ -x "$U" ] && c "$U" && T=$U S=voltius-${W#tmux }; } || command -v tmux >/dev/null 2>&1 || T=
+  c tmux || { c "$U" && U=$U-${W#tmux } && [ -x "$U" ] && T=$U S=voltius${U##*tmux}; } || command -v tmux >/dev/null 2>&1 || T=
 }
 "#;
 
@@ -603,7 +603,8 @@ exit 97
 
 /// One-shot existence probe mirroring the wrapper's tmux-first order. Prints
 /// VOLTIUS_PRESENT when the session is alive, VOLTIUS_NOMUX when the host has
-/// neither multiplexer; `screen -wipe` first so a dead entry doesn't read as present.
+/// neither multiplexer (a Voltius-installed tmux counts as one); `screen -wipe` first so a
+/// dead entry doesn't read as present.
 pub fn persistent_probe_command(session_key: &str) -> String {
     let script = format!(
         r#"{TMUX_FIND}{TMUX_PICK}if F {session_key}; then
@@ -1175,12 +1176,15 @@ mod tests {
             "3.1" => Some("tmux-3.1"),
             _ => Some("tmux-3.8"),
         };
-        if let Some(target) = target.filter(|_| copy != "dangling") {
-            let version = match copy {
-                "fails" => "false".to_string(),
-                _ => format!("echo 'tmux {}'", &target[5..]),
-            };
-            fake_bin_path(&copies, &[(target, &fake(&version))]);
+        let reports = match copy {
+            "" | "dangling" => None,
+            "fails" => Some("false"),
+            "3.1" => Some("echo 'tmux 3.1'"),
+            "mismatch" => Some("echo 'tmux 3.9'"),
+            _ => Some("echo 'tmux 3.8'"),
+        };
+        if let (Some(target), Some(reports)) = (target, reports) {
+            fake_bin_path(&copies, &[(target, &fake(reports))]);
             if copy == "noexec" {
                 let mode = std::fs::Permissions::from_mode(0o644);
                 std::fs::set_permissions(copies.join(target), mode).unwrap();
@@ -1204,36 +1208,38 @@ mod tests {
     }
 
     #[cfg(unix)]
-    const COPY: &str = "/.voltius/bin/tmux|voltius-3.8";
-    #[cfg(unix)]
     const VERSIONED: &str = "/.voltius/bin/tmux-3.8|voltius-3.8";
 
     #[test]
     fn exec_prefers_voltius_copy_when_system_tmux_too_old() {
         let script = exec_script();
-        let copy = script.find(r#"U=$HOME/.voltius/bin/tmux"#).unwrap();
+        let copy = script.find("U=$HOME/.voltius/bin/tmux").unwrap();
         assert!(copy < script.find("elif command -v screen").unwrap());
-        assert!(TMUX_PICK
-            .contains(r#"c tmux || { [ -x "$U" ] && c "$U" && T=$U S=voltius-${W#tmux }; }"#));
+        assert!(TMUX_PICK.contains(
+            r#"c tmux || { c "$U" && U=$U-${W#tmux } && [ -x "$U" ] && T=$U S=voltius${U##*tmux}; }"#
+        ));
         #[cfg(unix)]
         {
             assert_eq!(picked("tmux 3.4", "3.8", ""), "tmux|voltius");
-            assert_eq!(picked("tmux 3.0a", "3.8", ""), COPY);
-            assert_eq!(picked("", "3.8", ""), COPY);
+            assert_eq!(picked("tmux 3.0a", "3.8", ""), VERSIONED);
+            assert_eq!(picked("", "3.8", ""), VERSIONED);
             assert_eq!(picked("", "", ""), "|");
         }
     }
 
     #[test]
     fn dangling_voltius_tmux_is_skipped() {
-        assert!(TMUX_PICK.contains(r#"[ -x "$U" ] && c "$U" &&"#));
+        assert!(TMUX_PICK.contains(r#"[ -x "$U" ] && T=$U"#));
         assert!(TMUX_FIND.contains(r#"c() { W=$("$1" -V 2>/dev/null) && case $W in "#));
+        assert!(TMUX_FIND.contains(r#"{ [ "$T" = tmux ] || [ -x "$T" ]; } && t has-session"#));
         #[cfg(unix)]
         {
-            for copy in ["dangling", "noexec", "fails", "3.1"] {
+            for copy in ["dangling", "noexec", "fails", "3.1", "mismatch"] {
                 assert_eq!(picked("tmux 3.0a", copy, ""), "tmux|voltius", "{copy}");
             }
             assert_eq!(picked("", "dangling", ""), "|");
+            assert_eq!(picked("", "mismatch", ""), "|");
+            assert_eq!(picked("", "noexec", "voltius-3.8"), "|");
         }
     }
 

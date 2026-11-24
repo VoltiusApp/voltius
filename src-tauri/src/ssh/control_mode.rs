@@ -1474,41 +1474,34 @@ mod docker_harness {
         )
     }
 
-    fn started(actions: &[Action]) -> Vec<String> {
+    /// What the wrapper reported: `control <tmux version>` or `raw <fallback kind>`, in order.
+    fn mux(actions: &[Action]) -> Vec<String> {
         actions
             .iter()
             .filter_map(|a| match a {
-                Action::Started { tmux } => Some(tmux.clone()),
-                _ => None,
-            })
-            .collect()
-    }
-
-    fn fallbacks(actions: &[Action]) -> Vec<String> {
-        actions
-            .iter()
-            .filter_map(|a| match a {
-                Action::Fallback(kind) => Some(kind.clone()),
+                Action::Started { tmux } => Some(format!("control {tmux}")),
+                Action::Fallback(kind) => Some(format!("raw {kind}")),
                 _ => None,
             })
             .collect()
     }
 
     fn emitted(actions: &[Action]) -> String {
-        let bytes: Vec<u8> = actions
-            .iter()
-            .filter_map(|a| match a {
-                Action::Emit(b) => Some(b.as_slice()),
-                _ => None,
-            })
-            .flatten()
-            .copied()
-            .collect();
+        let mut bytes = Vec::new();
+        for action in actions {
+            if let Action::Emit(b) = action {
+                bytes.extend_from_slice(b);
+            }
+        }
         String::from_utf8_lossy(&bytes).into_owned()
     }
 
     fn host_sh(host: &Host, script: &str) -> std::process::Output {
         docker(&["exec", &host.0, "sh", "-c", script])
+    }
+
+    fn voltius_tmux(version: &str) -> String {
+        format!(r#""$HOME/.voltius/bin/tmux-{version}""#)
     }
 
     /// Installs the pinned static tmux the way the app will: verified against the pin, then
@@ -1576,15 +1569,16 @@ ln -sfn "tmux-$VER" "$d/tmux"
             &persistent_exec_command(&key, "exec sh"),
             settle,
         );
-        assert_eq!(started(&created), [version.clone()], "{created:?}");
-        assert!(fallbacks(&created).is_empty(), "{created:?}");
-        let copy = format!(r#""$HOME/.voltius/bin/tmux-{version}""#);
-        let ls = host_sh(&host, &format!("{copy} -L voltius-{version} ls"));
+        let control = [format!("control {version}")];
+        assert_eq!(mux(&created), control, "{created:?}");
+        let ls = host_sh(
+            &host,
+            &format!("{} -L voltius-{version} ls", voltius_tmux(&version)),
+        );
         assert!(String::from_utf8_lossy(&ls.stdout).contains(&key));
 
         let attached = connect(&host, &key, &persistent_attach_command(&key), settle);
-        assert_eq!(started(&attached), [version], "{attached:?}");
-        assert!(fallbacks(&attached).is_empty(), "{attached:?}");
+        assert_eq!(mux(&attached), control, "{attached:?}");
     }
 
     #[test]
@@ -1600,9 +1594,9 @@ ln -sfn "tmux-$VER" "$d/tmux"
         let inner = "echo old-session-output; exec sh";
 
         let created = connect(&host, &key, &persistent_exec_command(&key, inner), settle);
-        let old = fallbacks(&created);
+        let old = mux(&created);
         assert!(
-            old.len() == 1 && old[0].starts_with("tmux 3.1"),
+            old.len() == 1 && old[0].starts_with("raw tmux 3.1"),
             "{created:?}"
         );
         wait_for("old session up", Duration::from_secs(10), || {
@@ -1611,14 +1605,12 @@ ln -sfn "tmux-$VER" "$d/tmux"
 
         let version = install_voltius_tmux(&host);
         let attached = connect(&host, &key, &persistent_attach_command(&key), settle);
-        assert_eq!(fallbacks(&attached), old, "{attached:?}");
-        assert!(started(&attached).is_empty());
+        assert_eq!(mux(&attached), old, "{attached:?}");
         assert!(emitted(&attached).contains("old-session-output"));
         assert!(has_session(&host, "tmux", "voltius", &key));
-        let copy = format!(r#""$HOME/.voltius/bin/tmux-{version}""#);
         assert!(!has_session(
             &host,
-            &copy,
+            &voltius_tmux(&version),
             &format!("voltius-{version}"),
             &key
         ));
