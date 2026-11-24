@@ -6,11 +6,12 @@ import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { tabIcon } from "./tabIcon";
 import { startTabDragGesture, useTabDragSemantic } from "./tabDrag";
 import { fadeMask, useTabStripScroll } from "@/hooks/useTabStripScroll";
+import { baseName } from "@/components/filetransfer/moveTargetCore";
 
 function tabLabel(t: EditorTab): string {
   return t.kind === "file"
-    ? (t.path.split("/").pop() ?? t.path)
-    : `${t.left.path.split("/").pop() ?? t.left.path} ↔ ${t.right.path.split("/").pop() ?? t.right.path}`;
+    ? baseName(t.path)
+    : `${baseName(t.left.path)} ↔ ${baseName(t.right.path)}`;
 }
 
 export function EditorTabStrip() {

@@ -38,6 +38,7 @@ import MobileSelectionBar from "../MobileSelectionBar";
 import { allSelected, pruneSelection, toggleAll, toggleItem } from "./sftpSelectionCore";
 import { canShareFiles as canShareStagedFiles, shareFiles, shareStageId, shareTotalBytes, shareableFiles, SHARE_CONFIRM_BYTES } from "@/services/share";
 import { SFTP_ICON } from "@/lib/conceptIcons";
+import { openEditorFile } from "@/components/filetransfer/editor/openEditorFile";
 
 // Coded errors arrive translated, so only an uncoded one is matched by its English text.
 function isPermissionDenied(msg: string, code: BackendErrorCode | null): boolean {
@@ -76,6 +77,7 @@ export default function MobileSftpPane({
   const { t } = useTranslation();
   const { phase, retrying, readOnly, sftpId, cwd, entries, listing, landedCwd, listError, listErrorCode, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove } = controller;
   const readOnlyTip = useReadOnlyTip(readOnly, device?.name);
+  const hostName = device ? device.name : connection ? connectionDisplayName(connection) : "";
   const chmodable = !!sftpId && !device;
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
   const isPhone = useIsMobile();
@@ -246,7 +248,7 @@ export default function MobileSftpPane({
           ) : (
             <ConnectionAvatar connection={connection!} size={22} />
           )}
-          <span className="text-sm font-medium text-(--t-text-primary) truncate">{device ? device.name : connectionDisplayName(connection!)}</span>
+          <span className="text-sm font-medium text-(--t-text-primary) truncate">{hostName}</span>
           <Icon icon="lucide:chevron-down" width={14} className="text-(--t-text-dim) shrink-0" />
         </button>
         {readOnlyTip && <ReadOnlyBadge tip={readOnlyTip} className="ml-1" />}
@@ -324,6 +326,10 @@ export default function MobileSftpPane({
       {sheetFor && (
         <BottomSheet title={sheetFor.name} onClose={() => setSheetFor(null)}>
           {otherConnected && <SheetItem icon="lucide:arrow-right-left" label={t("mobile.sftp.copyToOtherPane")} onTap={() => { const f = sheetFor; setSheetFor(null); onCopyToOther([f]); }} />}
+          {!sheetFor.isDir && sftpId && (
+            <SheetItem attr="edit" icon="lucide:file-pen-line" label={t("common.action.edit")}
+              onTap={() => { const f = sheetFor; setSheetFor(null); openEditorFile({ sftpId, path: f.path, hostLabel: hostName, readOnly: !!readOnlyTip }); }} />
+          )}
           <SheetItem icon="lucide:download" label={t("mobile.sftp.download")} onTap={() => { const f = sheetFor; setSheetFor(null); void download(f); }} />
           {canShareFiles && !sheetFor.isDir && (
             <SheetItem attr="share" icon="lucide:share-2" label={t("mobile.share.action")} onTap={() => { const f = sheetFor; setSheetFor(null); void share([f]); }} />
@@ -482,7 +488,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SheetItem({ icon, label, onTap, danger, attr, disabledReason }: { icon: string; label: string; onTap: () => void; danger?: boolean; attr?: string; disabledReason?: string }) {
+export function SheetItem({ icon, label, onTap, danger, attr, disabledReason }: { icon: string; label: string; onTap: () => void; danger?: boolean; attr?: string; disabledReason?: string }) {
   return (
     <button data-sftp-action={attr ?? label.toLowerCase().replace(/\s+/g, "-")} disabled={!!disabledReason} title={disabledReason}
       className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl text-left active:bg-(--t-bg-card) disabled:opacity-35"

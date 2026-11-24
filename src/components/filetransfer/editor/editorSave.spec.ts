@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createDebouncedSaver } from "./EditorTab";
+import { createDebouncedSaver } from "./useEditorDoc";
 
 describe("createDebouncedSaver", () => {
   beforeEach(() => vi.useFakeTimers());

@@ -10,6 +10,8 @@ import { isSshConnection } from "@/services/credentialScope";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useEditorStore, type EditorDoc } from "@/stores/editorStore";
+import MobileEditorScreen from "./MobileEditorScreen";
 import { formatTransferProgress, type FileEntry } from "@/components/filetransfer/SFTPTypes";
 import MobilePanelHeader from "./MobilePanelHeader";
 import MobileSftpPane, { type PaneDrop } from "./MobileSftpPane";
@@ -35,6 +37,7 @@ export default function MobileSftpScreen({ presetConnectionId, asTab, visible = 
   const canRetry = useTransferQueueStore((s) => s.canRetry);
   const retryTransfer = useTransferQueueStore((s) => s.retryTransfer);
   const twoPanes = useUIStore((s) => s.mobileSftpTwoPanes);
+  const editing = useEditorStore((s) => s.tabs.find((x): x is EditorDoc => x.kind === "file" && x.id === s.activeTabId));
   const toggleTwoPanes = useUIStore((s) => s.toggleMobileSftpTwoPanes);
   const [dismissed, setDismissed] = useState<string[]>([]);
   const active = transfers.filter(
@@ -177,6 +180,8 @@ export default function MobileSftpScreen({ presetConnectionId, asTab, visible = 
           })}
         </div>
       )}
+
+      {editing && <MobileEditorScreen key={editing.id} doc={editing} active={visible} />}
 
       {picking && (
         <SftpHostPickerSheet

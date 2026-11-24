@@ -10,6 +10,7 @@ import { downloadToPickedFolder } from "@/components/filetransfer/osDropPipeline
 import { notify } from "@/services/saveFile";
 import { writeClipboardImage } from "@/utils/clipboard";
 import { anchoredScroll, effectiveScale, stepZoom, type Size, type Zoom } from "./imageZoom";
+import { baseName } from "@/components/filetransfer/moveTargetCore";
 
 const LABELS: Record<string, string> = {
   "image/png": "PNG",
@@ -169,7 +170,7 @@ export function ImageView({ doc, onNotImage }: { doc: EditorDoc; onNotImage: () 
   const size = load.kind === "ready" ? load.size : tooLarge?.size ?? 0;
 
   const download = doc.sftpId === null ? null : () => {
-    const name = doc.path.split("/").pop() ?? doc.path;
+    const name = baseName(doc.path);
     void downloadToPickedFolder([{ name, path: doc.path, size, isDir: false }], doc.sftpId!);
   };
 

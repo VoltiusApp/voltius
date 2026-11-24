@@ -31,6 +31,10 @@ export function parentDir(path: string): string {
   return withDriveRootSep(trimmed.slice(0, idx), sep);
 }
 
+export function baseName(path: string): string {
+  return path.slice(path.lastIndexOf("/") + 1);
+}
+
 export function joinPath(dir: string, name: string): string {
   const sep = pathSep(dir);
   const base = dir === "/" ? "" : dir.replace(/[/\\]+$/, "");

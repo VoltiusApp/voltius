@@ -67,18 +67,34 @@ export function useSftpDir(target: SftpDirTarget | undefined) {
   const [refreshTick, setRefreshTick] = useState(0);
   const [retryTick, setRetryTick] = useState(0);
   const sftpIdRef = useRef<string | null>(null);
+  const lostRef = useRef<{ key: string | undefined; sftpId: string } | null>(null);
   const refresh = useCallback(() => setRefreshTick((n) => n + 1), []);
-  const releaseSftp = () => { if (sftpIdRef.current) { sftpClose(sftpIdRef.current).catch(() => {}); sftpIdRef.current = null; } };
+  const releaseSftp = (keep?: string) => {
+    const id = sftpIdRef.current;
+    sftpIdRef.current = null;
+    if (id && id !== keep) sftpClose(id).catch(() => {});
+  };
+  const dropLost = () => {
+    if (lostRef.current) sftpClose(lostRef.current.sftpId).catch(() => {});
+    lostRef.current = null;
+  };
+  useEffect(() => dropLost, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Connect once per connection.
   useEffect(() => {
     if (!target) return;
     let cancelled = false;
+    // Reconnecting into the lost session keeps its id, which open editor docs still point at.
+    const lost = lostRef.current;
+    const relink = lost && lost.key === key ? lost.sftpId : undefined;
+    if (!relink) dropLost();
     setPhase({ tag: "connecting" });
     (async () => {
       try {
-        const { sftpId, readOnly } = await connectTarget(target, genId());
-        if (cancelled) { sftpClose(sftpId).catch(() => {}); return; }
+        const { sftpId, readOnly } = await connectTarget(target, genId(), { relink });
+        if (cancelled) { if (sftpId !== relink) sftpClose(sftpId).catch(() => {}); return; }
+        if (relink && sftpId !== relink) sftpClose(relink).catch(() => {});
+        lostRef.current = null;
         sftpIdRef.current = sftpId;
         const { cwd: opening } = await openingSftpDir(sftpId, sftpDirKey(target));
         if (cancelled) { sftpClose(sftpId).catch(() => {}); return; }
@@ -90,7 +106,7 @@ export function useSftpDir(target: SftpDirTarget | undefined) {
     })();
     return () => {
       cancelled = true;
-      releaseSftp();
+      releaseSftp(lostRef.current?.sftpId);
     };
   }, [key, retryTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -100,6 +116,7 @@ export function useSftpDir(target: SftpDirTarget | undefined) {
   const reconnect = useCallback(() => { resetRetry(); setRetryTick((n) => n + 1); }, [resetRetry]);
 
   useConnectionRevoked(target && !("device" in target) ? target.id : undefined, () => {
+    dropLost();
     releaseSftp();
     setPhase(revokedPhase());
   });
@@ -111,10 +128,11 @@ export function useSftpDir(target: SftpDirTarget | undefined) {
     const un = listen<{ code?: BackendErrorCode } | null>(`sftp-closed-${id}`, ({ payload }) => {
       const lost = i18n.t("fileTransfer.page.connectionLost");
       const next: SftpPhase = closedPhase(payload, lost);
+      if (sftpIdRef.current === id) lostRef.current = { key, sftpId: id };
       setPhase((p) => (p.tag === "connected" && p.sftpId === id ? next : p));
     });
     return () => { un.then((fn) => fn()); };
-  }, [phase]);
+  }, [phase, key]);
 
   const sftpId = phase.tag === "connected" ? phase.sftpId : null;
   const applyReadOnly = useCallback((readOnly: boolean) => {

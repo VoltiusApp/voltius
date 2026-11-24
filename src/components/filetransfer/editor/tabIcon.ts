@@ -1,4 +1,5 @@
 import type { EditorTab } from "@/stores/editorStore";
+import { baseName } from "@/components/filetransfer/moveTargetCore";
 
 const CODE = new Set([
   "ts","tsx","js","jsx","mjs","cjs","go","rs","py","c","h","cpp","cc","cxx",
@@ -11,7 +12,7 @@ const DOC = new Set(["md","markdown","txt"]);
 const IMAGE = new Set(["png","jpg","jpeg","gif","webp","bmp","ico","avif","svg"]);
 
 export function extensionOf(path: string): string {
-  const base = path.split("/").pop() ?? path;
+  const base = baseName(path);
   const dot = base.lastIndexOf(".");
   return dot > 0 ? base.slice(dot + 1).toLowerCase() : "";
 }
