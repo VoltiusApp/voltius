@@ -7,14 +7,17 @@ import type { TerminalSession } from "@/types";
 export default function MobileSessionView({ session, active }: { session: TerminalSession; active: boolean }) {
   return (
     <div className="absolute inset-0 bg-(--t-bg-terminal)" style={{ overflow: "clip", overscrollBehavior: "contain" }}>
-      <SessionConnectionOverlay session={session} />
+      <SessionConnectionOverlay session={session} banner />
       <HostAwareTerminalView
         session={session}
         active={active}
         compact
         onClosed={(remoteExit) => sessionClosed(session.type, session.id, remoteExit)}
       />
-      {session.status === "connected" && <MobileTerminalGestures sessionId={session.id} active={active} />}
+      {/* Scrollback stays scrollable under the reconnect banner. */}
+      {(session.status === "connected" || (session.status === "connecting" && session.everConnected)) && (
+        <MobileTerminalGestures sessionId={session.id} active={active} />
+      )}
     </div>
   );
 }

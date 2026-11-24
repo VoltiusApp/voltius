@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ConnectionHeader } from "./ConnectionHeader";
-import { ConnectionErrorPanel, ReconnectWaitPanel } from "./ConnectionStatusPanel";
+import { ConnectionErrorPanel, ReconnectBanner, ReconnectWaitPanel } from "./ConnectionStatusPanel";
 import { ConnectionSteps } from "./ConnectionSteps";
 import { HostKeyConflictPanel } from "./HostKeyConflictPanel";
 import { IdentityUnavailablePanel } from "./IdentityUnavailablePanel";
@@ -39,6 +39,7 @@ export default function ConnectionOverlay({
   identityPick,
   onUseHostCredential,
   onEnableLegacyAlgorithms,
+  variant,
 }: ConnectionOverlayProps) {
   const dismissBlocked = useDismissBlockedReason(sessionId);
   const { t } = useTranslation();
@@ -69,6 +70,14 @@ export default function ConnectionOverlay({
   const legacyFix = isError && errorCode === "ssh-legacy-algorithms-required" ? onEnableLegacyAlgorithms : undefined;
   const showSpecialPanel =
     (conflict && !isError) || showIdentityPick || showChooser || showVaultError || showPassphrasePrompt || showUsernamePrompt || showAuthPrompt;
+
+  if (variant === "banner" && isConnecting && !showSpecialPanel) {
+    return (
+      <DismissBlockedContext.Provider value={dismissBlocked}>
+        <ReconnectBanner wait={reconnectWait} onRetryNow={onRetryNow} onDismiss={onDismiss} />
+      </DismissBlockedContext.Provider>
+    );
+  }
 
   return (
     <DismissBlockedContext.Provider value={dismissBlocked}>

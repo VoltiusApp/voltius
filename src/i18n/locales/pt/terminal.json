@@ -270,6 +270,10 @@
         },
         "retryNow": "Tentar agora"
       },
+      "reconnectBanner": {
+        "reconnecting": "Reconectando…",
+        "closeTab": "Fechar aba"
+      },
       "connectionError": {
         "title": "Falha na conexão",
         "retry": "Tentar novamente",

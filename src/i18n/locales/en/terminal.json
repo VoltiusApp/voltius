@@ -261,6 +261,10 @@
         },
         "retryNow": "Retry now"
       },
+      "reconnectBanner": {
+        "reconnecting": "Reconnecting…",
+        "closeTab": "Close tab"
+      },
       "connectionError": {
         "title": "Connection failed",
         "retry": "Retry",

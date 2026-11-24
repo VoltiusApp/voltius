@@ -270,6 +270,10 @@
         },
         "retryNow": "Réessayer maintenant"
       },
+      "reconnectBanner": {
+        "reconnecting": "Reconnexion…",
+        "closeTab": "Fermer l'onglet"
+      },
       "connectionError": {
         "title": "Échec de la connexion",
         "retry": "Réessayer",

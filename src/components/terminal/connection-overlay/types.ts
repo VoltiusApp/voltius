@@ -33,6 +33,9 @@ export interface HostKeyConflictEvent {
 export type HostKeyConflictAction = "add_new" | "replace" | "abort";
 
 export interface ConnectionOverlayProps {
+  /** "banner": while a session that was connected auto-reconnects with nothing to ask, show a slim
+   *  bar and leave the terminal visible (mobile). Prompts and errors still take the full overlay. */
+  variant?: "overlay" | "banner";
   sessionId: string;
   status: "connecting" | "connected" | "error" | "disconnected";
   errorMessage?: string;

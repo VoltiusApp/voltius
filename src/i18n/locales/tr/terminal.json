@@ -261,6 +261,10 @@
         },
         "retryNow": "Şimdi tekrar dene"
       },
+      "reconnectBanner": {
+        "reconnecting": "Yeniden bağlanıyor…",
+        "closeTab": "Sekmeyi kapat"
+      },
       "connectionError": {
         "title": "Bağlantı başarısız",
         "retry": "Tekrar dene",

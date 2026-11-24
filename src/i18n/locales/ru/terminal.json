@@ -279,6 +279,10 @@
         },
         "retryNow": "Повторить сейчас"
       },
+      "reconnectBanner": {
+        "reconnecting": "Переподключение…",
+        "closeTab": "Закрыть вкладку"
+      },
       "connectionError": {
         "title": "Ошибка подключения",
         "retry": "Повторить",
