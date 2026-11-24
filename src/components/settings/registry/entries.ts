@@ -124,6 +124,7 @@ const TOGGLE_ROWS: Record<ToggleId, ToggleRow> = {
   "team-presence": { titleKey: "settings.hosts.teamPresence.title", descKey: "settings.hosts.teamPresence.desc" },
   "shell-integration": { titleKey: "settings.hosts.shellIntegration.title", descKey: "settings.hosts.shellIntegration.desc" },
   "persistent-sessions": { titleKey: "settings.hosts.persistentSessions.title", descKey: "settings.hosts.persistentSessions.desc" },
+  "tmux-auto-update": { titleKey: "settings.hosts.tmuxAutoUpdate.title", descKey: "settings.hosts.tmuxAutoUpdate.desc" },
   "detached-session-ttl": { titleKey: "settings.hosts.detachedTtl.title", descKey: "settings.hosts.detachedTtl.desc" },
   "restore-workspace": {},
   "cross-device-sessions": {},

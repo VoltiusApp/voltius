@@ -338,6 +338,12 @@
     "defaultApplied": false
   },
   {
+    "id": "sync.settings.appSettings.toggles.tmux-auto-update",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": false
+  },
+  {
     "id": "sync.settings.appSettings.toggles.detached-session-ttl",
     "type": "bool",
     "enforced": true,
@@ -659,6 +665,12 @@
   },
   {
     "id": "appSettings.toggles.persistent-sessions",
+    "type": "bool",
+    "enforced": true,
+    "defaultApplied": true
+  },
+  {
+    "id": "appSettings.toggles.tmux-auto-update",
     "type": "bool",
     "enforced": true,
     "defaultApplied": true

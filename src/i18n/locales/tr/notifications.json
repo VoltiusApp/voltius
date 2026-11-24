@@ -119,6 +119,31 @@
       "detachedUnsynced_other": "Eşitlemenin dışında tutulan {{count}} sunucu artık ~/.ssh/config dosyasını izlemiyor; diğer bilgisayarlarınız onları beklemeyi bırakır.",
       "detachedProxied_one": "~/.ssh/config girdisi artık ProxyCommand kullanan bir sunucu dosyayı izlemiyor.",
       "detachedProxied_other": "~/.ssh/config girdisi artık ProxyCommand kullanan {{count}} sunucu dosyayı izlemiyor."
+    },
+    "tmux": {
+      "screen": "{{host}} GNU screen kullanıyor: tam ekran uygulamalar ve fare sınırlı çalışır",
+      "old": "{{host}} üzerindeki tmux {{version}}, tam destek için çok eski",
+      "none": "{{host}} üzerinde tmux yok: bu oturum bağlantıyı kestiğinizde sona erer",
+      "install": "tmux'u kur",
+      "installing": "tmux {{version}} kuruluyor… {{step}}",
+      "step": {
+        "download": "indiriliyor",
+        "upload": "yükleniyor",
+        "verify": "doğrulanıyor",
+        "link": "tamamlanıyor",
+        "done": "bitti"
+      },
+      "installed": "tmux {{version}} kuruldu. Yeni oturumlar tam destek alır.",
+      "updated": "{{host}} üzerindeki tmux {{version}} sürümüne güncellendi",
+      "openNewTab": "Yeni sekme aç",
+      "failed": {
+        "download": "{{host}} için tmux indirilemedi",
+        "checksum": "{{host}} için indirilen tmux sağlama toplamıyla eşleşmedi ve silindi",
+        "unsupported": "{{host}} desteklenmiyor: Voltius tmux'u yalnızca Linux x86_64 ve arm64 üzerine kurar",
+        "inside": "tmux'u bir kapsayıcının içinden değil, doğrudan {{host}} üzerindeki bir oturumdan kurun",
+        "newer": "{{host}} üzerinde Voltius'un kurduğu daha yeni bir tmux zaten var",
+        "other": "tmux {{host}} üzerine kurulamadı"
+      }
     }
   }
 }

@@ -41,6 +41,7 @@ import { getPlatform } from "@/utils/platform";
 import { createOutputDecoder, encodeTerminalInput, type OutputDecoder } from "@/utils/terminalEncoding";
 import i18n from "@/i18n";
 import { pasteClipboardImage } from "@/services/terminalImagePaste";
+import { isPlainSsh, tmuxOnConnect } from "@/services/tmuxOnConnect";
 
 interface UseTerminalOptions {
   sessionId: string;
@@ -1168,6 +1169,8 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         unlistenPromises.push(
           onSshMuxMode(sessionId, (mode) => {
             if (mode.control && !queryGuard) queryGuard = suppressTerminalQueries(term);
+            const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
+            if (isPlainSsh(session)) tmuxOnConnect(sessionId, session.connectionId, session.connectionName, mode);
           }),
         );
       }

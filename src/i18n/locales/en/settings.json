@@ -1237,6 +1237,10 @@
         "title": "Persistent sessions",
         "desc": "Keep your shell and running processes alive across disconnects by wrapping the remote shell in tmux (falls back to screen). Requires tmux or screen on the host. Can be overridden per host, under Advanced in the connection's settings."
       },
+      "tmuxAutoUpdate": {
+        "title": "Update Voltius's tmux automatically",
+        "desc": "On hosts where Voltius installed tmux, install new versions when you connect. Running sessions keep their version until they end. Each download is checked against the checksum shipped with this Voltius release. Turn off to update only from the host's settings."
+      },
       "detachedTtl": {
         "title": "Close idle detached sessions",
         "desc": "Close a persistent session on the host once no device has been attached to it for the chosen time, but only if nothing is running in it. Works on Linux hosts with tmux 3.2 or newer; screen and older tmux keep sessions as before. A change applies to a session the next time it is attached.",
@@ -1386,6 +1390,9 @@
       },
       "persistentSessions": {
         "label": "Persistent sessions"
+      },
+      "tmuxAutoUpdate": {
+        "label": "Update Voltius's tmux automatically"
       },
       "detachedSessionTtl": {
         "label": "Close idle detached sessions"

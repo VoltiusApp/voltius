@@ -1269,6 +1269,10 @@
         "title": "持久会话",
         "desc": "通过在远程 shell 中包裹 tmux 来保持您的 shell 和运行中的进程在断线后存活（回退到 screen）。需要在主机上安装 tmux 或 screen。可以在连接设置的“高级”中按主机覆盖。"
       },
+      "tmuxAutoUpdate": {
+        "title": "自动更新 Voltius 的 tmux",
+        "desc": "在 Voltius 安装了 tmux 的主机上，连接时自动安装新版本。正在运行的会话会保留其版本直到结束。每次下载都会用此 Voltius 版本附带的校验和进行校验。关闭后只能在主机设置中更新。"
+      },
       "detachedTtl": {
         "title": "关闭空闲的已分离会话",
         "desc": "当没有任何设备在所选时间内连接到主机上的持久会话时将其关闭，但仅限会话中没有任何程序在运行时。适用于装有 tmux 3.2 或更高版本的 Linux 主机；screen 和更旧的 tmux 仍保持会话不变。更改将在该会话下次连接时生效。",
@@ -1384,6 +1388,7 @@
       "teamPresence": { "label": "团队在线状态" },
       "shellIntegration": { "label": "Shell 集成" },
       "persistentSessions": { "label": "持久会话" },
+      "tmuxAutoUpdate": { "label": "自动更新 Voltius 的 tmux" },
       "detachedSessionTtl": { "label": "关闭空闲的已分离会话" },
       "restoreWorkspace": { "label": "启动时恢复工作区" },
       "crossDeviceSessions": { "label": "跨设备会话" },

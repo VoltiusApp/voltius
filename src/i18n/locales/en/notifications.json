@@ -119,6 +119,31 @@
       "detachedUnsynced_other": "{{count}} hosts excluded from sync no longer follow ~/.ssh/config, so your other computers stop waiting for them.",
       "detachedProxied_one": "A host whose ~/.ssh/config entry now uses ProxyCommand no longer follows the file.",
       "detachedProxied_other": "{{count}} hosts whose ~/.ssh/config entries now use ProxyCommand no longer follow the file."
+    },
+    "tmux": {
+      "screen": "{{host}} uses GNU screen: full-screen apps and mouse are limited",
+      "old": "{{host}} has tmux {{version}}, too old for full support",
+      "none": "{{host}} has no tmux: this session ends when you disconnect",
+      "install": "Install tmux",
+      "installing": "Installing tmux {{version}}… {{step}}",
+      "step": {
+        "download": "downloading",
+        "upload": "uploading",
+        "verify": "verifying",
+        "link": "finishing",
+        "done": "done"
+      },
+      "installed": "tmux {{version}} installed. New sessions get full support.",
+      "updated": "Updated tmux to {{version}} on {{host}}",
+      "openNewTab": "Open new tab",
+      "failed": {
+        "download": "Couldn't download tmux for {{host}}",
+        "checksum": "The tmux download for {{host}} didn't match its checksum and was deleted",
+        "unsupported": "{{host}} isn't supported: Voltius installs tmux on Linux x86_64 and arm64 only",
+        "inside": "Install tmux from a session on {{host}} itself, not inside a container",
+        "newer": "{{host}} already has a newer tmux from Voltius",
+        "other": "Couldn't install tmux on {{host}}"
+      }
     }
   }
 }

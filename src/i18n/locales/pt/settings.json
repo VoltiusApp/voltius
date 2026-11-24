@@ -1246,6 +1246,10 @@
         "title": "Sessões persistentes",
         "desc": "Mantenha seu shell e os processos em execução vivos entre desconexões envolvendo o shell remoto no tmux (recorre ao screen). Requer tmux ou screen no host. Pode ser substituído por host, em Avançado nas configurações da conexão."
       },
+      "tmuxAutoUpdate": {
+        "title": "Atualizar o tmux do Voltius automaticamente",
+        "desc": "Nos hosts onde o Voltius instalou o tmux, instala novas versões quando você se conecta. Sessões em execução mantêm sua versão até terminarem. Cada download é verificado com o checksum incluído nesta versão do Voltius. Desative para atualizar apenas pelas configurações do host."
+      },
       "detachedTtl": {
         "title": "Encerrar sessões desanexadas inativas",
         "desc": "Encerra uma sessão persistente no host quando nenhum dispositivo está anexado a ela pelo tempo escolhido, mas somente se nada estiver em execução nela. Funciona em hosts Linux com tmux 3.2 ou mais recente; screen e versões mais antigas do tmux mantêm as sessões como antes. Uma alteração se aplica a uma sessão na próxima vez que ela for anexada.",
@@ -1398,6 +1402,9 @@
       },
       "persistentSessions": {
         "label": "Sessões persistentes"
+      },
+      "tmuxAutoUpdate": {
+        "label": "Atualizar o tmux do Voltius automaticamente"
       },
       "detachedSessionTtl": {
         "label": "Encerrar sessões desanexadas inativas"

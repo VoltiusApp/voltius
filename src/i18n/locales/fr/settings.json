@@ -1246,6 +1246,10 @@
         "title": "Sessions persistantes",
         "desc": "Maintient votre shell et vos processus actifs lors des déconnexions en enveloppant le shell distant dans tmux (repli sur screen). Nécessite tmux ou screen sur l'hôte. Peut être remplacé par hôte, sous Avancé dans les paramètres de la connexion."
       },
+      "tmuxAutoUpdate": {
+        "title": "Mettre à jour automatiquement le tmux de Voltius",
+        "desc": "Sur les hôtes où Voltius a installé tmux, installe les nouvelles versions à la connexion. Les sessions en cours gardent leur version jusqu'à leur fin. Chaque téléchargement est vérifié avec la somme de contrôle fournie avec cette version de Voltius. Désactivez pour ne mettre à jour que depuis les paramètres de l'hôte."
+      },
       "detachedTtl": {
         "title": "Fermer les sessions détachées inactives",
         "desc": "Ferme une session persistante sur l'hôte lorsqu'aucun appareil n'y est attaché depuis la durée choisie, mais seulement si rien n'y tourne. Fonctionne sur les hôtes Linux avec tmux 3.2 ou plus récent ; screen et les anciennes versions de tmux conservent les sessions comme avant. Un changement s'applique à une session la prochaine fois qu'elle est attachée.",
@@ -1398,6 +1402,9 @@
       },
       "persistentSessions": {
         "label": "Sessions persistantes"
+      },
+      "tmuxAutoUpdate": {
+        "label": "Mettre à jour automatiquement le tmux de Voltius"
       },
       "detachedSessionTtl": {
         "label": "Fermer les sessions détachées inactives"

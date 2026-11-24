@@ -1088,6 +1088,10 @@
         "title": "Kalıcı oturumlar",
         "desc": "Uzak kabuğu tmux içinde çalıştırarak (tmux yoksa screen kullanılır) kabuğunuzu ve çalışan işlemlerinizi bağlantı kesintilerinde canlı tutar. Sunucuda tmux veya screen gerekir. Bağlantı ayarlarındaki Gelişmiş bölümünden her sunucu için ayrı ayarlanabilir."
       },
+      "tmuxAutoUpdate": {
+        "title": "Voltius'un tmux'unu otomatik güncelle",
+        "desc": "Voltius'un tmux kurduğu sunucularda, bağlandığınızda yeni sürümleri kurar. Çalışan oturumlar bitene kadar kendi sürümlerini korur. Her indirme, bu Voltius sürümüyle gelen sağlama toplamına göre doğrulanır. Yalnızca sunucu ayarlarından güncellemek için kapatın."
+      },
       "detachedTtl": {
         "title": "Boştaki ayrılmış oturumları kapat",
         "desc": "Seçilen süre boyunca hiçbir cihaz bağlı değilse, sunucudaki kalıcı oturumu kapatır; ancak yalnızca içinde çalışan bir şey yoksa. tmux 3.2 veya daha yenisi olan Linux sunucularında çalışır; screen ve daha eski tmux sürümleri oturumları eskisi gibi korur. Bir değişiklik, oturuma bir sonraki bağlanışınızda uygulanır.",
@@ -1237,6 +1241,9 @@
       },
       "persistentSessions": {
         "label": "Kalıcı Oturumlar"
+      },
+      "tmuxAutoUpdate": {
+        "label": "Voltius'un tmux'unu otomatik güncelle"
       },
       "detachedSessionTtl": {
         "label": "Boştaki Ayrılmış Oturumları Kapat"
