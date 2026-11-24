@@ -3,6 +3,7 @@ import {
   fontSizeFromPinch,
   touchDistance,
   flingStep,
+  panArrows,
 } from "./mobileTerminalGesturesCore.ts";
 import { test } from "vitest";
 
@@ -34,4 +35,14 @@ test("flingStep decays and stops", () => {
   if (travelled > 325 || travelled < 300) throw new Error(`travel ${travelled}`);
   const up = flingStep(-1, 16);
   if (!(up.dy < 0 && up.v < 0)) throw new Error("upward fling keeps its sign");
+});
+
+test("panArrows: first arrow at a quarter width, then one per half width, finger left = Right", () => {
+  const eq = (got: number, want: number, msg: string) => { if (got !== want) throw new Error(`${msg}: got ${got} want ${want}`); };
+  eq(panArrows(-99, 400), 0, "short drag sends nothing");
+  eq(panArrows(-100, 400), 1, "quarter width to the left is one Right");
+  eq(panArrows(100, 400), -1, "quarter width to the right is one Left");
+  eq(panArrows(-299, 400), 1, "still one before three quarters");
+  eq(panArrows(-300, 400), 2, "three quarters is two");
+  eq(panArrows(-300, 0), 0, "no width, no arrows");
 });

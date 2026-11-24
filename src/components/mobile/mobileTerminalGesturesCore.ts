@@ -42,3 +42,10 @@ export function flingStep(v: number, dtMs: number): { dy: number; v: number } {
   const next = v * Math.exp(-dtMs / FLING_TAU_MS);
   return { dy: (v - next) * FLING_TAU_MS, v: Math.abs(next) < FLING_STOP_V ? 0 : next };
 }
+
+/** Arrow presses a sideways drag of `dx` px is worth in a full-screen app (+ = Right): the first at a
+ *  quarter of the width, then one per half width, since less pans half a screen per arrow. */
+export function panArrows(dx: number, width: number): number {
+  if (width <= 0) return 0;
+  return -Math.sign(dx) * Math.floor((Math.abs(dx) + width / 4) / (width / 2));
+}
