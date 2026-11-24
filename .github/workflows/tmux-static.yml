@@ -1,0 +1,98 @@
+name: tmux static
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: tmux release tag, e.g. 3.8
+        required: true
+  push:
+    branches: [feat/on-demand-tmux]
+    paths: [.github/workflows/tmux-static.yml]
+
+env:
+  TMUX_VERSION: ${{ inputs.version || '3.8' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    container: alpine:3.20
+    steps:
+      - name: Install build dependencies
+        run: apk add --no-cache build-base libevent-dev libevent-static ncurses-dev ncurses-static bison file curl nodejs
+
+      - name: Build static tmux
+        run: |
+          set -eu
+          curl -fsSL -o tmux.tar.gz "https://github.com/tmux/tmux/releases/download/${TMUX_VERSION}/tmux-${TMUX_VERSION}.tar.gz"
+          tar xzf tmux.tar.gz
+          cd "tmux-${TMUX_VERSION}"
+          ./configure --enable-static
+          make -j"$(nproc)"
+          strip tmux
+          file tmux
+          file tmux | grep -E "statically linked|static-pie linked"
+          ./tmux -V | grep -Fx "tmux ${TMUX_VERSION}"
+          cp tmux "../tmux-${TMUX_VERSION}-${{ matrix.arch }}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tmux-${{ env.TMUX_VERSION }}-${{ matrix.arch }}
+          path: tmux-${{ env.TMUX_VERSION }}-${{ matrix.arch }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum tmux-* > SHA256SUMS
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          if gh release view "tmux-${TMUX_VERSION}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release tmux-${TMUX_VERSION} already exists, skipping"
+            exit 0
+          fi
+          gh release create "tmux-${TMUX_VERSION}" dist/tmux-* dist/SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "${{ github.sha }}" \
+            --title "tmux ${TMUX_VERSION} (static)" \
+            --notes "Static tmux ${TMUX_VERSION} built from the upstream release tarball." \
+            --prerelease --latest=false
+
+      - name: Job summary
+        run: |
+          set -eu
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/tmux-${TMUX_VERSION}"
+          x86=$(awk -v f="tmux-${TMUX_VERSION}-x86_64" '$2==f{print $1}' dist/SHA256SUMS)
+          arm=$(awk -v f="tmux-${TMUX_VERSION}-aarch64" '$2==f{print $1}' dist/SHA256SUMS)
+          {
+            echo '### tmux-pin.json'
+            echo '```json'
+            printf '{"version":"%s","assets":[{"arch":"x86_64","url":"%s/tmux-%s-x86_64","sha256":"%s"},{"arch":"aarch64","url":"%s/tmux-%s-aarch64","sha256":"%s"}]}\n' \
+              "$TMUX_VERSION" "$base" "$TMUX_VERSION" "$x86" "$base" "$TMUX_VERSION" "$arm"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
