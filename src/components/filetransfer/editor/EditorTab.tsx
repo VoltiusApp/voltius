@@ -1,143 +1,26 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import CodeMirror from "@uiw/react-codemirror";
-import { readEditorFile, writeEditorFile, type EditorReadError } from "@/services/sftp";
-import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
+import type { EditorReadError } from "@/services/sftp";
 import { useEditorStore, type EditorDoc } from "@/stores/editorStore";
 import { languageForPath } from "./languageForPath";
-import { shouldHandleSaveKey } from "./editorSaveKey";
 import { useCmTheme } from "./useCmTheme";
 import { IconBtn } from "@/components/filetransfer/FilePane";
 import { Toggle } from "@/components/shared/Toggle";
 import { ImageView } from "./ImageView";
 import { useReadOnlyTip } from "@/services/deviceReadOnly";
 import { ReadOnlyBadge } from "@/components/shared/ReadOnlyBadge";
-import { looksLikeImage } from "./tabIcon";
-
-export function createDebouncedSaver(
-  save: (content: string) => Promise<void>,
-  delayMs: number,
-) {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  let pending: string | null = null;
-  const run = () => {
-    timer = null;
-    const c = pending;
-    pending = null;
-    if (c !== null) void save(c);
-  };
-  return {
-    schedule(content: string) {
-      pending = content;
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(run, delayMs);
-    },
-    async flush() {
-      if (timer) {
-        clearTimeout(timer);
-        run();
-      }
-    },
-    cancel() {
-      if (timer) clearTimeout(timer);
-      timer = null;
-      pending = null;
-    },
-  };
-}
+import { useEditorDoc } from "./useEditorDoc";
 
 export function EditorTab({ doc }: { doc: EditorDoc }) {
   const { t } = useTranslation();
-  const maxBytes = useSftpSettingsStore((s) => s.editorMaxBytes);
-  const setDirty = useEditorStore((s) => s.setDirty);
   const setDocAutoSave = useEditorStore((s) => s.setDocAutoSave);
-
-  const [content, setContent] = useState<string>("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<EditorReadError | string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [asImage, setAsImage] = useState(() => doc.image === true || looksLikeImage(doc.path));
-  const lastSaved = useRef<string>("");
-
+  const ed = useEditorDoc(doc);
   const readOnlyTip = useReadOnlyTip(doc.readOnly, doc.hostLabel);
-  const themeExt = useCmTheme();
 
-  const ext = languageForPath(doc.path);
-  const extensions = useMemo(
-    () => [...themeExt, ...(ext ? [ext] : [])],
-    [themeExt, ext],
-  );
-
-  const doSave = async (text: string) => {
-    setSaving(true);
-    try {
-      await writeEditorFile(doc.sftpId, doc.path, text);
-      lastSaved.current = text;
-      setDirty(doc.id, false);
-      setSaveError(null);
-    } catch (e) {
-      setSaveError(typeof e === "string" ? e : t("fileTransfer.editor.common.saveFailed"));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saverRef = useRef(createDebouncedSaver(doSave, 1000));
-
-  useEffect(() => {
-    if (asImage) return;
-    let cancelled = false;
-    setError(null);
-    setSaveError(null);
-    setLoading(true);
-    readEditorFile(doc.sftpId, doc.path, maxBytes)
-      .then((f) => {
-        if (cancelled) return;
-        setContent(f.content);
-        lastSaved.current = f.content;
-        setLoading(false);
-      })
-      .catch((e: EditorReadError) => {
-        if (cancelled) return;
-        if (e.kind === "image") setAsImage(true);
-        else setError(e);
-        setLoading(false);
-      });
-    const saver = saverRef.current;
-    return () => {
-      cancelled = true;
-      saver.cancel();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc.id, asImage]);
-
-  const onChange = (next: string) => {
-    setContent(next);
-    setDirty(doc.id, next !== lastSaved.current);
-    if (doc.autoSave) saverRef.current.schedule(next);
-  };
-
-  useEffect(() => {
-    // Without loaded text the buffer is empty, and saving it would wipe the file.
-    if (asImage || loading || error || doc.readOnly) return;
-    const onKey = (e: KeyboardEvent) => {
-      // Every mounted EditorTab shares the window; only the active tab saves.
-      const isActive = useEditorStore.getState().activeTabId === doc.id;
-      if (shouldHandleSaveKey(e, isActive)) {
-        e.preventDefault();
-        saverRef.current.cancel();
-        void doSave(content);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content, asImage, loading, error, doc.readOnly]);
-
-  if (asImage) return <ImageView doc={doc} onNotImage={() => setAsImage(false)} />;
-  if (error) return <EditorError error={error} sftpId={doc.sftpId} path={doc.path} />;
-  if (loading) return <div className="p-4 text-sm" style={{ color: "var(--t-text-dim)" }}>{t("common.state.loading")}</div>;
+  if (ed.asImage) return <ImageView doc={doc} onNotImage={() => ed.setAsImage(false)} />;
+  if (ed.error) return <EditorError error={ed.error} />;
+  if (ed.loading) return <EditorLoading />;
 
   return (
     <div className="flex h-full flex-col">
@@ -163,62 +46,79 @@ export function EditorTab({ doc }: { doc: EditorDoc }) {
         </div>}
         {/* Save button — styled like FilePane toolbar buttons */}
         <IconBtn
-          icon={saving ? "lucide:loader-circle" : "lucide:save"}
-          title={readOnlyTip ?? (saving ? t("common.state.saving") : t("fileTransfer.editor.common.saveCtrlS"))}
+          icon={ed.saving ? "lucide:loader-circle" : "lucide:save"}
+          title={readOnlyTip ?? (ed.saving ? t("common.state.saving") : t("fileTransfer.editor.common.saveCtrlS"))}
           disabled={!!readOnlyTip}
-          onClick={() => { if (!saving) void doSave(content); }}
+          onClick={() => { if (!ed.saving) void ed.save(); }}
         />
       </div>
-      {/* Save error banner — non-destructive; editing continues underneath */}
-      {saveError && (
-        <div
-          className="flex items-center gap-2 shrink-0 px-2 py-1 border-b text-xs"
-          style={{
-            borderColor: "var(--t-border)",
-            background: "color-mix(in srgb, var(--t-status-error) 12%, transparent)",
-            color: "var(--t-status-error)",
-          }}
-        >
-          <span className="shrink-0">⚠</span>
-          <span className="truncate min-w-0">{t("fileTransfer.editor.tab.saveFailedReason", { error: saveError })}</span>
-          <button
-            className="ml-auto shrink-0 px-1 rounded"
-            title={t("fileTransfer.editor.common.retrySave")}
-            onClick={() => { if (!saving) void doSave(content); }}
-          >
-            {t("fileTransfer.editor.common.retry")}
-          </button>
-          <button
-            className="shrink-0 px-1 rounded"
-            title={t("fileTransfer.editor.common.dismiss")}
-            onClick={() => setSaveError(null)}
-          >
-            ×
-          </button>
-        </div>
-      )}
-      {/* Editor */}
-      <div className="min-h-0 flex-1 overflow-auto">
-        <CodeMirror
-          value={content}
-          extensions={extensions}
-          onChange={onChange}
-          readOnly={!!readOnlyTip}
-          height="100%"
-          theme="none"
-        />
-      </div>
+      <SaveErrorBanner ed={ed} />
+      <EditorText doc={doc} ed={ed} readOnly={!!readOnlyTip} />
     </div>
   );
 }
 
-function EditorError({
-  error,
-}: {
-  error: EditorReadError | string;
-  sftpId: string | null;
-  path: string;
-}) {
+type EditorDocState = ReturnType<typeof useEditorDoc>;
+
+export function EditorLoading() {
+  const { t } = useTranslation();
+  return <div className="p-4 text-sm" style={{ color: "var(--t-text-dim)" }}>{t("common.state.loading")}</div>;
+}
+
+/** Non-destructive: editing continues underneath. */
+export function SaveErrorBanner({ ed, className = "px-2 py-1 text-xs" }: { ed: EditorDocState; className?: string }) {
+  const { t } = useTranslation();
+  if (!ed.saveError) return null;
+  return (
+    <div
+      data-editor-save-error
+      className={`flex items-center gap-2 shrink-0 border-b ${className}`}
+      style={{
+        borderColor: "var(--t-border)",
+        background: "color-mix(in srgb, var(--t-status-error) 12%, transparent)",
+        color: "var(--t-status-error)",
+      }}
+    >
+      <span className="shrink-0">⚠</span>
+      <span className="truncate min-w-0">{t("fileTransfer.editor.tab.saveFailedReason", { error: ed.saveError })}</span>
+      <button
+        className="ml-auto shrink-0 px-1 rounded"
+        title={t("fileTransfer.editor.common.retrySave")}
+        onClick={() => { if (!ed.saving) void ed.save(); }}
+      >
+        {t("fileTransfer.editor.common.retry")}
+      </button>
+      <button
+        className="shrink-0 px-1 rounded"
+        title={t("fileTransfer.editor.common.dismiss")}
+        onClick={ed.dismissSaveError}
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
+export function EditorText({ doc, ed, readOnly }: { doc: EditorDoc; ed: EditorDocState; readOnly: boolean }) {
+  const themeExt = useCmTheme();
+  const ext = languageForPath(doc.path);
+  const extensions = useMemo(() => [...themeExt, ...(ext ? [ext] : [])], [themeExt, ext]);
+  return (
+    <div className="relative min-h-0 flex-1">
+      <CodeMirror
+        className="absolute inset-0"
+        value={ed.content}
+        extensions={extensions}
+        onChange={ed.onChange}
+        readOnly={readOnly}
+        height="100%"
+        theme="none"
+      />
+    </div>
+  );
+}
+
+export function EditorError({ error }: { error: EditorReadError | string }) {
   const { t } = useTranslation();
   let msg = t("fileTransfer.editor.tab.error.default");
   if (typeof error !== "string") {

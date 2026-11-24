@@ -18,6 +18,7 @@ import { lua } from "@codemirror/legacy-modes/mode/lua";
 import { perl } from "@codemirror/legacy-modes/mode/perl";
 import { ruby } from "@codemirror/legacy-modes/mode/ruby";
 import { swift } from "@codemirror/legacy-modes/mode/swift";
+import { baseName } from "@/components/filetransfer/moveTargetCore";
 import { c, cpp, java, csharp, kotlin } from "@codemirror/legacy-modes/mode/clike";
 import { SCRIPT_LANGUAGES } from "@/components/snippets/scriptLanguage";
 import { dotenvLanguage } from "@/components/connections/dotenvLanguage";
@@ -102,7 +103,7 @@ const BASENAME_MAP: Record<string, () => Extension> = {
 };
 
 export function languageForPath(path: string): Extension | null {
-  const base = (path.split("/").pop() ?? path).toLowerCase();
+  const base = baseName(path).toLowerCase();
 
   const byName = BASENAME_MAP[base];
   if (byName) return byName();
