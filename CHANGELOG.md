@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.83.1] - 2026-11-24
+
+### Changed
+
+- On phones, panning cut-off lines in full-screen apps is now a two-finger sideways drag, and a one-finger sideways swipe switches sessions everywhere again. Two fingers spreading or closing still zoom (#938)
+
 ## [0.83.0] - 2026-11-24
 
 ### Added
