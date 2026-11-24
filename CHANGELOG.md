@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.82.0] - 2026-11-24
+
+### Added
+
+- On phones, a "Jump to bottom" pill appears while you read the terminal's scrollback; one tap returns to the live prompt. A released scroll swipe now keeps gliding instead of stopping dead (#932)
+- On Android, with a physical or Bluetooth keyboard attached, the extra-keys row is replaced by a floating button that opens the keys drawer, giving the terminal more room (#933)
+
+### Changed
+
+- Updated i18next to 26.3.4 (#937)
+
 ## [0.81.0] - 2026-11-24
 
 ### Added
