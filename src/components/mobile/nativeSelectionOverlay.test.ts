@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, test } from "vitest";
-import { autoscrollRate, edgeLine, hasTextAt, segmentsForLine, splitScroll, textBetween, type LineLike } from "./nativeSelectionCore";
+import { autoscrollRate, autoscrollStep, edgeLine, hasTextAt, segmentsForLine, splitScroll, textBetween, type LineLike } from "./nativeSelectionCore";
 import { boundaryFromDom, renderLine } from "./nativeSelectionOverlay";
 
 type Cell = { ch: string; w: number };
@@ -148,5 +148,28 @@ describe("autoscrollRate", () => {
   test("caps the speed far outside", () => {
     expect(autoscrollRate(5000, 100, 420, 16)).toBe(60);
     expect(autoscrollRate(-5000, 100, 420, 16)).toBe(-60);
+  });
+});
+
+describe("autoscrollStep", () => {
+  // Rows of 16px, a 10-row window rendered from line 100.
+  test("passes the step through while the leading end stays on screen", () => {
+    expect(autoscrollStep(8, 0, 160, 16, 100, 100, 109)).toBe(8);
+    expect(autoscrollStep(-8, 160, 160, 16, 100, 105, 120)).toBe(-8);
+  });
+
+  test("scrolling down stops with the lower end on the top row", () => {
+    expect(autoscrollStep(8, 156, 160, 16, 100, 95, 110)).toBe(4);
+    expect(autoscrollStep(8, 160, 160, 16, 100, 95, 110)).toBe(0);
+  });
+
+  test("scrolling up stops with the upper end on the bottom row", () => {
+    expect(autoscrollStep(-8, 20, 160, 16, 100, 110, 130)).toBe(-4);
+    expect(autoscrollStep(-8, 16, 160, 16, 100, 110, 130)).toBe(0);
+  });
+
+  test("never scrolls backwards when the end is already past the edge", () => {
+    expect(autoscrollStep(8, 400, 160, 16, 100, 95, 110)).toBe(0);
+    expect(autoscrollStep(-8, 0, 160, 16, 100, 110, 130)).toBe(0);
   });
 });

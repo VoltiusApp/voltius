@@ -1,4 +1,4 @@
-import { autoscrollRate, edgeLine, hasTextAt, segmentsEnd, segmentsForLine, splitScroll, textBetween, type Boundary, type LineLike } from "./nativeSelectionCore";
+import { autoscrollRate, autoscrollStep, edgeLine, hasTextAt, segmentsEnd, segmentsForLine, splitScroll, textBetween, type Boundary, type LineLike } from "./nativeSelectionCore";
 
 export interface OverlayTerm {
   rows(): number;
@@ -296,9 +296,13 @@ export function createNativeSelection(
     carry += v * cellH * dt;
     const px = Math.trunc(carry);
     if (px) {
-      carry -= px;
-      el.scrollTop += px;
-      updateSelectable();
+      const ends = [prevAnchor?.line, prevFocus?.line].filter((l): l is number => l !== undefined);
+      const step = ends.length ? autoscrollStep(px, el.scrollTop, el.clientHeight, cellH, first, Math.min(...ends), Math.max(...ends)) : px;
+      carry = step === px ? carry - px : 0;
+      if (step) {
+        el.scrollTop += step;
+        updateSelectable();
+      }
     }
     frame = requestAnimationFrame(tick);
   };
