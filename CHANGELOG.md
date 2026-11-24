@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.83.0] - 2026-11-24
+
+### Added
+
+- On phones, a sideways drag in full-screen apps such as less, vim and htop sends Left/Right arrows, so lines cut off by `systemctl` and `journalctl` (which page through `less -S`) can be panned. In the normal shell a sideways swipe still switches sessions (#938)
+
 ## [0.82.0] - 2026-11-24
 
 ### Added
