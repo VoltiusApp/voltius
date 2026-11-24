@@ -92,6 +92,7 @@ export const DEVICE_SCOPED_STORAGE_KEYS = [
   "voltius-mcp-contributions",
   // Persists poll intervals only — the statuses it holds stay in memory.
   "voltius-host-ping",
+  "voltius-host-mux",
   "voltius-lan-sync",
   "voltius-enrollment",
   "voltius-enrolled-team",
