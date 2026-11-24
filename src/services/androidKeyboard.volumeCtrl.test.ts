@@ -57,13 +57,13 @@ test("showing the keyboard tells native whether Volume Down acts as Ctrl", () =>
 test("a latched Alt reaches Backspace from the keyboard and is consumed", () => {
   useModifierLatchStore.getState().tap("alt");
   w.__voltiusTermKey("Backspace");
-  expect(h.key).toHaveBeenCalledWith("s1", "Backspace", { ctrl: false, alt: true });
+  expect(h.key).toHaveBeenCalledWith("s1", "Backspace", { ctrl: false, alt: true, shift: false });
   expect(useModifierLatchStore.getState().alt).toBe("off");
 });
 
 test("Volume Down held while pressing a keyboard key sends it with Ctrl", () => {
   w.__voltiusTermKey("Backspace", true);
-  expect(h.key).toHaveBeenCalledWith("s1", "Backspace", { ctrl: true, alt: false });
+  expect(h.key).toHaveBeenCalledWith("s1", "Backspace", { ctrl: true, alt: false, shift: false });
 });
 
 test("unknown key names from the native side are dropped", () => {

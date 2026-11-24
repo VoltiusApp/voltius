@@ -31,6 +31,7 @@ export function isSettingsSection(value: string): value is SettingsSection {
 
 export type LayoutMode = "grid" | "list";
 export type SortMode   = "name-asc" | "name-desc" | "newest" | "oldest" | "role-asc";
+export type KeysDrawerTab = "nav" | "edit" | "fn" | "panels";
 
 export const MIN_UI_SCALE = 0.75;
 export const MAX_UI_SCALE = 1.5;
@@ -237,11 +238,13 @@ interface UIStore {
   markChangelogSeen: (version: string) => void;
   imagePasteNoticeSeen: boolean;
   markImagePasteNoticeSeen: () => void;
-  terminalPanelsRowOpen: boolean;
-  toggleTerminalPanelsRow: () => void;
+  terminalKeysDrawerOpen: boolean;
+  toggleTerminalKeysDrawer: () => void;
+  terminalKeysDrawerTab: KeysDrawerTab;
+  setTerminalKeysDrawerTab: (tab: KeysDrawerTab) => void;
   hostPanelPinned: boolean;
   setHostPanelPinned: (pinned: boolean) => void;
-  /** Mobile SFTP shows two panes (else one). Device-local, like terminalPanelsRowOpen. */
+  /** Mobile SFTP shows two panes (else one). Device-local, like terminalKeysDrawerOpen. */
   mobileSftpTwoPanes: boolean;
   toggleMobileSftpTwoPanes: () => void;
 }
@@ -303,7 +306,8 @@ export const useUIStore = create<UIStore>()(
         whatsNewOpen: false,
         lastSeenChangelogVersion: null as string | null,
         imagePasteNoticeSeen: false,
-        terminalPanelsRowOpen: false,
+        terminalKeysDrawerOpen: false,
+        terminalKeysDrawerTab: "nav" as KeysDrawerTab,
         hostPanelPinned: false,
         mobileSftpTwoPanes: false,
         prefsUpdatedAt: new Date(0).toISOString(),
@@ -386,7 +390,8 @@ export const useUIStore = create<UIStore>()(
         closeWhatsNew: () => set({ whatsNewOpen: false }),
         markChangelogSeen: (version) => set({ lastSeenChangelogVersion: version }),
         markImagePasteNoticeSeen: () => set({ imagePasteNoticeSeen: true }),
-        toggleTerminalPanelsRow: () => set((s) => ({ terminalPanelsRowOpen: !s.terminalPanelsRowOpen })),
+        toggleTerminalKeysDrawer: () => set((s) => ({ terminalKeysDrawerOpen: !s.terminalKeysDrawerOpen })),
+        setTerminalKeysDrawerTab: (tab) => set({ terminalKeysDrawerTab: tab }),
         setHostPanelPinned: (pinned) => set({ hostPanelPinned: pinned }),
         toggleMobileSftpTwoPanes: () => set((s) => ({ mobileSftpTwoPanes: !s.mobileSftpTwoPanes })),
       };
@@ -426,7 +431,8 @@ export const useUIStore = create<UIStore>()(
         prefsUpdatedAt: state.prefsUpdatedAt,
         lastSeenChangelogVersion: state.lastSeenChangelogVersion,
         imagePasteNoticeSeen: state.imagePasteNoticeSeen,
-        terminalPanelsRowOpen: state.terminalPanelsRowOpen,
+        terminalKeysDrawerOpen: state.terminalKeysDrawerOpen,
+        terminalKeysDrawerTab: state.terminalKeysDrawerTab,
         hostPanelPinned: state.hostPanelPinned,
         mobileSftpTwoPanes: state.mobileSftpTwoPanes,
       }),

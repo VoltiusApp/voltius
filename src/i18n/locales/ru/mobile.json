@@ -25,6 +25,29 @@
       "newSessionAriaLabel": "Новая сессия",
       "panelsAriaLabel": "Панели"
     },
+    "keysDrawer": {
+      "toggleAriaLabel": "Больше клавиш",
+      "tabs": {
+        "nav": "Навиг.",
+        "edit": "Правка",
+        "fn": "Fn",
+        "panels": "Панели"
+      },
+      "captions": {
+        "lineStart": "нач. строки",
+        "lineEnd": "кон. строки",
+        "wordLeft": "слово ←",
+        "wordRight": "слово →",
+        "search": "поиск",
+        "clear": "очистить",
+        "deleteWordLeft": "удал. слово ←",
+        "deleteWordRight": "удал. слово →",
+        "deleteToStart": "удал. до нач.",
+        "deleteToEnd": "удал. до кон.",
+        "interrupt": "прервать",
+        "endInput": "конец ввода"
+      }
+    },
     "panelItems": {
       "sftp": "SFTP"
     },

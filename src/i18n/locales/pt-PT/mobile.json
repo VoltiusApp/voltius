@@ -25,6 +25,29 @@
       "newSessionAriaLabel": "Nova sessão",
       "panelsAriaLabel": "Painéis"
     },
+    "keysDrawer": {
+      "toggleAriaLabel": "Mais teclas",
+      "tabs": {
+        "nav": "Nav",
+        "edit": "Edição",
+        "fn": "Fn",
+        "panels": "Painéis"
+      },
+      "captions": {
+        "lineStart": "início linha",
+        "lineEnd": "fim linha",
+        "wordLeft": "palavra ←",
+        "wordRight": "palavra →",
+        "search": "pesquisar",
+        "clear": "limpar",
+        "deleteWordLeft": "apagar pal. ←",
+        "deleteWordRight": "apagar pal. →",
+        "deleteToStart": "apagar início",
+        "deleteToEnd": "apagar fim",
+        "interrupt": "interromper",
+        "endInput": "fim entrada"
+      }
+    },
     "panelItems": {
       "sftp": "SFTP"
     },

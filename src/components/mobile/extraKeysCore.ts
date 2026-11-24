@@ -1,6 +1,7 @@
-/** Pure model of the mobile extra-keys row (no DOM): the keys, their Termux-style swipe-up
+/** Pure model of the mobile extra-keys row and keys drawer (no DOM): the keys, their Termux-style swipe-up
  *  alternates, and the touch verdicts. Node-testable; MobileExtraKeysRow renders it. */
-import type { SpecialKey } from "@/services/terminalKeyCore";
+import { applyLatchToChar, type SpecialKey } from "@/services/terminalKeyCore";
+import type { KeysDrawerTab } from "@/stores/uiStore";
 import type { LatchValue } from "@/stores/modifierLatchCore";
 
 export interface ExtraKey {
@@ -58,3 +59,32 @@ export function keyForGesture(k: ExtraKey, g: KeyGesture): SpecialKey | null {
 export function modTapAction(value: LatchValue, lastTapAt: number | null, now: number): "tap" | "lock" {
   return value === "armed" && lastTapAt !== null && now - lastTapAt <= MOD_DOUBLE_TAP_MS ? "lock" : "tap";
 }
+
+/** A drawer key: a SpecialKey (takes the latched modifiers) or a fixed readline chord. */
+export type DrawerKey =
+  | { kind: "key"; key: SpecialKey; label: string; icon?: string }
+  | { kind: "chord"; label: string; caption: string; bytes: string };
+
+const chord = (label: string, caption: string, ch: string, mod: "ctrl" | "alt"): DrawerKey => ({
+  kind: "chord", label, caption, bytes: applyLatchToChar(ch, { ctrl: mod === "ctrl", alt: mod === "alt" }) ?? ch,
+});
+const key = (k: SpecialKey, label: string = k, icon?: string): DrawerKey => ({ kind: "key", key: k, label, icon });
+
+/** Two rows of six per tab. Nav surfaces the row's swipe-up alternates; Edit holds readline chords. */
+export const DRAWER_KEYS: Record<Exclude<KeysDrawerTab, "panels">, readonly DrawerKey[]> = {
+  nav: [
+    key("Home"), key("End"), key("PgUp"), key("PgDn"), key("Insert", "Ins"), key("Delete", "Del"),
+    key("ShiftTab", "⇧Tab"), key("Enter", "Enter", "lucide:corner-down-left"), key("~"), key("|"), key("\\"), key("`"),
+  ],
+  edit: [
+    chord("^A", "lineStart", "a", "ctrl"), chord("^E", "lineEnd", "e", "ctrl"),
+    chord("⌥B", "wordLeft", "b", "alt"), chord("⌥F", "wordRight", "f", "alt"),
+    chord("^R", "search", "r", "ctrl"), chord("^L", "clear", "l", "ctrl"),
+    chord("^W", "deleteWordLeft", "w", "ctrl"), chord("⌥D", "deleteWordRight", "d", "alt"),
+    chord("^U", "deleteToStart", "u", "ctrl"), chord("^K", "deleteToEnd", "k", "ctrl"),
+    chord("^C", "interrupt", "c", "ctrl"), chord("^D", "endInput", "d", "ctrl"),
+  ],
+  fn: (["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12"] as const).map((f) => key(f)),
+};
+
+export const DRAWER_TABS: readonly KeysDrawerTab[] = ["nav", "edit", "fn", "panels"];

@@ -23,7 +23,7 @@ describe("tokensToBytes", () => {
     expect(ok(tokensToBytes(["Up", "Left"], true))).toBe("\x1bOA\x1bOD");
   });
 
-  it("maps the keys terminalKeyCore lacks", () => {
+  it("maps space and the editing keys", () => {
     expect(ok(tokensToBytes(["Space", "Backspace", "Delete", "Insert"], false))).toBe(" \x7f\x1b[3~\x1b[2~");
   });
 

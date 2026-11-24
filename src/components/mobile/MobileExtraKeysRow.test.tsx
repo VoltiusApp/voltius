@@ -7,6 +7,7 @@ const sendSpecialKey = vi.fn();
 vi.mock("@/services/terminalInput", () => ({ sendSpecialKey: (...a: unknown[]) => sendSpecialKey(...a) }));
 vi.mock("@/lib/haptics", () => ({ haptic: () => true }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 
 const touch = (x: number, y: number) => ({ touches: [{ clientX: x, clientY: y }], changedTouches: [{ clientX: x, clientY: y }] });
 const popup = () => document.body.querySelector("[data-mobile-key-alt-popup]");
@@ -60,5 +61,20 @@ describe("MobileExtraKeysRow alternates", () => {
     expect(popup()).toBeNull();
     fireEvent.touchEnd(key, touch(100, 50));
     expect(sendSpecialKey).not.toHaveBeenCalled();
+  });
+});
+
+describe("MobileExtraKeysRow drawer toggle", () => {
+  test("the grid key opens and closes the keys drawer", async () => {
+    const { useUIStore } = await import("@/stores/uiStore");
+    useUIStore.setState({ terminalKeysDrawerOpen: false });
+    const { default: Row } = await import("./MobileExtraKeysRow");
+    const { container } = render(<Row />);
+    const toggle = container.querySelector<HTMLElement>("[data-mobile-keys-drawer-toggle]")!;
+    fireEvent.click(toggle);
+    expect(useUIStore.getState().terminalKeysDrawerOpen).toBe(true);
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(toggle);
+    expect(useUIStore.getState().terminalKeysDrawerOpen).toBe(false);
   });
 });

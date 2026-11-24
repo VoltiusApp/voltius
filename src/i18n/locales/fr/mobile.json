@@ -25,6 +25,29 @@
       "newSessionAriaLabel": "Nouvelle session",
       "panelsAriaLabel": "Panneaux"
     },
+    "keysDrawer": {
+      "toggleAriaLabel": "Plus de touches",
+      "tabs": {
+        "nav": "Nav",
+        "edit": "Édition",
+        "fn": "Fn",
+        "panels": "Panneaux"
+      },
+      "captions": {
+        "lineStart": "début ligne",
+        "lineEnd": "fin ligne",
+        "wordLeft": "mot ←",
+        "wordRight": "mot →",
+        "search": "recherche",
+        "clear": "effacer",
+        "deleteWordLeft": "suppr mot ←",
+        "deleteWordRight": "suppr mot →",
+        "deleteToStart": "suppr début",
+        "deleteToEnd": "suppr fin",
+        "interrupt": "interrompre",
+        "endInput": "fin saisie"
+      }
+    },
     "panelItems": {
       "sftp": "SFTP"
     },
