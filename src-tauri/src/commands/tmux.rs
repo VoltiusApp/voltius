@@ -38,15 +38,9 @@ fn installable(
     }
 }
 
-async fn sweep(
-    sessions: &SessionManager,
-    session_id: &str,
-    script: String,
-) -> Result<TmuxHostStatus, String> {
-    let host = host(sessions, session_id).await?;
-    let handle: &Handle<SshClient> = &host;
-    tmux_install::run_script(handle, &script).await?;
-    tmux_install::status(handle).await
+async fn sweep(host: &Handle<SshClient>, script: &str) -> Result<TmuxHostStatus, String> {
+    tmux_install::run_script(host, script).await?;
+    tmux_install::status(host).await
 }
 
 #[tauri::command]
@@ -59,9 +53,7 @@ pub async fn ssh_tmux_status(
     sessions: State<'_, SessionManager>,
     session_id: String,
 ) -> Result<TmuxHostStatus, String> {
-    let host = host(&sessions, &session_id).await?;
-    let handle: &Handle<SshClient> = &host;
-    tmux_install::status(handle).await
+    tmux_install::status(&host(&sessions, &session_id).await?).await
 }
 
 #[tauri::command]
@@ -75,9 +67,8 @@ pub async fn ssh_tmux_install(
     let registration = execs.register(&install_id)?;
     let token = &registration.token;
     let host = host(&sessions, &session_id).await?;
-    let handle: &Handle<SshClient> = &host;
     let version = &pin().version;
-    let (status, asset) = tmux_install::inspect(handle).await?;
+    let (status, asset) = tmux_install::inspect(&host).await?;
     let asset = installable(&status, asset, version)?;
     let Some(_permit) = execs.slot(&session_id, token).await? else {
         return Err(CANCELLED.into());
@@ -88,7 +79,7 @@ pub async fn ssh_tmux_install(
     };
     // Boxed: Tauri builds a command's future on the main thread, whose stack is 1 MiB on Windows.
     Box::pin(tmux_install::install(
-        handle,
+        &host,
         asset,
         version,
         &install_id,
@@ -96,7 +87,7 @@ pub async fn ssh_tmux_install(
         &emit,
     ))
     .await?;
-    tmux_install::status(handle).await
+    tmux_install::status(&host).await
 }
 
 #[tauri::command]
@@ -109,7 +100,11 @@ pub async fn ssh_tmux_remove(
     sessions: State<'_, SessionManager>,
     session_id: String,
 ) -> Result<TmuxHostStatus, String> {
-    sweep(&sessions, &session_id, tmux_install::remove_script()).await
+    sweep(
+        &host(&sessions, &session_id).await?,
+        &tmux_install::remove_script(),
+    )
+    .await
 }
 
 #[tauri::command]
@@ -117,7 +112,9 @@ pub async fn ssh_tmux_prune(
     sessions: State<'_, SessionManager>,
     session_id: String,
 ) -> Result<TmuxHostStatus, String> {
-    sweep(&sessions, &session_id, tmux_install::prune_script()).await
+    let host = host(&sessions, &session_id).await?;
+    let status = tmux_install::status(&host).await?;
+    sweep(&host, &tmux_install::prune_script(&status)).await
 }
 
 #[cfg(test)]

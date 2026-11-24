@@ -170,12 +170,12 @@ done
     )
 }
 
-/// Deletes every `tmux-<ver>` but `tmux-$A` whose `-L voltius-<ver>` server is not running.
-fn sweep(head: &str) -> String {
+/// Deletes each of `targets` but `$A` whose `-L voltius-<ver>` server is not running.
+fn sweep(head: &str, targets: &str) -> String {
     format!(
         r#"{prelude}{head}
-for T in "$D"/tmux-*; do
-  [ -e "$T" ] && [ "$T" != "$D/tmux-$A" ] || continue
+for T in {targets}; do
+  [ -e "$T" ] && [ "$T" != "$A" ] || continue
   {TMUX_COPY_SOCKET}
   if [ -x "$T" ] && t ls >/dev/null 2>&1; then echo "kept=${{T##*tmux-}}"; else rm -f "$T"; fi
 done
@@ -185,13 +185,29 @@ done
 }
 
 pub fn remove_script() -> String {
-    sweep("A=\nrm -f \"$D/tmux\"")
+    sweep("A=\nrm -f \"$D/tmux\"", r#""$D"/tmux-*"#)
 }
 
-pub fn prune_script() -> String {
-    sweep(&format!(
-        "{STALE_PARTS}\nc \"$D/tmux\" || exit 0\nA=${{W#tmux }}"
-    ))
+/// Idle copies other than the active one, skipping any newer copy an install may be about to link.
+fn prunable(status: &TmuxHostStatus) -> impl Iterator<Item = &str> {
+    let active = status.active.as_deref();
+    status
+        .copies
+        .iter()
+        .filter(move |c| {
+            c.sessions == 0 && active.is_none_or(|a| c.version != a && !is_newer(&c.version, a))
+        })
+        .map(|c| c.version.as_str())
+}
+
+pub fn prune_script(status: &TmuxHostStatus) -> String {
+    let targets: Vec<String> = prunable(status)
+        .map(|v| format!(r#""$D"/{}"#, shell_quote(&format!("tmux-{v}"))))
+        .collect();
+    sweep(
+        &format!("{STALE_PARTS}\nA=$D/$(readlink \"$D/tmux\" 2>/dev/null)"),
+        &targets.join(" "),
+    )
 }
 
 fn field<'a>(out: &'a str, key: &str) -> Option<&'a str> {
@@ -230,8 +246,7 @@ fn parse_status_against(out: &str, pinned: &str) -> TmuxHostStatus {
             .filter_map(|l| parse_copy(l.strip_prefix("copy=")?))
             .collect(),
         outdated: active.is_some_and(|a| is_newer(pinned, a)),
-        system_control_capable: system
-            .is_some_and(|s| compare(s, CONTROL_MODE_MIN).is_some_and(Ordering::is_ge)),
+        system_control_capable: system.is_some_and(control_capable),
     }
 }
 
@@ -268,6 +283,10 @@ fn tmux_version(v: &str) -> Option<(u32, u32, &str)> {
 
 fn compare(a: &str, b: &str) -> Option<Ordering> {
     Some(tmux_version(a)?.cmp(&tmux_version(b)?))
+}
+
+fn control_capable(version: &str) -> bool {
+    compare(version, CONTROL_MODE_MIN).is_some_and(Ordering::is_ge)
 }
 
 /// Whether tmux `version` is newer than `than`; an unparsable version never is.
@@ -409,14 +428,54 @@ mod tests {
 
     const SHA: &str = "09f1de879757523e6bfb1500b4087e6b8030fb061007ac097874f57fc43cc63c";
 
+    fn copy(version: &str, sessions: u32) -> TmuxCopy {
+        TmuxCopy {
+            version: version.to_string(),
+            sessions,
+        }
+    }
+
+    fn with_copies(active: Option<&str>, copies: &[(&str, u32)]) -> TmuxHostStatus {
+        TmuxHostStatus {
+            supported: true,
+            active: active.map(str::to_string),
+            copies: copies.iter().map(|&(v, n)| copy(v, n)).collect(),
+            ..Default::default()
+        }
+    }
+
     fn scripts() -> Vec<String> {
         vec![
             install_script("3.8", "https://example.com/tmux-3.8-x86_64", SHA),
             finish_script("3.8", SHA, "run-1"),
             status_script(),
             remove_script(),
-            prune_script(),
+            prune_script(&with_copies(
+                Some("3.8"),
+                &[("3.4", 0), ("3.6", 0), ("3.8", 1)],
+            )),
+            prune_script(&TmuxHostStatus::default()),
         ]
+    }
+
+    #[test]
+    fn prune_skips_the_active_copy_newer_ones_and_busy_ones() {
+        let status = with_copies(
+            Some("3.8"),
+            &[
+                ("3.4", 0),
+                ("3.6", 2),
+                ("3.8", 0),
+                ("3.10", 0),
+                ("next-3.9", 0),
+            ],
+        );
+        assert_eq!(prunable(&status).collect::<Vec<_>>(), ["3.4", "next-3.9"]);
+        let removed = with_copies(None, &[("3.4", 0), ("3.8", 1)]);
+        assert_eq!(prunable(&removed).collect::<Vec<_>>(), ["3.4"]);
+        assert!(
+            prune_script(&status).contains(r#"for T in "$D"/'tmux-3.4' "$D"/'tmux-next-3.9'; do"#)
+        );
     }
 
     #[test]
@@ -577,6 +636,7 @@ mod tests {
     #[cfg(unix)]
     mod local {
         use super::*;
+        use crate::shell_integration::TMUX_CC_VERSIONS;
         use std::os::unix::fs::PermissionsExt;
         use std::path::{Path, PathBuf};
         use std::process::Command;
@@ -631,6 +691,24 @@ mod tests {
 
         fn bin(dir: &Path) -> PathBuf {
             dir.join("home/.voltius/bin")
+        }
+
+        #[test]
+        fn launch_script_and_compare_agree_on_control_mode() {
+            for v in [
+                "3.1", "3.1c", "3.2", "3.9", "3.10", "3.10a", "4.0", "next-3.6",
+            ] {
+                let out = Command::new("/bin/sh")
+                    .arg("-c")
+                    .arg(format!(
+                        "case 'tmux {v}' in {TMUX_CC_VERSIONS}) echo y ;; esac"
+                    ))
+                    .output()
+                    .expect("sh runs");
+                let shell = String::from_utf8_lossy(&out.stdout).trim() == "y";
+                assert_eq!(shell, control_capable(v), "{v}");
+            }
+            assert!(control_capable("3.10") && !control_capable("3.1c"));
         }
 
         #[test]
@@ -753,23 +831,37 @@ mod tests {
             );
         }
 
+        fn present(dir: &Path) -> Vec<String> {
+            let mut names: Vec<_> = std::fs::read_dir(bin(dir))
+                .unwrap()
+                .map(|e| e.unwrap().file_name().into_string().unwrap())
+                .collect();
+            names.sort();
+            names
+        }
+
+        fn copies(dir: &Path, versions: &[&str], active: Option<&str>) {
+            std::fs::create_dir_all(bin(dir)).unwrap();
+            for v in versions {
+                write_exec(&bin(dir).join(format!("tmux-{v}")), &fake_tmux(v));
+            }
+            if let Some(v) = active {
+                std::os::unix::fs::symlink(format!("tmux-{v}"), bin(dir).join("tmux")).unwrap();
+            }
+        }
+
+        /// What the app does: a status run, then the prune it builds from that status.
+        fn prune(dir: &Path, live: &str) {
+            let status = parse_status(&run(dir, &status_script(), live).1);
+            let (code, out) = run(dir, &prune_script(&status), live);
+            assert_eq!(code, Some(0), "{out}");
+        }
+
         #[test]
         fn sweeps_keep_copies_with_live_servers() {
             let tmp = scratch();
             let dir = tmp.path();
-            std::fs::create_dir_all(bin(dir)).unwrap();
-            for v in ["3.4", "3.6", "3.8"] {
-                write_exec(&bin(dir).join(format!("tmux-{v}")), &fake_tmux(v));
-            }
-            std::os::unix::fs::symlink("tmux-3.8", bin(dir).join("tmux")).unwrap();
-            let present = || {
-                let mut names: Vec<_> = std::fs::read_dir(bin(dir))
-                    .unwrap()
-                    .map(|e| e.unwrap().file_name().into_string().unwrap())
-                    .collect();
-                names.sort();
-                names
-            };
+            copies(dir, &["3.4", "3.6", "3.8"], Some("3.8"));
 
             let (stale, fresh) = (
                 bin(dir).join(".tmux-3.8.1.part"),
@@ -786,25 +878,41 @@ mod tests {
                 .set_modified(hours_ago)
                 .unwrap();
 
-            let (code, out) = run(dir, &prune_script(), "voltius-3.4");
-            assert_eq!((code, out.as_str()), (Some(0), "kept=3.4\n"));
+            prune(dir, "voltius-3.4");
             assert_eq!(
-                present(),
+                present(dir),
                 [".tmux-3.8.2.part", "tmux", "tmux-3.4", "tmux-3.8"]
             );
             std::fs::remove_file(&fresh).unwrap();
 
             let (code, out) = run(dir, &remove_script(), "voltius-3.8");
             assert_eq!((code, out.as_str()), (Some(0), "kept=3.8\n"));
-            assert_eq!(present(), ["tmux-3.8"]);
+            assert_eq!(present(dir), ["tmux-3.8"]);
 
-            let (code, _) = run(dir, &prune_script(), "");
-            assert_eq!(code, Some(0));
-            assert_eq!(present(), ["tmux-3.8"]);
+            prune(dir, "voltius-3.8");
+            assert_eq!(present(dir), ["tmux-3.8"]);
+
+            prune(dir, "");
+            assert!(present(dir).is_empty());
 
             let (code, out) = run(dir, &remove_script(), "");
             assert_eq!((code, out.as_str()), (Some(0), ""));
-            assert!(present().is_empty());
+        }
+
+        #[test]
+        fn prune_never_deletes_a_copy_an_install_is_linking() {
+            let tmp = scratch();
+            let dir = tmp.path();
+            copies(dir, &["3.4", "3.8", "3.9"], Some("3.8"));
+            prune(dir, "");
+            assert_eq!(present(dir), ["tmux", "tmux-3.8", "tmux-3.9"]);
+
+            std::fs::remove_file(bin(dir).join("tmux")).unwrap();
+            let status = parse_status(&run(dir, &status_script(), "").1);
+            std::os::unix::fs::symlink("tmux-3.9", bin(dir).join("tmux")).unwrap();
+            let (code, _) = run(dir, &prune_script(&status), "");
+            assert_eq!(code, Some(0));
+            assert_eq!(present(dir), ["tmux", "tmux-3.9"]);
         }
     }
 
@@ -846,13 +954,6 @@ mod tests {
             assert_eq!(code, Some(0), "{out}");
             assert!(out.starts_with(&asset.sha256), "{out}");
             asset
-        }
-
-        fn copy(version: &str, sessions: u32) -> TmuxCopy {
-            TmuxCopy {
-                version: version.to_string(),
-                sessions,
-            }
         }
 
         #[test]
