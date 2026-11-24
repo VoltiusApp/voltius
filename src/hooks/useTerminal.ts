@@ -518,8 +518,8 @@ export function writeToSession(sessionId: string, data: string): void {
   if (!entry || !sessionAcceptsInput(sessionId)) return;
   feedHistory(sessionId, entry.echoProbe, "addInput", data);
   sendSessionInput(sessionId, entry.sessionType, encodeTerminalInput(data, entry.encoding));
-  // Bypasses xterm's onData, so its scrollOnUserInput never fires.
-  entry.terminal.scrollToBottom();
+  // Bypasses xterm's onData, so its scrollOnUserInput never fires; a live selection stays put.
+  if (!entry.terminal.hasSelection() && document.getSelection()?.isCollapsed !== false) entry.terminal.scrollToBottom();
 }
 
 /** Whether the session's xterm is in application-cursor-keys mode (DECCKM).

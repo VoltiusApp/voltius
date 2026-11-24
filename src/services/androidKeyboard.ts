@@ -5,7 +5,7 @@
  * deletes that reinsert composed text). Instead a native overlay owns the IME and forwards
  * clean input here via two globals it calls with `evaluateJavascript`:
  *   - `window.__voltiusTermInput(text, ctrl)` — committed characters, `ctrl` while Volume Down is held
- *   - `window.__voltiusTermKey(name)`  — semantic keys (Enter, Backspace, arrows, …)
+ *   - `window.__voltiusTermKey(name, ctrl)`  — semantic keys (Enter, Backspace, arrows, …)
  * We route them into the active session exactly like the on-screen extra-keys row, honoring the
  * Ctrl/Alt latch and application-cursor mode. `showAndroidKeyboard` / `hideAndroidKeyboard`
  * drive the native overlay (Rust `terminal_show/hide_keyboard` → `TerminalKeyboard.kt`).
@@ -13,7 +13,7 @@
 import { invoke } from "@/lib/invoke";
 import { writeToSession } from "@/hooks/useTerminal";
 import { sendSpecialKey } from "@/services/terminalInput";
-import { consumeLatchForChar } from "@/stores/modifierLatchStore";
+import { consumeLatchForChar, takeLatchMods } from "@/stores/modifierLatchStore";
 import type { SpecialKey } from "@/services/terminalKeyCore";
 import { useAppLockStore } from "@/stores/appLockStore";
 import { getToggle } from "@/stores/toggleSettingsStore";
@@ -22,12 +22,11 @@ import { getToggle } from "@/stores/toggleSettingsStore";
 let activeSession: string | null = null;
 let installed = false;
 
-/** Named keys the native side forwards that map onto xterm SpecialKeys (cursor-mode aware). */
-const SPECIAL: Partial<Record<string, SpecialKey>> = {
-  Left: "Left", Right: "Right", Up: "Up", Down: "Down",
-  Home: "Home", End: "End", Tab: "Tab", Esc: "Esc",
-  PgUp: "PgUp", PgDn: "PgDn", ShiftTab: "ShiftTab",
-};
+/** Named keys the native side forwards; each maps onto the same SpecialKey the extra-keys row sends. */
+const IME_KEYS = new Set<string>([
+  "Enter", "Backspace", "Delete", "Left", "Right", "Up", "Down",
+  "Home", "End", "Tab", "Esc", "PgUp", "PgDn", "ShiftTab",
+] satisfies SpecialKey[]);
 
 /** Committed text from the IME. Mirrors the onData path: single chars pass through the
  *  extra-keys Ctrl/Alt latch (latch Ctrl, type "c" → Ctrl-C). */
@@ -43,16 +42,11 @@ function feedText(text: string, heldCtrl = false): void {
   writeToSession(id, data);
 }
 
-/** Semantic key from the IME. Enter/Backspace/Delete are cursor-mode-independent raw bytes;
- *  the rest defer to sendSpecialKey (which honors application-cursor mode). */
-function feedKey(name: string): void {
+/** Semantic key from the IME, with the latched Ctrl/Alt (or held Volume Down) like a row key. */
+function feedKey(name: string, heldCtrl = false): void {
   const id = activeSession;
-  if (!id || isLocked()) return;
-  if (name === "Enter") { writeToSession(id, "\r"); return; }
-  if (name === "Backspace") { writeToSession(id, "\x7f"); return; }
-  if (name === "Delete") { writeToSession(id, "\x1b[3~"); return; }
-  const sk = SPECIAL[name];
-  if (sk) sendSpecialKey(id, sk, { ctrl: false, alt: false });
+  if (!id || !IME_KEYS.has(name) || isLocked()) return;
+  sendSpecialKey(id, name as SpecialKey, takeLatchMods(heldCtrl));
 }
 
 // The native IME writes through evaluateJavascript, past the lock overlay's DOM guards.

@@ -25,10 +25,15 @@ export const useModifierLatchStore = create<ModifierLatchStore>((set) => ({
  *  key). Inert on desktop — the latch is never armed there. */
 export function consumeLatchForChar(data: string, heldCtrl = false): string | null {
   if (data.length !== 1) return null;
+  const mods = takeLatchMods(heldCtrl);
+  if (!mods.ctrl && !mods.alt) return null;
+  return applyLatchToChar(data, mods) ?? data;
+}
+
+/** The modifiers for one key press (latched Ctrl/Alt plus a held hardware Ctrl), consuming a one-shot latch. */
+export function takeLatchMods(heldCtrl = false): { ctrl: boolean; alt: boolean } {
   const st = useModifierLatchStore.getState();
-  const ctrl = heldCtrl || isActive(st.ctrl), alt = isActive(st.alt);
-  if (!ctrl && !alt) return null;
-  const out = applyLatchToChar(data, { ctrl, alt });
-  st.consume();
-  return out ?? data;
+  const mods = { ctrl: heldCtrl || isActive(st.ctrl), alt: isActive(st.alt) };
+  if (mods.ctrl || mods.alt) st.consume();
+  return mods;
 }

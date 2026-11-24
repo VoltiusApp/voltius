@@ -6,7 +6,7 @@ const h = vi.hoisted(() => ({ write: vi.fn(), invoke: vi.fn(async () => undefine
 vi.mock("@/lib/invoke", () => ({ invoke: h.invoke }));
 vi.mock("@/hooks/useTerminal", () => ({ writeToSession: h.write }));
 vi.mock("@/services/terminalInput", () => ({ sendSpecialKey: vi.fn() }));
-vi.mock("@/stores/modifierLatchStore", () => ({ consumeLatchForChar: () => null }));
+vi.mock("@/stores/modifierLatchStore", () => ({ consumeLatchForChar: () => null, takeLatchMods: () => ({ ctrl: false, alt: false }) }));
 vi.mock("@/services/account", () => ({ getAppLock: async () => null, setAppLock: async () => {} }));
 
 import { showAndroidKeyboard } from "./androidKeyboard";

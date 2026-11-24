@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { test, expect, vi, beforeEach } from "vitest";
 
-const h = vi.hoisted(() => ({ write: vi.fn(), invoke: vi.fn(async () => undefined) }));
+const h = vi.hoisted(() => ({ write: vi.fn(), key: vi.fn(), invoke: vi.fn(async () => undefined) }));
 
 vi.mock("@/lib/invoke", () => ({ invoke: h.invoke }));
 vi.mock("@/hooks/useTerminal", () => ({ writeToSession: h.write }));
-vi.mock("@/services/terminalInput", () => ({ sendSpecialKey: vi.fn() }));
+vi.mock("@/services/terminalInput", () => ({ sendSpecialKey: h.key }));
 vi.mock("@/services/account", () => ({ getAppLock: async () => null, setAppLock: async () => {} }));
 
 import { showAndroidKeyboard } from "./androidKeyboard";
@@ -13,7 +13,10 @@ import { useModifierLatchStore } from "@/stores/modifierLatchStore";
 import { useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { initialLatch } from "@/stores/modifierLatchCore";
 
-const w = window as unknown as { __voltiusTermInput: (t: string, ctrl?: boolean) => void };
+const w = window as unknown as {
+  __voltiusTermInput: (t: string, ctrl?: boolean) => void;
+  __voltiusTermKey: (k: string, ctrl?: boolean) => void;
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -49,4 +52,21 @@ test("showing the keyboard tells native whether Volume Down acts as Ctrl", () =>
   useToggleSettingsStore.getState().set("volume-down-ctrl", true);
   showAndroidKeyboard("s1");
   expect(h.invoke).toHaveBeenLastCalledWith("terminal_show_keyboard", { volumeCtrl: true });
+});
+
+test("a latched Alt reaches Backspace from the keyboard and is consumed", () => {
+  useModifierLatchStore.getState().tap("alt");
+  w.__voltiusTermKey("Backspace");
+  expect(h.key).toHaveBeenCalledWith("s1", "Backspace", { ctrl: false, alt: true });
+  expect(useModifierLatchStore.getState().alt).toBe("off");
+});
+
+test("Volume Down held while pressing a keyboard key sends it with Ctrl", () => {
+  w.__voltiusTermKey("Backspace", true);
+  expect(h.key).toHaveBeenCalledWith("s1", "Backspace", { ctrl: true, alt: false });
+});
+
+test("unknown key names from the native side are dropped", () => {
+  w.__voltiusTermKey("Insert");
+  expect(h.key).not.toHaveBeenCalled();
 });

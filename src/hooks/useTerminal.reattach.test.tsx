@@ -90,4 +90,31 @@ describe("writeToSession", () => {
 
     expect(scroll).not.toHaveBeenCalled();
   });
+
+  const typeConnected = (sessionId: string) => {
+    render(<Harness sessionId={sessionId} />);
+    useSessionStore.setState({ sessions: [{ id: sessionId, connectionId: "local", connectionName: "w", status: "connected", type: "local" }] });
+    writeToSession(sessionId, "\r");
+  };
+
+  it("keeps the viewport while terminal text is selected", () => {
+    const scroll = vi.spyOn(FakeTerminal.prototype, "scrollToBottom");
+    const selected = vi.spyOn(FakeTerminal.prototype, "hasSelection").mockReturnValue(true);
+    typeConnected("xterm-selection-session");
+    expect(scroll).not.toHaveBeenCalled();
+    selected.mockRestore();
+    scroll.mockRestore();
+  });
+
+  it("keeps the viewport while a native text selection is open", () => {
+    const scroll = vi.spyOn(FakeTerminal.prototype, "scrollToBottom");
+    const text = document.body.appendChild(document.createElement("p"));
+    text.textContent = "selected output";
+    document.getSelection()!.selectAllChildren(text);
+    typeConnected("native-selection-session");
+    expect(scroll).not.toHaveBeenCalled();
+    document.getSelection()!.removeAllRanges();
+    text.remove();
+    scroll.mockRestore();
+  });
 });
