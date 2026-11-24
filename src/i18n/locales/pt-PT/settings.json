@@ -1466,7 +1466,7 @@
       },
       "persistentSessions": {
         "title": "Sessões persistentes",
-        "desc": "Mantenha seu shell e os processos em execução vivos entre desconexões envolvendo o shell remoto no tmux (recorre ao screen). Requer tmux ou screen no host. Pode ser substituído por host, em Avançado nas configurações da conexão."
+        "desc": "Mantenha seu shell e os processos em execução vivos entre desconexões envolvendo o shell remoto no tmux (recorre ao screen). Requer tmux ou screen no host. Pode ser substituído por host, em Avançado nas configurações da conexão. Se o host não tiver tmux, o Voltius pode instalar o seu próprio (sem root) a partir das definições do host."
       },
       "tmuxAutoUpdate": {
         "title": "Atualizar automaticamente o tmux do Voltius",

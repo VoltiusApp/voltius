@@ -1244,7 +1244,7 @@
       },
       "persistentSessions": {
         "title": "Sessions persistantes",
-        "desc": "Maintient votre shell et vos processus actifs lors des déconnexions en enveloppant le shell distant dans tmux (repli sur screen). Nécessite tmux ou screen sur l'hôte. Peut être remplacé par hôte, sous Avancé dans les paramètres de la connexion."
+        "desc": "Maintient votre shell et vos processus actifs lors des déconnexions en enveloppant le shell distant dans tmux (repli sur screen). Nécessite tmux ou screen sur l'hôte. Peut être remplacé par hôte, sous Avancé dans les paramètres de la connexion. Si l'hôte n'a pas tmux, Voltius peut installer le sien (sans root) depuis les paramètres de l'hôte."
       },
       "tmuxAutoUpdate": {
         "title": "Mettre à jour automatiquement le tmux de Voltius",

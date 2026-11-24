@@ -1475,7 +1475,7 @@
       },
       "persistentSessions": {
         "title": "Trvalé relace",
-        "desc": "Zachovat shell a běžící procesy i při odpojení spuštěním vzdáleného shellu v tmux (případně ve screen). Vyžaduje tmux nebo screen na hostu. Pro jednotlivé hosty lze nastavit jinou volbu v sekci Pokročilé v nastavení připojení."
+        "desc": "Zachovat shell a běžící procesy i při odpojení spuštěním vzdáleného shellu v tmux (případně ve screen). Vyžaduje tmux nebo screen na hostu. Pro jednotlivé hosty lze nastavit jinou volbu v sekci Pokročilé v nastavení připojení. Pokud host tmux nemá, Voltius může nainstalovat vlastní (bez oprávnění root) z nastavení hostu."
       },
       "tmuxAutoUpdate": {
         "title": "Automaticky aktualizovat tmux od Voltius",

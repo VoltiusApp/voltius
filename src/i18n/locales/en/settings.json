@@ -1235,7 +1235,7 @@
       },
       "persistentSessions": {
         "title": "Persistent sessions",
-        "desc": "Keep your shell and running processes alive across disconnects by wrapping the remote shell in tmux (falls back to screen). Requires tmux or screen on the host. Can be overridden per host, under Advanced in the connection's settings."
+        "desc": "Keep your shell and running processes alive across disconnects by wrapping the remote shell in tmux (falls back to screen). Requires tmux or screen on the host. Can be overridden per host, under Advanced in the connection's settings. If the host has no tmux, Voltius can install its own (no root needed) from the host's settings."
       },
       "tmuxAutoUpdate": {
         "title": "Update Voltius's tmux automatically",

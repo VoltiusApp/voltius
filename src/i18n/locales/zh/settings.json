@@ -1267,7 +1267,7 @@
       },
       "persistentSessions": {
         "title": "持久会话",
-        "desc": "通过在远程 shell 中包裹 tmux 来保持您的 shell 和运行中的进程在断线后存活（回退到 screen）。需要在主机上安装 tmux 或 screen。可以在连接设置的“高级”中按主机覆盖。"
+        "desc": "通过在远程 shell 中包裹 tmux 来保持您的 shell 和运行中的进程在断线后存活（回退到 screen）。需要在主机上安装 tmux 或 screen。可以在连接设置的“高级”中按主机覆盖。如果主机没有 tmux，Voltius 可以在主机设置中安装自己的 tmux（无需 root）。"
       },
       "tmuxAutoUpdate": {
         "title": "自动更新 Voltius 的 tmux",

@@ -1086,7 +1086,7 @@
       },
       "persistentSessions": {
         "title": "Kalıcı oturumlar",
-        "desc": "Uzak kabuğu tmux içinde çalıştırarak (tmux yoksa screen kullanılır) kabuğunuzu ve çalışan işlemlerinizi bağlantı kesintilerinde canlı tutar. Sunucuda tmux veya screen gerekir. Bağlantı ayarlarındaki Gelişmiş bölümünden her sunucu için ayrı ayarlanabilir."
+        "desc": "Uzak kabuğu tmux içinde çalıştırarak (tmux yoksa screen kullanılır) kabuğunuzu ve çalışan işlemlerinizi bağlantı kesintilerinde canlı tutar. Sunucuda tmux veya screen gerekir. Bağlantı ayarlarındaki Gelişmiş bölümünden her sunucu için ayrı ayarlanabilir. Sunucuda tmux yoksa Voltius, sunucu ayarlarından kendi tmux'unu (root gerekmeden) kurabilir."
       },
       "tmuxAutoUpdate": {
         "title": "Voltius'un tmux'unu otomatik güncelle",
