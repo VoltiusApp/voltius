@@ -4,6 +4,8 @@ import {
   touchDistance,
   flingStep,
   panArrows,
+  twoFingerIntent,
+  touchCentroidX,
 } from "./mobileTerminalGesturesCore.ts";
 import { test } from "vitest";
 
@@ -45,4 +47,13 @@ test("panArrows: first arrow at a quarter width, then one per half width, finger
   eq(panArrows(-299, 400), 1, "still one before three quarters");
   eq(panArrows(-300, 400), 2, "three quarters is two");
   eq(panArrows(-300, 0), 0, "no width, no arrows");
+});
+
+test("twoFingerIntent: a sideways slide pans, a spread pinches, small moves wait", () => {
+  const eq = (got: unknown, want: unknown, msg: string) => { if (got !== want) throw new Error(`${msg}: got ${String(got)} want ${String(want)}`); };
+  eq(twoFingerIntent(3, 10), null, "inside the slop");
+  eq(twoFingerIntent(4, -40), "pan", "fingers slide together");
+  eq(twoFingerIntent(60, 5), "pinch", "fingers spread");
+  eq(twoFingerIntent(-30, 40), "pinch", "slide with a big spread change is a pinch");
+  eq(touchCentroidX({ clientX: 100 }, { clientX: 300 }), 200, "centroid");
 });
