@@ -2,6 +2,7 @@ package com.voltius.app
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.Configuration
 import android.text.InputType
 import android.util.Log
 import android.view.KeyCharacterMap
@@ -36,6 +37,8 @@ object TerminalKeyboard {
   internal var webView: WebView? = null
     private set
   @Volatile private var volumeCtrl = false
+  private val hardKeyboardScript = PageScript("HardKeyboard")
+  private var hardKeyboard: Boolean? = null
   private var volumeCtrlHeld = false
 
   /** Called from MainActivity.onWebViewCreate once Wry has built the RustWebView. */
@@ -49,6 +52,18 @@ object TerminalKeyboard {
       parent.addView(view, ViewGroup.LayoutParams(1, 1))
       inputView = view
     }
+    onConfiguration(wv, activity.resources.configuration)
+    activity.addOnConfigurationChangedListener { onConfiguration(wv, it) }
+  }
+
+  // `data-hw-keyboard` on <html> while a hardware keyboard is attached: the page swaps the
+  // extra-keys row for a floating drawer button. keyboard|keyboardHidden are in configChanges.
+  private fun onConfiguration(wv: WebView, config: Configuration) {
+    val attached = config.keyboard != Configuration.KEYBOARD_NOKEYS &&
+      config.hardKeyboardHidden == Configuration.HARDKEYBOARDHIDDEN_NO
+    if (attached == hardKeyboard) return
+    hardKeyboard = attached
+    hardKeyboardScript.set(wv, "(function(){var d=document.documentElement;if(d)d.toggleAttribute('data-hw-keyboard',$attached);})();")
   }
 
   /** JS asked to raise the keyboard for the active terminal. Runs on the UI thread.

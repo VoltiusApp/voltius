@@ -15,6 +15,7 @@ import MobileSessionLayer from "./MobileSessionLayer";
 import MobileTerminalScreen from "./screens/MobileTerminalScreen";
 import MobileExtraKeysRow from "./MobileExtraKeysRow";
 import MobileKeysDrawer from "./MobileKeysDrawer";
+import { DrawerToggle } from "./mobileKeys";
 import MobileKeychainScreen from "./screens/MobileKeychainScreen";
 import MobileKeyEditScreen from "./screens/MobileKeyEditScreen";
 import MobileIdentityEditScreen from "./screens/MobileIdentityEditScreen";
@@ -60,7 +61,7 @@ import { useBlockedTeamVault } from "@/hooks/useBlockedTeamVault";
 import { refitSession } from "@/hooks/useTerminal";
 import { installRipples } from "@/lib/ripple";
 import { useLauncherShortcuts } from "./useLauncherShortcuts";
-import { useIsAndroid } from "@/utils/platform";
+import { useHardwareKeyboard, useIsAndroid } from "@/utils/platform";
 
 export default function MobileShell() {
   const { t } = useTranslation();
@@ -96,6 +97,7 @@ export default function MobileShell() {
   const hasSessions = useSessionStore((s) => s.sessions.length > 0);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const keysDrawerOpen = useUIStore((s) => s.terminalKeysDrawerOpen);
+  const hwKeyboard = useHardwareKeyboard();
   const notificationsOpen = useUIStore((s) => s.notificationCenterOpen);
   const mobileScreens = usePluginStore((s) => s.mobileScreens);
   const pop = useMobileNavStore((s) => s.pop);
@@ -194,6 +196,10 @@ export default function MobileShell() {
           <div className="flex-1 relative" style={{ overflow: "clip", overscrollBehavior: "contain" }}>
             {/* Always-mounted sessions; visibility toggled so xterm survives tab switches */}
             <MobileSessionLayer visible={terminalVisible && hasSessions} />
+            {terminalVisible && hasSessions && hwKeyboard && (
+              <DrawerToggle keyboardOpen={keyboardVisible} className="absolute right-3 bottom-3 z-30 w-11 h-11 rounded-full flex items-center justify-center"
+                style={{ boxShadow: "var(--t-elev-2)" }} />
+            )}
             {/* Non-terminal tab content layers above the session layer when terminal isn't foreground */}
             {/* Not while the vault is blocked: these screens list vault objects, and the
                 panel covers them anyway. The session and SFTP layers below stay mounted —
@@ -216,7 +222,9 @@ export default function MobileShell() {
               even when the keyboard is closed (keys write to the PTY without needing input focus).
               When the keyboard opens, the shell shrinks to usableHeight so the row sits above it. */}
           {terminalVisible && hasSessions && keysDrawerOpen && <MobileKeysDrawer keyboardOpen={keyboardVisible} />}
-          {terminalVisible && hasSessions && <MobileExtraKeysRow keyboardOpen={keyboardVisible} />}
+          {terminalVisible && hasSessions && (hwKeyboard
+            ? <div className="shrink-0" style={{ height: "var(--vt-safe-bottom)", background: "var(--t-bg-chrome)" }} />
+            : <MobileExtraKeysRow keyboardOpen={keyboardVisible} />)}
           {/* Pushed full-screen pages overlay everything. Each layer's wrapper is layout-neutral
               (display: contents); transitions and predictive back animate its first child. */}
           {pages.map(({ item, index, role }) => (
