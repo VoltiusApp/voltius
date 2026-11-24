@@ -34,9 +34,10 @@ const SPECIAL: Partial<Record<string, SpecialKey>> = {
 function feedText(text: string, heldCtrl = false): void {
   const id = activeSession;
   if (!id || !text || isLocked()) return;
-  let data = text;
-  if (text.length === 1) {
-    const latched = consumeLatchForChar(text, heldCtrl);
+  // Some IMEs commit Enter as "\n"; a TTY's Enter is "\r" (nano reads "\n" as ^J Justify).
+  let data = text.replace(/\r?\n/g, "\r");
+  if (data.length === 1) {
+    const latched = consumeLatchForChar(data, heldCtrl);
     if (latched !== null) data = latched;
   }
   writeToSession(id, data);

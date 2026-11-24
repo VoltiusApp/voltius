@@ -45,6 +45,8 @@ export class FakeTerminal {
   loadAddon() {}
   write() {}
   focus() {}
+  scrollToBottom() {}
+  scrollLines() {}
   getSelection() { return ""; }
   dispose() {}
   attachCustomKeyEventHandler(fn: (e: KeyboardEvent) => boolean) { keyHandlers.set(this.id, fn); }
