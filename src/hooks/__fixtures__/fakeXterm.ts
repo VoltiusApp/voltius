@@ -48,6 +48,7 @@ export class FakeTerminal {
   scrollToBottom() {}
   scrollLines() {}
   getSelection() { return ""; }
+  hasSelection() { return false; }
   dispose() {}
   attachCustomKeyEventHandler(fn: (e: KeyboardEvent) => boolean) { keyHandlers.set(this.id, fn); }
   attachCustomWheelEventHandler() {}

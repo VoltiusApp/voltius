@@ -1,8 +1,8 @@
 /** Pure key → terminal byte-sequence mapping for the mobile extra-keys row.
  *  No DOM/xterm; node-testable. Arrows respect application-cursor-keys mode. */
 export type SpecialKey =
-  | "Esc" | "Tab" | "ShiftTab" | "Up" | "Down" | "Left" | "Right"
-  | "Home" | "End" | "PgUp" | "PgDn"
+  | "Esc" | "Tab" | "ShiftTab" | "Enter" | "Backspace" | "Delete"
+  | "Up" | "Down" | "Left" | "Right" | "Home" | "End" | "PgUp" | "PgDn"
   | "-" | "/" | "|" | "~" | "\\";
 export interface KeyMods { ctrl: boolean; alt: boolean; appCursor: boolean; }
 /** Control byte for a printable char: Ctrl-A=0x01 … Ctrl-Z=0x1a, plus common punct. "" if none. */
@@ -21,6 +21,9 @@ export function keyToBytes(key: SpecialKey, m: KeyMods): string {
     case "Esc": seq = "\x1b"; break;
     case "Tab": seq = "\t"; break;
     case "ShiftTab": seq = "\x1b[Z"; break; // CSI Z — back-tab (reverse field / completion menu)
+    case "Enter": seq = "\r"; break;
+    case "Backspace": seq = m.ctrl ? "\b" : "\x7f"; break; // xterm.js: Ctrl+Backspace sends ^H
+    case "Delete": seq = "\x1b[3~"; break;
     case "Up": seq = `${csi}A`; break;
     case "Down": seq = `${csi}B`; break;
     case "Right": seq = `${csi}C`; break;

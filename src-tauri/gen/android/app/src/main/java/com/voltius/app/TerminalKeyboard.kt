@@ -111,7 +111,7 @@ object TerminalKeyboard {
 
   /** Forward a semantic key (Enter, Backspace, Delete, arrows, Home/End, Tab, Esc, PgUp/PgDn). */
   fun feedKey(name: String) {
-    eval("window.__voltiusTermKey", JSONObject.quote(name))
+    eval("window.__voltiusTermKey", JSONObject.quote(name), volumeCtrlHeld.toString())
   }
 
   @JvmStatic

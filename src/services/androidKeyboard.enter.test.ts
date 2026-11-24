@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { test, expect, vi, beforeEach } from "vitest";
 
-const h = vi.hoisted(() => ({ write: vi.fn(), invoke: vi.fn(async () => undefined) }));
+const h = vi.hoisted(() => ({ write: vi.fn(), key: vi.fn(), invoke: vi.fn(async () => undefined) }));
 
 vi.mock("@/lib/invoke", () => ({ invoke: h.invoke }));
 vi.mock("@/hooks/useTerminal", () => ({ writeToSession: h.write }));
-vi.mock("@/services/terminalInput", () => ({ sendSpecialKey: vi.fn() }));
+vi.mock("@/services/terminalInput", () => ({ sendSpecialKey: h.key }));
 vi.mock("@/services/account", () => ({ getAppLock: async () => null, setAppLock: async () => {} }));
 
 import { showAndroidKeyboard } from "./androidKeyboard";
@@ -17,9 +17,9 @@ beforeEach(() => {
   showAndroidKeyboard("s1");
 });
 
-test("Enter sent as a key event is a carriage return", () => {
+test("Enter sent as a key event goes out as the Enter special key", () => {
   w.__voltiusTermKey("Enter");
-  expect(h.write).toHaveBeenCalledWith("s1", "\r");
+  expect(h.key).toHaveBeenCalledWith("s1", "Enter", { ctrl: false, alt: false });
 });
 
 test("Enter committed as a newline character is a carriage return too", () => {

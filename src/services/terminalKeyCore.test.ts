@@ -18,6 +18,12 @@ assertEqual(ctrlByte("c"), "\x03", "Ctrl-C");
 assertEqual(ctrlByte("C"), "\x03", "Ctrl-C uppercase same");
 assertEqual(ctrlByte("a"), "\x01", "Ctrl-A");
 assertEqual(keyToBytes("/", { ctrl: false, alt: true, appCursor: false }), "\x1b/", "Alt-/ → ESC /");
+assertEqual(keyToBytes("Enter", { ctrl: false, alt: false, appCursor: false }), "\r", "Enter → CR");
+assertEqual(keyToBytes("Enter", { ctrl: false, alt: true, appCursor: false }), "\x1b\r", "Alt+Enter → ESC CR");
+assertEqual(keyToBytes("Backspace", { ctrl: false, alt: false, appCursor: false }), "\x7f", "Backspace → DEL");
+assertEqual(keyToBytes("Backspace", { ctrl: true, alt: false, appCursor: false }), "\b", "Ctrl+Backspace → BS (xterm.js)");
+assertEqual(keyToBytes("Backspace", { ctrl: false, alt: true, appCursor: false }), "\x1b\x7f", "Alt+Backspace → ESC DEL (backward-kill-word)");
+assertEqual(keyToBytes("Delete", { ctrl: false, alt: false, appCursor: true }), "\x1b[3~", "Delete ignores appcursor");
 // applyLatchToChar — virtual Ctrl/Alt latch applied to a soft-keyboard char
 assertEqual(applyLatchToChar("c", { ctrl: true, alt: false }), "\x03", "latch Ctrl+c → ETX");
 assertEqual(applyLatchToChar("C", { ctrl: true, alt: false }), "\x03", "latch Ctrl+C (uppercase) → ETX");

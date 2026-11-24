@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { isActive, type Modifier } from "@/stores/modifierLatchCore";
-import { useModifierLatchStore } from "@/stores/modifierLatchStore";
+import { takeLatchMods, useModifierLatchStore } from "@/stores/modifierLatchStore";
 import { sendSpecialKey } from "@/services/terminalInput";
 import type { SpecialKey } from "@/services/terminalKeyCore";
 import { useUIStore } from "@/stores/uiStore";
@@ -24,7 +24,6 @@ export default function MobileExtraKeysRow({ keyboardOpen }: { keyboardOpen?: bo
   const alt = useModifierLatchStore((s) => s.alt);
   const tap = useModifierLatchStore((s) => s.tap);
   const lock = useModifierLatchStore((s) => s.lock);
-  const consume = useModifierLatchStore((s) => s.consume);
   const latch: Record<Modifier, typeof ctrl> = { ctrl, alt };
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastModTap = useRef<Record<Modifier, number | null>>({ ctrl: null, alt: null });
@@ -36,8 +35,7 @@ export default function MobileExtraKeysRow({ keyboardOpen }: { keyboardOpen?: bo
   const press = (key: SpecialKey) => {
     if (!activeSessionId) return;
     haptic("key");
-    sendSpecialKey(activeSessionId, key, { ctrl: isActive(latch.ctrl), alt: isActive(latch.alt) });
-    consume();
+    sendSpecialKey(activeSessionId, key, takeLatchMods());
   };
   const lockMod = (mod: Modifier) => { haptic("press"); lock(mod); };
   const tapMod = (mod: Modifier) => {
