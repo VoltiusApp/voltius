@@ -104,3 +104,18 @@ export function autoscrollRate(y: number, top: number, bottom: number, cellH: nu
   const rate = Math.min(60, 8 + (past / cellH) * 8);
   return y < top + zone ? -rate : rate;
 }
+
+// Chromium moves a dragged end only when the finger moves and hides a handle whose end scrolls away,
+// so autoscroll stops once the leading end reaches the opposite edge.
+export function autoscrollStep(
+  px: number,
+  scrollTop: number,
+  clientHeight: number,
+  cellH: number,
+  first: number,
+  lo: number,
+  hi: number,
+): number {
+  if (px > 0) return Math.max(0, Math.min(px, (hi - first) * cellH - scrollTop));
+  return Math.min(0, Math.max(px, (lo - first + 1) * cellH - clientHeight - scrollTop));
+}
