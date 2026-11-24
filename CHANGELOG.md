@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.81.0] - 2026-11-24
+
+### Added
+
+- On phones, edit files from SFTP: Edit in a file's actions opens it full screen with Save and Auto-save. Leaving with unsaved changes asks to save or discard; read-only device shares open read-only (#923)
+- The SFTP browser reopens the folder you last browsed on each host instead of starting at home, on desktop and mobile. If the folder is gone it falls back to home (#923)
+- On Android, a keys drawer at the end of the extra-keys row: Nav (Home, End, PgUp, PgDn, Ins, Del), readline shortcuts, F1–F12 and the panel shortcuts, plus a Shift latch next to Ctrl and Alt (#919)
+- On phones, a dropped session reconnects under a slim banner at the top; the terminal output stays visible and scrollable instead of being hidden by a full-screen overlay (#922)
+
+### Fixed
+
+- On Android, Enter from the soft keyboard always sends a carriage return, so it works in nano, and typing scrolls the terminal back to the prompt (#920, #921)
+- On Android, the Ctrl and Alt latch (and Volume Down as Ctrl) now applies to Enter, Backspace, Delete and arrow keys from the keyboard, and pressing a key no longer throws away a text selection (#919)
+- On Android, physical and Bluetooth keyboards type into the terminal, including Ctrl/Alt combinations, F-keys and Esc (#922)
+- On phones, swiping scrolls full-screen apps such as vim, less, htop and tmux, and a double tap is a double click in apps that use the mouse, such as mc (#922)
+- On Android, the dragged selection handle stays on screen while the selection autoscrolls past one screen (#892)
+
 ## [0.80.0] - 2026-11-21
 
 ### Added
