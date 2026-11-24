@@ -8,7 +8,7 @@ import {
   sftpClose,
   sftpUploadBatchTar, sftpDownloadBatchTar, sftpTransferBatchTar,
   sftpExists, fsExists, fsHomeDir, fsCopy, wslHomeDir,
-  sftpRename, sftpDelete, fsRename, fsDelete, sftpCanonicalize,
+  sftpRename, sftpDelete, fsRename, fsDelete,
   pickLocalPath, pickLocalPaths,
 } from "@/services/sftp";
 import { transferItem } from "@/services/sftpTransferCore";
@@ -21,6 +21,7 @@ import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { useFileClipboardStore, type FileEndpoint } from "@/stores/fileClipboardStore";
 import { buildPasteDeps, executePaste } from "./pasteService";
 import { connectTarget } from "@/services/useSftpDir";
+import { hostDirTarget, openingSftpDir, sftpDirKey } from "@/services/sftpLastDir";
 import { readOnlyTip, refuseReadOnly, useReadOnlyFlips } from "@/services/deviceReadOnly";
 import type { BackendErrorCode } from "@/services/backendErrors";
 import { hostPresentation } from "./hostPresentation";
@@ -133,19 +134,20 @@ export default function SFTPPage() {
     let link: Pick<Extract<SidePhase, { tag: "connected" }>, "route" | "rttMs" | "readOnly"> = {};
     try {
       let cwd = "/";
+      let home: string | undefined;
       if (host.kind === "local") {
         cwd = host.wslDistro ? await wslHomeDir(host.wslDistro) : await fsHomeDir();
       } else {
         opening.current[side] = connectId;
+        const target = hostDirTarget(host);
         try {
-          const target = host.kind === "device" ? { device: host.device } : host.connection;
           const opened = await connectTarget(target, connectId, { interactive: true, relink });
           sftpId = opened.sftpId;
           if (host.kind === "device") link = { route: host.device.route ?? undefined, rttMs: opened.rttMs, readOnly: opened.readOnly };
         } finally {
           if (opening.current[side] === connectId) opening.current[side] = null;
         }
-        if (isCurrent()) cwd = await sftpCanonicalize(sftpId, ".");
+        if (isCurrent()) ({ cwd, home } = await openingSftpDir(sftpId, sftpDirKey(target)));
       }
       if (!isCurrent()) {
         if (sftpId && sftpId !== relink) sftpClose(sftpId).catch(() => {});
@@ -153,7 +155,7 @@ export default function SFTPPage() {
       }
       if (relink && sftpId !== relink) sftpClose(relink).catch(() => {});
       shownSftp.current[side] = sftpId;
-      setPhase({ tag: "connected", sftpId, cwd, selected: [], ...link });
+      setPhase({ tag: "connected", sftpId, cwd, home, selected: [], ...link });
     } catch (e) {
       if (sftpId && sftpId !== relink) sftpClose(sftpId).catch(() => {});
       if (isCurrent()) setPhase({ ...connectErrorPhase(e), host, lostSftpId: relink });

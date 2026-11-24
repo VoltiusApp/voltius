@@ -89,11 +89,12 @@ export function FilePane({
   onTransferToTarget, canTransferToTarget, onChangeHost,
   filter = "", onRegisterMenuOpener, onRegisterViewMenuOpener, onOpenInTerminal,
   initialVisibleCols, onPanelDownload, onPanelUpload, onEdit,
-  onPaste, onBack, onForward, readOnly, isDevice,
+  onPaste, onBack, onForward, readOnly, isDevice, lastDirKey,
 }: {
   sftpId: string | null;
   isLocal: boolean;
   isDevice?: boolean;
+  lastDirKey?: string;
   cwd: string;
   homeCwd?: string;
   /** Display label for the remote host — shown in editor tab titles. */
@@ -178,7 +179,7 @@ export function FilePane({
   const [renaming, setRenaming] = useState<string | null>(null);
   const [creating, setCreating] = useState<"folder" | "file" | null>(null);
   const [autoTick, setAutoTick] = useState(0);
-  const { entries, loading, error, refreshError } = useDirListing(isLocal, sftpId, cwd, `${refreshTick}:${autoTick}`);
+  const { entries, loading, error, refreshError } = useDirListing(isLocal, sftpId, cwd, `${refreshTick}:${autoTick}`, lastDirKey);
   const withPermissions = !isLocal || entries.some((e) => e.permissions != null);
   const [canArchive, setCanArchive] = useState(isLocal);
   useEffect(() => {
