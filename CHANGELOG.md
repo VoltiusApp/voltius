@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.84.1] - 2026-11-24
+
+### Fixed
+
+- On desktop, the terminal takes the keyboard again when you come back to it from the SFTP view or a split tab, so you can type without clicking into it first (#940)
+
 ## [0.84.0] - 2026-11-24
 
 ### Added
