@@ -1,22 +1,17 @@
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useSessionStore } from "@/stores/sessionStore";
 import type { Modifier } from "@/stores/modifierLatchCore";
 import type { SpecialKey } from "@/services/terminalKeyCore";
-import { useUIStore } from "@/stores/uiStore";
 import { haptic } from "@/lib/haptics";
 import { EXTRA_KEYS, KEY_HOLD_MS, keyForGesture, keyGesture, type ExtraKey } from "./extraKeysCore";
-import { KEY_CLASS, KEY_STYLE, LatchKey, isTouch, keepKeyboardClosed, noFocusSteal, pressKey } from "./mobileKeys";
+import { DrawerToggle, KEY_CLASS, KEY_STYLE, LatchKey, isTouch, keepKeyboardClosed, noFocusSteal, pressKey } from "./mobileKeys";
 
 const MODS: { mod: Modifier; label: string }[] = [ { mod: "ctrl", label: "Ctrl" }, { mod: "alt", label: "Alt" } ];
 
 export default function MobileExtraKeysRow({ keyboardOpen }: { keyboardOpen?: boolean }) {
-  const { t } = useTranslation();
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
-  const drawerOpen = useUIStore((s) => s.terminalKeysDrawerOpen);
-  const toggleDrawer = useUIStore((s) => s.toggleTerminalKeysDrawer);
   // Tap / hold / swipe-up / scroll tracking for the keys: record the touch origin and only decide
   // on touchend (extraKeysCore.keyGesture), so dragging the row sideways never fires a key.
   const keyTouch = useRef<{ x: number; y: number; dx: number; dy: number; held: boolean; armed: boolean; timer: ReturnType<typeof setTimeout> } | null>(null);
@@ -113,14 +108,7 @@ export default function MobileExtraKeysRow({ keyboardOpen }: { keyboardOpen?: bo
         </div>,
         document.body,
       )}
-      <button data-mobile-keys-drawer-toggle aria-pressed={drawerOpen} aria-label={t("mobile.keysDrawer.toggleAriaLabel")}
-        onMouseDown={noFocusSteal}
-        onTouchStart={(e) => { noFocusSteal(e); keepKeyboardClosed(keyboardOpen); }}
-        onClick={(e) => { noFocusSteal(e); haptic("key"); toggleDrawer(); }}
-        className={`${KEY_CLASS} font-medium`}
-        style={{ ...KEY_STYLE, ...(drawerOpen && { background: "var(--t-accent)", color: "var(--t-on-accent)" }) }}>
-        <Icon icon="lucide:layout-grid" width={18} />
-      </button>
+      <DrawerToggle className={`${KEY_CLASS} font-medium`} keyboardOpen={keyboardOpen} />
     </div>
   );
 }

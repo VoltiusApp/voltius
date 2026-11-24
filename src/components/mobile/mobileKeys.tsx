@@ -1,4 +1,7 @@
 import { useRef, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import { Icon } from "@iconify/react";
+import { useUIStore } from "@/stores/uiStore";
 import { isActive, type LatchValue, type Modifier } from "@/stores/modifierLatchCore";
 import { takeLatchMods, useModifierLatchStore } from "@/stores/modifierLatchStore";
 import { sendSpecialKey } from "@/services/terminalInput";
@@ -103,6 +106,23 @@ export function LatchKey({ mod, className, children }: { mod: Modifier; classNam
       {value === "locked" && (
         <span data-mobile-key-lock aria-hidden className="absolute bottom-1 left-1/2 -translate-x-1/2 w-3 h-0.5 rounded-full bg-current" />
       )}
+    </button>
+  );
+}
+
+/** Opens and closes the keys drawer: the row's last key, or a floating button with a hardware keyboard. */
+export function DrawerToggle({ className, keyboardOpen, style }: { className: string; keyboardOpen?: boolean; style?: React.CSSProperties }) {
+  const { t } = useTranslation();
+  const open = useUIStore((s) => s.terminalKeysDrawerOpen);
+  const toggle = useUIStore((s) => s.toggleTerminalKeysDrawer);
+  return (
+    <button data-mobile-keys-drawer-toggle aria-pressed={open} aria-label={t("mobile.keysDrawer.toggleAriaLabel")}
+      onMouseDown={noFocusSteal}
+      onTouchStart={(e) => { noFocusSteal(e); keepKeyboardClosed(keyboardOpen); }}
+      onClick={(e) => { noFocusSteal(e); haptic("key"); toggle(); }}
+      className={className}
+      style={{ ...KEY_STYLE, ...style, ...(open && { background: "var(--t-accent)", color: "var(--t-on-accent)" }) }}>
+      <Icon icon="lucide:layout-grid" width={18} />
     </button>
   );
 }

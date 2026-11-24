@@ -88,3 +88,20 @@ const PLATFORM_NAMES: Record<string, string> = { linux: "Linux", macos: "macOS",
 export function platformName(platform: string): string {
   return PLATFORM_NAMES[platform] ?? platform;
 }
+
+const HW_KEYBOARD_ATTR = "data-hw-keyboard";
+
+/** True while Android reports a hardware keyboard (TerminalKeyboard.kt sets `data-hw-keyboard` on <html>). */
+export function useHardwareKeyboard(): boolean {
+  const root = typeof document === "undefined" ? null : document.documentElement;
+  const [attached, setAttached] = useState(() => !!root?.hasAttribute(HW_KEYBOARD_ATTR));
+  useEffect(() => {
+    if (!root) return;
+    const read = () => setAttached(root.hasAttribute(HW_KEYBOARD_ATTR));
+    read();
+    const observer = new MutationObserver(read);
+    observer.observe(root, { attributes: true, attributeFilter: [HW_KEYBOARD_ATTR] });
+    return () => observer.disconnect();
+  }, [root]);
+  return attached;
+}
