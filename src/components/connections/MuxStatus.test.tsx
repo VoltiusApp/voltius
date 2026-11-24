@@ -53,12 +53,13 @@ afterEach(cleanup);
 
 const renderRow = (persistOn = true, connectionId: string | undefined = "c1") =>
   render(<MuxStatus connectionId={connectionId} persistOn={persistOn} />);
+const renderNewHost = () => render(<MuxStatus connectionId={undefined} persistOn />);
 const setHost = (over: Partial<HostMux>) => useHostMuxStore.setState({ hosts: { c1: host(over) } });
 
 test("renders nothing when persistence is off or the host is new", () => {
   expect(renderRow(false).container.innerHTML).toBe("");
   cleanup();
-  expect(renderRow(true, undefined).container.innerHTML).toBe("");
+  expect(renderNewHost().container.innerHTML).toBe("");
 });
 
 test("never checked: a disabled install button explains why", () => {
@@ -119,11 +120,20 @@ test("the Voltius copy offers Remove, which asks first and then removes", async 
   expect(h.remove).toHaveBeenCalledWith("s1");
 });
 
-test("an outdated Voltius copy offers the pinned install next to Remove", () => {
+test("an outdated Voltius copy offers Update now next to Remove", () => {
   setHost({ kind: "tmux-cc", version: "3.4", voltius: { active: "3.4", versions: ["3.4"], inUse: {}, outdated: true } });
   renderRow();
-  expect(screen.getByRole("button", { name: "connections.form.mux.installPin:3.5a" })).toBeTruthy();
+  expect(screen.queryByText("connections.form.mux.installPin:3.5a")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "settings.hosts.voltiusTmux.updateNow" }));
+  expect(h.start).toHaveBeenCalledWith("s1", "c1", "");
   expect(screen.getByRole("button", { name: "connections.form.mux.remove" })).toBeTruthy();
+});
+
+test("after Remove, a copy still serving sessions is not shown as the host's tmux", () => {
+  setHost({ kind: "tmux-cc", version: "3.4", voltius: { versions: ["3.4"], inUse: { "3.4": 1 }, outdated: false } });
+  renderRow();
+  expect(screen.queryByText(/^connections\.form\.mux\.voltius/)).toBeNull();
+  expect(screen.queryByRole("button")).toBeNull();
 });
 
 test("a system tmux with control mode has no button", () => {

@@ -8,7 +8,8 @@ export type MuxKind = "tmux-cc" | "tmux-old" | "screen" | "none" | "unsupported"
 export interface HostMux {
   kind: MuxKind;
   version?: string;
-  voltius?: { active: string; versions: string[]; inUse: Record<string, number>; outdated: boolean };
+  /** `active` is unset after Remove while an older copy still serves sessions. */
+  voltius?: { active?: string; versions: string[]; inUse: Record<string, number>; outdated: boolean };
   checkedAt: number;
   notified?: MuxKind;
 }
@@ -46,6 +47,8 @@ interface HostMuxStore {
   setInstalling: (connectionId: string, state: TmuxInstalling | undefined) => void;
   setFailure: (connectionId: string, failure: TmuxInstallFailure | undefined) => void;
 }
+
+export const persistedHostMux = (s: HostMuxStore) => ({ hosts: s.hosts });
 
 function withEntry<T>(map: Record<string, T>, key: string, value: T | undefined): Record<string, T> {
   const { [key]: _removed, ...rest } = map;
@@ -98,6 +101,6 @@ export const useHostMuxStore = create<HostMuxStore>()(
       setFailure: (connectionId, failure) =>
         set((s) => ({ lastFailure: withEntry(s.lastFailure, connectionId, failure) })),
     }),
-    { name: "voltius-host-mux", version: 1, partialize: (s) => ({ hosts: s.hosts }) },
+    { name: "voltius-host-mux", version: 1, partialize: persistedHostMux },
   ),
 );

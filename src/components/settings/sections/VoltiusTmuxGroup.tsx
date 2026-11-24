@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { useTmuxHostActions } from "@/components/connections/useTmuxHostActions";
+import { connectionLabel, useTmuxHostActions } from "@/components/connections/useTmuxHostActions";
 import { useTmuxPinVersion } from "@/services/tmuxInstall";
+import { useConnectionStore } from "@/stores/connectionStore";
 import { useHostMuxStore } from "@/stores/hostMuxStore";
 import { SETTINGS_ROW_BUTTON, SettingRow, SettingsGroup } from "./shared";
 
@@ -12,31 +13,24 @@ function VoltiusTmuxRow({ connectionId }: { connectionId: string }) {
   const { live, hostName, gate, install, askRemove, removeModal } = useTmuxHostActions(connectionId);
   if (!voltius) return null;
 
-  const parts = [t("settings.hosts.voltiusTmux.desc", { active: voltius.active })];
+  const parts = voltius.active ? [t("settings.hosts.voltiusTmux.desc", { active: voltius.active })] : [];
   if (voltius.outdated && pin) parts.push(t("settings.hosts.voltiusTmux.available", { pin }));
   for (const [old, count] of Object.entries(voltius.inUse)) {
     if (old !== voltius.active && count > 0) parts.push(t("settings.hosts.voltiusTmux.stillUsed", { old, count }));
   }
 
-  const update = voltius.outdated;
-  const label = installing
-    ? t("settings.hosts.voltiusTmux.installing")
-    : update
-      ? t("settings.hosts.voltiusTmux.updateNow")
-      : t("connections.form.mux.remove");
+  const button = (label: string, onClick: () => void) => (
+    <button type="button" className={SETTINGS_ROW_BUTTON} disabled={!live || !!installing} title={installing ? undefined : gate} onClick={onClick}>
+      {label}
+    </button>
+  );
 
   return (
     <>
-      <SettingRow title={hostName || connectionId} desc={parts.join(" · ")}>
-        <button
-          type="button"
-          className={SETTINGS_ROW_BUTTON}
-          disabled={!live || !!installing}
-          title={installing ? undefined : gate}
-          onClick={update ? install : askRemove}
-        >
-          {label}
-        </button>
+      <SettingRow title={hostName} desc={parts.join(" · ")}>
+        {voltius.outdated &&
+          button(t(installing ? "settings.hosts.voltiusTmux.installing" : "settings.hosts.voltiusTmux.updateNow"), install)}
+        {button(t("connections.form.mux.remove"), askRemove)}
       </SettingRow>
       {removeModal}
     </>
@@ -45,7 +39,8 @@ function VoltiusTmuxRow({ connectionId }: { connectionId: string }) {
 
 export function VoltiusTmuxGroup() {
   const { t } = useTranslation();
-  const ids = useHostMuxStore((s) => Object.keys(s.hosts).filter((id) => s.hosts[id].voltius).join("\n"));
+  const withCopy = useHostMuxStore((s) => Object.keys(s.hosts).filter((id) => s.hosts[id].voltius).join("\n"));
+  const ids = useConnectionStore((s) => withCopy.split("\n").filter((id) => id && connectionLabel(s, id)).join("\n"));
   if (!ids) return null;
   return (
     <SettingsGroup title={t("settings.hosts.voltiusTmux.title")} divided>

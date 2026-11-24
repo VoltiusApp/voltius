@@ -1,5 +1,5 @@
 import { test, expect, beforeEach } from "vitest";
-import { useHostMuxStore, muxFromMode, needsNotify } from "./hostMuxStore.ts";
+import { useHostMuxStore, muxFromMode, needsNotify, persistedHostMux } from "./hostMuxStore.ts";
 
 const get = () => useHostMuxStore.getState();
 
@@ -66,8 +66,7 @@ test("install progress and failures are set, cleared and never persisted", () =>
   get().setFailure("c1", "checksum");
   expect(get().installing.c1).toEqual({ step: "verify", progress: 85, quiet: true });
   expect(get().lastFailure.c1).toBe("checksum");
-  const persisted = useHostMuxStore.persist.getOptions().partialize!(get());
-  expect(Object.keys(persisted)).toEqual(["hosts"]);
+  expect(Object.keys(persistedHostMux(get()))).toEqual(["hosts"]);
   get().setInstalling("c1", undefined);
   get().setFailure("c1", undefined);
   expect(get().installing).toEqual({});

@@ -16,13 +16,18 @@ interface TmuxHostActions {
   removeModal: ReactNode;
 }
 
+type ConnectionState = ReturnType<typeof useConnectionStore.getState>;
+
+/** A saved connection's name (its host when unnamed), or "" when no personal or team connection has this id. */
+export function connectionLabel(s: ConnectionState, connectionId: string | undefined): string {
+  const c = [...s.connections, ...Object.values(s.teamConnections).flat()].find((x) => x.id === connectionId);
+  return c ? c.name || c.host : "";
+}
+
 export function useTmuxHostActions(connectionId: string | undefined): TmuxHostActions {
   const { t } = useTranslation();
   const live = useSessionStore(() => (connectionId ? liveSession(connectionId) : undefined));
-  const hostName = useConnectionStore((s) => {
-    const all = [...s.connections, ...Object.values(s.teamConnections).flat()];
-    return all.find((c) => c.id === connectionId)?.name ?? "";
-  });
+  const hostName = useConnectionStore((s) => connectionLabel(s, connectionId));
   const [confirmRemove, setConfirmRemove] = useState(false);
 
   const remove = async () => {

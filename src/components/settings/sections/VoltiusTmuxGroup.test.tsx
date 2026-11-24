@@ -11,6 +11,7 @@ vi.mock("react-i18next", () => ({
     t: (k: string, o?: Record<string, unknown>) =>
       k === "settings.hosts.voltiusTmux.stillUsed" ? `still used by ${o?.count} sessions` : o?.pin ? `${k} ${o.pin}` : k,
   }),
+  initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@/services/tmuxOnConnect", () => ({
@@ -55,12 +56,30 @@ test("renders nothing when no host has a Voltius copy", () => {
   expect(render(<VoltiusTmuxGroup />).container.innerHTML).toBe("");
 });
 
-test("a host older than the pin offers Update now", () => {
+test("a host older than the pin offers Update now and Remove", () => {
   setHost(voltius({ active: "3.4", versions: ["3.4"], outdated: true }));
   render(<VoltiusTmuxGroup />);
   expect(screen.getByText("web-1")).toBeTruthy();
   fireEvent.click(screen.getByText("settings.hosts.voltiusTmux.updateNow"));
   expect(h.start).toHaveBeenCalledWith("s1", "c1", "web-1");
+  expect(screen.getByText("connections.form.mux.remove")).toBeTruthy();
+});
+
+test("hosts that are no longer saved connections are not listed", () => {
+  useHostMuxStore.setState({ hosts: { c1: voltius({}), gone: voltius({}) } });
+  render(<VoltiusTmuxGroup />);
+  expect(screen.getAllByText("connections.form.mux.remove")).toHaveLength(1);
+  expect(screen.queryByText("gone")).toBeNull();
+  cleanup();
+  useHostMuxStore.setState({ hosts: { gone: voltius({}) } });
+  expect(render(<VoltiusTmuxGroup />).container.innerHTML).toBe("");
+});
+
+test("after Remove, a copy still serving sessions keeps the host listed", () => {
+  setHost(voltius({ active: undefined, versions: ["3.4"], inUse: { "3.4": 2 } }));
+  render(<VoltiusTmuxGroup />);
+  expect(screen.getByText("still used by 2 sessions")).toBeTruthy();
+  expect(screen.queryByText("settings.hosts.voltiusTmux.desc")).toBeNull();
 });
 
 test("an old copy still in use is named and Remove is offered", () => {

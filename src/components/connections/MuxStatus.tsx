@@ -57,13 +57,13 @@ export default function MuxStatus({ connectionId, persistOn }: Props) {
   } else if (host.kind === "unsupported") {
     const reason = t("connections.form.mux.unsupported");
     body = line("lucide:triangle-alert", WARN, reason, install(t("connections.form.mux.install"), true, reason));
-  } else if (host.voltius) {
+  } else if (host.voltius?.active) {
     body = line(
       "lucide:circle-check",
       OK,
       t("connections.form.mux.voltius", { version: host.voltius.active }),
       <>
-        {host.voltius.outdated && installPinned}
+        {host.voltius.outdated && install(t("settings.hosts.voltiusTmux.updateNow"))}
         <button type="button" className={`${BTN_BASE} text-(--t-text-muted)`} disabled={!live} title={gate} onClick={askRemove}>
           {t("connections.form.mux.remove")}
         </button>

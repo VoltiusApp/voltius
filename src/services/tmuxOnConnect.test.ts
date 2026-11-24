@@ -191,6 +191,22 @@ describe("tmuxOnConnect", () => {
     expect(tmuxPrune).toHaveBeenCalledWith("s1");
   });
 
+  test("after Remove, a copy no session uses any more is pruned", async () => {
+    h.status = st({ copies: [{ version: "3.4", sessions: 0 }] });
+    await connectWith(CC);
+    expect(tmuxPrune).toHaveBeenCalledWith("s1");
+  });
+
+  test("after Remove, a copy still serving sessions stays listed for the host", async () => {
+    h.status = st({ copies: [{ version: "3.4", sessions: 2 }] });
+    await connectWith(CC);
+    expect(tmuxPrune).not.toHaveBeenCalled();
+    expect(mux().hosts.c1?.voltius).toEqual({ active: undefined, versions: ["3.4"], inUse: { "3.4": 2 }, outdated: false });
+    h.status = NONE_YET;
+    await connectWith(CC);
+    expect(mux().hosts.c1?.voltius).toBeUndefined();
+  });
+
   test("keeps a copy that still serves sessions", async () => {
     h.status = st({ active: "3.5a", copies: [{ version: "3.4", sessions: 2 }, { version: "3.5a", sessions: 1 }] });
     await connectWith(CC);

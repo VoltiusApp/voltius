@@ -21,14 +21,15 @@ export function isPlainSsh(session: TerminalSession | undefined): session is Ter
 }
 
 export function applyTmuxStatus(connectionId: string, status: TmuxHostStatus): void {
-  const voltius = status.active
-    ? {
-        active: status.active,
-        versions: status.copies.map((c) => c.version),
-        inUse: Object.fromEntries(status.copies.map((c) => [c.version, c.sessions])),
-        outdated: status.outdated,
-      }
-    : undefined;
+  const voltius =
+    status.active || status.copies.length
+      ? {
+          active: status.active ?? undefined,
+          versions: status.copies.map((c) => c.version),
+          inUse: Object.fromEntries(status.copies.map((c) => [c.version, c.sessions])),
+          outdated: status.outdated,
+        }
+      : undefined;
   useHostMuxStore.getState().setVoltius(connectionId, voltius);
 }
 
@@ -58,7 +59,7 @@ async function checkHost(sessionId: string, connectionId: string, hostName: stri
     useHostMuxStore.getState().record(connectionId, { kind: "unsupported" });
   }
   offerInstall(sessionId, connectionId, hostName, status);
-  if (!status?.supported || !status.active) return;
+  if (!status?.supported) return;
   if (status.outdated && getToggle("tmux-auto-update") && !failedUpdates.has(updateKey(connectionId, await tmuxPinVersion()))) {
     await runInstall(sessionId, connectionId, hostName, true);
   } else {
@@ -72,29 +73,35 @@ function offerInstall(sessionId: string, connectionId: string, hostName: string,
   // A re-attached screen or old-tmux session predates whatever tmux the host has now.
   if (status?.active || status?.systemControlCapable) return;
   useHostMuxStore.getState().markNotified(connectionId, host.kind);
-  const notices = useNotificationStore.getState();
   const notice = host.kind === "tmux-old" ? "old" : host.kind;
-  const id = notices.addToast({
-    source: APP_SOURCE,
-    host: { connectionId, name: hostName },
-    type: "toast",
-    severity: "warning",
+  const message = i18n.t(`notifications.tmux.${notice}`, { host: hostName, version: host.version });
+  const id = hostToast(connectionId, hostName, "warning", message, {
     duration: 0,
-    message: i18n.t(`notifications.tmux.${notice}`, { host: hostName, version: host.version }),
     action: {
       label: i18n.t("notifications.tmux.install"),
       onClick: () => {
         const live = liveSession(connectionId, sessionId);
-        if (!live) return hostToast(connectionId, hostName, "info", i18n.t("notifications.tmux.connectFirst"));
-        notices.dismissToast(id);
+        if (!live) {
+          hostToast(connectionId, hostName, "info", i18n.t("notifications.tmux.connectFirst"));
+          return;
+        }
+        useNotificationStore.getState().dismissToast(id);
         startTmuxInstall(live, connectionId, hostName);
       },
     },
   });
 }
 
-function hostToast(connectionId: string, hostName: string, severity: ToastEntry["severity"], message: string, duration = NOTICE_MS): void {
-  useNotificationStore.getState().addToast({ source: APP_SOURCE, host: { connectionId, name: hostName }, type: "toast", severity, duration, message });
+function hostToast(
+  connectionId: string,
+  hostName: string,
+  severity: ToastEntry["severity"],
+  message: string,
+  { duration = NOTICE_MS, action }: Partial<Pick<ToastEntry, "duration" | "action">> = {},
+): string {
+  return useNotificationStore
+    .getState()
+    .addToast({ source: APP_SOURCE, host: { connectionId, name: hostName }, type: "toast", severity, duration, message, action });
 }
 
 export function liveSession(connectionId: string, preferred?: string): string | undefined {
@@ -183,7 +190,7 @@ async function runInstall(sessionId: string, connectionId: string, hostName: str
     } else {
       logFailure(`tmux update on ${hostName}`)(e);
       // A checksum mismatch may mean tampering, so it is shown even for a background update.
-      if (failure === "checksum") hostToast(connectionId, hostName, "error", message, CHECKSUM_MS);
+      if (failure === "checksum") hostToast(connectionId, hostName, "error", message, { duration: CHECKSUM_MS });
     }
   } finally {
     unsubscribe();
