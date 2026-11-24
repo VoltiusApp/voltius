@@ -12,6 +12,7 @@ vi.mock("@/services/sftpTarget", () => ({
 vi.mock("@/services/sftp", () => ({
   sftpClose: vi.fn(async () => {}),
   sftpCanonicalize: vi.fn(async () => "/home/u"),
+  sftpIsDir: vi.fn(async () => true),
   sftpListDir: vi.fn(async () => []),
   sftpMkdir: vi.fn(), sftpRename: vi.fn(), sftpDelete: vi.fn(), sftpTouch: vi.fn(),
 }));
