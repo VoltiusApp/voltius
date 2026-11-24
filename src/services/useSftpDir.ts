@@ -86,7 +86,7 @@ export function useSftpDir(target: SftpDirTarget | undefined) {
     let cancelled = false;
     // Reconnecting into the lost session keeps its id, which open editor docs still point at.
     const lost = lostRef.current;
-    const relink = lost?.key === key ? lost.sftpId : undefined;
+    const relink = lost && lost.key === key ? lost.sftpId : undefined;
     if (!relink) dropLost();
     setPhase({ tag: "connecting" });
     (async () => {
