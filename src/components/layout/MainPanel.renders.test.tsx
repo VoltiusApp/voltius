@@ -3,11 +3,13 @@ import { act, cleanup, render } from "@testing-library/react";
 
 const renders = vi.hoisted(() => new Map<string, number>());
 const visibleOf = vi.hoisted(() => new Map<string, boolean>());
+const activeOf = vi.hoisted(() => new Map<string, boolean>());
 
 vi.mock("@/components/terminal/SessionView", () => ({
-  HostAwareTerminalView: ({ session, visible }: { session: { id: string }; visible: boolean }) => {
+  HostAwareTerminalView: ({ session, visible, active }: { session: { id: string }; visible: boolean; active: boolean }) => {
     renders.set(session.id, (renders.get(session.id) ?? 0) + 1);
     visibleOf.set(session.id, visible);
+    activeOf.set(session.id, active);
     return null;
   },
   SessionConnectionOverlay: () => null,
@@ -50,6 +52,7 @@ afterEach(() => {
   cleanup();
   renders.clear();
   visibleOf.clear();
+  activeOf.clear();
   useSessionStore.setState({ sessions: [], activeSessionId: null });
 });
 
@@ -80,4 +83,19 @@ test("the selected tab is hidden while a vault page covers it, so it neither ref
 
   act(() => useUIStore.setState({ activeNav: "terminal" }));
   expect(visibleOf.get("a")).toBe(true);
+});
+
+test("closing the SFTP view re-activates the selected terminal so it takes the keyboard (#940)", () => {
+  useVaultStore.setState({ selectedVaultIds: ["v"] });
+  useUIStore.setState({ activeNav: "terminal", homeView: false, sftpPanelOpen: false });
+  useSessionStore.setState({ sessions: ["a", "b"].map(session), activeSessionId: "a" });
+  render(<MainPanel />);
+  expect(activeOf.get("a")).toBe(true);
+
+  act(() => useUIStore.setState({ sftpPanelOpen: true }));
+  expect(activeOf.get("a")).toBe(false);
+
+  act(() => useUIStore.setState({ sftpPanelOpen: false }));
+  expect(activeOf.get("a")).toBe(true);
+  expect(activeOf.get("b")).toBe(false);
 });
