@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.text.InputType
 import android.util.Log
+import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
@@ -77,12 +78,10 @@ object TerminalKeyboard {
       volumeCtrlHeld = false
       val imm = view.context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
       imm?.hideSoftInputFromWindow(view.windowToken, 0)
+      // Focusable first: clearFocus() hands focus to the WebView, so a hardware keyboard still has a target.
+      webView?.let { it.isFocusable = true; it.isFocusableInTouchMode = true }
       view.clearFocus()
-      webView?.let {
-        it.isFocusable = true
-        it.isFocusableInTouchMode = true
-        if (focusWebView) it.requestFocus()
-      }
+      if (focusWebView) webView?.requestFocus()
     }
   }
 
@@ -106,13 +105,50 @@ object TerminalKeyboard {
   /** Forward a run of typed text to the active terminal. */
   fun feedText(text: String) {
     if (text.isEmpty()) return
-    eval("window.__voltiusTermInput", JSONObject.quote(text), volumeCtrlHeld.toString())
+    eval("window.__voltiusTermInput", JSONObject.quote(text), mods(volumeCtrlHeld, alt = false, shift = false))
   }
 
   /** Forward a semantic key (Enter, Backspace, Delete, arrows, Home/End, Tab, Esc, PgUp/PgDn). */
   fun feedKey(name: String) {
-    eval("window.__voltiusTermKey", JSONObject.quote(name), volumeCtrlHeld.toString())
+    eval("window.__voltiusTermKey", JSONObject.quote(name), mods(volumeCtrlHeld, alt = false, shift = false))
   }
+
+  private val KEY_NAMES = mapOf(
+    KeyEvent.KEYCODE_ENTER to "Enter", KeyEvent.KEYCODE_NUMPAD_ENTER to "Enter",
+    KeyEvent.KEYCODE_DEL to "Backspace", KeyEvent.KEYCODE_FORWARD_DEL to "Delete", KeyEvent.KEYCODE_INSERT to "Insert",
+    KeyEvent.KEYCODE_DPAD_LEFT to "Left", KeyEvent.KEYCODE_DPAD_RIGHT to "Right",
+    KeyEvent.KEYCODE_DPAD_UP to "Up", KeyEvent.KEYCODE_DPAD_DOWN to "Down",
+    KeyEvent.KEYCODE_MOVE_HOME to "Home", KeyEvent.KEYCODE_MOVE_END to "End",
+    KeyEvent.KEYCODE_PAGE_UP to "PgUp", KeyEvent.KEYCODE_PAGE_DOWN to "PgDn",
+    KeyEvent.KEYCODE_TAB to "Tab", KeyEvent.KEYCODE_ESCAPE to "Esc",
+    KeyEvent.KEYCODE_F1 to "F1", KeyEvent.KEYCODE_F2 to "F2", KeyEvent.KEYCODE_F3 to "F3", KeyEvent.KEYCODE_F4 to "F4",
+    KeyEvent.KEYCODE_F5 to "F5", KeyEvent.KEYCODE_F6 to "F6", KeyEvent.KEYCODE_F7 to "F7", KeyEvent.KEYCODE_F8 to "F8",
+    KeyEvent.KEYCODE_F9 to "F9", KeyEvent.KEYCODE_F10 to "F10", KeyEvent.KEYCODE_F11 to "F11", KeyEvent.KEYCODE_F12 to "F12",
+  )
+
+  /** A key-down from a hardware keyboard, or one an IME injects, as terminal input with its modifiers.
+   *  False when it isn't terminal input (Meta shortcuts, bare modifiers, dead keys). */
+  fun feedKeyEvent(event: KeyEvent): Boolean {
+    if (event.action != KeyEvent.ACTION_DOWN || event.isMetaPressed) return false
+    val ctrl = event.isCtrlPressed || volumeCtrlHeld
+    KEY_NAMES[event.keyCode]?.let {
+      eval("window.__voltiusTermKey", JSONObject.quote(it), mods(ctrl, event.isAltPressed, event.isShiftPressed))
+      return true
+    }
+    // Ctrl and Alt make getUnicodeChar return 0, so read the character without them, except
+    // when Alt is AltGr and itself picks the character (German @, Polish ą).
+    val noCtrl = event.metaState and KeyEvent.META_CTRL_MASK.inv()
+    val withAlt = event.getUnicodeChar(noCtrl)
+    val plain = event.getUnicodeChar(noCtrl and KeyEvent.META_ALT_MASK.inv())
+    val altGr = event.isAltPressed && withAlt != 0 && withAlt != plain
+    val ch = if (altGr) withAlt else plain
+    if (ch == 0 || (ch and KeyCharacterMap.COMBINING_ACCENT) != 0) return false
+    eval("window.__voltiusTermInput", JSONObject.quote(String(Character.toChars(ch))), mods(ctrl, event.isAltPressed && !altGr, shift = false))
+    return true
+  }
+
+  private fun mods(ctrl: Boolean, alt: Boolean, shift: Boolean) =
+    JSONObject().put("ctrl", ctrl).put("alt", alt).put("shift", shift).toString()
 
   @JvmStatic
   fun setSelectionTouchFeed(on: Boolean) = SelectionTouchFeed.setEnabled(on)
@@ -142,6 +178,18 @@ class TerminalInputView(context: Context) : View(context) {
 
   // Never consume touches: the WebView beneath keeps its selection/scroll gestures.
   override fun onTouchEvent(event: MotionEvent?): Boolean = false
+
+  private val heldKeys = HashSet<Int>()
+
+  // Hardware keys reach the focused view, not the InputConnection. Consuming Esc also stops
+  // Android's fallback that turns an unhandled Esc into Back.
+  override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+    if (TerminalKeyboard.feedKeyEvent(event)) { heldKeys.add(keyCode); return true }
+    return super.onKeyDown(keyCode, event)
+  }
+
+  override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean =
+    heldKeys.remove(keyCode) || super.onKeyUp(keyCode, event)
 
   override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection {
     // VISIBLE_PASSWORD + NO_SUGGESTIONS disables autocorrect, predictions and (on Gboard)
@@ -204,33 +252,7 @@ private class TerminalInputConnection(view: View) : BaseInputConnection(view, fa
   }
 
   override fun sendKeyEvent(event: KeyEvent): Boolean {
-    if (event.action != KeyEvent.ACTION_DOWN) return true
-    val name = when (event.keyCode) {
-      KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> "Enter"
-      KeyEvent.KEYCODE_DEL -> "Backspace"
-      KeyEvent.KEYCODE_FORWARD_DEL -> "Delete"
-      KeyEvent.KEYCODE_DPAD_LEFT -> "Left"
-      KeyEvent.KEYCODE_DPAD_RIGHT -> "Right"
-      KeyEvent.KEYCODE_DPAD_UP -> "Up"
-      KeyEvent.KEYCODE_DPAD_DOWN -> "Down"
-      KeyEvent.KEYCODE_MOVE_HOME -> "Home"
-      KeyEvent.KEYCODE_MOVE_END -> "End"
-      KeyEvent.KEYCODE_TAB -> "Tab"
-      KeyEvent.KEYCODE_ESCAPE -> "Esc"
-      KeyEvent.KEYCODE_PAGE_UP -> "PgUp"
-      KeyEvent.KEYCODE_PAGE_DOWN -> "PgDn"
-      else -> null
-    }
-    if (name != null) {
-      TerminalKeyboard.feedKey(name)
-      return true
-    }
-    // Physical/bluetooth keyboard producing a printable char (soft-keys arrive via commitText).
-    val ch = event.unicodeChar
-    if (ch != 0) {
-      TerminalKeyboard.feedText(ch.toChar().toString())
-      return true
-    }
+    TerminalKeyboard.feedKeyEvent(event)
     return true
   }
 }

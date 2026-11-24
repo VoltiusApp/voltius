@@ -13,9 +13,10 @@ import { useModifierLatchStore } from "@/stores/modifierLatchStore";
 import { useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { initialLatch } from "@/stores/modifierLatchCore";
 
+type Held = { ctrl?: boolean; alt?: boolean; shift?: boolean };
 const w = window as unknown as {
-  __voltiusTermInput: (t: string, ctrl?: boolean) => void;
-  __voltiusTermKey: (k: string, ctrl?: boolean) => void;
+  __voltiusTermInput: (t: string, held?: Held) => void;
+  __voltiusTermKey: (k: string, held?: Held) => void;
 };
 
 beforeEach(() => {
@@ -26,24 +27,24 @@ beforeEach(() => {
 });
 
 test("a char typed while Volume Down is held is sent with Ctrl", () => {
-  w.__voltiusTermInput("c", true);
+  w.__voltiusTermInput("c", { ctrl: true });
   expect(h.write).toHaveBeenCalledWith("s1", "\x03");
 });
 
 test("a char typed without Volume Down passes through", () => {
-  w.__voltiusTermInput("c", false);
+  w.__voltiusTermInput("c", {});
   expect(h.write).toHaveBeenCalledWith("s1", "c");
 });
 
 test("Volume Down combines with a latched Alt and consumes the latch", () => {
   useModifierLatchStore.getState().tap("alt");
-  w.__voltiusTermInput("c", true);
+  w.__voltiusTermInput("c", { ctrl: true });
   expect(h.write).toHaveBeenCalledWith("s1", "\x1b\x03");
   expect(useModifierLatchStore.getState().alt).toBe("off");
 });
 
 test("multi-char IME commits are never modified", () => {
-  w.__voltiusTermInput("ls", true);
+  w.__voltiusTermInput("ls", { ctrl: true });
   expect(h.write).toHaveBeenCalledWith("s1", "ls");
 });
 
@@ -62,11 +63,34 @@ test("a latched Alt reaches Backspace from the keyboard and is consumed", () => 
 });
 
 test("Volume Down held while pressing a keyboard key sends it with Ctrl", () => {
-  w.__voltiusTermKey("Backspace", true);
+  w.__voltiusTermKey("Backspace", { ctrl: true });
   expect(h.key).toHaveBeenCalledWith("s1", "Backspace", { ctrl: true, alt: false, shift: false });
 });
 
 test("unknown key names from the native side are dropped", () => {
-  w.__voltiusTermKey("Insert");
+  w.__voltiusTermKey("Pause");
   expect(h.key).not.toHaveBeenCalled();
+});
+
+test("a hardware Ctrl+Left reaches the session as Ctrl+Left", () => {
+  w.__voltiusTermKey("Left", { ctrl: true, alt: false, shift: false });
+  expect(h.key).toHaveBeenCalledWith("s1", "Left", { ctrl: true, alt: false, shift: false });
+});
+
+test("hardware Shift+Tab and F-keys are accepted", () => {
+  w.__voltiusTermKey("Tab", { shift: true });
+  w.__voltiusTermKey("F5", {});
+  expect(h.key).toHaveBeenNthCalledWith(1, "s1", "Tab", { ctrl: false, alt: false, shift: true });
+  expect(h.key).toHaveBeenNthCalledWith(2, "s1", "F5", { ctrl: false, alt: false, shift: false });
+});
+
+test("a hardware Alt+letter sends ESC and the letter", () => {
+  w.__voltiusTermInput("b", { ctrl: false, alt: true, shift: false });
+  expect(h.write).toHaveBeenCalledWith("s1", "\x1bb");
+});
+
+test("held and latched modifiers combine", () => {
+  useModifierLatchStore.getState().tap("ctrl");
+  w.__voltiusTermKey("Right", { alt: true });
+  expect(h.key).toHaveBeenCalledWith("s1", "Right", { ctrl: true, alt: true, shift: false });
 });

@@ -21,19 +21,24 @@ export const useModifierLatchStore = create<ModifierLatchStore>((set) => ({
 /** onData interception for the soft-keyboard path: when a virtual Ctrl/Alt is latched (via the
  *  extra-keys row) and a single char is typed on the OS keyboard, return the modified bytes and
  *  consume the latch. Returns null to pass the data through unchanged (no latch, or multi-char
- *  input like IME/paste). `heldCtrl` is a hardware modifier held for this char (Android volume
- *  key). Inert on desktop — the latch is never armed there. */
-export function consumeLatchForChar(data: string, heldCtrl = false): string | null {
+ *  input like IME/paste). `held` are modifiers physically held for this char (hardware keyboard,
+ *  Volume Down as Ctrl). Inert on desktop — the latch is never armed there. */
+export function consumeLatchForChar(data: string, held: HeldMods = {}): string | null {
   if (data.length !== 1) return null;
-  const mods = takeLatchMods(heldCtrl);
+  const mods = takeLatchMods(held);
   if (!mods.ctrl && !mods.alt && !mods.shift) return null;
   return applyLatchToChar(data, mods) ?? data;
 }
 
-/** The modifiers for one key press (latched Ctrl/Alt/Shift plus a held hardware Ctrl), consuming a one-shot latch. */
-export function takeLatchMods(heldCtrl = false): { ctrl: boolean; alt: boolean; shift: boolean } {
+/** Modifiers physically held for a key: a hardware keyboard's, or Volume Down as Ctrl. */
+export interface HeldMods { ctrl?: boolean; alt?: boolean; shift?: boolean }
+
+/** The modifiers for one key press (latched Ctrl/Alt/Shift plus held ones), consuming a one-shot latch. */
+export function takeLatchMods(held: HeldMods = {}): { ctrl: boolean; alt: boolean; shift: boolean } {
   const st = useModifierLatchStore.getState();
-  const mods = { ctrl: heldCtrl || isActive(st.ctrl), alt: isActive(st.alt), shift: isActive(st.shift) };
+  const mods = {
+    ctrl: !!held.ctrl || isActive(st.ctrl), alt: !!held.alt || isActive(st.alt), shift: !!held.shift || isActive(st.shift),
+  };
   if (mods.ctrl || mods.alt || mods.shift) st.consume();
   return mods;
 }
