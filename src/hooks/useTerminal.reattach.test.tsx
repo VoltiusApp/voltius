@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
-import { useTerminal } from "@/hooks/useTerminal";
-import { localReady, onLocalClosed, onLocalOutput } from "@/services/local";
+import { useTerminal, writeToSession } from "@/hooks/useTerminal";
+import { localReady, localSendInput, onLocalClosed, onLocalOutput } from "@/services/local";
+import { useSessionStore } from "@/stores/sessionStore";
+import { FakeTerminal } from "@/hooks/__fixtures__/fakeXterm";
 
 vi.mock("@xterm/xterm", async () => ({ Terminal: (await import("@/hooks/__fixtures__/fakeXterm")).FakeTerminal }));
 vi.mock("@xterm/addon-fit", async () => ({ FitAddon: (await import("@/hooks/__fixtures__/fakeXterm")).FakeFitAddon }));
@@ -63,5 +65,29 @@ describe("local startup gate", () => {
 
     releaseOutput!(() => {});
     await vi.waitFor(() => expect(localReady).toHaveBeenCalledWith("gated-session"));
+  });
+});
+
+describe("writeToSession", () => {
+  it("sends the input and returns the viewport to the live prompt", async () => {
+    const scroll = vi.spyOn(FakeTerminal.prototype, "scrollToBottom");
+    render(<Harness sessionId="write-session" />);
+    useSessionStore.setState({ sessions: [{ id: "write-session", connectionId: "local", connectionName: "w", status: "connected", type: "local" }] });
+    scroll.mockClear();
+
+    writeToSession("write-session", "\r");
+
+    expect(scroll).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(localSendInput).toHaveBeenCalledWith("write-session", expect.anything()));
+  });
+
+  it("leaves the viewport alone when the input is dropped", () => {
+    const scroll = vi.spyOn(FakeTerminal.prototype, "scrollToBottom");
+    render(<Harness sessionId="offline-session" />);
+    scroll.mockClear();
+
+    writeToSession("offline-session", "\r");
+
+    expect(scroll).not.toHaveBeenCalled();
   });
 });
