@@ -538,11 +538,9 @@ mod tests {
         use std::path::{Path, PathBuf};
         use std::process::Command;
 
-        fn scratch(tag: &str) -> PathBuf {
-            let dir = std::env::temp_dir()
-                .join(format!("voltius-tmux-install-{tag}-{}", std::process::id()));
-            let _ = std::fs::remove_dir_all(&dir);
-            std::fs::create_dir_all(dir.join("home")).unwrap();
+        fn scratch() -> tempfile::TempDir {
+            let dir = tempfile::tempdir().unwrap();
+            std::fs::create_dir_all(dir.path().join("home")).unwrap();
             dir
         }
 
@@ -608,21 +606,22 @@ mod tests {
             if !has_curl() {
                 return;
             }
-            let dir = scratch("file");
+            let tmp = scratch();
+            let dir = tmp.path();
             let asset = dir.join("asset");
             write_exec(&asset, &fake_tmux("3.8"));
             let sha = sha_of(&asset);
             let url = file_url(&asset);
 
-            let (code, out) = run(&dir, &install_script("3.8", &url, &"0".repeat(64)), "");
+            let (code, out) = run(dir, &install_script("3.8", &url, &"0".repeat(64)), "");
             assert_eq!(code, Some(11), "{out}");
-            assert!(std::fs::read_dir(bin(&dir)).unwrap().next().is_none());
+            assert!(std::fs::read_dir(bin(dir)).unwrap().next().is_none());
 
-            let (code, out) = run(&dir, &install_script("3.9", &url, &sha), "");
+            let (code, out) = run(dir, &install_script("3.9", &url, &sha), "");
             assert_eq!(code, Some(13), "{out}");
-            assert!(std::fs::read_dir(bin(&dir)).unwrap().next().is_none());
+            assert!(std::fs::read_dir(bin(dir)).unwrap().next().is_none());
 
-            let (code, out) = run(&dir, &install_script("3.8", &url, &sha), "");
+            let (code, out) = run(dir, &install_script("3.8", &url, &sha), "");
             assert_eq!(code, Some(0), "{out}");
             let steps: Vec<_> = out.lines().filter_map(Step::from_line).collect();
             assert_eq!(
@@ -630,10 +629,10 @@ mod tests {
                 [Step::Download, Step::Verify, Step::Link, Step::Done]
             );
             assert_eq!(
-                std::fs::read_link(bin(&dir).join("tmux")).unwrap(),
+                std::fs::read_link(bin(dir).join("tmux")).unwrap(),
                 Path::new("tmux-3.8")
             );
-            let (_, out) = run(&dir, &status_script(), "voltius-3.8");
+            let (_, out) = run(dir, &status_script(), "voltius-3.8");
             let status = parse_status(&out);
             assert_eq!(status.active.as_deref(), Some("3.8"));
             assert_eq!(
@@ -643,7 +642,6 @@ mod tests {
                     sessions: 1
                 }]
             );
-            let _ = std::fs::remove_dir_all(&dir);
         }
 
         #[test]
@@ -651,7 +649,8 @@ mod tests {
             if !has_curl() {
                 return;
             }
-            let dir = scratch("race");
+            let tmp = scratch();
+            let dir = tmp.path();
             let (good, evil, fake) = (dir.join("good"), dir.join("evil"), dir.join("fake"));
             write_exec(&good, &fake_tmux("3.8"));
             write_exec(&evil, &format!("{}# evil\n", fake_tmux("3.8")));
@@ -667,23 +666,23 @@ mod tests {
 
             let first = install_script("3.8", &file_url(&good), &sha);
             let env = [("PATH", path.as_str()), ("SECOND", downloading)];
-            let (code, out) = run_with(&dir, &first, &env);
+            let (code, out) = run_with(dir, &first, &env);
             assert_eq!(code, Some(0), "{out}");
-            assert_eq!(sha_of(&bin(&dir).join("tmux")), sha);
-            let parts: Vec<_> = std::fs::read_dir(bin(&dir))
+            assert_eq!(sha_of(&bin(dir).join("tmux")), sha);
+            let parts: Vec<_> = std::fs::read_dir(bin(dir))
                 .unwrap()
                 .map(|e| e.unwrap().path())
                 .filter(|p| p.extension().is_some_and(|x| x == "part"))
                 .collect();
             assert_eq!(parts.len(), 1, "{parts:?}");
             assert_eq!(sha_of(&parts[0]), sha_of(&evil));
-            let _ = std::fs::remove_dir_all(&dir);
         }
 
         #[test]
         fn uploaded_copy_is_verified_and_linked() {
-            let dir = scratch("upload");
-            std::fs::create_dir_all(bin(&dir)).unwrap();
+            let tmp = scratch();
+            let dir = tmp.path();
+            std::fs::create_dir_all(bin(dir)).unwrap();
             let asset = fake_tmux("3.8");
             let sha = format!("{:x}", Sha256::digest(asset.as_bytes()));
             let mut upload = Command::new("/bin/sh")
@@ -703,25 +702,25 @@ mod tests {
             }
             assert!(upload.wait().unwrap().success());
 
-            let (code, out) = run(&dir, &finish_script("3.8", &sha, "up-1"), "");
+            let (code, out) = run(dir, &finish_script("3.8", &sha, "up-1"), "");
             assert_eq!(code, Some(0), "{out}");
             assert_eq!(
-                std::fs::read_to_string(bin(&dir).join("tmux")).unwrap(),
+                std::fs::read_to_string(bin(dir).join("tmux")).unwrap(),
                 asset
             );
-            let _ = std::fs::remove_dir_all(&dir);
         }
 
         #[test]
         fn sweeps_keep_copies_with_live_servers() {
-            let dir = scratch("sweep");
-            std::fs::create_dir_all(bin(&dir)).unwrap();
+            let tmp = scratch();
+            let dir = tmp.path();
+            std::fs::create_dir_all(bin(dir)).unwrap();
             for v in ["3.4", "3.6", "3.8"] {
-                write_exec(&bin(&dir).join(format!("tmux-{v}")), &fake_tmux(v));
+                write_exec(&bin(dir).join(format!("tmux-{v}")), &fake_tmux(v));
             }
-            std::os::unix::fs::symlink("tmux-3.8", bin(&dir).join("tmux")).unwrap();
+            std::os::unix::fs::symlink("tmux-3.8", bin(dir).join("tmux")).unwrap();
             let present = || {
-                let mut names: Vec<_> = std::fs::read_dir(bin(&dir))
+                let mut names: Vec<_> = std::fs::read_dir(bin(dir))
                     .unwrap()
                     .map(|e| e.unwrap().file_name().into_string().unwrap())
                     .collect();
@@ -730,8 +729,8 @@ mod tests {
             };
 
             let (stale, fresh) = (
-                bin(&dir).join(".tmux-3.8.1.part"),
-                bin(&dir).join(".tmux-3.8.2.part"),
+                bin(dir).join(".tmux-3.8.1.part"),
+                bin(dir).join(".tmux-3.8.2.part"),
             );
             for part in [&stale, &fresh] {
                 std::fs::write(part, "partial").unwrap();
@@ -744,7 +743,7 @@ mod tests {
                 .set_modified(hours_ago)
                 .unwrap();
 
-            let (code, out) = run(&dir, &prune_script(), "voltius-3.4");
+            let (code, out) = run(dir, &prune_script(), "voltius-3.4");
             assert_eq!((code, out.as_str()), (Some(0), "kept=3.4\n"));
             assert_eq!(
                 present(),
@@ -752,18 +751,17 @@ mod tests {
             );
             std::fs::remove_file(&fresh).unwrap();
 
-            let (code, out) = run(&dir, &remove_script(), "voltius-3.8");
+            let (code, out) = run(dir, &remove_script(), "voltius-3.8");
             assert_eq!((code, out.as_str()), (Some(0), "kept=3.8\n"));
             assert_eq!(present(), ["tmux-3.8"]);
 
-            let (code, _) = run(&dir, &prune_script(), "");
+            let (code, _) = run(dir, &prune_script(), "");
             assert_eq!(code, Some(0));
             assert_eq!(present(), ["tmux-3.8"]);
 
-            let (code, out) = run(&dir, &remove_script(), "");
+            let (code, out) = run(dir, &remove_script(), "");
             assert_eq!((code, out.as_str()), (Some(0), ""));
             assert!(present().is_empty());
-            let _ = std::fs::remove_dir_all(&dir);
         }
     }
 
