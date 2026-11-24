@@ -354,14 +354,14 @@ pub const MAX_EXEC_COMMAND_LEN: usize = 8192;
 
 macro_rules! tmux_cc_versions {
     () => {
-        r#"*"tmux "3.[2-9]*|*"tmux "[4-9]*|*"tmux "[1-9][0-9]*"#
+        r#"*"tmux "3.[2-9]*|*"tmux "3.[1-9][0-9]*|*"tmux "[4-9]*|*"tmux "[1-9][0-9]*"#
     };
 }
 
-const TMUX_CC_VERSIONS: &str = tmux_cc_versions!();
+pub(crate) const TMUX_CC_VERSIONS: &str = tmux_cc_versions!();
 
-/// `F KEY` finds KEY on system tmux's `-L voltius` or a Voltius copy's `-L voltius-<ver>`,
-/// leaving its binary in `$T` and socket in `$S` for `t`; `c BIN` leaves `BIN -V` in `$W`.
+/// `F KEY` finds KEY on `-L voltius` or `-L voltius-<ver>`, leaving `$T`/`$S` for `t`; `c BIN` leaves
+/// `BIN -V` in `$W`. Exact `=KEY` only where `c` passes: tmux 1.8 reads `=` as part of the name.
 macro_rules! tmux_helpers {
     () => {
         concat!(
@@ -389,7 +389,7 @@ macro_rules! tmux_find {
     "#,
             tmux_copy_socket!(),
             r#"
-    { [ "$T" = tmux ] || [ -x "$T" ]; } && t has-session -t "$1" 2>/dev/null && return
+    { [ "$T" = tmux ] || [ -x "$T" ]; } && { c "$T" && E== || E=; } && t has-session -t "$E$1" 2>/dev/null && return
   done
   T=
   return 1
@@ -639,6 +639,9 @@ true"#
     encode_wrapper(&script)
 }
 
+const LEGACY_TMUX_ARMS: &str =
+    r#"*"tmux "3.[01]|*"tmux "3.[01][!0-9]*) NC=1 ;; *"tmux "2.[6-9]*) ;; *) exit 0 ;;"#;
+
 /// Legacy tmux (< 3.2) only: Enter leaves wheel-entered copy-mode, a drag keeps
 /// its highlight (3.0+), and the selection takes the theme colours.
 pub fn persistent_legacy_setup_command(
@@ -663,10 +666,7 @@ done > "$M"
 {style}t source-file "$M"
 rm -f "$M"
 "#,
-        gate = tmux_gate(
-            session_key,
-            r#"*"tmux "3.[01]*) NC=1 ;; *"tmux "2.[6-9]*) ;; *) exit 0 ;;"#
-        ),
+        gate = tmux_gate(session_key, LEGACY_TMUX_ARMS),
     );
     encode_wrapper(&script)
 }
@@ -1250,7 +1250,7 @@ mod tests {
     fn dangling_voltius_tmux_is_skipped() {
         assert!(TMUX_PICK.contains(r#"[ -x "$U" ] && T=$U"#));
         assert!(TMUX_FIND.contains(r#"c() { W=$("$1" -V 2>/dev/null) && case $W in "#));
-        assert!(TMUX_FIND.contains(r#"{ [ "$T" = tmux ] || [ -x "$T" ]; } && t has-session"#));
+        assert!(TMUX_FIND.contains(r#"{ [ "$T" = tmux ] || [ -x "$T" ]; } && { c "$T""#));
         #[cfg(unix)]
         {
             for copy in ["dangling", "noexec", "fails", "3.1", "mismatch"] {
@@ -1469,9 +1469,7 @@ mod tests {
             "voltius_s1",
             Some(&test_colors()),
         ));
-        assert!(script.contains(r#"*"tmux "3.[01]*) NC=1 ;;"#));
-        assert!(script.contains(r#"*"tmux "2.[6-9]*) ;;"#));
-        assert!(script.contains("*) exit 0 ;;"));
+        assert!(script.contains(LEGACY_TMUX_ARMS));
         assert!(script.contains(&format!("{TMUX_FIND}command -v tmux")));
         assert!(script.contains("until F voltius_s1; do"));
         assert!(script.contains(r#"case "$("$T" -V 2>/dev/null)" in"#));
@@ -1483,6 +1481,71 @@ mod tests {
         assert!(script.contains(r#"t source-file "$M""#));
         let plain = decode_bootstrap(&persistent_legacy_setup_command("voltius_s1", None));
         assert!(!plain.contains("mode-style"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn legacy_setup_sorts_tmux_versions() {
+        for (version, arm) in [
+            ("3.0a", "nc=1"),
+            ("3.1", "nc=1"),
+            ("3.1c", "nc=1"),
+            ("2.9a", "nc="),
+            ("3.2", ""),
+            ("3.10", ""),
+            ("3.10a", ""),
+            ("3.11", ""),
+            ("2.5", ""),
+        ] {
+            let out = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(format!(
+                    "NC=\ncase 'tmux {version}' in {LEGACY_TMUX_ARMS} esac\necho nc=$NC"
+                ))
+                .output()
+                .expect("sh runs");
+            assert_eq!(
+                String::from_utf8_lossy(&out.stdout).trim(),
+                arm,
+                "{version}"
+            );
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn find_matches_the_exact_session_where_tmux_can() {
+        const PREFIX_TMUX: &str = r#"#!/bin/sh
+[ "$1" = -V ] && { echo "$TV"; exit; }
+[ "$3" = has-session ] || exit 1
+case $EXACT$5 in
+  1=*) [ "$LIVE" = "${5#=}" ] ;;
+  *) case $LIVE in "$5"*) ;; *) exit 1 ;; esac ;;
+esac
+"#;
+        let dir = ttl_scratch("exact");
+        let path = fake_bin_path(&dir.join("bin"), &[("tmux", PREFIX_TMUX)]);
+        for (version, exact, live, found) in [
+            ("tmux 1.8", "", "voltius_k", true),
+            ("tmux 3.1c", "", "voltius_k", true),
+            ("tmux 3.4", "1", "voltius_k", true),
+            ("tmux 3.4", "1", "voltius_k2", false),
+            ("tmux 3.10", "1", "voltius_k2", false),
+        ] {
+            let ok = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(format!("{TMUX_FIND}F voltius_k"))
+                .env("PATH", &path)
+                .env("HOME", &dir)
+                .env("TV", version)
+                .env("EXACT", exact)
+                .env("LIVE", live)
+                .status()
+                .expect("sh runs")
+                .success();
+            assert_eq!(ok, found, "{version} {live}");
+        }
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
