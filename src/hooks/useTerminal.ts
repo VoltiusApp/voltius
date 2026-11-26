@@ -196,6 +196,19 @@ type CacheEntry = CachedTerminal & {
 
 const terminalCache = new Map<string, CacheEntry>();
 
+/** A terminal mirroring a session another participant runs: input leaves through `send`, never a local transport. */
+export interface RelayedTerminal extends CachedTerminal {
+  acceptsInput: () => boolean;
+  send: (data: string) => void;
+  dispose: () => void;
+}
+
+/** Multiplayer guest views, keyed by local session id, so the module-level helpers below reach them too. */
+export const relayedTerminals = new Map<string, RelayedTerminal>();
+
+const anyTerminal = (sessionId: string): CachedTerminal | undefined =>
+  terminalCache.get(sessionId) ?? relayedTerminals.get(sessionId);
+
 // ─── Search controller (module-level, callable from anywhere) ────────────────
 
 const EMPTY_SNAPSHOT: TerminalSearchSnapshot = {
@@ -246,14 +259,14 @@ export function subscribeTerminalScroll(fn: () => void): () => void {
   return () => scrollListeners.delete(fn);
 }
 
-function notifyScrollListeners(): void {
+export function notifyScrollListeners(): void {
   scrollListeners.forEach((fn) => fn());
 }
 
 /** Lines the viewport is scrolled up from the live prompt (0 = at bottom).
  * Read by the workspace snapshot so restore can re-apply the position. */
 export function getScrollOffset(sessionId: string): number {
-  const entry = terminalCache.get(sessionId);
+  const entry = anyTerminal(sessionId);
   if (!entry) return 0;
   const buffer = entry.terminal.buffer.active;
   return Math.max(0, buffer.baseY - buffer.viewportY);
@@ -491,8 +504,8 @@ export function holdSessionFit(sessionId: string, held: boolean): void {
   fitSession(sessionId, (entry) => holdTerminalFit(entry, held));
 }
 
-function fitSession(sessionId: string, fit: (entry: CacheEntry) => void): void {
-  const entry = terminalCache.get(sessionId);
+function fitSession(sessionId: string, fit: (entry: CachedTerminal) => void): void {
+  const entry = anyTerminal(sessionId);
   if (!entry) return;
   try { fit(entry); } catch { /* container not laid out yet */ }
 }
@@ -503,6 +516,8 @@ function fitSession(sessionId: string, fit: (entry: CacheEntry) => void): void {
  *  (mobile sends to the active session only). */
 /** Whether typed input would reach the session now: connected, and not held by a multiplayer gate. */
 export function sessionAcceptsInput(sessionId: string): boolean {
+  const relayed = relayedTerminals.get(sessionId);
+  if (relayed) return relayed.acceptsInput();
   const entry = terminalCache.get(sessionId);
   if (!entry) return false;
   if (entry.inputGateRef.current && !entry.inputGateRef.current()) return false;
@@ -515,18 +530,22 @@ function feedHistory(sessionId: string, probe: EchoProbe, kind: "addInput" | "ad
 }
 
 export function writeToSession(sessionId: string, data: string): void {
+  if (!sessionAcceptsInput(sessionId)) return;
   const entry = terminalCache.get(sessionId);
-  if (!entry || !sessionAcceptsInput(sessionId)) return;
-  feedHistory(sessionId, entry.echoProbe, "addInput", data);
-  sendSessionInput(sessionId, entry.sessionType, encodeTerminalInput(data, entry.encoding));
+  const relayed = relayedTerminals.get(sessionId);
+  if (entry) {
+    feedHistory(sessionId, entry.echoProbe, "addInput", data);
+    sendSessionInput(sessionId, entry.sessionType, encodeTerminalInput(data, entry.encoding));
+  } else relayed?.send(data);
+  const term = (entry ?? relayed)?.terminal;
   // Bypasses xterm's onData, so its scrollOnUserInput never fires; a live selection stays put.
-  if (!entry.terminal.hasSelection() && document.getSelection()?.isCollapsed !== false) entry.terminal.scrollToBottom();
+  if (term && !term.hasSelection() && document.getSelection()?.isCollapsed !== false) term.scrollToBottom();
 }
 
 /** Whether the session's xterm is in application-cursor-keys mode (DECCKM).
  *  Arrows must send ESC O x instead of ESC [ x when set. */
 export function getAppCursorMode(sessionId: string): boolean {
-  const entry = terminalCache.get(sessionId);
+  const entry = anyTerminal(sessionId);
   return entry?.terminal.modes.applicationCursorKeysMode ?? false;
 }
 
@@ -552,13 +571,13 @@ export interface TerminalApi {
 /** Give the keyboard back to a session's terminal — after an inline rename, a
  * modal, anything that borrowed focus. No-op when nothing is cached. */
 export function focusSession(sessionId: string): void {
-  terminalCache.get(sessionId)?.terminal.focus();
+  anyTerminal(sessionId)?.terminal.focus();
 }
 
 /** Narrow facade over a cached terminal for the mobile gesture layer. Null when no
  *  terminal is cached for the session yet. */
 export function getTerminalApi(sessionId: string): TerminalApi | null {
-  const entry = terminalCache.get(sessionId);
+  const entry = anyTerminal(sessionId);
   if (!entry) return null;
   const term = entry.terminal;
   return {
@@ -610,11 +629,11 @@ export function readTerminalSelection(sessionId: string): string {
 
 /** Wipes the screen and scrollback locally; the running program is not told. */
 export function clearTerminal(sessionId: string): void {
-  terminalCache.get(sessionId)?.terminal.clear();
+  anyTerminal(sessionId)?.terminal.clear();
 }
 
 export function selectAllTerminal(sessionId: string): void {
-  terminalCache.get(sessionId)?.terminal.selectAll();
+  anyTerminal(sessionId)?.terminal.selectAll();
 }
 
 const TERMINAL_ACTION_SHORTCUTS: readonly SessionShortcut[] = [

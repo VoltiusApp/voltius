@@ -5,6 +5,11 @@ import { useUIStore } from "@/stores/uiStore";
 import { isActive, type LatchValue, type Modifier } from "@/stores/modifierLatchCore";
 import { takeLatchMods, useModifierLatchStore } from "@/stores/modifierLatchStore";
 import { sendSpecialKey } from "@/services/terminalInput";
+import { writeToSession } from "@/hooks/useTerminal";
+import { appToast } from "@/services/appToast";
+import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { guestTypingBlockedKey } from "@/utils/multiplayerControl";
+import i18n from "@/i18n";
 import type { SpecialKey } from "@/services/terminalKeyCore";
 import { haptic } from "@/lib/haptics";
 import { KEY_HOLD_MS, KEY_TAP_SLOP_PX, modTapAction } from "./extraKeysCore";
@@ -27,11 +32,36 @@ export function keepKeyboardClosed(keyboardOpen: boolean | undefined) {
   if (!keyboardOpen) (document.activeElement as HTMLElement | null)?.blur();
 }
 
+/** Why typing into the session goes nowhere right now (a shared terminal I only watch), or null. */
+export function typingBlockedReason(sessionId: string): string | null {
+  const key = guestTypingBlockedKey(useTeamSessionStore.getState().connections[sessionId]);
+  return key && i18n.t(key);
+}
+
+/** KEY_CLASS, greyed while typing into the session goes nowhere. */
+export function useKeyClass(sessionId: string | null): string {
+  const blocked = useTeamSessionStore((s) => !!sessionId && guestTypingBlockedKey(s.connections[sessionId]) !== null);
+  return blocked ? `${KEY_CLASS} opacity-40` : KEY_CLASS;
+}
+
+function sendFromKeys(sessionId: string | null, send: (id: string) => void) {
+  if (!sessionId) return;
+  const blocked = typingBlockedReason(sessionId);
+  if (blocked) {
+    appToast("info", blocked);
+    return;
+  }
+  haptic("key");
+  send(sessionId);
+}
+
 /** A key press from the row or the drawer: the latched Ctrl/Alt/Shift apply once. */
 export function pressKey(sessionId: string | null, key: SpecialKey) {
-  if (!sessionId) return;
-  haptic("key");
-  sendSpecialKey(sessionId, key, takeLatchMods());
+  sendFromKeys(sessionId, (id) => sendSpecialKey(id, key, takeLatchMods()));
+}
+
+export function typeFromKeys(sessionId: string | null, bytes: string) {
+  sendFromKeys(sessionId, (id) => writeToSession(id, bytes));
 }
 
 /** Touch handlers for a plain key: fires on release unless the finger travelled (a scroll or a slide off). */

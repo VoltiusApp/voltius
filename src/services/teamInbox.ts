@@ -6,6 +6,8 @@ import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { findLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
+import { useMobileNavStore } from "@/stores/mobileNavStore";
+import { guestCanType } from "@/utils/multiplayerControl";
 import type { MultiplayerSessionState } from "@/stores/teamSessionStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import type { TeamVaultStatus } from "@/stores/teamVaultStateStore";
@@ -202,12 +204,8 @@ export function reconcileSessions(
         // session became joinable again.
         state: joined ? ("resolved" as const) : ("pending" as const),
         resolution: joined ? i18n.t("notifications.inbox.session.joined") : undefined,
-        // The knock is worth having everywhere, but Join is not offered on
-        // mobile: MobileSessionLayer and MobileTerminalScreen both filter out
-        // `multiplayer` sessions, so joining there opens a websocket and then
-        // lands on "No active sessions". Re-enable once mobile renders them.
         actions:
-          joined || isMobileShell()
+          joined
             ? []
             : knock
               ? [
@@ -247,6 +245,10 @@ function peerLabel(userId: string, fallbackHandle: string | undefined): string |
 
 // The session's MultiplayerBar is on screen and already says what a toast would, under it.
 function sessionOnScreen(localSessionId: string): boolean {
+  if (isMobileShell()) {
+    const nav = useMobileNavStore.getState();
+    return nav.tab === "terminal" && nav.stack.length === 0 && useSessionStore.getState().activeSessionId === localSessionId;
+  }
   const { activeNav, sftpPanelOpen } = useUIStore.getState();
   if (activeNav !== "terminal" || sftpPanelOpen) return false;
   const layout = useLayoutStore.getState();
@@ -313,8 +315,7 @@ export function reconcileControlRequests(connections: Record<string, Multiplayer
     if (!(id in connections)) controlHeldSessions.delete(id);
   }
   for (const [localSessionId, c] of Object.entries(connections)) {
-    const holdsControl = !c.ended && c.role !== "host" && c.controlHolder === c.myUserId;
-    if (!holdsControl) {
+    if (!guestCanType(c)) {
       controlHeldSessions.delete(localSessionId);
     } else if (!controlHeldSessions.has(localSessionId)) {
       controlHeldSessions.add(localSessionId);

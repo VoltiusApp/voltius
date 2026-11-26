@@ -34,6 +34,9 @@ import { usePreviewActive } from "@/hooks/previewScope";
 import { GhostOr } from "@/components/preview/GhostCard";
 import { PreviewSubtitle } from "@/components/preview/PreviewHint";
 import MobileRemoteDeviceSessions from "../MobileRemoteDeviceSessions";
+import { TeamSessions } from "@/components/hosts/TeamSessions";
+import { useTeamStore } from "@/stores/teamStore";
+import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { TeamVaultNotes } from "@/components/shared/VaultUnavailableNote";
 import { compareStrings } from "@/utils/localeFormat";
 import { searchMatcher } from "@/utils/search";
@@ -98,6 +101,13 @@ function MobileHostRow({
       trailing={latency && <span data-mobile-host-latency className="shrink-0 tabular-nums text-xs font-medium text-(--t-text-dim)">{latency}</span>}
     />
   );
+}
+
+function MobileTeamSessions() {
+  const inTeam = useTeamStore((s) => s.teams.length > 0);
+  const hasLiveSessions = useTeamSessionStore((s) => s.activeSessions.length > 0);
+  if (!inTeam && !hasLiveSessions) return null;
+  return <div data-mobile-team-sessions data-vt-hit-scope className="px-4 pt-3 break-words"><TeamSessions /></div>;
 }
 
 type AddMode = null | "menu" | "new-folder";
@@ -170,6 +180,7 @@ export default function MobileHostsScreen() {
           <MobileFolderBreadcrumb path={nav.folderPath} onNavigate={(i) => (i < 0 ? nav.navigateToRoot() : nav.navigateTo(i))} />
           <TeamVaultNotes className="mx-4 mt-3" />
           {!nav.activeFolderId && !previewing && <MobileRemoteDeviceSessions />}
+          {!nav.activeFolderId && !previewing && <MobileTeamSessions />}
           {!search && subFolders.map((f) => (
             <MobileFolderRow
               key={f.id}

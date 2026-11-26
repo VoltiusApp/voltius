@@ -3,7 +3,9 @@ import { cleanup, fireEvent, render } from "@testing-library/react";
 import MobileTerminalGestures from "./MobileTerminalGestures";
 import { createNativeSelection, type NativeSelection } from "./nativeSelectionOverlay";
 import { holdSessionFit } from "@/hooks/useTerminal";
-import { hideAndroidKeyboard } from "@/services/androidKeyboard";
+import { hideAndroidKeyboard, showAndroidKeyboard } from "@/services/androidKeyboard";
+import { appToast } from "@/services/appToast";
+import { useTeamSessionStore, type MultiplayerSessionState } from "@/stores/teamSessionStore";
 import { sendSpecialKey } from "@/services/terminalInput";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) }));
@@ -28,7 +30,8 @@ vi.mock("@/services/androidKeyboard", () => ({
   setAndroidKeyboardTarget: vi.fn(),
   setSelectionTouchFeed: vi.fn(),
 }));
-vi.mock("@/utils/platform", () => ({ useIsAndroid: () => true }));
+vi.mock("@/utils/platform", async (orig) => ({ ...(await orig<typeof import("@/utils/platform")>()), useIsAndroid: () => true }));
+vi.mock("@/services/appToast", () => ({ appToast: vi.fn() }));
 vi.mock("@/lib/haptics", () => ({ haptic: vi.fn() }));
 
 beforeAll(() => {
@@ -207,5 +210,29 @@ describe("MobileTerminalGestures double tap", () => {
     const { terminal } = mount();
     doubleTap(terminal);
     expect(sendSpecialKey).not.toHaveBeenCalled();
+  });
+});
+
+describe("MobileTerminalGestures tap on a shared terminal", () => {
+  const tap = (el: HTMLElement) => { fireEvent.touchStart(el, at(100)); fireEvent.touchEnd(el, at(100)); };
+  const guest = (controlHolder: string) => useTeamSessionStore.setState({
+    connections: { s1: { role: "guest", myUserId: "me", controlHolder } as MultiplayerSessionState },
+  });
+  afterEach(() => useTeamSessionStore.setState({ connections: {} }));
+
+  test("explains instead of raising the keyboard while I only watch", () => {
+    fakeApi({ alternate: false, mouse: false });
+    guest("host");
+    tap(mount().terminal);
+    expect(showAndroidKeyboard).not.toHaveBeenCalled();
+    expect(appToast).toHaveBeenCalledWith("info", expect.any(String));
+  });
+
+  test("raises the keyboard once I hold control", () => {
+    fakeApi({ alternate: false, mouse: false });
+    guest("me");
+    tap(mount().terminal);
+    expect(showAndroidKeyboard).toHaveBeenCalledWith("s1");
+    expect(appToast).not.toHaveBeenCalled();
   });
 });

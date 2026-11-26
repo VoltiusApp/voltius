@@ -7,7 +7,7 @@ const h = vi.hoisted(() => {
     setState: (patch: unknown) =>
       Object.assign(sessionState, typeof patch === "function" ? (patch as (s: typeof sessionState) => unknown)(sessionState) : patch),
   };
-  const uiState = { setActiveNav: vi.fn(), activeNav: "hosts", sftpPanelOpen: false };
+  const uiState = { setActiveNav: vi.fn(), setNotificationCenterOpen: vi.fn(), activeNav: "hosts", sftpPanelOpen: false };
   const useUIStore = { getState: () => uiState };
   const joinSession = vi.fn(async () => "local-99");
   const grantControl = vi.fn();
@@ -57,6 +57,7 @@ vi.mock("@/i18n", () => ({
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useLayoutStore } from "@/stores/layoutStore";
+import { useMobileNavStore } from "@/stores/mobileNavStore";
 import {
   reconcileInvites,
   reconcileSessions,
@@ -92,6 +93,8 @@ beforeEach(() => {
   h.fetchActiveSessions.mockClear().mockResolvedValue(undefined);
   h.teamSessionState.activeSessions = [];
   h.uiState.setActiveNav.mockClear();
+  h.uiState.setNotificationCenterOpen.mockClear();
+  useMobileNavStore.setState({ tab: "hosts", stack: [] });
   h.uiState.activeNav = "hosts";
   h.uiState.sftpPanelOpen = false;
   useLayoutStore.setState({ splitTabActive: false, root: null, maximizedPaneId: null });
@@ -197,20 +200,29 @@ test("leaving a joined session returns its entry to pending so Join renders agai
   expect(entry.actions).toHaveLength(1);
 });
 
-// Mobile deliberately never renders multiplayer sessions, so a Join button
-// there opened a websocket and then landed the user on "No active sessions".
-// The knock stays; only the action goes.
-test("the shared-session knock offers Join on desktop but not on mobile", () => {
-  reconcileSessions([session({ id: "s1" })], new Set(), "me");
-  expect(get().inbox.find((e) => e.id === "session:s1")!.actions).toHaveLength(1);
-
+test("mobile offers the same Join, and knock Join / Decline / Block, as desktop", () => {
   h.isMobileShell.mockReturnValue(true);
+  reconcileSessions([session({ id: "s1" }), session({ id: "k1", invited_by: "stranger", connection_name: null })], new Set(), "me");
+  expect(get().inbox.find((e) => e.id === "session:s1")!.actions.map((a) => a.label)).toEqual([
+    "notifications.inbox.session.join",
+  ]);
+  expect(get().inbox.find((e) => e.id === "session:k1")!.actions.map((a) => a.label)).toEqual([
+    "notifications.inbox.sessionKnock.join",
+    "notifications.inbox.sessionKnock.decline",
+    "notifications.inbox.sessionKnock.blockPermanently",
+  ]);
+});
+
+test("joining from the mobile inbox lands on the terminal tab with the session active", async () => {
+  h.isMobileShell.mockReturnValue(true);
+  useMobileNavStore.setState({ tab: "hosts", stack: [] });
   reconcileSessions([session({ id: "s1" })], new Set(), "me");
-  const entry = get().inbox.find((e) => e.id === "session:s1")!;
-  expect(entry.actions).toEqual([]);
-  // Still knocked, still unread — only the dead-end button is withheld.
-  expect(entry.state).toBe("pending");
-  expect(entry.message).toContain("notifications.inbox.session.message");
+  await get().runInboxAction("session:s1", 0);
+
+  expect(h.sessionState.activeSessionId).toBe("local-99");
+  expect(useMobileNavStore.getState().tab).toBe("terminal");
+  expect(h.uiState.setNotificationCenterOpen).toHaveBeenCalledWith(false);
+  expect(h.uiState.setActiveNav).not.toHaveBeenCalled();
 });
 
 test("derives an invite entry with invite wording when invited_by is set", () => {

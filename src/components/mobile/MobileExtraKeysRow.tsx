@@ -6,12 +6,13 @@ import type { Modifier } from "@/stores/modifierLatchCore";
 import type { SpecialKey } from "@/services/terminalKeyCore";
 import { haptic } from "@/lib/haptics";
 import { EXTRA_KEYS, KEY_HOLD_MS, keyForGesture, keyGesture, type ExtraKey } from "./extraKeysCore";
-import { DrawerToggle, KEY_CLASS, KEY_STYLE, LatchKey, isTouch, keepKeyboardClosed, noFocusSteal, pressKey } from "./mobileKeys";
+import { DrawerToggle, KEY_CLASS, KEY_STYLE, LatchKey, isTouch, keepKeyboardClosed, noFocusSteal, pressKey, useKeyClass } from "./mobileKeys";
 
 const MODS: { mod: Modifier; label: string }[] = [ { mod: "ctrl", label: "Ctrl" }, { mod: "alt", label: "Alt" } ];
 
 export default function MobileExtraKeysRow({ keyboardOpen }: { keyboardOpen?: boolean }) {
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
+  const keyClass = useKeyClass(activeSessionId);
   // Tap / hold / swipe-up / scroll tracking for the keys: record the touch origin and only decide
   // on touchend (extraKeysCore.keyGesture), so dragging the row sideways never fires a key.
   const keyTouch = useRef<{ x: number; y: number; dx: number; dy: number; held: boolean; armed: boolean; timer: ReturnType<typeof setTimeout> } | null>(null);
@@ -67,7 +68,7 @@ export default function MobileExtraKeysRow({ keyboardOpen }: { keyboardOpen?: bo
       }}
       onTouchCancel={endKeyTouch}
       onClick={(e) => { noFocusSteal(e); if (!isTouch()) press(k.key); }}
-      className={`${KEY_CLASS} font-medium`}
+      className={`${keyClass} font-medium`}
       style={{ ...KEY_STYLE, ...(altArmed?.key === k && { background: "color-mix(in srgb, var(--t-accent) 25%, var(--t-bg-card))" }) }}>
       <span className="mt-2.5 flex">{k.icon ? <Icon icon={k.icon} width={16} /> : k.label}</span>
       {k.altLabel && (
@@ -93,7 +94,7 @@ export default function MobileExtraKeysRow({ keyboardOpen }: { keyboardOpen?: bo
       }}
       onMouseDown={noFocusSteal} onTouchStart={(e) => { noFocusSteal(e); keepKeyboardClosed(keyboardOpen); }}>
       {MODS.map(({ mod, label }) => (
-        <LatchKey key={mod} mod={mod} className={`${KEY_CLASS} font-semibold`}>{label}</LatchKey>
+        <LatchKey key={mod} mod={mod} className={`${keyClass} font-semibold`}>{label}</LatchKey>
       ))}
       {EXTRA_KEYS.map(renderKey)}
       {altArmed && createPortal(

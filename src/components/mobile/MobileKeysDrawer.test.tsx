@@ -4,8 +4,10 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useModifierLatchStore } from "@/stores/modifierLatchStore";
 import { initialLatch } from "@/stores/modifierLatchCore";
+import { useTeamSessionStore, type MultiplayerSessionState } from "@/stores/teamSessionStore";
 
-const h = vi.hoisted(() => ({ key: vi.fn(), write: vi.fn(), panel: vi.fn() }));
+const h = vi.hoisted(() => ({ key: vi.fn(), write: vi.fn(), panel: vi.fn(), toast: vi.fn() }));
+vi.mock("@/services/appToast", () => ({ appToast: h.toast }));
 vi.mock("@/services/terminalInput", () => ({ sendSpecialKey: h.key }));
 vi.mock("@/hooks/useTerminal", () => ({ writeToSession: h.write }));
 vi.mock("@/lib/haptics", () => ({ haptic: () => true }));
@@ -36,6 +38,7 @@ beforeEach(() => {
   useSessionStore.setState({ activeSessionId: "s1" });
   useUIStore.setState({ terminalKeysDrawerTab: "nav" });
   useModifierLatchStore.setState(initialLatch);
+  useTeamSessionStore.setState({ connections: {} });
 });
 afterEach(cleanup);
 
@@ -82,5 +85,32 @@ describe("MobileKeysDrawer", () => {
     const { container } = render(<MobileKeysDrawer />);
     fireEvent.click(container.querySelector('[data-mobile-panel-quick="sftp"]')!);
     expect(h.panel).toHaveBeenCalled();
+  });
+
+  test("a shared terminal I only watch greys the keys and explains instead of typing", () => {
+    useTeamSessionStore.setState({
+      connections: { s1: { role: "guest", myUserId: "me", controlHolder: "host" } as MultiplayerSessionState },
+    });
+    useUIStore.setState({ terminalKeysDrawerTab: "edit" });
+    useModifierLatchStore.getState().tap("ctrl");
+    const { container } = render(<MobileKeysDrawer />);
+    expect(key(container, "^W").className).toContain("opacity-40");
+    tap(key(container, "^W"));
+    fireEvent.click(tabButton(container, "mobile.keysDrawer.tabs.nav"));
+    tap(key(container, "Home"));
+    expect(h.write).not.toHaveBeenCalled();
+    expect(h.key).not.toHaveBeenCalled();
+    expect(h.toast).toHaveBeenCalledWith("info", expect.any(String));
+    expect(useModifierLatchStore.getState().ctrl).toBe("armed");
+  });
+
+  test("holding control types as usual", () => {
+    useTeamSessionStore.setState({
+      connections: { s1: { role: "guest", myUserId: "me", controlHolder: "me" } as MultiplayerSessionState },
+    });
+    const { container } = render(<MobileKeysDrawer />);
+    expect(key(container, "Home").className).not.toContain("opacity-40");
+    tap(key(container, "Home"));
+    expect(h.key).toHaveBeenCalledWith("s1", "Home", { ctrl: false, alt: false, shift: false });
   });
 });

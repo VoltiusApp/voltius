@@ -12,6 +12,7 @@ import { BaseCard } from "@/components/shared/BaseCard";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { isJoinInput, resolveJoinInput } from "@/services/resolveJoinInput";
 import { joinTeamSessionAndOpenTab } from "@/services/teamSessionJoin";
+import { showTerminalNav } from "@/services/terminalNav";
 import { sessionDisplayName } from "@/services/teamSharing";
 import { avatarLabel, usePeerResolver } from "@/services/peerName";
 import { formatRelative } from "@/utils/localeFormat";
@@ -109,7 +110,10 @@ export function TeamSessions() {
       const localId = Object.entries(useMpStore.getState().connections).find(
         ([, v]) => v.multiplayerSessionId === session.id,
       )?.[0];
-      if (localId) setActive(localId);
+      if (localId) {
+        setActive(localId);
+        showTerminalNav();
+      }
       return;
     }
     try {

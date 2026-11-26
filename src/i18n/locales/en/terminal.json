@@ -46,7 +46,9 @@
       "stop": "Stop",
       "leave": "Leave",
       "waitingForKey": "Waiting for the host…",
-      "keyFailed": "Host didn't share the key"
+      "keyFailed": "Host didn't share the key",
+      "typingNeedsControl": "You're watching. Request control to type.",
+      "typingEnded": "This shared session has ended."
     },
     "sftp": {
       "hostLabel": {

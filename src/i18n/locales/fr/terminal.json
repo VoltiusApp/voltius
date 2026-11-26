@@ -48,7 +48,9 @@
       "stop": "Arrêter",
       "leave": "Quitter",
       "waitingForKey": "En attente de l'hôte…",
-      "keyFailed": "L'hôte n'a pas partagé la clé"
+      "keyFailed": "L'hôte n'a pas partagé la clé",
+      "typingNeedsControl": "Vous observez. Demandez le contrôle pour écrire.",
+      "typingEnded": "Cette session partagée est terminée."
     },
     "sftp": {
       "hostLabel": {

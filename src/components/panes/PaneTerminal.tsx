@@ -1,7 +1,6 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import MultiplayerTerminalView from "@/components/terminal/MultiplayerTerminalView";
-import { MultiplayerBar } from "@/components/terminal/MultiplayerBar";
+import { MultiplayerSessionView } from "@/components/terminal/MultiplayerSessionView";
 import { HostAwareTerminalView, SessionConnectionOverlay } from "@/components/terminal/SessionView";
 import { WebPane } from "@/components/panes/WebPane";
 import { sessionClosed } from "@/stores/reconnectBackoff";
@@ -11,12 +10,7 @@ export function PaneTerminal({ session, active, visible }: { session: TerminalSe
   if (session.type === "web") return <WebPane session={session} visible={visible} />;
 
   if (session.type === "multiplayer") {
-    return (
-      <div className="absolute inset-0 flex flex-col">
-        <MultiplayerTerminalView localSessionId={session.id} active={active} visible={visible} />
-        <MultiplayerBar localSessionId={session.id} />
-      </div>
-    );
+    return <MultiplayerSessionView localSessionId={session.id} active={active} visible={visible} />;
   }
 
   return (

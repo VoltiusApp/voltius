@@ -63,6 +63,7 @@ export default function MobileSessionLayer({ visible }: { visible: boolean }) {
           <MobileSessionView
             session={session}
             active={visible && session.id === activeSessionId && session.status === "connected"}
+            visible={visible && session.id === activeSessionId}
           />
         </div>
       ))}
