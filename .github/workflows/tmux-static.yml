@@ -6,6 +6,9 @@ on:
       version:
         description: tmux release tag, e.g. 3.8 (default is the latest upstream release)
         required: false
+      tag:
+        description: Release tag to publish, for a rebuild of a version already released (default tmux-<version>)
+        required: false
 
 permissions:
   contents: read
@@ -15,15 +18,18 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
     steps:
       - id: resolve
         env:
           GH_TOKEN: ${{ github.token }}
           INPUT_VERSION: ${{ inputs.version }}
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
           set -eu
           version="${INPUT_VERSION:-$(gh api repos/tmux/tmux/releases/latest -q .tag_name)}"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=${INPUT_TAG:-tmux-$version}" >> "$GITHUB_OUTPUT"
 
   build:
     needs: version
@@ -38,13 +44,28 @@ jobs:
     runs-on: ${{ matrix.runner }}
     env:
       TMUX_VERSION: ${{ needs.version.outputs.version }}
+      NCURSES_VERSION: "6.5"
+      NCURSES_SHA256: 136d91bc269a9a5785e5f9e980bc76ab57428f604ce3e5a5a90cebc767971cc6
     steps:
+      # Hosts such as Entware routers keep terminfo outside the standard dirs, where tmux cannot start
+      # without these compiled-in entries.
       - name: Build static tmux
         run: |
           mkdir out
-          docker run --rm -e TMUX_VERSION -e ARCH="${{ matrix.arch }}" -v "$PWD/out:/out" alpine:3.20 sh -c '
+          docker run --rm -e TMUX_VERSION -e NCURSES_VERSION -e NCURSES_SHA256 -e ARCH="${{ matrix.arch }}" -v "$PWD/out:/out" alpine:3.20 sh -c '
             set -eu
-            apk add --no-cache build-base libevent-dev libevent-static ncurses-dev ncurses-static bison file curl
+            apk add --no-cache build-base libevent-dev libevent-static ncurses pkgconf bison file curl
+            cd /tmp
+            curl -fsSL -o ncurses.tar.gz "https://ftp.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz"
+            echo "${NCURSES_SHA256}  ncurses.tar.gz" | sha256sum -c -
+            tar xzf ncurses.tar.gz
+            cd "ncurses-${NCURSES_VERSION}"
+            ./configure --prefix=/usr --without-shared --with-normal --without-debug --without-ada --without-cxx \
+              --without-progs --without-tests --without-manpages --enable-pc-files --with-pkg-config-libdir=/usr/lib/pkgconfig \
+              --with-terminfo-dirs=/etc/terminfo:/usr/share/terminfo:/lib/terminfo:/usr/lib/terminfo:/opt/share/terminfo \
+              --with-fallbacks=xterm-256color,xterm,tmux-256color,screen-256color,screen,vt100,linux,dumb
+            make -j"$(nproc)"
+            make install.libs install.includes
             curl -fsSL -o /tmp/tmux.tar.gz "https://github.com/tmux/tmux/releases/download/${TMUX_VERSION}/tmux-${TMUX_VERSION}.tar.gz"
             cd /tmp
             tar xzf tmux.tar.gz
@@ -57,6 +78,8 @@ jobs:
             ./tmux -V | grep -Fx "tmux ${TMUX_VERSION}"
             cp tmux "/out/tmux-${TMUX_VERSION}-${ARCH}"
           '
+          docker run --rm -e TERM=xterm-256color -e BIN="/out/tmux-${TMUX_VERSION}-${{ matrix.arch }}" -v "$PWD/out:/out:ro" busybox \
+            sh -c 'script -q -c "$BIN -L check new-session \"echo started; sleep 1\"" /dev/null </dev/null | grep -F started'
 
       - uses: actions/upload-artifact@v7
         with:
@@ -71,6 +94,7 @@ jobs:
       contents: write
     env:
       TMUX_VERSION: ${{ needs.version.outputs.version }}
+      TAG: ${{ needs.version.outputs.tag }}
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -86,11 +110,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -eu
-          if gh release view "tmux-${TMUX_VERSION}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release tmux-${TMUX_VERSION} already exists, skipping"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists, skipping"
             exit 0
           fi
-          gh release create "tmux-${TMUX_VERSION}" dist/tmux-* dist/SHA256SUMS \
+          gh release create "$TAG" dist/tmux-* dist/SHA256SUMS \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "tmux ${TMUX_VERSION} (static)" \
@@ -100,7 +124,7 @@ jobs:
       - name: Job summary
         run: |
           set -eu
-          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/tmux-${TMUX_VERSION}"
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}"
           x86=$(awk -v f="tmux-${TMUX_VERSION}-x86_64" '$2==f{print $1}' dist/SHA256SUMS)
           arm=$(awk -v f="tmux-${TMUX_VERSION}-aarch64" '$2==f{print $1}' dist/SHA256SUMS)
           {

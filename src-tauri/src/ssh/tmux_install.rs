@@ -22,6 +22,8 @@ const CONTROL_MODE_MIN: &str = "3.2";
 const STALE_PARTS: &str =
     r#"find "$D" -maxdepth 1 -name '.tmux-*.part' -mmin +60 -exec rm -f {} + 2>/dev/null"#;
 const STEP: &str = "VOLTIUS_STEP ";
+const SHA256_FN: &str = r#"h() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1"; elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1"; else return 1; fi; }
+"#;
 const APP_DOWNLOAD: (u8, u8) = (5, 45);
 const UPLOAD: (u8, u8) = (45, 80);
 const FETCH_CONNECT: Duration = Duration::from_secs(15);
@@ -85,7 +87,7 @@ pub struct TmuxCopy {
 }
 
 fn prelude() -> String {
-    format!("{TMUX_HELPERS}D={BIN_DIR}\n")
+    format!("{TMUX_HELPERS}{SHA256_FN}D={BIN_DIR}\n")
 }
 
 /// The upload's temp file, named per install so concurrent installs never share one.
@@ -112,10 +114,7 @@ mkdir -p "$D" && chmod 700 "$D/.." "$D" || exit 1
 fn verify_and_link(sha256: &str) -> String {
     format!(
         r#"echo {STEP}verify
-if command -v sha256sum >/dev/null 2>&1; then X=$(sha256sum "$P")
-elif command -v shasum >/dev/null 2>&1; then X=$(shasum -a 256 "$P")
-else rm -f "$P"; exit 12
-fi
+X=$(h "$P") || {{ rm -f "$P"; exit 12; }}
 [ "${{X%% *}}" = {sha} ] || {{ rm -f "$P"; exit 11; }}
 chmod 755 "$P" && c "$P" && [ "${{W#tmux }}" = "$V" ] || {{ rm -f "$P"; exit 13; }}
 echo {STEP}link
@@ -160,6 +159,7 @@ echo "system=$(tmux -V 2>/dev/null)"
 A=
 c "$D/tmux" && A=${{W#tmux }}
 echo "active=$A"
+[ -n "$A" ] && echo "sum=$(h "$D/tmux" 2>/dev/null)"
 for T in "$D"/tmux-*; do
   [ -x "$T" ] || continue
   {TMUX_COPY_SOCKET}
@@ -231,10 +231,18 @@ fn parse_copy(value: &str) -> Option<TmuxCopy> {
 }
 
 pub fn parse_status(out: &str) -> TmuxHostStatus {
-    parse_status_against(out, &pin().version)
+    let sha = host_asset_in(out).map(|a| a.sha256.as_str());
+    parse_status_against(out, &pin().version, sha)
 }
 
-fn parse_status_against(out: &str, pinned: &str) -> TmuxHostStatus {
+/// Whether the active copy is the pinned version but another build of it, such as one without
+/// built-in terminfo; unknown when the host has no sha256 tool.
+fn other_build(out: &str, active: &str, pinned: &str, pinned_sha: Option<&str>) -> bool {
+    let sum = field(out, "sum").and_then(|s| s.split_whitespace().next());
+    active == pinned && pinned_sha.zip(sum).is_some_and(|(want, got)| want != got)
+}
+
+fn parse_status_against(out: &str, pinned: &str, pinned_sha: Option<&str>) -> TmuxHostStatus {
     let system = field(out, "system").map(|v| v.strip_prefix("tmux ").unwrap_or(v));
     let active = field(out, "active");
     TmuxHostStatus {
@@ -245,7 +253,8 @@ fn parse_status_against(out: &str, pinned: &str) -> TmuxHostStatus {
             .lines()
             .filter_map(|l| parse_copy(l.strip_prefix("copy=")?))
             .collect(),
-        outdated: active.is_some_and(|a| is_newer(pinned, a)),
+        outdated: active
+            .is_some_and(|a| is_newer(pinned, a) || other_build(out, a, pinned, pinned_sha)),
         system_control_capable: system.is_some_and(control_capable),
     }
 }
@@ -484,7 +493,7 @@ mod tests {
             install_script("3.8", "u", SHA),
             finish_script("3.8", SHA, "r"),
         ] {
-            let sha = script.find("sha256sum").unwrap();
+            let sha = script.find(r#"X=$(h "$P")"#).unwrap();
             let check = script.find("exit 11").unwrap();
             let link = script.find("ln -sfn").unwrap();
             assert!(sha < check && check < link, "{script}");
@@ -506,7 +515,7 @@ mod tests {
         let out = "os=Linux\narch=x86_64\nsystem=tmux 3.0a\nactive=3.8\n\
                    copy=3.4 sessions=2\ncopy=3.8 sessions=       0\nkept=3.4\n";
         assert_eq!(
-            parse_status_against(out, "3.8"),
+            parse_status_against(out, "3.8", None),
             TmuxHostStatus {
                 supported: true,
                 system: Some("3.0a".into()),
@@ -539,7 +548,7 @@ mod tests {
     fn status_flags_outdated_copy_and_capable_system() {
         let flags = |system: &str, active: &str| {
             let out = format!("os=Linux\narch=x86_64\nsystem={system}\nactive={active}\n");
-            let s = parse_status_against(&out, "3.8");
+            let s = parse_status_against(&out, "3.8", None);
             (s.outdated, s.system_control_capable)
         };
         assert_eq!(flags("tmux 3.0a", "3.5a"), (true, false));
@@ -548,6 +557,21 @@ mod tests {
         assert_eq!(flags("tmux 3.1c", ""), (false, false));
         assert_eq!(flags("tmux next-3.6", "next-3.9"), (false, false));
         assert_eq!(flags("", ""), (false, false));
+    }
+
+    #[test]
+    fn same_version_from_another_build_is_outdated() {
+        let outdated = |active: &str, sum: &str| {
+            let out = format!("os=Linux\narch=x86_64\nactive={active}\nsum={sum}\n");
+            parse_status_against(&out, "3.8", Some(SHA)).outdated
+        };
+        assert!(outdated("3.8", "0000  /root/.voltius/bin/tmux"));
+        assert!(!outdated("3.8", &format!("{SHA}  /root/.voltius/bin/tmux")));
+        assert!(!outdated("3.8", ""));
+        assert!(!outdated("3.9", "0000  /root/.voltius/bin/tmux"));
+        assert!(outdated("3.7c", &format!("{SHA}  x")));
+        let no_pin = "os=Linux\narch=x86_64\nactive=3.8\nsum=0000  x\n";
+        assert!(!parse_status_against(no_pin, "3.8", None).outdated);
     }
 
     #[test]
