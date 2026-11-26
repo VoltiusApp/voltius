@@ -524,6 +524,9 @@ pub fn tmux_session_key(session_id: &str) -> String {
 /// `MAX_STRING_LEN`, so dropbear killed the channel with "String too long" the
 /// instant authentication succeeded (#85). `V="…"` is double-quoted, so `inner`
 /// still expands in this outer shell exactly as when it was inlined.
+///
+/// tmux writes to stderr only when it cannot start (no terminfo for `$TERM`); the session
+/// then falls back to a plain shell instead of closing.
 pub fn persistent_exec_command(session_key: &str, inner: &str) -> String {
     let script = format!(
         r#"{raw_fn}
@@ -553,9 +556,18 @@ set -g destroy-unattached off
 set -ga terminal-overrides ',*:cnorm=\E[?25h:Tc'
 EOF
     [ -n "$TMUX_PREFIX_NONE" ] && echo "set -g prefix None" >> "$TMUX_CONF"
-    exec "$T" -L "$S" -f "$TMUX_CONF" $CC new-session -A -s {key} $SZ "$V" <&2
   fi
-  exec "$T" -L "$S" $CC new-session -A -s {key} $SZ "$V" <&2
+  E=$(mktemp 2>/dev/null) || E=/dev/null
+  "$T" -L "$S" ${{TMUX_CONF:+-f "$TMUX_CONF"}} $CC new-session -A -s {key} $SZ "$V" <&2 2>"$E"
+  X=$?
+  if [ $X -ne 0 ] && [ -s "$E" ]; then
+    [ -n "$CC" ] && R none
+    cat "$E" >&2
+    rm -f "$E"
+    exec sh -c "$V" <&2
+  fi
+  [ "$E" = /dev/null ] || rm -f "$E"
+  exit $X
 elif command -v screen >/dev/null 2>&1; then
   R screen
   V="{screen_strip}$V"
@@ -1428,11 +1440,24 @@ mod tests {
         assert!(script.contains("Z=$(stty size <&2 2>/dev/null)"));
         assert!(script.contains(r#"[ -n "$CC" ] && [ -n "$Z" ] && SZ="-x ${Z#* } -y ${Z% *}""#));
         assert!(script.contains(
-            r#"exec "$T" -L "$S" -f "$TMUX_CONF" $CC new-session -A -s voltius_s1 $SZ "$V" <&2"#
+            r#""$T" -L "$S" ${TMUX_CONF:+-f "$TMUX_CONF"} $CC new-session -A -s voltius_s1 $SZ "$V" <&2 2>"$E""#
         ));
-        assert!(
-            script.contains(r#"exec "$T" -L "$S" $CC new-session -A -s voltius_s1 $SZ "$V" <&2"#)
-        );
+    }
+
+    #[test]
+    fn persistent_wrapper_falls_back_to_a_shell_when_tmux_cannot_start() {
+        let script = exec_script();
+        let run = script
+            .find(r#"new-session -A -s voltius_s1 $SZ "$V" <&2 2>"$E""#)
+            .unwrap();
+        let failed = script
+            .find(r#"if [ $X -ne 0 ] && [ -s "$E" ]; then"#)
+            .unwrap();
+        let shell = script[failed..].find(r#"exec sh -c "$V" <&2"#).unwrap() + failed;
+        let screen = script.find("elif command -v screen").unwrap();
+        assert!(run < failed && shell < screen, "{script}");
+        assert!(script[failed..shell].contains(r#"[ -n "$CC" ] && R none"#));
+        assert!(script[shell..screen].contains("exit $X"));
     }
 
     #[test]
