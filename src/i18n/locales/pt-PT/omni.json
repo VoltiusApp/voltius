@@ -139,7 +139,12 @@
       "unlockTab": "Desbloquear Separador",
       "pinTab": "Afixar Separador",
       "unpinTab": "Desafixar Separador",
-      "noActiveTab": "Nenhum separador de terminal ativo"
+      "noActiveTab": "Nenhum separador de terminal ativo",
+      "clearTerminal": "Limpar Terminal",
+      "selectAllTerminal": "Selecionar Toda a Saída do Terminal",
+      "copyTerminalOutput": "Copiar Saída do Terminal",
+      "saveTerminalOutput": "Guardar Saída do Terminal…",
+      "terminalOutputCopied": "Saída do terminal copiada"
     },
     "dialogLabel": "Paleta de comandos",
     "resultCount_one": "{{count}} resultado",

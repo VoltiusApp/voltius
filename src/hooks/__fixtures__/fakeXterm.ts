@@ -27,7 +27,11 @@ let seq = 0;
 
 /** Terminal ids run `term-1`, `term-2`, ... in creation order. */
 export class FakeTerminal {
+  static instances: FakeTerminal[] = [];
   id = `term-${(seq += 1)}`;
+  /** Buffer actions a test can assert on, in call order. */
+  actions: string[] = [];
+  constructor() { FakeTerminal.instances.push(this); }
   element: HTMLElement | null = null;
   options: Record<string, unknown> = {};
   cols = 80;
@@ -45,6 +49,8 @@ export class FakeTerminal {
   loadAddon() {}
   write() {}
   focus() {}
+  clear() { this.actions.push("clear"); }
+  selectAll() { this.actions.push("selectAll"); }
   scrollToBottom() {}
   scrollLines() {}
   getSelection() { return ""; }
@@ -106,5 +112,6 @@ export function lastKeyHandler(): (e: KeyboardEvent) => boolean {
 export function resetFakeXterm(): void {
   seq = 0;
   keyHandlers.clear();
+  FakeTerminal.instances = [];
   FakeSearchAddon.instances = [];
 }

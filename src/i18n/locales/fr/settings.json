@@ -1526,6 +1526,14 @@
           "label": "Rechercher dans le terminal",
           "desc": "Rechercher dans l'historique du terminal"
         },
+        "terminalClear": {
+          "label": "Effacer le terminal",
+          "desc": "Effacer la sortie et l'historique sans arrêter le programme en cours"
+        },
+        "terminalSelectAll": {
+          "label": "Tout sélectionner dans le terminal",
+          "desc": "Sélectionner toute la sortie du terminal, prête à copier"
+        },
         "history": {
           "label": "Panneau d'historique",
           "desc": "Ouvrir l'historique des commandes dans le panneau latéral"

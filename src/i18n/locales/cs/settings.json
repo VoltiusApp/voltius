@@ -1771,6 +1771,14 @@
           "label": "Najít v terminálu",
           "desc": "Prohledat historii terminálu"
         },
+        "terminalClear": {
+          "label": "Vymazat terminál",
+          "desc": "Vymazat výstup a historii bez zastavení běžícího programu"
+        },
+        "terminalSelectAll": {
+          "label": "Vybrat vše v terminálu",
+          "desc": "Vybrat celý výstup terminálu ke zkopírování"
+        },
         "history": {
           "label": "Panel historie",
           "desc": "Otevřít historii příkazů v pravém panelu"

@@ -1,7 +1,7 @@
 import { findSessionPane, useLayoutStore, type SplitPosition } from "@/stores/layoutStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
-import { matchShortcut } from "@/stores/shortcutStore";
+import { runSessionShortcut, type SessionShortcut } from "@/stores/shortcutStore";
 import { goToTerminal } from "@/services/launch";
 import type { TerminalSession } from "@/types";
 import { refuseWhilePreviewing } from "@/services/previewGuard";
@@ -63,17 +63,12 @@ export function duplicateSession(sessionId: string, target: DuplicateTarget, anc
   return newSessionId;
 }
 
-const DUPLICATE_SHORTCUTS = [
-  ["duplicate-session", "tab"],
-  ["duplicate-session-split", "right"],
-] as const;
+const DUPLICATE_SHORTCUTS: readonly SessionShortcut[] = [
+  ["duplicate-session", (id) => duplicateSession(id, "tab")],
+  ["duplicate-session-split", (id) => duplicateSession(id, "right")],
+];
 
 /** Shared by the window handler and xterm's key handler. Returns true when the event was a duplicate shortcut. */
 export function handleDuplicateShortcut(e: KeyboardEvent, sessionId: string | null): boolean {
-  for (const [id, target] of DUPLICATE_SHORTCUTS) {
-    if (!matchShortcut(id, e)) continue;
-    if (e.type === "keydown" && sessionId) duplicateSession(sessionId, target);
-    return true;
-  }
-  return false;
+  return runSessionShortcut(DUPLICATE_SHORTCUTS, e, sessionId);
 }

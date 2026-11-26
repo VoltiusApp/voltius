@@ -134,7 +134,12 @@
       "unlockTab": "解锁标签页",
       "pinTab": "固定标签页",
       "unpinTab": "取消固定标签页",
-      "noActiveTab": "没有活动的终端标签页"
+      "noActiveTab": "没有活动的终端标签页",
+      "clearTerminal": "清空终端",
+      "selectAllTerminal": "全选终端输出",
+      "copyTerminalOutput": "复制终端输出",
+      "saveTerminalOutput": "将终端输出保存到文件…",
+      "terminalOutputCopied": "已复制终端输出"
     },
     "dialogLabel": "命令面板",
     "resultCount_one": "{{count}} 个结果",

@@ -8,6 +8,10 @@ import { useLayoutStore } from "@/stores/layoutStore";
 import { defineCommand, navCommand, pendingActionCommand } from "./defineCommand";
 import i18n, { lazyT } from "@/i18n";
 import { PORT_FORWARDING_ICON } from "@/lib/conceptIcons";
+import { clearTerminal, getTerminalApi, readTerminalSnapshot, selectAllTerminal } from "@/hooks/useTerminal";
+import { writeClipboard } from "@/utils/clipboard";
+import { appToast } from "@/services/appToast";
+import { saveTextFile } from "@/services/saveFile";
 
 const noActiveTab = () =>
   activeTabTarget() ? undefined : { message: i18n.t("omni.commands.noActiveTab"), proceed: false };
@@ -15,6 +19,36 @@ const noActiveTab = () =>
 const activePinKey = () => {
   const target = activeTabTarget();
   return target ? tabTargetKey(target) : null;
+};
+
+const activeTerminal = (): string | null => {
+  const { activeSessionId } = useSessionStore.getState();
+  return activeSessionId && getTerminalApi(activeSessionId) ? activeSessionId : null;
+};
+
+const terminalCommand = (
+  name: string,
+  icon: string,
+  keywords: string[],
+  run: (sessionId: string) => void | Promise<unknown>,
+) =>
+  defineCommand({
+    id: `core:${name}`,
+    label: lazyT(`omni.commands.${name}`),
+    icon,
+    keywords,
+    guard: () => (activeTerminal() ? undefined : { message: i18n.t("omni.commands.noActiveTab"), proceed: false }),
+    execute: () => {
+      const sessionId = activeTerminal();
+      if (sessionId) void run(sessionId);
+    },
+  });
+
+const terminalOutput = (sessionId: string) => readTerminalSnapshot(sessionId, Infinity);
+
+const outputFileName = (sessionId: string) => {
+  const name = useSessionStore.getState().sessions.find((s) => s.id === sessionId)?.connectionName ?? "terminal";
+  return `${name.replace(/[^\w.-]+/g, "_")}.txt`;
 };
 
 const openSessions = () =>
@@ -160,4 +194,13 @@ export const commands: OmniCommand[] = [
       if (key) useLayoutStore.getState().setPinned(key, !isPinnedKey(key));
     },
   }),
+  terminalCommand("clearTerminal", "lucide:eraser", ["clear", "cls", "reset", "wipe", "screen", "scrollback", "terminal"], clearTerminal),
+  terminalCommand("selectAllTerminal", "lucide:text-select", ["select", "all", "output", "terminal", "buffer"], selectAllTerminal),
+  terminalCommand("copyTerminalOutput", "lucide:copy", ["copy", "output", "log", "terminal", "buffer", "clipboard"], async (sessionId) => {
+    await writeClipboard(terminalOutput(sessionId));
+    appToast("success", i18n.t("omni.commands.terminalOutputCopied"));
+  }),
+  terminalCommand("saveTerminalOutput", "lucide:download", ["save", "export", "output", "log", "file", "terminal"], (sessionId) =>
+    saveTextFile(outputFileName(sessionId), terminalOutput(sessionId)),
+  ),
 ];

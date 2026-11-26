@@ -144,7 +144,12 @@
       "unlockTab": "Разблокировать вкладку",
       "pinTab": "Закрепить вкладку",
       "unpinTab": "Открепить вкладку",
-      "noActiveTab": "Нет активной вкладки терминала"
+      "noActiveTab": "Нет активной вкладки терминала",
+      "clearTerminal": "Очистить терминал",
+      "selectAllTerminal": "Выделить весь вывод терминала",
+      "copyTerminalOutput": "Копировать вывод терминала",
+      "saveTerminalOutput": "Сохранить вывод терминала…",
+      "terminalOutputCopied": "Вывод терминала скопирован"
     },
     "dialogLabel": "Палитра команд",
     "resultCount_one": "{{count}} результат",

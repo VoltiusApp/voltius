@@ -134,7 +134,12 @@
       "unlockTab": "Unlock Tab",
       "pinTab": "Pin Tab",
       "unpinTab": "Unpin Tab",
-      "noActiveTab": "No terminal tab is active"
+      "noActiveTab": "No terminal tab is active",
+      "clearTerminal": "Clear Terminal",
+      "selectAllTerminal": "Select All Terminal Output",
+      "copyTerminalOutput": "Copy Terminal Output",
+      "saveTerminalOutput": "Save Terminal Output…",
+      "terminalOutputCopied": "Terminal output copied"
     },
     "dialogLabel": "Command palette",
     "resultCount_one": "{{count}} result",

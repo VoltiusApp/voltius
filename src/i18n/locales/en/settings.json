@@ -1512,6 +1512,14 @@
           "label": "Find in Terminal",
           "desc": "Search the terminal scrollback"
         },
+        "terminalClear": {
+          "label": "Clear Terminal",
+          "desc": "Clear the output and scrollback without stopping the running program"
+        },
+        "terminalSelectAll": {
+          "label": "Select All in Terminal",
+          "desc": "Select all terminal output, ready to copy"
+        },
         "history": {
           "label": "History Panel",
           "desc": "Open command history in right panel"

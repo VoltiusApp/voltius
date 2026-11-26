@@ -59,6 +59,8 @@ const DEFAULTS: Omit<Shortcut, "key">[] = [
   { id: "redo",            labelKey: "settings.shortcuts.items.redo.label",            descriptionKey: "settings.shortcuts.items.redo.desc",            defaultKey: "z",      ctrl: true,  shift: true,  alt: false },
   { id: "filter",          labelKey: "settings.shortcuts.items.filter.label",          descriptionKey: "settings.shortcuts.items.filter.desc",          defaultKey: "f",      ctrl: true,  shift: false, alt: false },
   { id: "terminal-search", labelKey: "settings.shortcuts.items.terminalSearch.label",  descriptionKey: "settings.shortcuts.items.terminalSearch.desc",  defaultKey: "f",      ctrl: true,  shift: false, alt: false },
+  { id: "terminal-clear",      labelKey: "settings.shortcuts.items.terminalClear.label",     descriptionKey: "settings.shortcuts.items.terminalClear.desc",     defaultKey: "k", ctrl: true, shift: true, alt: false },
+  { id: "terminal-select-all", labelKey: "settings.shortcuts.items.terminalSelectAll.label", descriptionKey: "settings.shortcuts.items.terminalSelectAll.desc", defaultKey: "a", ctrl: true, shift: true, alt: false },
   { id: "history",         labelKey: "settings.shortcuts.items.history.label",         descriptionKey: "settings.shortcuts.items.history.desc",         defaultKey: "h",      ctrl: true,  shift: true,  alt: false },
   { id: "snippets",        labelKey: "settings.shortcuts.items.snippets.label",        descriptionKey: "settings.shortcuts.items.snippets.desc",        defaultKey: "s",      ctrl: true,  shift: true,  alt: false },
   { id: "panel-themes",    labelKey: "settings.shortcuts.items.panelThemes.label",     descriptionKey: "settings.shortcuts.items.panelThemes.desc",     defaultKey: "t",      ctrl: true,  shift: true,  alt: false },
@@ -111,7 +113,7 @@ export const useShortcutStore = create<ShortcutStore>()(
     {
       name: "voltius-shortcuts",
       // Bump on every DEFAULTS addition: migrate is what merges new entries into a persisted set.
-      version: 9,
+      version: 10,
       // v5: label/description (literal English strings) → labelKey/descriptionKey
       // (i18n keys resolved at render time). Re-derive keys from `id`; drop the
       // stale literal fields so old English text can't linger in persisted state.
@@ -151,6 +153,18 @@ export function matchShortcut(id: string, e: KeyboardEvent): boolean {
   const matches = (b: ShortcutAlias) =>
     ctrl === b.ctrl && e.shiftKey === b.shift && e.altKey === (b.alt ?? false) && key === normalizeKey(b.key);
   return matches(sc) || (ALIASES[id]?.some(matches) ?? false);
+}
+
+export type SessionShortcut = readonly [id: string, run: (sessionId: string) => void];
+
+/** Runs the first matching shortcut's action on keydown; true when one matched, even with no session. */
+export function runSessionShortcut(actions: readonly SessionShortcut[], e: KeyboardEvent, sessionId: string | null): boolean {
+  for (const [id, run] of actions) {
+    if (!matchShortcut(id, e)) continue;
+    if (e.type === "keydown" && sessionId) run(sessionId);
+    return true;
+  }
+  return false;
 }
 
 export function getShortcutHint(id: string): string | undefined {
