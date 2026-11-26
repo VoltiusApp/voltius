@@ -50,7 +50,9 @@
       "stop": "Ukončit",
       "leave": "Opustit",
       "waitingForKey": "Čeká se na hostitele…",
-      "keyFailed": "Hostitel nesdílel klíč"
+      "keyFailed": "Hostitel nesdílel klíč",
+      "typingNeedsControl": "Pouze sledujete. Pro psaní požádejte o ovládání.",
+      "typingEnded": "Tato sdílená relace skončila."
     },
     "sftp": {
       "hostLabel": {

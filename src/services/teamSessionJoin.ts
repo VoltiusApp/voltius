@@ -1,6 +1,6 @@
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useSessionStore } from "@/stores/sessionStore";
-import { useUIStore } from "@/stores/uiStore";
+import { showTerminalNav } from "@/services/terminalNav";
 import i18n from "@/i18n";
 import { resolveJoinInput } from "@/services/resolveJoinInput";
 import { refuseOrThrow } from "@/services/previewGuard";
@@ -40,7 +40,7 @@ export async function joinTeamSessionAndOpenTab(params: JoinTeamSessionParams): 
     ],
     activeSessionId: localSessionId,
   }));
-  useUIStore.getState().setActiveNav("terminal");
+  showTerminalNav();
 
   return localSessionId;
 }

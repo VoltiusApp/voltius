@@ -6,8 +6,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useBlockedTeamVault } from "@/hooks/useBlockedTeamVault";
 import TeamVaultStatePanel from "@/components/team/TeamVaultStatePanel";
-import MultiplayerTerminalView from "@/components/terminal/MultiplayerTerminalView";
-import { MultiplayerBar } from "@/components/terminal/MultiplayerBar";
+import { MultiplayerSessionView } from "@/components/terminal/MultiplayerSessionView";
 import { HostAwareTerminalView, SessionConnectionOverlay } from "@/components/terminal/SessionView";
 import HomePage from "@/components/home/HomePage";
 import HostsPage from "@/components/hosts/HostsPage";
@@ -82,10 +81,7 @@ const SessionTab = memo(function SessionTab({
     <div className={`absolute inset-0 ${visible ? "z-10" : "z-0 invisible"}`}>
       <SessionConnectionOverlay session={session} />
       {session.type === "multiplayer" ? (
-        <div className="absolute inset-0 flex flex-col">
-          <MultiplayerTerminalView localSessionId={session.id} active={shown} visible={visible} />
-          <MultiplayerBar localSessionId={session.id} />
-        </div>
+        <MultiplayerSessionView localSessionId={session.id} active={shown} visible={visible} />
       ) : session.type === "web" ? (
         <WebPane session={session} visible={visible && !covered && !sftpPanelOpen} />
       ) : (

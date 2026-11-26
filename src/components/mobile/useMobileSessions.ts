@@ -5,7 +5,7 @@ import { sessionsPinnedFirst } from "@/services/tabLock";
 import type { TerminalSession } from "@/types";
 
 export function mobileSessions(sessions: TerminalSession[]): TerminalSession[] {
-  return sessionsPinnedFirst(sessions.filter((s) => s.type !== "multiplayer"));
+  return sessionsPinnedFirst(sessions);
 }
 
 export function useMobileSessions(): TerminalSession[] {

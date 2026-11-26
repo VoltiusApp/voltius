@@ -46,7 +46,9 @@
       "stop": "停止",
       "leave": "离开",
       "waitingForKey": "正在等待主持人…",
-      "keyFailed": "主持人未共享密钥"
+      "keyFailed": "主持人未共享密钥",
+      "typingNeedsControl": "你正在观看。请求控制权后才能输入。",
+      "typingEnded": "此共享会话已结束。"
     },
     "sftp": {
       "hostLabel": {

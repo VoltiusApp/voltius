@@ -17,6 +17,8 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { VelocityTracker } from "./sheets/sheetDrag";
 import MobileLivePill, { TERMINAL_CHIP_STYLE } from "./MobileLivePill";
 import { adjacentSessionId, claimSwipeAxis, inEdgeZone, sessionSwipeStep, SWIPE_FOLLOW } from "./sessionSwipeCore";
+import { typingBlockedReason } from "./mobileKeys";
+import { appToast } from "@/services/appToast";
 
 const LONG_PRESS_MS = 380;
 const DOUBLE_TAP = { ms: 300, px: 24 };
@@ -24,7 +26,7 @@ const NO_MODS = { ctrl: false, alt: false };
 
 type Phase = "idle" | "pending" | "scrolling" | "swiping" | "native" | "pinching";
 
-/** Terminal sessions in chip order (the top bar hides multiplayer ones too). */
+/** Terminal sessions in chip order. */
 const sessionIds = () => mobileSessions(useSessionStore.getState().sessions).map((s) => s.id);
 
 /** Mobile terminal gestures: drag scrolls, a sideways swipe switches session, long-press selects
@@ -320,7 +322,9 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
         // Plain tap: xterm's textarea has inputmode=none on Android, so raise the native
         // keyboard overlay ourselves (idempotent; see services/androidKeyboard.ts). iOS has no
         // overlay: focusing xterm's textarea inside the tap raises the system keyboard.
-        if (isAndroid) showAndroidKeyboard(sessionId);
+        const blocked = typingBlockedReason(sessionId);
+        if (blocked) appToast("info", blocked);
+        else if (isAndroid) showAndroidKeyboard(sessionId);
         else focusSession(sessionId);
       }
       reset();

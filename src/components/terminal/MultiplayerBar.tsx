@@ -8,14 +8,22 @@ import { StatusDot } from "@/components/shared/StatusDot";
 import { avatarLabel, usePeerResolver } from "@/services/peerName";
 import { closeSessionTabs } from "@/services/closeSession";
 import { useDismissBlockedReason } from "@/hooks/useSessionLocked";
+import { greyedTapProps } from "@/components/mobile/tapOrExplain";
 
-const MAX_VISIBLE_PARTICIPANTS = 5;
+const SIZES = {
+  pointer: { avatars: 5, avatar: 24, people: "gap-1.5", person: "", button: "px-2 py-1 rounded-md text-xs", leave: "px-2 py-1 rounded-md text-xs", icon: 12 },
+  touch: {
+    avatars: 3, avatar: 26, people: "-space-x-2", person: "ring-2 ring-(--t-bg-terminal)",
+    button: "h-9 px-3 rounded-lg text-[13px]", leave: "h-9 w-9 justify-center rounded-lg", icon: 15,
+  },
+};
 
 interface MultiplayerBarProps {
   localSessionId: string;
+  touch?: boolean;
 }
 
-export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
+export function MultiplayerBar({ localSessionId, touch }: MultiplayerBarProps) {
   const peer = usePeerResolver();
   const { t } = useTranslation();
   const mpState = useTeamSessionStore((s) => s.connections[localSessionId]);
@@ -26,6 +34,8 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
   const leaveBlockedReason = useDismissBlockedReason(localSessionId);
 
   if (!mpState) return null;
+
+  const size = SIZES[touch ? "touch" : "pointer"];
 
   const isHost = mpState.role === "host";
   const myUserId = mpState.myUserId;
@@ -43,14 +53,15 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
 
   return (
     <div
-      className="flex items-center gap-2 px-3 py-1.5 shrink-0"
+      data-multiplayer-bar
+      className={`flex items-center gap-2 px-3 shrink-0 ${touch ? "py-2" : "py-1.5"}`}
       style={{
         background: "var(--t-bg-terminal)",
         borderTop: "1px solid var(--t-border)",
       }}
     >
       {/* Live indicator */}
-      <div className="flex items-center gap-1.5 mr-1">
+      <div className="flex items-center gap-1.5 mr-1 whitespace-nowrap">
         {mpState.ended ? (
           <>
             <StatusDot tone="error" />
@@ -75,21 +86,22 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
       </div>
 
       {/* Participants */}
-      <div className="flex items-center gap-1.5 flex-1">
-        {mpState.participants.slice(0, MAX_VISIBLE_PARTICIPANTS).map((p) => {
+      <div className={`flex items-center flex-1 ${size.people}`}>
+        {mpState.participants.slice(0, size.avatars).map((p) => {
           const who = peer(p.user_id, { fallbackHandle: p.handle });
           return (
             <PresenceAvatar
               key={p.user_id}
               handle={avatarLabel(who)}
-              size={24}
+              size={size.avatar}
               hasControl={p.user_id === mpState.controlHolder}
+              className={`${size.person}${p.user_id === mpState.controlHolder ? " z-10" : ""}`}
             />
           );
         })}
         <AvatarOverflow
-          count={mpState.participants.length - MAX_VISIBLE_PARTICIPANTS}
-          size={24}
+          count={mpState.participants.length - size.avatars}
+          size={size.avatar}
           ringColor="var(--t-bg-terminal)"
           overlap={false}
         />
@@ -98,7 +110,8 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
       {/* Control actions — hidden when session has ended */}
       {!mpState.ended && !isHost && !iControlHolder && mpState.controlRequester !== myUserId && (
         <button
-          className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors"
+          data-multiplayer-request-control
+          className={`shrink-0 flex items-center gap-1.5 whitespace-nowrap transition-colors ${size.button}`}
           style={{
             background: "var(--t-bg-elevated)",
             color: "var(--t-text-secondary)",
@@ -108,18 +121,18 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
           onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)")}
           onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-secondary)")}
         >
-          <Icon icon="lucide:mouse-pointer-click" width={12} />
+          <Icon icon="lucide:mouse-pointer-click" width={size.icon} />
           {t("terminal.multiplayerBar.requestControl")}
         </button>
       )}
 
       {!mpState.ended && !isHost && !iControlHolder && mpState.controlRequester === myUserId && (
         <span
-          className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs"
+          className={`min-w-0 flex items-center gap-1.5 ${size.button}`}
           style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-dim)" }}
         >
-          <Icon icon="lucide:hourglass" width={12} />
-          {t("terminal.multiplayerBar.requestPending")}
+          <Icon icon="lucide:hourglass" width={size.icon} className="shrink-0" />
+          <span className="truncate">{t("terminal.multiplayerBar.requestPending")}</span>
         </span>
       )}
 
@@ -166,12 +179,14 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
 
       {/* Stop / Leave */}
       <button
-        className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors ml-1 disabled:opacity-40 disabled:pointer-events-none"
+        data-multiplayer-leave
+        className={`shrink-0 flex items-center gap-1.5 whitespace-nowrap transition-colors ml-1 disabled:opacity-40 disabled:pointer-events-none aria-disabled:opacity-40 ${size.leave}`}
         style={{
           color: "var(--t-text-dim)",
         }}
-        onClick={() => void handleStopOrLeave()}
-        disabled={!isHost && !!leaveBlockedReason}
+        {...(touch
+          ? greyedTapProps(isHost ? null : leaveBlockedReason, () => void handleStopOrLeave())
+          : { onClick: () => void handleStopOrLeave(), disabled: !isHost && !!leaveBlockedReason })}
         onMouseEnter={(e) => {
           (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)";
           (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, var(--t-status-error) 10%, transparent)";
@@ -181,9 +196,10 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
           (e.currentTarget as HTMLButtonElement).style.background = "transparent";
         }}
         title={isHost ? t("terminal.multiplayerBar.stopSharingTitle") : leaveBlockedReason ?? t("terminal.multiplayerBar.leaveSessionTitle")}
+        aria-label={touch ? (isHost ? t("terminal.multiplayerBar.stopSharingTitle") : t("terminal.multiplayerBar.leaveSessionTitle")) : undefined}
       >
-        <Icon icon={isHost ? "lucide:circle-stop" : "lucide:log-out"} width={13} />
-        {isHost ? t("terminal.multiplayerBar.stop") : t("terminal.multiplayerBar.leave")}
+        <Icon icon={isHost ? "lucide:circle-stop" : "lucide:log-out"} width={size.icon + 1} />
+        {!touch && (isHost ? t("terminal.multiplayerBar.stop") : t("terminal.multiplayerBar.leave"))}
       </button>
     </div>
   );

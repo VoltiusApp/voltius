@@ -46,7 +46,9 @@
       "stop": "Durdur",
       "leave": "Ayrıl",
       "waitingForKey": "Ana bilgisayar bekleniyor…",
-      "keyFailed": "Ana bilgisayar anahtarı paylaşmadı"
+      "keyFailed": "Ana bilgisayar anahtarı paylaşmadı",
+      "typingNeedsControl": "İzliyorsunuz. Yazmak için kontrol isteyin.",
+      "typingEnded": "Bu paylaşılan oturum sona erdi."
     },
     "sftp": {
       "hostLabel": {

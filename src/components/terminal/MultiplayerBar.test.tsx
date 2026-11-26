@@ -8,8 +8,10 @@ const h = vi.hoisted(() => ({
   stop: vi.fn(),
   leave: vi.fn(),
   closeTabs: vi.fn(),
+  toast: vi.fn(),
   blocked: undefined as string | undefined,
 }));
+vi.mock("@/services/appToast", () => ({ appToast: h.toast }));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
@@ -75,6 +77,7 @@ beforeEach(() => {
   h.stop.mockReset().mockResolvedValue(undefined);
   h.leave.mockReset();
   h.closeTabs.mockReset();
+  h.toast.mockReset();
 });
 afterEach(() => {
   cleanup();
@@ -179,6 +182,26 @@ test("a guest on a locked tab sees Leave greyed out with the reason", () => {
   expect(leave.disabled).toBe(true);
   expect(leave.title).toBe("Unlock the tab to close it");
   h.blocked = undefined;
+});
+
+test("on touch a locked guest's Leave stays tappable and explains instead of leaving", () => {
+  h.blocked = "Unlock the tab to close it";
+  state.connections[LOCAL_ID] = mk({ role: "guest", myUserId: "me" });
+  const { container } = render(<MultiplayerBar localSessionId={LOCAL_ID} touch />);
+  const leave = container.querySelector<HTMLButtonElement>("[data-multiplayer-leave]")!;
+  expect(leave.disabled).toBe(false);
+  expect(leave.getAttribute("aria-disabled")).toBe("true");
+  fireEvent.click(leave);
+  expect(h.toast).toHaveBeenCalledWith("info", "Unlock the tab to close it");
+  expect(h.closeTabs).not.toHaveBeenCalled();
+  h.blocked = undefined;
+});
+
+test("on touch an unlocked guest leaves with one tap", () => {
+  state.connections[LOCAL_ID] = mk({ role: "guest", myUserId: "me" });
+  const { container } = render(<MultiplayerBar localSessionId={LOCAL_ID} touch />);
+  fireEvent.click(container.querySelector("[data-multiplayer-leave]")!);
+  expect(h.closeTabs).toHaveBeenCalledWith([LOCAL_ID]);
 });
 
 test("ended hides control actions: host+pending+ended -> grant/deny/revoke absent; stop/leave still present", () => {

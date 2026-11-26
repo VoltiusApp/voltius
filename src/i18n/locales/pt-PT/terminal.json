@@ -48,7 +48,9 @@
       "stop": "Parar",
       "leave": "Sair",
       "waitingForKey": "A aguardar o anfitrião…",
-      "keyFailed": "O anfitrião não compartilhou a chave"
+      "keyFailed": "O anfitrião não compartilhou a chave",
+      "typingNeedsControl": "Está a assistir. Peça o controlo para escrever.",
+      "typingEnded": "Esta sessão partilhada terminou."
     },
     "sftp": {
       "hostLabel": {
