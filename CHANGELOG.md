@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.85.1] - 2026-11-26
+
+### Fixed
+
+- Persistent sessions no longer close instantly on hosts without standard terminfo, such as Entware routers: the tmux Voltius installs now carries its own terminfo, already-installed copies are replaced automatically, and a tmux that cannot start falls back to a plain shell (#951)
+- GitHub Gist Sync polls at the default 60-second interval after sync is set up during a session (#949)
+
 ## [0.85.0] - 2026-11-26
 
 ### Added
