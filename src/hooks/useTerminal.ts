@@ -19,7 +19,7 @@ import { log } from "@/lib/logger";
 import { useThemeStore } from "@/stores/themeStore";
 import { useUIStore } from "@/stores/uiStore";
 import { getToggle, useToggleSettingsStore } from "@/stores/toggleSettingsStore";
-import { matchShortcut } from "@/stores/shortcutStore";
+import { matchShortcut, runSessionShortcut, type SessionShortcut } from "@/stores/shortcutStore";
 import { primaryOnly } from "@/utils/primaryModifier";
 import { matchPanelShortcut } from "@/hooks/panelShortcuts";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -608,6 +608,24 @@ export function readTerminalSelection(sessionId: string): string {
   return entry ? selectionOf(entry) : "";
 }
 
+/** Wipes the screen and scrollback locally; the running program is not told. */
+export function clearTerminal(sessionId: string): void {
+  terminalCache.get(sessionId)?.terminal.clear();
+}
+
+export function selectAllTerminal(sessionId: string): void {
+  terminalCache.get(sessionId)?.terminal.selectAll();
+}
+
+const TERMINAL_ACTION_SHORTCUTS: readonly SessionShortcut[] = [
+  ["terminal-clear", clearTerminal],
+  ["terminal-select-all", selectAllTerminal],
+];
+
+export function handleTerminalActionShortcut(e: KeyboardEvent, sessionId: string | null): boolean {
+  return runSessionShortcut(TERMINAL_ACTION_SHORTCUTS, e, sessionId);
+}
+
 function selectionOf(entry: CacheEntry): string {
   return entry.clip?.selectionText() ?? entry.terminal.getSelection();
 }
@@ -951,7 +969,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           if (e.type === "keydown") useUIStore.getState().toggleRightPanel(panelSection);
           return false;
         }
-        if (handleDuplicateShortcut(e, sessionId)) return false;
+        if (handleDuplicateShortcut(e, sessionId) || handleTerminalActionShortcut(e, sessionId)) return false;
         return true;
       });
 

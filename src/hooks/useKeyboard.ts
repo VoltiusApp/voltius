@@ -8,7 +8,7 @@ import { matchShortcut } from "@/stores/shortcutStore";
 import { primaryOnly } from "@/utils/primaryModifier";
 import { matchPanelShortcut } from "@/hooks/panelShortcuts";
 import { useHistoryStore } from "@/stores/historyStore";
-import { openTerminalSearch, isTerminalSearchNavKey, handleTerminalSearchNav } from "@/hooks/useTerminal";
+import { openTerminalSearch, isTerminalSearchNavKey, handleTerminalSearchNav, handleTerminalActionShortcut } from "@/hooks/useTerminal";
 import { handleDuplicateShortcut } from "@/services/duplicateSession";
 import { pluginSectionIdOf } from "@/components/terminal/terminalPanels";
 
@@ -86,7 +86,9 @@ export function useKeyboard() {
 
       if (isInput) return;
 
-      if (handleDuplicateShortcut(e, useSessionStore.getState().activeSessionId)) {
+      const activeId = useSessionStore.getState().activeSessionId;
+      const terminalId = useUIStore.getState().activeNav === "terminal" ? activeId : null;
+      if (handleDuplicateShortcut(e, activeId) || handleTerminalActionShortcut(e, terminalId)) {
         e.preventDefault();
         return;
       }

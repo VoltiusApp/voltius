@@ -139,7 +139,12 @@
       "unlockTab": "Déverrouiller l'onglet",
       "pinTab": "Épingler l'onglet",
       "unpinTab": "Désépingler l'onglet",
-      "noActiveTab": "Aucun onglet de terminal actif"
+      "noActiveTab": "Aucun onglet de terminal actif",
+      "clearTerminal": "Effacer le terminal",
+      "selectAllTerminal": "Sélectionner toute la sortie du terminal",
+      "copyTerminalOutput": "Copier la sortie du terminal",
+      "saveTerminalOutput": "Enregistrer la sortie du terminal…",
+      "terminalOutputCopied": "Sortie du terminal copiée"
     },
     "dialogLabel": "Palette de commandes",
     "resultCount_one": "{{count}} résultat",

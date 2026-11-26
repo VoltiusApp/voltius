@@ -1372,6 +1372,14 @@
           "label": "Terminalde Bul",
           "desc": "Terminal geri kaydırma geçmişinde ara"
         },
+        "terminalClear": {
+          "label": "Terminali Temizle",
+          "desc": "Çalışan programı durdurmadan çıktıyı ve geri kaydırma geçmişini temizle"
+        },
+        "terminalSelectAll": {
+          "label": "Terminalde Tümünü Seç",
+          "desc": "Kopyalamak için tüm terminal çıktısını seç"
+        },
         "history": {
           "label": "Geçmiş Paneli",
           "desc": "Komut geçmişini sağ panelde aç"

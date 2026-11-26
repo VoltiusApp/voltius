@@ -144,7 +144,12 @@
       "unlockTab": "Odemknout kartu",
       "pinTab": "Připnout kartu",
       "unpinTab": "Odepnout kartu",
-      "noActiveTab": "Není aktivní žádná karta terminálu"
+      "noActiveTab": "Není aktivní žádná karta terminálu",
+      "clearTerminal": "Vymazat terminál",
+      "selectAllTerminal": "Vybrat celý výstup terminálu",
+      "copyTerminalOutput": "Kopírovat výstup terminálu",
+      "saveTerminalOutput": "Uložit výstup terminálu…",
+      "terminalOutputCopied": "Výstup terminálu zkopírován"
     },
     "dialogLabel": "Paleta příkazů",
     "resultCount_one": "{{count}} výsledek",

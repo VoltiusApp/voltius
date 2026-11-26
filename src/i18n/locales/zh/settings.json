@@ -1446,6 +1446,8 @@
         "redo":           { "label": "重做",             "desc": "重做上一个撤销的操作" },
         "filter":         { "label": "聚焦筛选器",     "desc": "聚焦搜索筛选器" },
         "terminalSearch": { "label": "在终端中查找", "desc": "搜索终端回滚" },
+        "terminalClear": { "label": "清空终端", "desc": "清除输出和回滚记录，不停止正在运行的程序" },
+        "terminalSelectAll": { "label": "全选终端内容", "desc": "选中全部终端输出，便于复制" },
         "history":        { "label": "历史面板",    "desc": "在右侧面板打开命令历史" },
         "snippets":       { "label": "代码片段面板",   "desc": "在右侧面板打开代码片段" },
         "panelThemes":    { "label": "主题面板",     "desc": "在右侧面板打开主题" },

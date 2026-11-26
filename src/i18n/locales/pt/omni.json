@@ -139,7 +139,12 @@
       "unlockTab": "Desbloquear Aba",
       "pinTab": "Fixar Aba",
       "unpinTab": "Desafixar Aba",
-      "noActiveTab": "Nenhuma aba de terminal ativa"
+      "noActiveTab": "Nenhuma aba de terminal ativa",
+      "clearTerminal": "Limpar Terminal",
+      "selectAllTerminal": "Selecionar Toda a Saída do Terminal",
+      "copyTerminalOutput": "Copiar Saída do Terminal",
+      "saveTerminalOutput": "Salvar Saída do Terminal…",
+      "terminalOutputCopied": "Saída do terminal copiada"
     },
     "dialogLabel": "Paleta de comandos",
     "resultCount_one": "{{count}} resultado",

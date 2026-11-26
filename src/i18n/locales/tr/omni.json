@@ -134,7 +134,12 @@
       "unlockTab": "Sekmenin Kilidini Aç",
       "pinTab": "Sekmeyi Sabitle",
       "unpinTab": "Sekmenin Sabitlemesini Kaldır",
-      "noActiveTab": "Etkin terminal sekmesi yok"
+      "noActiveTab": "Etkin terminal sekmesi yok",
+      "clearTerminal": "Terminali Temizle",
+      "selectAllTerminal": "Tüm Terminal Çıktısını Seç",
+      "copyTerminalOutput": "Terminal Çıktısını Kopyala",
+      "saveTerminalOutput": "Terminal Çıktısını Kaydet…",
+      "terminalOutputCopied": "Terminal çıktısı kopyalandı"
     },
     "dialogLabel": "Komut paleti",
     "resultCount_one": "{{count}} sonuç",

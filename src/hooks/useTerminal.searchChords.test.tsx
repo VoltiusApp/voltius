@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { getTerminalSearchController, useTerminal } from "@/hooks/useTerminal";
-import { FakeSearchAddon, lastKeyHandler, resetFakeXterm } from "@/hooks/__fixtures__/fakeXterm";
+import { FakeSearchAddon, FakeTerminal, lastKeyHandler, resetFakeXterm } from "@/hooks/__fixtures__/fakeXterm";
 import { useUIStore } from "@/stores/uiStore";
 
 // vi.mock is hoisted above every top-level binding, so each factory has to
@@ -144,6 +144,19 @@ describe("terminal search chords", () => {
     expect(useUIStore.getState().omniOpen).toBe(true);
     expect(claim.stopped).toHaveBeenCalled();
     expect(claim.prevented).toHaveBeenCalled();
+  });
+
+  it("clears and selects all on Ctrl+Shift+K / Ctrl+Shift+A, keeping both from the shell", () => {
+    render(<Harness sessionId="clear-select-all" />);
+    const handler = lastKeyHandler();
+    const term = FakeTerminal.instances[FakeTerminal.instances.length - 1];
+
+    expect(handler(new KeyboardEvent("keydown", { key: "K", ctrlKey: true, shiftKey: true }))).toBe(false);
+    expect(handler(new KeyboardEvent("keydown", { key: "A", ctrlKey: true, shiftKey: true }))).toBe(false);
+    expect(handler(new KeyboardEvent("keyup", { key: "A", ctrlKey: true, shiftKey: true }))).toBe(false);
+    expect(term.actions).toEqual(["clear", "selectAll"]);
+    expect(handler(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }))).toBe(false);
+    expect(handler(new KeyboardEvent("keydown", { key: "a", ctrlKey: true }))).toBe(true);
   });
 
   it("goes back to the shell once the widget closes", () => {
