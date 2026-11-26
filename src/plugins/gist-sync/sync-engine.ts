@@ -63,6 +63,7 @@ function setGistState(status: SyncStatus, error?: string) {
 
 let _api: PluginAPI;
 let _pollInterval: ReturnType<typeof setInterval> | null = null;
+const DEFAULT_POLL_SECONDS = 60;
 // deviceId → last known pushedAt (change detection for pull)
 let _lastSeenPushedAt: Record<string, string> = {};
 
@@ -313,6 +314,7 @@ export async function pull(): Promise<boolean> {
 
 export async function syncNow(): Promise<void> {
   if (!(await isConfigured())) return;
+  if (_pollInterval === null) startPoll(await pollIntervalSeconds());
   if (_gistStatus === "syncing") return;
 
   setGistState("syncing");
@@ -346,8 +348,13 @@ function _onSyncError(err: unknown) {
 
 // ─── Poll loop ────────────────────────────────────────────────────────────────
 
+export async function pollIntervalSeconds(): Promise<number> {
+  return (await _api.storage.get<number>("pollIntervalSeconds")) ?? DEFAULT_POLL_SECONDS;
+}
+
 export function startPoll(intervalSeconds: number) {
   stopPoll();
+  if (!_api.isActive()) return;
   _pollInterval = setInterval(() => syncNow().catch(() => {}), intervalSeconds * 1000);
 }
 

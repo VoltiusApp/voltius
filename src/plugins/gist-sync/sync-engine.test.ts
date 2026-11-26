@@ -16,7 +16,7 @@ vi.mock("./gist-api", async (importOriginal) => ({
 const { GistApiError } = await import("./gist-api");
 const engine = await import("./sync-engine");
 
-function makeApi() {
+function makeApi(active = true) {
   const store = new Map<string, unknown>([
     ["registeredGists", [{ id: "g1", addedAt: "2026-01-01T00:00:00Z" }]],
     ["importSourceId", "g1"],
@@ -36,11 +36,14 @@ function makeApi() {
     http: {},
     notifications: { toast: vi.fn(), banner: vi.fn(), progress: vi.fn() },
     i18n: createI18nAPI(messages),
+    isActive: () => active,
   } as unknown as PluginAPI;
   return { api };
 }
 
 const manifest = { schema: 1, salt: "00", devices: [] };
+
+afterEach(() => engine.stopPoll());
 
 describe("gist-sync engine notifications", () => {
   let api: PluginAPI;
@@ -93,6 +96,31 @@ describe("gist-sync engine notifications", () => {
     expect(engine.getGistSyncState()).toMatchObject({ status: "error", error: "GitHub PAT is invalid or expired" });
     expect(api.notifications.banner).not.toHaveBeenCalled();
     expect(api.notifications.toast).not.toHaveBeenCalled();
+  });
+});
+
+describe("gist-sync polling", () => {
+  afterEach(() => vi.useRealTimers());
+
+  async function firstSync(active: boolean) {
+    vi.useFakeTimers();
+    engine.init(makeApi(active).api);
+    engine.stopPoll();
+    getManifest.mockResolvedValue(manifest);
+    await engine.syncNow();
+    getManifest.mockClear();
+    await vi.advanceTimersByTimeAsync(60_000);
+  }
+
+  test("a sync with no poll running starts one at the default 60s interval", async () => {
+    await firstSync(true);
+    await vi.waitFor(() => expect(getManifest).toHaveBeenCalled());
+  });
+
+  test("nothing polls while the plugin is disabled", async () => {
+    await firstSync(false);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(getManifest).not.toHaveBeenCalled();
   });
 });
 
