@@ -6,7 +6,6 @@ import {
   init,
   isConfigured,
   syncNow,
-  startPoll,
   stopPoll,
   push,
 } from "./sync-engine";
@@ -32,12 +31,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   // Functional hooks only when the plugin is enabled
   let offBeforeQuit: (() => void) | null = null;
   if (api.isActive()) {
-    (async () => {
-      if (!(await isConfigured())) return;
-      await syncNow();
-      const interval = (await api.storage.get<number>("pollIntervalSeconds")) ?? 60;
-      startPoll(interval);
-    })();
+    syncNow().catch(() => {});
 
     offBeforeQuit = api.lifecycle.onBeforeQuit(async () => {
       if (await isConfigured()) await push().catch(() => {});

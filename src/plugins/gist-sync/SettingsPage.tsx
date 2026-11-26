@@ -11,6 +11,7 @@ import {
   removeDevice,
   syncNow,
   startPoll,
+  pollIntervalSeconds,
   getRegisteredGists,
   getImportSourceId,
   getExportDestinationIds,
@@ -371,7 +372,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
             getRegisteredGists(),
             getImportSourceId(),
             getExportDestinationIds(),
-            api.storage.get<number>("pollIntervalSeconds"),
+            pollIntervalSeconds(),
             api.storage.get<string>("lastSync"),
             api.storage.get<string>("deviceId"),
           ]);
@@ -382,7 +383,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
         setGists(gistList);
         setImportSourceId(importId);
         setExportDestIds(exportIds);
-        if (storedInterval) setIntervalVal(storedInterval);
+        setIntervalVal(storedInterval);
         if (storedLastSync) setLastSync(storedLastSync);
         if (deviceId) setMyDeviceId(deviceId);
         loadedRef.current = true;
