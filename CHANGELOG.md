@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.85.0] - 2026-11-26
+
+### Added
+
+- Clear the terminal with Ctrl+Shift+K (Cmd+Shift+K on macOS) or from Omni. The screen and scrollback are wiped without stopping the running program, so a `tail -f` keeps going on a clean screen (#946)
+- Select all terminal output with Ctrl+Shift+A (Cmd+Shift+A on macOS), or copy or save the whole output to a file from Omni (#947)
+
+### Fixed
+
+- Ctrl+K opens Omni again while a terminal has focus, including right after launch when a session is restored (#944)
+
 ## [0.84.1] - 2026-11-24
 
 ### Fixed
