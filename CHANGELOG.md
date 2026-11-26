@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.86.0] - 2026-11-26
+
+### Added
+
+- Join shared terminals from the mobile app: Join from the notification, the Team sessions strip on the Hosts screen, or join by code; watch the session, request control and type once the host grants it
+- The mobile Account page shows your @handle, with Copy and Choose/Change handle
+
 ## [0.85.1] - 2026-11-26
 
 ### Fixed
