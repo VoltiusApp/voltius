@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { getTerminalSearchController, useTerminal } from "@/hooks/useTerminal";
 import { FakeSearchAddon, lastKeyHandler, resetFakeXterm } from "@/hooks/__fixtures__/fakeXterm";
+import { useUIStore } from "@/stores/uiStore";
 
 // vi.mock is hoisted above every top-level binding, so each factory has to
 // import the fixture itself rather than share a helper.
@@ -128,6 +129,19 @@ describe("terminal search chords", () => {
     const claim = watchClaim(e);
     expect(handler(e)).toBe(false);
     expect(search.getSnapshot().open).toBe(true);
+    expect(claim.stopped).toHaveBeenCalled();
+    expect(claim.prevented).toHaveBeenCalled();
+  });
+
+  it("claims Ctrl+K, so the window listener cannot toggle the palette shut again", () => {
+    render(<Harness sessionId="ctrl-k-claims" />);
+    const handler = lastKeyHandler();
+    useUIStore.getState().setOmniOpen(false);
+
+    const e = new KeyboardEvent("keydown", { key: "k", ctrlKey: true });
+    const claim = watchClaim(e);
+    expect(handler(e)).toBe(false);
+    expect(useUIStore.getState().omniOpen).toBe(true);
     expect(claim.stopped).toHaveBeenCalled();
     expect(claim.prevented).toHaveBeenCalled();
   });

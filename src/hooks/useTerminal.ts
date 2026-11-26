@@ -929,7 +929,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         }
         if (matchShortcut("omni", e)) {
           if (e.type === "keydown") useUIStore.getState().setOmniOpen(true);
-          return false;
+          return claimChord(e);
         }
         const clipResult = entry.clip?.handleKeyEvent(e);
         if (clipResult != null) return clipResult;
