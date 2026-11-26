@@ -1,12 +1,13 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Icon } from "@iconify/react";
 import { Trans, useTranslation } from "react-i18next";
-import { getAccountMode, getCurrentUserEmail, getMe, setMasterPassword } from "@/services/account";
+import { getAccountMode, getCurrentUserEmail, getMe, setMasterPassword, type MeResponse } from "@/services/account";
 import { useSignOutConfirm } from "@/hooks/useSignOutConfirm";
 import { lockApp } from "@/services/appLock";
 import { resetVault } from "@/services/vault";
 import { useSecurityStore } from "@/stores/securityStore";
 import { ActionItem, FormButtons, SETTINGS_SURFACE, SettingsInput } from "./shared";
+import { HandleCard } from "./HandleCard";
 import { VaultBackups } from "@/components/shared/VaultBackups";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { usePlanDisplay } from "@/services/planDisplay";
@@ -16,9 +17,8 @@ import { seatsUsedText } from "@/services/seatMath";
 import { startTrialOrCheckout } from "@/services/promos";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
 import { UpgradeStrip } from "@/components/shared/UpgradeStrip";
-import { claimHandle, updateInvitePreferences, HandleClaimError } from "@/services/teamService";
+import { updateInvitePreferences } from "@/services/teamService";
 import { Toggle } from "@/components/shared/Toggle";
-import { useCopyHandle } from "@/hooks/useCopyHandle";
 import { canLockApp } from "@/utils/accountMode";
 import EditEmailModal from "./EditEmailModal";
 import { SessionSecuritySettings } from "./SessionSecuritySettings";
@@ -33,69 +33,8 @@ import { FreeFeaturesLine } from "@/components/shared/FreeFeaturesLine";
 
 type AccountStep = "idle" | "set-password" | "loading" | "confirm-wipe";
 
-/**
- * Shared idle → editing → submitting → error cycle behind the handle-claim
- * row below.
- */
-function useEditableField(
-  save: (value: string) => Promise<void>,
-  onSaved: (value: string) => void,
-) {
-  const [editing, setEditing] = useState(false);
-  const [input, setInput] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const start = (initial: string) => {
-    setInput(initial);
-    setError("");
-    setEditing(true);
-  };
-  const cancel = () => {
-    setEditing(false);
-    setError("");
-  };
-  const submit = async (validate?: (value: string) => string | null) => {
-    const trimmed = input.trim();
-    const validationError = validate?.(trimmed);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-    setLoading(true);
-    setError("");
-    try {
-      await save(trimmed);
-      onSaved(trimmed);
-      setEditing(false);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return { editing, input, setInput, error, loading, start, cancel, submit };
-}
-
 async function openCheckout(plan: "pro" | "teams") {
   await startTrialOrCheckout(plan, "account");
-}
-
-/** Maps claimHandle's status-carrying error to the copy the server's per-status
- *  contract calls for — each status needs a distinct next step, not one generic message.
- *  403 is the server's only refusal here that the user can act on themselves. */
-function mapHandleClaimError(e: unknown, t: (key: string) => string): Error {
-  if (e instanceof HandleClaimError) {
-    const key =
-      e.status === 403 ? "settings.account.handle.errorEmailNotVerified" :
-      e.status === 409 ? "settings.account.handle.errorTaken" :
-      e.status === 422 ? "settings.account.handle.errorInvalid" :
-      e.status === 429 ? "settings.account.handle.errorCooldown" :
-      "settings.account.handle.errorGeneric";
-    return new Error(t(key));
-  }
-  return e instanceof Error ? e : new Error(String(e));
 }
 
 export default function AccountSection() {
@@ -111,29 +50,12 @@ export default function AccountSection() {
   const { requestSignOut, signOutConfirm } = useSignOutConfirm((e) => setError(e instanceof Error ? e.message : String(e)));
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
-  const [handle, setHandle] = useState<string | null>(null);
-  const [handleIsCustom, setHandleIsCustom] = useState(false);
-  const [handleManaged, setHandleManaged] = useState(false);
+  const [me, setMe] = useState<MeResponse | null>(null);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState<boolean | null>(null);
-  // `null` until /auth/me answers — the claim control renders in neither state
-  // until then, so a verified user never sees the "verify your email" row flash.
-  const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
   const [allowStrangerInvites, setAllowStrangerInvites] = useState(true);
   const [strangerInvitesError, setStrangerInvitesError] = useState("");
   const [strangerInvitesLoading, setStrangerInvitesLoading] = useState(false);
   const systemAuthUnlock = useSecurityStore((s) => s.systemAuthUnlock);
-
-  const handleField = useEditableField(
-    async (value) => {
-      try {
-        await claimHandle(value);
-      } catch (e) {
-        throw mapHandleClaimError(e, t);
-      }
-    },
-    (value) => { setHandle(value); setHandleIsCustom(true); },
-  );
-  const { copied: handleCopied, copy: handleCopyHandle } = useCopyHandle(handle);
 
   const toggleStrangerInvites = async (next: boolean) => {
     setStrangerInvitesLoading(true); // blocks the switch until this round trip resolves — a second click mid-flight can't race the first
@@ -152,14 +74,11 @@ export default function AccountSection() {
   useEffect(() => {
     getAccountMode().then(setMode).catch(() => setMode(null));
     getCurrentUserEmail().then(setCurrentEmail).catch(() => {});
-    getMe().then((me) => {
-      if (!me) return;
-      if (me.handle) setHandle(me.handle);
-      setHandleIsCustom(!!me.handle_is_custom);
-      setEmailVerified(!!me.email_verified);
-      setHandleManaged(!!me.handle_managed);
-      setTwoFactorEnabled(!!me.two_factor_enabled);
-      if (typeof me.allow_stranger_invites === "boolean") setAllowStrangerInvites(me.allow_stranger_invites);
+    getMe().then((info) => {
+      if (!info) return;
+      setMe(info);
+      setTwoFactorEnabled(!!info.two_factor_enabled);
+      if (typeof info.allow_stranger_invites === "boolean") setAllowStrangerInvites(info.allow_stranger_invites);
     }).catch(() => {});
     setStep("idle");
     setError("");
@@ -237,69 +156,7 @@ export default function AccountSection() {
           <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
             {t("settings.account.handle.title")}
           </h3>
-          <div data-settings-card className={`${SETTINGS_SURFACE} px-4 py-3 space-y-2`}>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium text-(--t-text-primary)">
-                {handle ? `@${handle}` : "—"}
-              </span>
-              <button
-                type="button"
-                onClick={handleCopyHandle}
-                className="text-xs px-2 py-1 rounded-md flex items-center gap-1 text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors"
-              >
-                <Icon icon={handleCopied ? "lucide:check" : "lucide:copy"} width={12} />
-                {handleCopied ? t("settings.account.handle.copied") : t("settings.account.handle.copy")}
-              </button>
-            </div>
-
-            {emailVerified === null ? null : handleField.editing ? (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleField.submit((value) => (value ? null : t("settings.account.handle.errorInvalid")));
-                }}
-                className="space-y-2"
-              >
-                <SettingsInput
-                  placeholder={t("settings.account.handle.placeholder")}
-                  value={handleField.input}
-                  onChange={handleField.setInput}
-                  autoFocus
-                  aria-label={t("settings.account.handle.inputLabel")}
-                />
-                {handleField.error && <p className="text-xs text-(--t-status-error)">{handleField.error}</p>}
-                <FormButtons
-                  onCancel={handleField.cancel}
-                  submitLabel={t("settings.account.handle.save")}
-                  submitting={handleField.loading}
-                />
-              </form>
-            ) : (
-              <div>
-                {/* Disabled with the reason rather than hidden: hiding the
-                    control is what made the old tier gate unreadable. */}
-                <button
-                  type="button"
-                  disabled={!emailVerified || handleManaged}
-                  onClick={() => handleField.start(handleIsCustom ? (handle ?? "") : "")}
-                  className="text-xs px-2.5 py-1 rounded-md font-medium bg-(--t-accent) text-(--t-on-accent) hover:opacity-85 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:opacity-50"
-                >
-                  {handleIsCustom ? t("settings.account.handle.change") : t("settings.account.handle.choose")}
-                </button>
-                {handleManaged ? (
-                  <p className="text-xs mt-1.5 text-(--t-text-dim)">{t("settings.account.handle.managed")}</p>
-                ) : (
-                  <>
-                    <p className="text-xs mt-1.5 text-(--t-text-dim)">{t("settings.account.handle.chooseSub")}</p>
-                    <p className="text-xs mt-0.5 text-(--t-text-muted)">{t("settings.account.handle.generatedNote")}</p>
-                  </>
-                )}
-                {!emailVerified && !handleManaged && (
-                  <p className="text-xs mt-1.5 text-(--t-status-error)">{t("settings.account.handle.unverified")}</p>
-                )}
-              </div>
-            )}
-          </div>
+          <HandleCard me={me} />
 
           <div data-settings-card data-setting-row className={`mt-2 ${SETTINGS_SURFACE} px-4 py-3 flex items-center justify-between gap-4`}>
             <div>

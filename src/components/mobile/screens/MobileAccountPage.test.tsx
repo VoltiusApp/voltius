@@ -16,8 +16,16 @@ const effective = vi.hoisted(() => ({
 }));
 vi.mock("@/hooks/useSyncProviders", () => ({ useSyncProviders: () => ({ providers: [], effective: effective.value }) }));
 
-const account = vi.hoisted(() => ({ logout: vi.fn(async () => {}) }));
-vi.mock("@/services/account", async (orig) => ({ ...(await orig<object>()), logout: account.logout, getCurrentUserEmail: async () => "me@example.com" }));
+const account = vi.hoisted(() => ({
+  logout: vi.fn(async () => {}),
+  getMe: vi.fn(async (): Promise<import("@/services/account").MeResponse | null> => null),
+}));
+vi.mock("@/services/account", async (orig) => ({
+  ...(await orig<object>()),
+  logout: account.logout,
+  getMe: account.getMe,
+  getCurrentUserEmail: async () => "me@example.com",
+}));
 
 const billing = vi.hoisted(() => ({ enabled: true }));
 const startTrialOrCheckout = vi.hoisted(() => vi.fn(async () => true));
@@ -40,6 +48,8 @@ afterEach(() => {
   billing.enabled = true;
   usePromoStore.setState({ state: null, current: null });
   startTrialOrCheckout.mockClear();
+  account.getMe.mockReset();
+  account.getMe.mockResolvedValue(null);
 });
 
 const businessAccount = () =>
@@ -167,4 +177,19 @@ test("a billed business owner with no seat cap reads as unlimited, not as a miss
   useSubscriptionStore.setState({ usedSeats: 4, totalSeats: null, effectiveSeats: null });
   const { queryByText } = render(<MobileAccountPage />);
   expect(queryByText("mobile.account.seatsUsed:4/∞")).not.toBeNull();
+});
+
+test("a signed-in account shows its handle with copy and claim", async () => {
+  account.getMe.mockResolvedValue({ handle: "swift-otter-4821", handle_is_custom: false, email_verified: true });
+  useSubscriptionStore.setState({ ...deriveTierFlags({ tier: "free" }, new Date()), accountMode: "server" });
+  const { findByText, getByText } = render(<MobileAccountPage />);
+  expect(await findByText("@swift-otter-4821")).not.toBeNull();
+  expect(getByText("settings.account.handle.copy")).not.toBeNull();
+  expect(getByText("settings.account.handle.choose").closest("button")?.disabled).toBe(false);
+});
+
+test("a signed-out account has no handle card", () => {
+  const { container } = render(<MobileAccountPage />);
+  expect(container.querySelector("[data-account-handle]")).toBeNull();
+  expect(account.getMe).not.toHaveBeenCalled();
 });

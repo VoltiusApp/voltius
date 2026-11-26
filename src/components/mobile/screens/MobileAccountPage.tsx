@@ -10,7 +10,8 @@ import { useSyncProviders } from "@/hooks/useSyncProviders";
 import { SYNC_NEARBY_COLOR, SYNC_NEARBY_ICON, SYNC_PAUSED_ICON, syncStatusIcon, syncStatusColor } from "@/services/syncStatus";
 import { isNearbyOnly } from "@/services/syncProviders";
 import { effectiveSyncLabel } from "@/services/syncStatusText";
-import { getCurrentUserEmail } from "@/services/account";
+import { getCurrentUserEmail, getMe, type MeResponse } from "@/services/account";
+import { HandleCard } from "@/components/settings/sections/HandleCard";
 import { useSignOutConfirm } from "@/hooks/useSignOutConfirm";
 import { startTrialOrCheckout } from "@/services/promos";
 import { TEAMS_TRIAL_DAYS } from "@/services/billingTrial";
@@ -37,6 +38,7 @@ export default function MobileAccountPage() {
   const sync = useSyncProviders().effective;
   const nearbyOnly = isNearbyOnly(sync);
   const [email, setEmail] = useState<string | null>(null);
+  const [me, setMe] = useState<MeResponse | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
@@ -45,6 +47,7 @@ export default function MobileAccountPage() {
   useEffect(() => { void getCurrentUserEmail().then(setEmail); }, []);
 
   const signedIn = accountMode === "server";
+  useEffect(() => { if (signedIn) void getMe().then(setMe); }, [signedIn]);
   const renewalDate = formatOptionalDate(renewsAt, SHORT_DATE);
   const cancellationDate = formatOptionalDate(endsAt ?? renewsAt, SHORT_DATE);
 
@@ -89,6 +92,11 @@ export default function MobileAccountPage() {
 
         {signedIn && (
           <div className="p-4 flex flex-col gap-3">
+            <div data-account-handle className="flex flex-col gap-1.5">
+              <span className="px-1 text-xs font-medium text-(--t-text-secondary)">{t("settings.account.handle.title")}</span>
+              <HandleCard me={me} touch />
+            </div>
+
             {(plan.ownLine || plan.ownBilled) && (
               <div data-account-own-plan-card className="rounded-xl px-3 py-2.5 flex flex-col gap-1 bg-(--t-bg-elevated) border border-(--t-border)">
                 {plan.ownLine && <span data-account-own-plan className="text-sm text-(--t-text-primary)">{plan.ownLine}</span>}
