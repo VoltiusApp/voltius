@@ -78,6 +78,12 @@ impl SshClient {
     pub fn check_link(&self) -> CheckLink {
         CheckLink(self.check_link.subscribe())
     }
+
+    pub fn linked(host: String, port: u16, known_hosts: Arc<KnownHostsStore>) -> (Self, CheckLink) {
+        let client = Self::new(host, port, known_hosts);
+        let link = client.check_link();
+        (client, link)
+    }
 }
 
 /// The Tailscale check link this connection's auth banner carried, if any.
@@ -825,9 +831,7 @@ pub(crate) async fn connect_first_hop_plain(
     max_attempts: u32,
 ) -> Result<(client::Handle<SshClient>, Option<String>, CheckLink), HopError> {
     connect_first_hop_retrying(config, route, host, port, max_attempts, || {
-        let c = SshClient::new(host.into(), port, Arc::clone(known_hosts));
-        let link = c.check_link();
-        (c, link)
+        SshClient::linked(host.into(), port, Arc::clone(known_hosts))
     })
     .await
 }
@@ -927,8 +931,8 @@ impl JumpHostConnect {
         known_hosts: &Arc<KnownHostsStore>,
         sink: CheckSink<'_>,
     ) -> Result<client::Handle<SshClient>, AppError> {
-        let handler = SshClient::new(self.host.clone(), self.port, Arc::clone(known_hosts));
-        let link = handler.check_link();
+        let (handler, link) =
+            SshClient::linked(self.host.clone(), self.port, Arc::clone(known_hosts));
         let mut handle = tunnel_hop(via, config, "jump host", handler)
             .await
             .map_err(|e| self.failed(e))?;
@@ -1864,8 +1868,7 @@ mod tests {
                 .fingerprint(HashAlg::Sha256)
                 .to_string();
             let known = Arc::new(KnownHostsStore::pinned(&[(host, port, &fp)]));
-            let handler = SshClient::new(host.into(), port, known);
-            let link = handler.check_link();
+            let (handler, link) = SshClient::linked(host.into(), port, known);
             let mut handle = client::connect(Default::default(), (host, port), handler)
                 .await
                 .unwrap();

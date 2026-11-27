@@ -2,15 +2,13 @@ import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useTranslation } from "react-i18next";
-import { useCopiedFlash } from "@/hooks/useCopiedFlash";
-import { logFailure } from "@/lib/logger";
-import { writeClipboard } from "@/utils/clipboard";
+import { useCopyText } from "@/hooks/useCopyText";
 import { DecisionPanel } from "./DecisionPanel";
 
 export function TailscaleCheckPanel({ url, onCancel }: { url: string; onCancel?: () => void }) {
   const { t } = useTranslation();
   const [browserFailed, setBrowserFailed] = useState(false);
-  const { copied, flash } = useCopiedFlash(2000);
+  const { copied, copy } = useCopyText();
 
   return (
     <DecisionPanel
@@ -26,7 +24,7 @@ export function TailscaleCheckPanel({ url, onCancel }: { url: string; onCancel?:
         {
           label: t(copied ? "terminal.overlay.tailscaleCheck.copied" : "terminal.overlay.tailscaleCheck.copy"),
           variant: "secondary",
-          onClick: () => void writeClipboard(url).then(() => flash(), logFailure("copy Tailscale check link")),
+          onClick: () => copy(url),
         },
         ...(onCancel
           ? [{ label: t("common.action.cancel"), variant: "ghost" as const, dismisses: true, onClick: onCancel }]

@@ -369,8 +369,8 @@ impl SftpManager {
             .await?;
             jump_handles.extend(passed);
 
-            let final_client = SshClient::new(host.to_string(), port, Arc::clone(&known_hosts));
-            let link = final_client.check_link();
+            let (final_client, link) =
+                SshClient::linked(host.to_string(), port, Arc::clone(&known_hosts));
             let h = tunnel_hop(&current_handle, &config, "final host", final_client).await?;
             jump_handles.push(Arc::new(current_handle));
             emit_step(
