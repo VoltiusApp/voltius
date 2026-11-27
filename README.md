@@ -26,7 +26,7 @@
 No account required. Everything below is free, forever.
 
 **Terminal**
-- **SSH, your way** — Jump hosts, agent forwarding, SOCKS/HTTP proxies, port knocking, keyword highlighting. For Tailscale SSH checks on desktop and Android, open the verification link from the connection screen. The session continues when Tailscale approves it.
+- **SSH, your way** — Jump hosts, agent forwarding, SOCKS/HTTP proxies, port knocking, keyword highlighting.
 - **Persistent sessions** — tmux/screen on the host; tabs, splits and scrollback survive app restarts. [More →](https://voltius.app/blog/cross-device-session-pickup)
 - **Split panes, snippets & command palette** — Broadcast input to every pane; reusable commands with variables and sequences.
 - **Port forwarding** — Local, remote and dynamic (SOCKS).
