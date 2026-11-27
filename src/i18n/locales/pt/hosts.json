@@ -114,9 +114,9 @@
       "unknownDevice": "Dispositivo desconhecido"
     },
     "teamSessions": {
-      "title": "Sessões da Equipe",
+      "title": "Sessões compartilhadas",
       "joinByCode": "Participar por código",
-      "emptyHint": "Terminais que seus colegas compartilham aparecem aqui. Tem um link ou código de convite? Use “Participar por código”.",
+      "emptyHint": "Terminais compartilhados com você aparecem aqui. Tem um link ou código de convite? Use “Participar por código”.",
       "live": "AO VIVO",
       "sharedBy": "Compartilhado por {{name}}",
       "pasteInviteCode": "Cole um link ou código de convite para participar de uma sessão privada:",

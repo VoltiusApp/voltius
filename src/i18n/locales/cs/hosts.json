@@ -123,9 +123,9 @@
       "unknownDevice": "Neznámé zařízení"
     },
     "teamSessions": {
-      "title": "Týmové relace",
+      "title": "Sdílené relace",
       "joinByCode": "Připojit se pomocí kódu",
-      "emptyHint": "Zde se zobrazí terminály, které sdílejí vaši kolegové. Máte odkaz nebo kód pozvánky? Použijte „Připojit se pomocí kódu“.",
+      "emptyHint": "Zde se zobrazí terminály sdílené s vámi. Máte odkaz nebo kód pozvánky? Použijte „Připojit se pomocí kódu“.",
       "live": "ŽIVĚ",
       "sharedBy": "Sdílí {{name}}",
       "pasteInviteCode": "Vložte odkaz nebo kód pozvánky a připojte se k soukromé relaci:",
