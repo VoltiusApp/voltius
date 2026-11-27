@@ -240,9 +240,12 @@
     },
     "overlay": {
       "tailscaleCheck": {
+        "title": "Tailscale SSH check",
         "description": "Tailscale requires verification before this SSH session can connect.",
         "open": "Verify in browser",
-        "manual": "Copy the link above and open it in your browser."
+        "copy": "Copy link",
+        "copied": "Link copied",
+        "manual": "Couldn't open a browser. Copy the link and open it in your browser."
       },
       "continue": "Continue",
       "connectAndSave": "Connect & Save",

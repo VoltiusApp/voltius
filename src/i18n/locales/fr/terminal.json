@@ -249,9 +249,12 @@
     },
     "overlay": {
       "tailscaleCheck": {
+        "title": "Vérification Tailscale SSH",
         "description": "Tailscale exige une vérification pour ouvrir cette session SSH.",
         "open": "Vérifier dans le navigateur",
-        "manual": "Copiez le lien ci-dessus et ouvrez-le dans votre navigateur."
+        "copy": "Copier le lien",
+        "copied": "Lien copié",
+        "manual": "Impossible d'ouvrir un navigateur. Copiez le lien et ouvrez-le dans votre navigateur."
       },
       "continue": "Continuer",
       "connectAndSave": "Connecter et enregistrer",

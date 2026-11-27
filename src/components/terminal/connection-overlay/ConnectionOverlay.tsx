@@ -1,4 +1,3 @@
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ConnectionHeader } from "./ConnectionHeader";
@@ -7,6 +6,7 @@ import { ConnectionSteps } from "./ConnectionSteps";
 import { HostKeyConflictPanel } from "./HostKeyConflictPanel";
 import { IdentityUnavailablePanel } from "./IdentityUnavailablePanel";
 import { PassphrasePromptPanel } from "./PassphrasePromptPanel";
+import { TailscaleCheckPanel } from "./TailscaleCheckPanel";
 import { AuthPromptPanel } from "./AuthPromptPanel";
 import { UsernamePromptPanel } from "./UsernamePromptPanel";
 import { VaultErrorPanel } from "./VaultErrorPanel";
@@ -52,8 +52,6 @@ export default function ConnectionOverlay({
     conflictEventName,
   });
 
-  const [browserFailed, setBrowserFailed] = useState(false);
-  useEffect(() => setBrowserFailed(false), [verificationUrl]);
   const [choosing, setChoosing] = useState(false);
   useEffect(() => setChoosing(false), [identityPick]);
 
@@ -99,18 +97,7 @@ export default function ConnectionOverlay({
           {conflict && !isError ? (
             <HostKeyConflictPanel conflict={conflict} resolving={resolving} onResolve={(action) => void resolveConflict(action)} />
           ) : checkUrl ? (
-            <div className="w-full space-y-3">
-              <p className="text-sm text-text-secondary">{t("terminal.overlay.tailscaleCheck.description")}</p>
-              <p className="select-all break-all font-mono text-xs text-text-muted">{checkUrl}</p>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => void openUrl(checkUrl).catch(() => setBrowserFailed(true))}
-              >
-                {t("terminal.overlay.tailscaleCheck.open")}
-              </button>
-              {browserFailed && <p role="alert">{t("terminal.overlay.tailscaleCheck.manual")}</p>}
-            </div>
+            <TailscaleCheckPanel key={checkUrl} url={checkUrl} onCancel={onDismiss} />
           ) : showIdentityPick ? (
             <IdentityUnavailablePanel
               issue={identityPick}

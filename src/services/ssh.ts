@@ -48,7 +48,7 @@ export async function sshConnect(params: {
   onVerification?: (url?: string) => void;
 }): Promise<void> {
   const { onVerification } = params;
-  const channel = onVerification ? new Channel<string>(onVerification) : null;
+  const channel = onVerification ? new Channel<string>((url) => onVerification(url || undefined)) : null;
   return invoke<void>("ssh_connect", {
     onVerification: channel,
     sessionId: params.sessionId,

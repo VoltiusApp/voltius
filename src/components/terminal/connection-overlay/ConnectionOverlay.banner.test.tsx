@@ -1,7 +1,11 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 
-const h = vi.hoisted(() => ({ openUrl: vi.fn(async (_url: string) => {}), conflict: null as null | object }));
+const h = vi.hoisted(() => ({
+  openUrl: vi.fn(async (_url: string) => {}),
+  writeClipboard: vi.fn(async (_text: string) => {}),
+  conflict: null as null | object,
+}));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
   initReactI18next: { type: "3rdParty", init: () => {} },
@@ -12,6 +16,7 @@ vi.mock("./hooks", () => ({
 }));
 vi.mock("./HostKeyConflictPanel", () => ({ HostKeyConflictPanel: () => <div data-testid="conflict" /> }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: h.openUrl }));
+vi.mock("@/utils/clipboard", () => ({ writeClipboard: h.writeClipboard }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 
 import ConnectionOverlay from "./ConnectionOverlay";
@@ -69,6 +74,10 @@ describe("reconnect banner", () => {
     expect(h.openUrl).not.toHaveBeenCalled();
     fireEvent.click(getByRole("button", verify));
     expect(h.openUrl).toHaveBeenCalledExactlyOnceWith(url);
+    fireEvent.click(getByRole("button", { name: "terminal.overlay.tailscaleCheck.copy" }));
+    expect(h.writeClipboard).toHaveBeenCalledExactlyOnceWith(url);
+    fireEvent.click(getByRole("button", { name: "common.action.cancel" }));
+    expect(props.onDismiss).toHaveBeenCalledOnce();
     rerender(<ConnectionOverlay {...props} variant={variant} status="connected" verificationUrl={url} />);
     expect(queryByRole("button", verify)).toBeNull();
   });
