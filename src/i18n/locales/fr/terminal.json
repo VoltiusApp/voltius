@@ -248,6 +248,11 @@
       "closeTitle": "Fermer (Échap)"
     },
     "overlay": {
+      "tailscaleCheck": {
+        "description": "Tailscale exige une vérification pour ouvrir cette session SSH.",
+        "open": "Vérifier dans le navigateur",
+        "manual": "Copiez le lien ci-dessus et ouvrez-le dans votre navigateur."
+      },
       "continue": "Continuer",
       "connectAndSave": "Connecter et enregistrer",
       "continueAndSave": "Continuer et enregistrer",

@@ -257,6 +257,11 @@
       "closeTitle": "Zavřít (Escape)"
     },
     "overlay": {
+      "tailscaleCheck": {
+        "description": "Tailscale vyžaduje před připojením této relace SSH ověření.",
+        "open": "Ověřit v prohlížeči",
+        "manual": "Zkopírujte výše uvedený odkaz a otevřete ho v prohlížeči."
+      },
       "continue": "Pokračovat",
       "connectAndSave": "Připojit a uložit",
       "continueAndSave": "Pokračovat a uložit",

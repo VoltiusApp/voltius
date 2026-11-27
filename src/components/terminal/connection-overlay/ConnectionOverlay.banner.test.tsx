@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 
-const h = vi.hoisted(() => ({ conflict: null as null | object }));
+const h = vi.hoisted(() => ({ openUrl: vi.fn(async (_url: string) => {}), conflict: null as null | object }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
   initReactI18next: { type: "3rdParty", init: () => {} },
@@ -11,6 +11,7 @@ vi.mock("./hooks", () => ({
   useHostKeyConflict: () => ({ conflict: h.conflict, resolving: false, resolveConflict: vi.fn() }),
 }));
 vi.mock("./HostKeyConflictPanel", () => ({ HostKeyConflictPanel: () => <div data-testid="conflict" /> }));
+vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: h.openUrl }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 
 import ConnectionOverlay from "./ConnectionOverlay";
@@ -57,6 +58,19 @@ describe("reconnect banner", () => {
     const { container, getByTestId } = render(<ConnectionOverlay {...props} status="connecting" />);
     expect(banner(container)).toBeNull();
     expect(getByTestId("conflict")).toBeTruthy();
+  });
+
+  test.each([undefined, "banner"] as const)("browser verification waits for a click (%s)", (variant) => {
+    const url = "https://login.tailscale.com/a/test";
+    const { getByRole, queryByRole, rerender } = render(
+      <ConnectionOverlay {...props} variant={variant} status="connecting" verificationUrl={url} />,
+    );
+    const verify = { name: "terminal.overlay.tailscaleCheck.open" };
+    expect(h.openUrl).not.toHaveBeenCalled();
+    fireEvent.click(getByRole("button", verify));
+    expect(h.openUrl).toHaveBeenCalledExactlyOnceWith(url);
+    rerender(<ConnectionOverlay {...props} variant={variant} status="connected" verificationUrl={url} />);
+    expect(queryByRole("button", verify)).toBeNull();
   });
 
   test("a failed reconnect shows the full error overlay", () => {

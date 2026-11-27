@@ -248,6 +248,11 @@
       "closeTitle": "Fechar (Escape)"
     },
     "overlay": {
+      "tailscaleCheck": {
+        "description": "O Tailscale requer verificação para estabelecer esta ligação SSH.",
+        "open": "Verificar no navegador",
+        "manual": "Copie a ligação acima e abra-a no navegador."
+      },
       "continue": "Continuar",
       "connectAndSave": "Conectar e salvar",
       "continueAndSave": "Continuar e salvar",

@@ -44,6 +44,7 @@ vi.mock("@/services/auditReporter", () => ({ reportAuditClientEvent: vi.fn() }))
 vi.mock("@/services/auditContextResolver", () => ({ auditContextForVaultId: vi.fn(() => ({})) }));
 
 import { useSessionStore } from "./sessionStore";
+import { sshConnect } from "@/services/ssh";
 import { VaultUnreadableError } from "@/services/vaultErrors";
 
 const session = (over: Partial<TerminalSession> = {}) =>
@@ -102,6 +103,15 @@ describe("session error state", () => {
     const failed = useSessionStore.getState().sessions[0];
     expect(failed.status).toBe("error");
     expect(failed.errorCode).toBe("vault-unreadable");
+  });
+
+  test("a username-only host can authenticate with the server's none method", async () => {
+    h.resolveConnectionCredentials.mockResolvedValue({ username: "root" });
+    await useSessionStore.getState().connect("c1");
+    expect(sshConnect).toHaveBeenCalledWith(expect.objectContaining({
+      username: "root", password: undefined, privateKey: undefined,
+    }));
+    expect(current().status).toBe("connected");
   });
 
   test("a proxy with no host fails a quick-connect session instead of leaving it connecting", async () => {

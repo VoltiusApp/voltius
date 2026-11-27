@@ -239,6 +239,11 @@
       "closeTitle": "Close (Escape)"
     },
     "overlay": {
+      "tailscaleCheck": {
+        "description": "Tailscale requires verification before this SSH session can connect.",
+        "open": "Verify in browser",
+        "manual": "Copy the link above and open it in your browser."
+      },
       "continue": "Continue",
       "connectAndSave": "Connect & Save",
       "continueAndSave": "Continue & Save",

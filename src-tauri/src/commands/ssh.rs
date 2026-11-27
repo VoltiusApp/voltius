@@ -13,6 +13,7 @@ use tauri::AppHandle;
 #[tauri::command]
 pub async fn ssh_connect(
     app: AppHandle,
+    webview: tauri::Webview,
     state: tauri::State<'_, SessionManager>,
     pf: tauri::State<'_, PortForwardManager>,
     known_hosts: tauri::State<'_, Arc<KnownHostsStore>>,
@@ -44,6 +45,7 @@ pub async fn ssh_connect(
     terminal_colors: Option<crate::ssh::control_mode::TerminalColors>,
     knock: Option<KnockSpec>,
     detached_ttl_secs: Option<u64>,
+    on_verification: Option<tauri::ipc::JavaScriptChannelId>,
 ) -> Result<(), AppError> {
     let connected = client::connect(
         app,
@@ -73,6 +75,7 @@ pub async fn ssh_connect(
         HopRoute { proxy, knock },
         terminal_colors,
         detached_ttl_secs,
+        on_verification.map(|id| id.channel_on(webview)),
     )
     .await?;
 

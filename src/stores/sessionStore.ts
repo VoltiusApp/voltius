@@ -147,6 +147,7 @@ async function buildSshConnectOptions(
   connection: Connection,
   sessionId: string,
 ): Promise<{
+  onVerification: (url?: string) => void;
   jumpHosts: Awaited<ReturnType<typeof resolveJumpHosts>> | undefined;
   envVars: [string, string][] | undefined;
   agentForwarding: boolean;
@@ -176,6 +177,7 @@ async function buildSshConnectOptions(
   }
 
   return {
+    onVerification: (verificationUrl) => patchSession(useSessionStore.setState, sessionId, { verificationUrl }),
     jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
     envVars: envVars.length > 0 ? envVars : undefined,
     agentForwarding: connection.agent_forwarding ?? false,
@@ -270,28 +272,6 @@ function createSshSession(
 }
 
 /**
- * Validate that a host has the minimum needed to attempt an SSH connection.
- * Returns a sentinel error message (detected by the connection overlay to show
- * the username / auth prompt) or null when the connection can proceed.
- *
- * `hasConfiguredAuth` lets a host that references a keychain identity or key be
- * treated as having auth even if the secret momentarily resolves empty (e.g.
- * identities not yet loaded). In that case we proceed and let the backend be the
- * authority — it returns "No authentication method provided" if there's truly
- * nothing, which surfaces the same prompt without false positives.
- */
-function preflightConnect(
-  username: string | undefined,
-  password?: string,
-  privateKey?: string,
-  hasConfiguredAuth = false,
-): string | null {
-  if (!username || !username.trim()) return "No username provided";
-  if (!password && !privateKey && !hasConfiguredAuth) return "No authentication method provided";
-  return null;
-}
-
-/**
  * Serialize connect attempts per session id. The backoff loop's in-flight
  * attempt, a manual reconnect, and workspace restore can otherwise issue
  * concurrent sshConnect for one session — and if the remote `screen` is briefly
@@ -312,6 +292,11 @@ function withSessionConnectLock<T>(sessionId: string, fn: () => Promise<T>): Pro
   return next;
 }
 
+// A username is enough to try SSH's none method. The server decides whether it needs credentials.
+function requireSshUsername(username: string) {
+  if (!username?.trim()) throw new Error("No username provided");
+}
+
 async function connectSshSession(
   set: SessionSetter,
   connection: Connection,
@@ -320,14 +305,8 @@ async function connectSshSession(
   initialCwd?: string,
 ) {
   const { password, privateKey, passphrase } = credentials;
-  const hasConfiguredAuth = !!connection.identity_id || !!connection.key_id;
-  const preflightError = preflightConnect(connection.username, password, privateKey, hasConfiguredAuth);
-  if (preflightError) {
-    markSessionError(set, sessionId, preflightError);
-    throw new Error(preflightError);
-  }
-
   try {
+    requireSshUsername(connection.username);
     const opts = await buildSshConnectOptions(connection, sessionId);
     await withSessionConnectLock(sessionId, () =>
       sshConnect({
@@ -1142,17 +1121,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       const resolved = await resolveOverrideAuth(connection, merged);
       const { username, password, privateKey, passphrase } = resolved;
 
-      // Still missing something — re-surface the appropriate prompt and keep the
-      // accumulated overrides for the next step. Persist the username now if the
-      // user asked to save it, so the intent survives into the auth step.
-      const preflightError = preflightConnect(username, password, privateKey);
-      if (preflightError) {
-        if (save && merged.username?.trim()) {
-          await persistConnectAuth(connection, { username: merged.username }).catch(() => {});
-        }
-        markSessionError(set, sessionId, preflightError);
-        return;
-      }
+      requireSshUsername(username);
 
       if (save && merged.saveAs && merged.identityId) {
         await saveIdentityChoice(connection, merged.saveAs, merged.identityId).catch(notifyError);

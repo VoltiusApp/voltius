@@ -1,3 +1,4 @@
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ConnectionHeader } from "./ConnectionHeader";
@@ -29,6 +30,7 @@ export default function ConnectionOverlay({
   steps: stepConfigs,
   stepEventName,
   conflictEventName,
+  verificationUrl,
   className,
   onDismiss,
   onRetry,
@@ -50,6 +52,8 @@ export default function ConnectionOverlay({
     conflictEventName,
   });
 
+  const [browserFailed, setBrowserFailed] = useState(false);
+  useEffect(() => setBrowserFailed(false), [verificationUrl]);
   const [choosing, setChoosing] = useState(false);
   useEffect(() => setChoosing(false), [identityPick]);
 
@@ -68,8 +72,9 @@ export default function ConnectionOverlay({
   const showUsernamePrompt = prompting && isMissingUsernameError(errorMessage) && !!onRetryWithAuth;
   const showAuthPrompt = prompting && isNoAuthError(errorMessage) && !!onRetryWithAuth;
   const legacyFix = isError && errorCode === "ssh-legacy-algorithms-required" ? onEnableLegacyAlgorithms : undefined;
+  const checkUrl = isConnecting && verificationUrl;
   const showSpecialPanel =
-    (conflict && !isError) || showIdentityPick || showChooser || showVaultError || showPassphrasePrompt || showUsernamePrompt || showAuthPrompt;
+    (conflict && !isError) || checkUrl || showIdentityPick || showChooser || showVaultError || showPassphrasePrompt || showUsernamePrompt || showAuthPrompt;
 
   if (variant === "banner" && isConnecting && !showSpecialPanel) {
     return (
@@ -93,6 +98,19 @@ export default function ConnectionOverlay({
 
           {conflict && !isError ? (
             <HostKeyConflictPanel conflict={conflict} resolving={resolving} onResolve={(action) => void resolveConflict(action)} />
+          ) : checkUrl ? (
+            <div className="w-full space-y-3">
+              <p className="text-sm text-text-secondary">{t("terminal.overlay.tailscaleCheck.description")}</p>
+              <p className="select-all break-all font-mono text-xs text-text-muted">{checkUrl}</p>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => void openUrl(checkUrl).catch(() => setBrowserFailed(true))}
+              >
+                {t("terminal.overlay.tailscaleCheck.open")}
+              </button>
+              {browserFailed && <p role="alert">{t("terminal.overlay.tailscaleCheck.manual")}</p>}
+            </div>
           ) : showIdentityPick ? (
             <IdentityUnavailablePanel
               issue={identityPick}

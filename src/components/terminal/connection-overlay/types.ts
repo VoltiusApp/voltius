@@ -50,6 +50,7 @@ export interface ConnectionOverlayProps {
   steps: readonly StepConfig[];
   stepEventName: string;
   conflictEventName?: string;
+  verificationUrl?: string;
   className?: string;
   onDismiss?: () => void;
   onRetry?: () => void;

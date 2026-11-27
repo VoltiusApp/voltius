@@ -257,6 +257,11 @@
       "closeTitle": "Закрыть (Escape)"
     },
     "overlay": {
+      "tailscaleCheck": {
+        "description": "Для подключения по SSH требуется проверка Tailscale.",
+        "open": "Подтвердить в браузере",
+        "manual": "Скопируйте ссылку выше и откройте её в браузере."
+      },
       "continue": "Продолжить",
       "connectAndSave": "Подключиться и сохранить",
       "continueAndSave": "Продолжить и сохранить",
