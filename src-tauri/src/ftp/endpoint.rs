@@ -1,7 +1,7 @@
 //! The FTP backend as one side of the copy engine: REST resumes a download,
 //! APPE an upload.
 
-use super::{abandon, call, failed, mtime_of, refused, FtpBackend};
+use super::{call, failed, mtime_of, refused, FtpBackend};
 use crate::commands::sftp::resume::endpoint::{Endpoint, Listed, Reader, Stat, Writer};
 use crate::commands::sftp::resume::pipe::piped;
 use crate::commands::sftp::CHUNK_SIZE;
@@ -161,19 +161,21 @@ impl Endpoint for FtpBackend {
         }
         let mut data =
             call!(*s, |ftp| ftp.retr_as_stream(path)).map_err(|e| failed("download", e))?;
-        Ok(Box::new(piped(|mut tx, cancel| async move {
-            let copied = tokio::select! {
-                r = copy_data(&mut data, &mut tx, true) => r,
-                _ = cancel.cancelled() => Err(cancelled()),
-            };
-            match copied {
-                Ok(()) => call!(*s, |ftp| ftp.finalize_retr_stream(data))
-                    .map_err(|e| failed("download", e)),
-                Err(e) => {
-                    abandon(&mut s, data);
-                    Err(e)
-                }
+        // The final FTP reply belongs to this data stream. Take its control
+        // connection and release the pane lock before streaming the bytes.
+        let mut control = s.take();
+        drop(s);
+        let pane = self.clone();
+        Ok(Box::new(piped(move |mut tx, cancel| async move {
+            tokio::select! {
+                r = copy_data(&mut data, &mut tx, true) => r?,
+                _ = cancel.cancelled() => return Err(cancelled()),
+                _ = pane.closed.cancelled() => return Err(cancelled()),
             }
+            call!(control, |ftp| ftp.finalize_retr_stream(data))
+                .map_err(|e| failed("download", e))?;
+            pane.recycle(control);
+            Ok(())
         })))
     }
 
@@ -185,20 +187,18 @@ impl Endpoint for FtpBackend {
             call!(*s, |ftp| ftp.append_with_stream(path))
         }
         .map_err(|e| failed("upload", e))?;
-        Ok(Box::new(piped(|mut rx, cancel| async move {
-            let copied = tokio::select! {
-                r = copy_data(&mut rx, &mut data, false) => r,
-                _ = cancel.cancelled() => Err(cancelled()),
-            };
-            match copied {
-                Ok(()) => {
-                    call!(*s, |ftp| ftp.finalize_put_stream(data)).map_err(|e| failed("upload", e))
-                }
-                Err(e) => {
-                    abandon(&mut s, data);
-                    Err(e)
-                }
+        let mut control = s.take();
+        drop(s);
+        let pane = self.clone();
+        Ok(Box::new(piped(move |mut rx, cancel| async move {
+            tokio::select! {
+                r = copy_data(&mut rx, &mut data, false) => r?,
+                _ = cancel.cancelled() => return Err(cancelled()),
+                _ = pane.closed.cancelled() => return Err(cancelled()),
             }
+            call!(control, |ftp| ftp.finalize_put_stream(data)).map_err(|e| failed("upload", e))?;
+            pane.recycle(control);
+            Ok(())
         })))
     }
 

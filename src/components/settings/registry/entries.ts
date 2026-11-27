@@ -16,7 +16,7 @@ import { adminDefault } from "@/stores/policyStore";
 import { sameValue } from "@/utils/sameValue";
 import {
   useSftpSettingsStore,
-  DEFAULT_AUTO_REFRESH_INTERVAL_MS,
+  DEFAULT_AUTO_REFRESH_INTERVAL_MS, DEFAULT_PARALLEL_TRANSFERS, MAX_PARALLEL_TRANSFERS,
   autoRefreshIntervalSetting,
   DEFAULT_EDITOR_MAX_BYTES,
 } from "@/stores/sftpSettingsStore";
@@ -288,6 +288,15 @@ function explicitDefs(): SettingDef[] {
       use: () => effectiveShell(preferredShellSetting.use()),
       isDirty: (_, d) => !sameValue(preferredShellSetting.get(), d),
       set: (v) => terminal().setPreferredShell(v === null ? null : String(v)),
+    },
+    {
+      key: "sftp.parallelTransfers",
+      type: "number", min: 1, max: MAX_PARALLEL_TRANSFERS, default: DEFAULT_PARALLEL_TRANSFERS,
+      section: "sftp", labelKey: "settings.sftp.transfers.parallel", keywords: ["ftp", "upload", "download", "concurrency"], writable: true,
+      control: { kind: "number", min: 1, max: MAX_PARALLEL_TRANSFERS, step: 1, unit: () => "" },
+      get: () => sftp().parallelTransfers,
+      use: () => useSftpSettingsStore((st) => st.parallelTransfers),
+      set: (v) => sftp().setParallelTransfers(v as number),
     },
     {
       key: "sftp.autoRefreshIntervalMs",

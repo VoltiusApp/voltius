@@ -219,6 +219,9 @@ impl FtpBackend {
     /// The control connection, checked first after `STALE` idle since servers drop idle ones.
     async fn session(&self) -> Result<Session, AppError> {
         let mut conn = Arc::clone(&self.conn).lock_owned().await;
+        if self.closed.is_cancelled() {
+            return Err("FTP session closed".into());
+        }
         let idle = std::mem::replace(&mut *self.used.lock().unwrap(), Instant::now()).elapsed();
         if conn.is_none() || idle > STALE {
             self.answers(&mut conn)
@@ -226,6 +229,17 @@ impl FtpBackend {
                 .map_err(|e| AppError::coded(ErrorCode::ConnectionLost, e))?;
         }
         Ok(conn)
+    }
+
+    // Keep one idle login for the next command. Other completed streams can
+    // close their connections when another command already has one.
+    fn recycle(&self, control: Option<Stream>) {
+        if let Ok(mut idle) = self.conn.try_lock() {
+            if idle.is_none() && !self.closed.is_cancelled() {
+                *idle = control;
+                *self.used.lock().unwrap() = Instant::now();
+            }
+        }
     }
 
     /// Each entry of `dir`, from MLSD when the server has it (exact times), else LIST.
@@ -488,3 +502,6 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod parallel_test;

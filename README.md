@@ -34,7 +34,7 @@ No account required. Everything below is free, forever.
 - **Containers & monitoring** — Docker and Proxmox LXC, live CPU/memory/disk stats, a process manager.
 
 **Files**
-- **SFTP, FTP & WebDAV** — Dual-pane, Host↔Host and Host↔Local, drag & drop, resumable transfers. [More →](https://voltius.app/blog/sftp-tar-acceleration)
+- **SFTP, FTP & WebDAV** — Dual-pane, Host↔Host and Host↔Local, drag & drop, resumable transfers. Uploads and downloads share four transfer slots by default. Adjust **Simultaneous transfers** in SFTP settings. Each selected folder or tar batch uses one slot. [More →](https://voltius.app/blog/sftp-tar-acceleration)
 - **My Devices** — Move files between your own devices over LAN or Tailscale (free account).
 
 **Sync & data**

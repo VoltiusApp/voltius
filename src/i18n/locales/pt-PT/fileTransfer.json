@@ -148,6 +148,7 @@
       "moveSourceNotDeleted": "Copiado, mas não foi possível remover o original de {{names}}: {{error}}"
     },
     "queue": {
+      "queued": "Em fila",
       "title": "Transferências",
       "transferCount_one": "{{count}} transferência",
       "transferCount_other": "{{count}} transferências",

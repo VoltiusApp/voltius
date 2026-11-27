@@ -283,7 +283,7 @@ export default function SFTPPage() {
     if (mode === "tar" && files.length > 1) {
       await execBatchTar(files, fromSide, targetFolder);
     } else {
-      for (const file of files) await execTransfer(file, fromSide, mode, targetFolder);
+      await Promise.all(files.map((file) => execTransfer(file, fromSide, mode, targetFolder)));
     }
   }, [leftPhase, rightPhase, leftHost, rightHost, execBatchTar, execTransfer]);
 

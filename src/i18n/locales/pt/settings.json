@@ -1149,6 +1149,7 @@
       },
       "transfers": {
         "title": "Transferências",
+        "parallel": "Transferências simultâneas",
         "tarAcceleration": {
           "title": "Aceleração com tar",
           "desc": "Empacotar diretórios em um único tar.gz antes da transferência — muito mais rápido para muitos arquivos pequenos. Requer <code>tar</code> nos dois lados."

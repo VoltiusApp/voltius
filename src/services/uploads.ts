@@ -68,22 +68,28 @@ function safeUploadName(name: string): string {
   return isPlainName(flat.trim(), false) ? flat : "file";
 }
 
-async function uploadOne(f: FileEntry, sftpId: string, cwd: string, tid: string): Promise<void> {
+async function uploadOne(f: FileEntry, sftpId: string, cwd: string, tid: string, held?: File): Promise<void> {
   try {
-    const held = webviewFiles.get(f.path);
     const tmp = held
       ? await stageWebviewFile(held, tid)
       : await invoke<string>("upload_stage", { uri: f.path, name: f.name, transferId: tid });
     await sftpUpload({ sftpId, localPath: tmp, remotePath: joinPath(cwd, f.name), transferId: tid });
   } finally {
-    webviewFiles.delete(f.path);
     await invoke("upload_stage_clear", { transferId: tid }).catch(() => {});
   }
 }
 
 async function uploadEach(files: FileEntry[], sftpId: string, cwd: string, onDone: () => void): Promise<void> {
   const { runTransfer } = useTransferQueueStore.getState();
-  for (const f of files) await runTransfer(f.name, "→", (tid) => uploadOne(f, sftpId, cwd, tid), onDone);
+  await Promise.all(files.map((f) => {
+    // The queue owns the selected file, including while waiting or retrying.
+    let held = webviewFiles.get(f.path);
+    webviewFiles.delete(f.path);
+    return runTransfer(f.name, "→", async (tid) => {
+      await uploadOne(f, sftpId, cwd, tid, held);
+      held = undefined;
+    }, onDone);
+  }));
 }
 
 export async function uploadContentFiles(files: ContentFile[], sftpId: string, cwd: string, onDone: () => void): Promise<void> {

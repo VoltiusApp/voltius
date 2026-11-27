@@ -24,7 +24,7 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, onRet
   const expanded = !collapsible || hovered;
 
   // ── Aggregates for the compact header ──────────────────────────────────────
-  const active = transfers.filter((tr) => tr.status === "running");
+  const active = transfers.filter((tr) => tr.status === "running" && !tr.queued);
   const totalSpeed = active.reduce((acc, tr) => acc + (tr.speed ?? 0), 0);
   const aggTransferred = active.reduce((acc, tr) => acc + tr.transferred, 0);
   const aggTotal = active.reduce((acc, tr) => acc + tr.total, 0);
@@ -38,6 +38,7 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, onRet
     if (tr.status === "done") return { icon: "lucide:circle-check-big", color: "var(--t-status-connected)", spin: false };
     if (tr.status === "error") return { icon: "lucide:circle-alert", color: "var(--t-status-error)", spin: false };
     if (tr.status === "cancelled") return { icon: "lucide:ban", color: "var(--t-text-dim)", spin: false };
+    if (tr.queued) return { icon: "lucide:clock", color: "var(--t-text-dim)", spin: false };
     return { icon: "lucide:loader-circle", color: "var(--t-text-dim)", spin: true };
   }
 
@@ -45,6 +46,7 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, onRet
     if (transfer.status === "done") return t("fileTransfer.queue.status.done");
     if (transfer.status === "error") return t("fileTransfer.queue.status.error");
     if (transfer.status === "cancelled") return t("fileTransfer.queue.status.cancelled");
+    if (transfer.queued) return t("fileTransfer.queue.queued");
     if (transfer.waiting) return t("fileTransfer.queue.waiting");
     return formatTransferProgress(transfer);
   }
@@ -91,7 +93,7 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, onRet
               style={{ transform: expanded ? "rotate(0deg)" : "rotate(180deg)" }}
             />
           )}
-          {hasActive && (
+          {transfers.some((tr) => tr.status === "running") && (
             <button
               onClick={onCancelAll}
               title={t("fileTransfer.queue.cancelAll")}
