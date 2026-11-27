@@ -135,6 +135,7 @@
       "moveSourceNotDeleted": "Kopyalandı, ancak {{names}} için orijinal silinemedi: {{error}}"
     },
     "queue": {
+      "queued": "Sırada",
       "title": "Aktarımlar",
       "transferCount_one": "{{count}} aktarım",
       "transferCount_other": "{{count}} aktarım",

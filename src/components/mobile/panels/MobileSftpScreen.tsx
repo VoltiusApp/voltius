@@ -87,12 +87,10 @@ export default function MobileSftpScreen({ presetConnectionId, asTab, visible = 
     if (!src.sftpId || !dst.sftpId || items.length === 0) return;
     const targets = buildTransferTargets(items, dst.cwd);
     let ok = 0;
-    for (const t of targets) {
-      await runTransfer(t.name, "→", (tid) => (t.isDir
+    await Promise.all(targets.map((t) => runTransfer(t.name, "→", (tid) => (t.isDir
         ? sftpTransferDir({ srcSftpId: src.sftpId!, srcPath: t.srcPath, dstSftpId: dst.sftpId!, dstPath: t.dstPath, transferId: tid })
         : sftpTransfer({ srcSftpId: src.sftpId!, srcPath: t.srcPath, dstSftpId: dst.sftpId!, dstPath: t.dstPath, transferId: tid })),
-        () => { ok++; }); // onDone fires only on success — keep selection if all failed
-    }
+        () => { ok++; })));
     if (ok > 0) setSel((s) => (s.pane === from ? NO_SELECTION : s));
     dst.refresh();
   };
@@ -163,11 +161,11 @@ export default function MobileSftpScreen({ presetConnectionId, asTab, visible = 
                       <div className="h-1 rounded-full mt-1 overflow-hidden" style={{ background: "var(--t-bg-card)" }}>
                         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "var(--t-accent)" }} />
                       </div>
-                      <span data-sftp-transfer-meta className="text-[10px] text-(--t-text-dim) tabular-nums truncate mt-0.5">{formatTransferProgress(tr)}</span>
+                      <span data-sftp-transfer-meta className="text-[10px] text-(--t-text-dim) tabular-nums truncate mt-0.5">{tr.queued ? t("fileTransfer.queue.queued") : formatTransferProgress(tr)}</span>
                     </>
                   )}
                 </span>
-                {!failed && <span className="text-[11px] text-(--t-text-dim) tabular-nums shrink-0">{pct}%</span>}
+                {!failed && !tr.queued && <span className="text-[11px] text-(--t-text-dim) tabular-nums shrink-0">{pct}%</span>}
                 {failed && canRetry(tr.id) && (
                   <button data-sftp-transfer-retry={tr.id} onClick={() => { setDismissed((d) => [...d, tr.id]); retryTransfer(tr.id); }}
                     className="vt-hit px-2 py-1 text-xs font-semibold shrink-0" style={{ color: "var(--t-accent)" }}>{t("common.action.retry")}</button>

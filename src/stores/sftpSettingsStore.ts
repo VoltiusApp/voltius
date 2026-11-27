@@ -13,7 +13,18 @@ export { DEFAULT_EDITOR_MAX_BYTES };
 
 export const DEFAULT_AUTO_REFRESH_INTERVAL_MS = 2000;
 
+export const DEFAULT_PARALLEL_TRANSFERS = 4;
+export const MAX_PARALLEL_TRANSFERS = 10;
+
+export function transferLimit(value: number): number {
+  return Number.isFinite(value)
+    ? Math.max(1, Math.min(MAX_PARALLEL_TRANSFERS, Math.trunc(value)))
+    : DEFAULT_PARALLEL_TRANSFERS;
+}
+
 interface SftpSettingsStore {
+  parallelTransfers: number;
+  setParallelTransfers: (v: number) => void;
   autoRefreshIntervalMs: number;
   setAutoRefreshIntervalMs: (v: number) => void;
   editorAutoSave: boolean;
@@ -52,6 +63,8 @@ export function migrateSftpSettings(persisted: unknown, version: number): unknow
 export const useSftpSettingsStore = create<SftpSettingsStore>()(
   persist(
     (set) => ({
+      parallelTransfers: DEFAULT_PARALLEL_TRANSFERS,
+      setParallelTransfers: (v) => { set({ parallelTransfers: transferLimit(v) }); touchSftp("parallelTransfers"); },
       autoRefreshIntervalMs: DEFAULT_AUTO_REFRESH_INTERVAL_MS,
       setAutoRefreshIntervalMs: (v) =>
         writeAndTouchUnlessLocked(sftpKey("autoRefreshIntervalMs"), () => set({ autoRefreshIntervalMs: v })),
@@ -70,6 +83,10 @@ export const useSftpSettingsStore = create<SftpSettingsStore>()(
       name: "voltius-sftp-settings",
       version: 1,
       migrate: (persisted, version) => migrateSftpSettings(persisted, version) as SftpSettingsStore,
+      merge: (persisted, current) => {
+        const state = { ...current, ...(persisted as Partial<SftpSettingsStore>) };
+        return { ...state, parallelTransfers: transferLimit(state.parallelTransfers) };
+      },
     },
   ),
 );

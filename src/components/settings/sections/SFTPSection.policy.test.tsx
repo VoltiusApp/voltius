@@ -20,7 +20,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-const input = () => screen.getByRole("spinbutton") as HTMLInputElement;
+const input = () => screen.getByRole("spinbutton", { name: "settings.sftp.filePanel.refreshInterval.title" }) as HTMLInputElement;
 
 test("SFTP input carries min and max and hides the minimum line", () => {
   usePolicyStore.setState({

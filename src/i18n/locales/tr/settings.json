@@ -991,6 +991,7 @@
       },
       "transfers": {
         "title": "Aktarımlar",
+        "parallel": "Eşzamanlı aktarımlar",
         "tarAcceleration": {
           "title": "Tar hızlandırma",
           "desc": "Klasörleri aktarımdan önce tek bir tar.gz dosyasında paketler — çok sayıda küçük dosya için çok daha hızlıdır. Her iki tarafta da <code>tar</code> gerekir."

@@ -17,6 +17,7 @@ use crate::sftp::backend::{skip_unsafe_name, TransferEvents};
 use crate::sftp::link::ssh_answers;
 use crate::sftp::{FileBackend, SftpManager};
 use crate::ssh::client::SshClient;
+use crate::ssh::exec::channel_refused;
 use async_trait::async_trait;
 use russh::client::Handle;
 use std::future::Future;
@@ -387,6 +388,9 @@ where
     );
     let e = match watched.await {
         Ok(Ok(())) => return Ok(()),
+        Ok(Err(e)) if channel_refused(&e) && !token.is_cancelled() => {
+            return resume_per_file(events, transfer_id, fallback).await;
+        }
         Ok(Err(e)) => AppError::from(e),
         Err(Stranded) => {
             // Close the remote end the way a cancel does before the per-file run starts.
@@ -783,6 +787,25 @@ mod tests {
             ("/srv/data".to_string(), "logs".to_string())
         );
         assert_eq!(local_split("logs"), (String::new(), "logs".to_string()));
+    }
+
+    #[tokio::test]
+    async fn a_tar_channel_the_server_refuses_runs_per_file_over_sftp() {
+        use crate::commands::sftp::resume::endpoint::tests_support::TestFs;
+        let r = after_stall(
+            &TestFs::default(),
+            false,
+            "tc",
+            |_, _| async {
+                let why = russh::ChannelOpenFailure::AdministrativelyProhibited;
+                Err(crate::ssh::exec::channel_error(
+                    russh::Error::ChannelOpenFailure(why),
+                ))
+            },
+            || async { Ok(()) },
+        )
+        .await;
+        assert_eq!(r, Ok(()));
     }
 
     #[tokio::test]

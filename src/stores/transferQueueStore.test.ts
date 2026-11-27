@@ -2,7 +2,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useTransferQueueStore } from "./transferQueueStore";
 
-import { sftpMarkResume } from "@/services/sftp";
+import { DEFAULT_PARALLEL_TRANSFERS, useSftpSettingsStore } from "./sftpSettingsStore";
+import { sftpMarkResume, sftpCancelTransfer } from "@/services/sftp";
 
 const skipListeners = new Map<string, (path: string) => void>();
 const { listeners, listen } = vi.hoisted(() => {
@@ -250,5 +251,56 @@ describe("resume", () => {
       throw new Error("connection lost");
     });
     expect(store().transfers[0]).toMatchObject({ status: "error", waiting: false, error: "connection lost" });
+  });
+});
+
+describe("parallel transfers", () => {
+  beforeEach(() => useSftpSettingsStore.setState({ parallelTransfers: DEFAULT_PARALLEL_TRANSFERS }));
+
+  it("shares four slots between directions and applies a changed limit to queued work", async () => {
+    const releases: Array<() => void> = [];
+    const work = () => new Promise<void>((resolve) => releases.push(resolve));
+    const all = Promise.all(Array.from({ length: 7 }, (_, i) =>
+      store().runTransfer(String(i), i % 2 ? "←" : "→", work)));
+    await vi.waitFor(() => expect(releases).toHaveLength(4));
+    expect(store().transfers.filter((t) => t.queued)).toHaveLength(3);
+    useSftpSettingsStore.getState().setParallelTransfers(2);
+    releases.splice(0, 3).forEach((finish) => finish());
+    await vi.waitFor(() => expect(releases).toHaveLength(2));
+    useSftpSettingsStore.getState().setParallelTransfers(4);
+    await vi.waitFor(() => expect(releases).toHaveLength(4));
+    releases.forEach((finish) => finish());
+    await all;
+    expect(store().transfers.every((row) => row.status === "done")).toBe(true);
+  });
+
+  it("keeps a large waiting selection cancellable without starting its I/O", async () => {
+    useSftpSettingsStore.setState({ parallelTransfers: 1 });
+    let release!: () => void;
+    const first = store().runTransfer("first", "→", () => new Promise<void>((resolve) => { release = resolve; }));
+    const write = vi.fn();
+    const files = Array.from({ length: 40 }, (_, i) => store().runTransfer(String(i), "→", write));
+    await vi.waitFor(() => expect(release).toBeDefined());
+    expect(store().transfers).toHaveLength(41);
+    vi.mocked(sftpCancelTransfer).mockClear();
+    store().cancelAll();
+    release();
+    await Promise.all([first, ...files]);
+    expect(write).not.toHaveBeenCalled();
+    expect(sftpCancelTransfer).toHaveBeenCalledTimes(1);
+    expect(store().transfers).toHaveLength(30);
+    expect(store().transfers.every((row) => row.status === "cancelled")).toBe(true);
+  });
+
+  it("serializes colliding names and frees the slot after failure", async () => {
+    let fail!: () => void;
+    const first = store().runTransfer("File", "→", () => new Promise<void>((_, reject) => { fail = reject; }));
+    const next = vi.fn();
+    const second = store().runTransfer("file", "→", next);
+    await vi.waitFor(() => expect(fail).toBeDefined());
+    expect(next).not.toHaveBeenCalled();
+    fail();
+    await Promise.all([first, second]);
+    expect(next).toHaveBeenCalledOnce();
   });
 });

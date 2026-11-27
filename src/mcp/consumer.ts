@@ -283,6 +283,7 @@ function queueTransfer(
   // "lands on this machine" from everything else, it has no third glyph for
   // "neither end is local".
   const direction = args.toTarget === "local" ? "←" : "→";
+  let started = false;
   let out: unknown;
   let thrown: unknown;
   let failed = false;
@@ -292,6 +293,7 @@ function queueTransfer(
       // The tool's execute() reads this back to pass the queue row's own id
       // into ports.api.sftp.transfer, so the backend emits progress on the
       // channel this row is subscribed to instead of one nobody listens on.
+      started = true;
       setTransferId(args, tid);
       try {
         out = await run();
@@ -314,6 +316,7 @@ function queueTransfer(
     }, undefined, undefined, owner)
     .then(() => {
       if (failed) throw thrown;
+      if (!started) throw new Error("Transfer did not start");
       return out;
     });
 }
