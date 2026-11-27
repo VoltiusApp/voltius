@@ -105,9 +105,9 @@
       "unknownDevice": "未知设备"
     },
     "teamSessions": {
-      "title": "团队会话",
+      "title": "共享会话",
       "joinByCode": "通过代码加入",
-      "emptyHint": "队友共享的终端会显示在这里。有邀请链接或邀请码？使用“通过代码加入”。",
+      "emptyHint": "与你共享的终端会显示在这里。有邀请链接或邀请码？使用“通过代码加入”。",
       "live": "实时",
       "sharedBy": "{{name}} 正在共享",
       "pasteInviteCode": "粘贴邀请链接或代码以加入私有会话：",
