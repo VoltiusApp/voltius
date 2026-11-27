@@ -237,6 +237,14 @@
       "closeTitle": "关闭 (Escape)"
     },
     "overlay": {
+      "tailscaleCheck": {
+        "title": "Tailscale SSH 验证",
+        "description": "Tailscale 要求完成验证后才能建立此 SSH 连接。",
+        "open": "在浏览器中验证",
+        "copy": "复制链接",
+        "copied": "链接已复制",
+        "manual": "无法打开浏览器。请复制链接并在浏览器中打开。"
+      },
       "continue": "继续",
       "connectAndSave": "连接并保存",
       "continueAndSave": "继续并保存",

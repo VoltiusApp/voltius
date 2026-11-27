@@ -165,6 +165,7 @@ function SessionConnectionOverlayPanel({ session, banner }: { session: TerminalS
       connectionId={connection?.id}
       steps={getSshSteps(!!connection && knocksOnConnect(connection))}
       stepEventName={`ssh-step-${session.id}`}
+      verificationUrl={session.verificationUrl}
       conflictEventName={`ssh-host-key-conflict-${session.id}`}
       onDismiss={onDismiss}
       onRetry={session.type === "ssh" ? onRetry : undefined}

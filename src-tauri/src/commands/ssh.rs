@@ -1,3 +1,4 @@
+use crate::connect_cancel::ConnectCancels;
 use crate::error::AppError;
 use crate::knock::KnockSpec;
 use crate::known_hosts::{KnownHostsStore, PendingConflicts};
@@ -13,7 +14,9 @@ use tauri::AppHandle;
 #[tauri::command]
 pub async fn ssh_connect(
     app: AppHandle,
+    webview: tauri::Webview,
     state: tauri::State<'_, SessionManager>,
+    cancels: tauri::State<'_, ConnectCancels>,
     pf: tauri::State<'_, PortForwardManager>,
     known_hosts: tauri::State<'_, Arc<KnownHostsStore>>,
     pending_conflicts: tauri::State<'_, Arc<PendingConflicts>>,
@@ -44,39 +47,47 @@ pub async fn ssh_connect(
     terminal_colors: Option<crate::ssh::control_mode::TerminalColors>,
     knock: Option<KnockSpec>,
     detached_ttl_secs: Option<u64>,
+    on_verification: Option<tauri::ipc::JavaScriptChannelId>,
 ) -> Result<(), AppError> {
-    let connected = client::connect(
-        app,
-        session_id.clone(),
-        &host,
-        port,
-        &username,
-        password.as_deref(),
-        private_key.as_deref(),
-        passphrase.as_deref(),
-        jump_hosts.unwrap_or_default(),
-        env_vars.unwrap_or_default(),
-        agent_forwarding,
-        pre_command,
-        shell_integration.unwrap_or(true),
-        Arc::clone(&*known_hosts),
-        Arc::clone(&*pending_conflicts),
-        keepalive_interval_secs.unwrap_or(3),
-        keepalive_max.unwrap_or(3),
-        persist.unwrap_or(true),
-        restore.unwrap_or(false),
-        attach_only.unwrap_or(false),
-        cols.filter(|c| *c > 0).unwrap_or(80),
-        rows.filter(|r| *r > 0).unwrap_or(24),
-        legacy_algorithms.unwrap_or(false),
-        initial_cwd,
-        HopRoute { proxy, knock },
-        terminal_colors,
-        detached_ttl_secs,
-    )
-    .await?;
+    let attempt = cancels.begin(&session_id);
+    let connected = attempt
+        .run(client::connect(
+            app,
+            session_id.clone(),
+            &host,
+            port,
+            &username,
+            password.as_deref(),
+            private_key.as_deref(),
+            passphrase.as_deref(),
+            jump_hosts.unwrap_or_default(),
+            env_vars.unwrap_or_default(),
+            agent_forwarding,
+            pre_command,
+            shell_integration.unwrap_or(true),
+            Arc::clone(&*known_hosts),
+            Arc::clone(&*pending_conflicts),
+            keepalive_interval_secs.unwrap_or(3),
+            keepalive_max.unwrap_or(3),
+            persist.unwrap_or(true),
+            restore.unwrap_or(false),
+            attach_only.unwrap_or(false),
+            cols.filter(|c| *c > 0).unwrap_or(80),
+            rows.filter(|r| *r > 0).unwrap_or(24),
+            legacy_algorithms.unwrap_or(false),
+            initial_cwd,
+            HopRoute { proxy, knock },
+            terminal_colors,
+            detached_ttl_secs,
+            on_verification.map(|id| id.channel_on(webview)),
+        ))
+        .await?;
 
     state.add(session_id.clone(), connected).await;
+    if let Some(cancelled) = attempt.cancelled() {
+        let _ = state.disconnect(&session_id, None, false, false).await;
+        return Err(cancelled);
+    }
 
     // Register this terminal under its host key so port forwarding is shared
     // across all terminals of the same connection (not duplicated per terminal).
@@ -105,6 +116,7 @@ pub async fn ssh_connect(
 #[tauri::command]
 pub async fn ssh_disconnect(
     state: tauri::State<'_, SessionManager>,
+    cancels: tauri::State<'_, ConnectCancels>,
     pf: tauri::State<'_, PortForwardManager>,
     session_id: String,
     post_command: Option<String>,
@@ -112,6 +124,11 @@ pub async fn ssh_disconnect(
     attached: Option<bool>,
     reconnecting: Option<bool>,
 ) -> Result<bool, String> {
+    if reconnecting.unwrap_or(false) {
+        cancels.rearm(&session_id);
+    } else {
+        cancels.cancel(&session_id);
+    }
     // A reconnect drops the SSH connection and immediately dials again under the
     // same session id, so the terminal is not leaving its host — the forwards
     // stay up and `ssh_connect` re-arms them. Tearing them down here is what used
