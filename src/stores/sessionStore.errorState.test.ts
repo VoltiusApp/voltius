@@ -20,6 +20,7 @@ vi.mock("@/services/ssh", () => ({
 }));
 const h = vi.hoisted(() => ({
   resolveConnectionCredentials: vi.fn(async () => ({ username: "root", password: "pw" }) as unknown),
+  saveConnection: vi.fn(async (data: object) => ({ ...data, id: "saved" })),
 }));
 
 vi.mock("@/services/credentials", () => ({
@@ -32,9 +33,15 @@ vi.mock("@/stores/connectionStore", () => ({
       connections: [connection],
       teamConnections: {},
       setLastUsed: vi.fn(async () => {}),
+      saveConnection: h.saveConnection,
+      updateConnection: vi.fn(async () => {}),
     }),
   },
-  connectionToFormData: vi.fn(),
+  connectionToFormData: vi.fn(() => ({})),
+}));
+vi.mock("@/services/vault", async (original) => ({
+  ...(await original<typeof import("@/services/vault")>()),
+  storeSecret: vi.fn(async () => {}),
 }));
 vi.mock("./layoutStore", () => ({
   useLayoutStore: { getState: () => ({ setSplitTabActive: vi.fn() }) },
@@ -112,6 +119,22 @@ describe("session error state", () => {
       username: "root", password: undefined, privateKey: undefined,
     }));
     expect(current().status).toBe("connected");
+  });
+
+  test("a quick-connect host is saved only once a retry authenticates", async () => {
+    const quick = { ...connection, id: "q1", username: "" } as Connection;
+    await expect(useSessionStore.getState().connectDirect(quick)).rejects.toThrow("No username provided");
+    const id = current().id;
+
+    vi.mocked(sshConnect).mockRejectedValueOnce(new Error("No authentication method provided"));
+    await useSessionStore.getState().retryConnect(id, { username: "ops" }, true);
+    expect(current().status).toBe("error");
+    expect(h.saveConnection).not.toHaveBeenCalled();
+
+    await useSessionStore.getState().retryConnect(id, { password: "pw" }, true);
+    expect(sshConnect).toHaveBeenLastCalledWith(expect.objectContaining({ username: "ops", password: "pw", connectionId: "q1" }));
+    expect(h.saveConnection).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ host: "h1", username: "ops" }));
+    expect(current()).toMatchObject({ status: "connected", connectionId: "saved" });
   });
 
   test("a proxy with no host fails a quick-connect session instead of leaving it connecting", async () => {
