@@ -239,6 +239,14 @@
       "closeTitle": "Kapat (Escape)"
     },
     "overlay": {
+      "tailscaleCheck": {
+        "title": "Tailscale SSH doğrulaması",
+        "description": "Tailscale bu SSH oturumu için doğrulama istiyor.",
+        "open": "Tarayıcıda doğrula",
+        "copy": "Bağlantıyı kopyala",
+        "copied": "Bağlantı kopyalandı",
+        "manual": "Tarayıcı açılamadı. Bağlantıyı kopyalayıp tarayıcınızda açın."
+      },
       "continue": "Devam et",
       "connectAndSave": "Bağlan ve kaydet",
       "continueAndSave": "Devam et ve kaydet",

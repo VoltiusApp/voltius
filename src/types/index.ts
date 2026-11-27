@@ -257,6 +257,8 @@ export interface ConnectRetryOverride {
 }
 
 export interface TerminalSession {
+  /** Browser check for the current SSH attempt. Never persisted. */
+  verificationUrl?: string;
   id: string;
   connectionId: string;
   connectionName: string;

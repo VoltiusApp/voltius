@@ -6,6 +6,7 @@ import { ConnectionSteps } from "./ConnectionSteps";
 import { HostKeyConflictPanel } from "./HostKeyConflictPanel";
 import { IdentityUnavailablePanel } from "./IdentityUnavailablePanel";
 import { PassphrasePromptPanel } from "./PassphrasePromptPanel";
+import { TailscaleCheckPanel } from "./TailscaleCheckPanel";
 import { AuthPromptPanel } from "./AuthPromptPanel";
 import { UsernamePromptPanel } from "./UsernamePromptPanel";
 import { VaultErrorPanel } from "./VaultErrorPanel";
@@ -29,6 +30,7 @@ export default function ConnectionOverlay({
   steps: stepConfigs,
   stepEventName,
   conflictEventName,
+  verificationUrl,
   className,
   onDismiss,
   onRetry,
@@ -68,8 +70,9 @@ export default function ConnectionOverlay({
   const showUsernamePrompt = prompting && isMissingUsernameError(errorMessage) && !!onRetryWithAuth;
   const showAuthPrompt = prompting && isNoAuthError(errorMessage) && !!onRetryWithAuth;
   const legacyFix = isError && errorCode === "ssh-legacy-algorithms-required" ? onEnableLegacyAlgorithms : undefined;
+  const checkUrl = isConnecting && verificationUrl;
   const showSpecialPanel =
-    (conflict && !isError) || showIdentityPick || showChooser || showVaultError || showPassphrasePrompt || showUsernamePrompt || showAuthPrompt;
+    (conflict && !isError) || checkUrl || showIdentityPick || showChooser || showVaultError || showPassphrasePrompt || showUsernamePrompt || showAuthPrompt;
 
   if (variant === "banner" && isConnecting && !showSpecialPanel) {
     return (
@@ -93,6 +96,8 @@ export default function ConnectionOverlay({
 
           {conflict && !isError ? (
             <HostKeyConflictPanel conflict={conflict} resolving={resolving} onResolve={(action) => void resolveConflict(action)} />
+          ) : checkUrl ? (
+            <TailscaleCheckPanel key={checkUrl} url={checkUrl} onCancel={onDismiss} />
           ) : showIdentityPick ? (
             <IdentityUnavailablePanel
               issue={identityPick}

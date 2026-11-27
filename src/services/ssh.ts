@@ -1,4 +1,4 @@
-import { invoke } from "@/lib/invoke";
+import { Channel, invoke } from "@/lib/invoke";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import type { ProxySpec } from "@/services/proxy";
 import { onTerminalClosed, onTerminalOutput } from "@/services/terminalOutput";
@@ -45,8 +45,12 @@ export async function sshConnect(params: {
   initialCwd?: string;
   proxy?: ProxySpec | null;
   knock?: KnockSpec | null;
+  onVerification?: (url?: string) => void;
 }): Promise<void> {
-  return invoke("ssh_connect", {
+  const { onVerification } = params;
+  const channel = onVerification ? new Channel<string>((url) => onVerification(url || undefined)) : null;
+  return invoke<void>("ssh_connect", {
+    onVerification: channel,
     sessionId: params.sessionId,
     host: params.host,
     port: params.port,
@@ -74,6 +78,9 @@ export async function sshConnect(params: {
     proxy: params.proxy ?? null,
     knock: params.knock ?? null,
     terminalColors: currentTerminalColors(),
+  }).finally(() => {
+    if (channel) channel.onmessage = () => {};
+    onVerification?.();
   });
 }
 
