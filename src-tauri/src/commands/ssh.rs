@@ -5,10 +5,17 @@ use crate::port_forward::PortForwardManager;
 use crate::proxy::ProxySpec;
 use crate::ssh::{
     client::{self, HopRoute, JumpHostConnect},
+    netbird::{Credential, Profile},
     session::SessionManager,
 };
 use std::sync::Arc;
 use tauri::AppHandle;
+
+#[derive(serde::Deserialize)]
+pub struct NetbirdLogin {
+    profile: Profile,
+    progress: tauri::ipc::JavaScriptChannelId,
+}
 
 #[tauri::command]
 pub async fn ssh_connect(
@@ -46,40 +53,63 @@ pub async fn ssh_connect(
     knock: Option<KnockSpec>,
     detached_ttl_secs: Option<u64>,
     on_verification: Option<tauri::ipc::JavaScriptChannelId>,
+    netbird: Option<NetbirdLogin>,
 ) -> Result<(), AppError> {
-    let connected = client::connect(
-        app,
-        session_id.clone(),
-        &host,
-        port,
-        &username,
-        password.as_deref(),
-        private_key.as_deref(),
-        passphrase.as_deref(),
-        jump_hosts.unwrap_or_default(),
-        env_vars.unwrap_or_default(),
-        agent_forwarding,
-        pre_command,
-        shell_integration.unwrap_or(true),
-        Arc::clone(&*known_hosts),
-        Arc::clone(&*pending_conflicts),
-        keepalive_interval_secs.unwrap_or(3),
-        keepalive_max.unwrap_or(3),
-        persist.unwrap_or(true),
-        restore.unwrap_or(false),
-        attach_only.unwrap_or(false),
-        cols.filter(|c| *c > 0).unwrap_or(80),
-        rows.filter(|r| *r > 0).unwrap_or(24),
-        legacy_algorithms.unwrap_or(false),
-        initial_cwd,
-        HopRoute { proxy, knock },
-        terminal_colors,
-        detached_ttl_secs,
-        on_verification.map(|id| id.channel_on(webview)),
-    )
-    .await?;
+    let interactive_login = netbird.is_some();
+    let connect = async {
+        let credential = if let Some(login) = netbird {
+            let token = login
+                .profile
+                .authorize(&login.progress.channel_on(webview.clone()))
+                .await?;
+            Some(Credential {
+                fingerprint: login.profile.fingerprint,
+                token,
+            })
+        } else {
+            None
+        };
+        let connected = client::connect(
+            app,
+            session_id.clone(),
+            &host,
+            port,
+            &username,
+            password.as_deref(),
+            private_key.as_deref(),
+            passphrase.as_deref(),
+            jump_hosts.unwrap_or_default(),
+            env_vars.unwrap_or_default(),
+            agent_forwarding,
+            pre_command,
+            shell_integration.unwrap_or(true),
+            Arc::clone(&*known_hosts),
+            Arc::clone(&*pending_conflicts),
+            keepalive_interval_secs.unwrap_or(3),
+            keepalive_max.unwrap_or(3),
+            persist.unwrap_or(true),
+            restore.unwrap_or(false),
+            attach_only.unwrap_or(false),
+            cols.filter(|c| *c > 0).unwrap_or(80),
+            rows.filter(|r| *r > 0).unwrap_or(24),
+            legacy_algorithms.unwrap_or(false),
+            initial_cwd,
+            HopRoute { proxy, knock },
+            terminal_colors,
+            detached_ttl_secs,
+            on_verification.map(|id| id.channel_on(webview)),
+            credential,
+        )
+        .await?;
 
-    state.add(session_id.clone(), connected).await;
+        state.add(session_id.clone(), connected).await;
+        Ok::<(), AppError>(())
+    };
+    if interactive_login {
+        state.with_netbird_login(&session_id, connect).await?;
+    } else {
+        connect.await?;
+    }
 
     // Register this terminal under its host key so port forwarding is shared
     // across all terminals of the same connection (not duplicated per terminal).
@@ -115,6 +145,7 @@ pub async fn ssh_disconnect(
     attached: Option<bool>,
     reconnecting: Option<bool>,
 ) -> Result<bool, String> {
+    state.cancel_netbird_login(&session_id).await;
     // A reconnect drops the SSH connection and immediately dials again under the
     // same session id, so the terminal is not leaving its host — the forwards
     // stay up and `ssh_connect` re-arms them. Tearing them down here is what used

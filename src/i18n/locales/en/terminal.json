@@ -244,6 +244,19 @@
         "open": "Verify in browser",
         "manual": "Copy the link above and open it in your browser."
       },
+      "netbird": {
+        "setup": "Use your administrator’s public OIDC client settings and independently verified SSH fingerprint. These settings are saved on this device.",
+        "issuer": "OIDC issuer (HTTPS)",
+        "clientId": "Public client ID",
+        "fingerprint": "Trusted peer fingerprint (SHA256)",
+        "scope": "Scopes",
+        "audience": "Audience (optional)",
+        "tokenType": "Token accepted by NetBird",
+        "signIn": "Start NetBird sign-in",
+        "verify": "Open your identity provider and confirm this code.",
+        "open": "Open sign-in page",
+        "manual": "Copy the URL above into your browser."
+      },
       "continue": "Continue",
       "connectAndSave": "Connect & Save",
       "continueAndSave": "Continue & Save",

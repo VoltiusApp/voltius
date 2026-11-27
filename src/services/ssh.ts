@@ -1,3 +1,4 @@
+import type { NetbirdChallenge, NetbirdProfile } from "@/types";
 import { Channel, invoke } from "@/lib/invoke";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import type { ProxySpec } from "@/services/proxy";
@@ -16,6 +17,7 @@ export interface JumpHostConnect {
 
 export async function sshConnect(params: {
   sessionId: string;
+  netbird?: { profile: NetbirdProfile; onChallenge: (challenge: NetbirdChallenge | null) => void };
   host: string;
   port: number;
   username: string;
@@ -47,10 +49,12 @@ export async function sshConnect(params: {
   knock?: KnockSpec | null;
   onVerification?: (url?: string) => void;
 }): Promise<void> {
-  const { onVerification } = params;
-  const channel = onVerification ? new Channel<string>(onVerification) : null;
+  const { netbird: login, onVerification } = params;
+  const channel = !login && onVerification ? new Channel<string>(onVerification) : null;
+  const progress = login ? new Channel<NetbirdChallenge | null>(login.onChallenge) : null;
   return invoke<void>("ssh_connect", {
     onVerification: channel,
+    netbird: login ? { profile: login.profile, progress } : null,
     sessionId: params.sessionId,
     host: params.host,
     port: params.port,
@@ -81,6 +85,8 @@ export async function sshConnect(params: {
   }).finally(() => {
     if (channel) channel.onmessage = () => {};
     onVerification?.();
+    if (progress) progress.onmessage = () => {};
+    login?.onChallenge(null);
   });
 }
 

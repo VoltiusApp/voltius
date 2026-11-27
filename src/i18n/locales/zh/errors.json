@@ -22,6 +22,7 @@
     "ssh-password-expired": "服务器要求设置新密码——请先从终端登录一次并在那里修改密码",
     "ssh-prompt-unanswerable": "服务器询问“{{prompt}}”，无法自动回答",
     "ssh-no-usable-auth-method": "没有可用的认证方式——服务器仅接受：{{methods}}",
+    "ssh-netbird-sso-required": "此节点要求通过 NetBird SSH 登录。",
     "ssh-auth-timeout": "认证在 {{seconds}} 秒后超时——服务器接受了连接但始终没有响应。一些较旧的 SSH 服务器会卡在这一步；请尝试主机的“传统算法”选项，或换用其他认证方式。",
     "login-rejected": "服务器拒绝了用户名或密码",
     "resource-locked": "文件在服务器上已被锁定——可能有其他人正在使用",

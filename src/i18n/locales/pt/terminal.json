@@ -253,6 +253,19 @@
         "open": "Verificar no navegador",
         "manual": "Copie a ligação acima e abra-a no navegador."
       },
+      "netbird": {
+        "setup": "Introduza a configuração do cliente público OIDC fornecida pelo administrador e a impressão digital SSH verificada de forma independente. A configuração é guardada neste dispositivo.",
+        "issuer": "Emissor OIDC (HTTPS)",
+        "clientId": "ID do cliente público",
+        "fingerprint": "Impressão digital de confiança do par (SHA256)",
+        "scope": "Âmbitos",
+        "audience": "Audiência (opcional)",
+        "tokenType": "Token aceite pelo NetBird",
+        "signIn": "Iniciar sessão com NetBird",
+        "verify": "Abra o fornecedor de identidade e confirme este código.",
+        "open": "Abrir página de início de sessão",
+        "manual": "Copie o URL acima para o navegador."
+      },
       "continue": "Continuar",
       "connectAndSave": "Conectar e salvar",
       "continueAndSave": "Continuar e salvar",

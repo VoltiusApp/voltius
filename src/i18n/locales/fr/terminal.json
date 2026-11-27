@@ -253,6 +253,19 @@
         "open": "Vérifier dans le navigateur",
         "manual": "Copiez le lien ci-dessus et ouvrez-le dans votre navigateur."
       },
+      "netbird": {
+        "setup": "Saisissez les paramètres du client OIDC public fournis par votre administrateur et l’empreinte SSH vérifiée indépendamment. Ces paramètres sont enregistrés sur cet appareil.",
+        "issuer": "Émetteur OIDC (HTTPS)",
+        "clientId": "Identifiant du client public",
+        "fingerprint": "Empreinte de confiance du pair (SHA256)",
+        "scope": "Portées",
+        "audience": "Audience (facultatif)",
+        "tokenType": "Jeton accepté par NetBird",
+        "signIn": "Se connecter avec NetBird",
+        "verify": "Ouvrez votre fournisseur d’identité et confirmez ce code.",
+        "open": "Ouvrir la page de connexion",
+        "manual": "Copiez l’URL ci-dessus dans votre navigateur."
+      },
       "continue": "Continuer",
       "connectAndSave": "Connecter et enregistrer",
       "continueAndSave": "Continuer et enregistrer",

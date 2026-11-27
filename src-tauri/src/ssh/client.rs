@@ -49,6 +49,7 @@ pub struct SshClient {
     known_hosts: Arc<KnownHostsStore>,
     conflict_prompt: Option<ConflictPrompt>,
     verification: Option<oneshot::Sender<String>>,
+    netbird_fingerprint: Option<String>,
     /// Remote-forward route table: (bind_host, remote_port) → RemoteRoute.
     /// Populated by PortForwardManager before calling tcpip_forward.
     pub remote_routes: RemoteRouteMap,
@@ -69,6 +70,7 @@ impl SshClient {
             known_hosts,
             conflict_prompt: None,
             verification: None,
+            netbird_fingerprint: None,
             remote_routes: Arc::new(Mutex::new(HashMap::new())),
             remote_sshid: Arc::new(Mutex::new(None)),
             agent_forwarding: false,
@@ -118,6 +120,16 @@ impl client::Handler for SshClient {
             return Ok(false);
         };
         let fp = server_public_key.fingerprint(HashAlg::Sha256).to_string();
+
+        if self
+            .netbird_fingerprint
+            .as_ref()
+            .is_some_and(|expected| expected != &fp)
+        {
+            return Err(HopError::HostKey(
+                "NetBird peer fingerprint does not match the configured SHA256 pin.".into(),
+            ));
+        }
 
         self.known_hosts
             .verify_or_prompt(&self.host, self.port, fp, self.conflict_prompt.as_ref())
@@ -882,6 +894,35 @@ impl JumpHostConnect {
     }
 }
 
+async fn authenticate_terminal(
+    handle: &mut client::Handle<SshClient>,
+    sshid: &Mutex<Option<Vec<u8>>>,
+    username: &str,
+    password: Option<&str>,
+    private_key: Option<&str>,
+    passphrase: Option<&str>,
+    netbird: Option<super::netbird::Credential>,
+    verification_shown: impl Future<Output = Option<()>>,
+) -> Result<(), AppError> {
+    let is_netbird = sshid
+        .lock()
+        .await
+        .as_deref()
+        .is_some_and(super::netbird::requires_jwt);
+    match (is_netbird, netbird) {
+        (true, Some(login)) => super::netbird::authenticate(handle, username, login.token).await,
+        (true, None) => Err(super::netbird::required()),
+        (false, Some(_)) => Err("The peer did not advertise NetBird JWT authentication.".into()),
+        (false, None) => {
+            wait_for_auth(
+                authenticate_handle_inner(handle, username, password, private_key, passphrase),
+                verification_shown,
+            )
+            .await
+        }
+    }
+}
+
 pub async fn connect(
     app: AppHandle,
     session_id: String,
@@ -911,6 +952,7 @@ pub async fn connect(
     terminal_colors: Option<crate::ssh::control_mode::TerminalColors>,
     detached_ttl_secs: Option<u64>,
     on_verification: Option<tauri::ipc::Channel<String>>,
+    netbird: Option<super::netbird::Credential>,
 ) -> Result<ConnectedSession, AppError> {
     let terminal_colors =
         terminal_colors.filter(crate::ssh::control_mode::TerminalColors::is_valid);
@@ -934,6 +976,7 @@ pub async fn connect(
                 Arc::clone(&pending_conflicts),
             )),
             verification: Some(tx),
+            netbird_fingerprint: netbird.as_ref().map(|login| login.fingerprint.clone()),
             agent_forwarding,
             ..SshClient::new(host.to_owned(), port, Arc::clone(&known_hosts))
         };
@@ -1019,14 +1062,14 @@ pub async fn connect(
         SshStep::Authenticating,
         format!("as {}", username),
     );
-    wait_for_auth(
-        authenticate_handle_inner(
-            &mut final_handle,
-            username,
-            password,
-            private_key,
-            passphrase,
-        ),
+    authenticate_terminal(
+        &mut final_handle,
+        &final_sshid,
+        username,
+        password,
+        private_key,
+        passphrase,
+        netbird,
         async { on_verification?.send(verification.await.ok()?).ok() },
     )
     .await?;
@@ -1699,6 +1742,122 @@ mod tests {
     fn silent_server_gets_sha256_then_falls_back() {
         // No server-sig-algs at all: optimistic, with the caller's ssh-rsa retry behind it.
         assert_eq!(choose_rsa_hash(None), Some(HashAlg::Sha256));
+    }
+
+    #[tokio::test]
+    async fn netbird_only_sends_the_token_to_the_pinned_jwt_peer() {
+        use crate::port_forward::test_ssh::{host_key, serve_one};
+        use crate::ssh::netbird::Credential;
+
+        struct Peer(Arc<AtomicU32>);
+        impl russh::server::Handler for Peer {
+            type Error = russh::Error;
+
+            async fn auth_password(
+                &mut self,
+                user: &str,
+                password: &str,
+            ) -> Result<Auth, Self::Error> {
+                self.0.fetch_add(1, Ordering::Relaxed);
+                Ok(if user == "alice" && password == "test-token" {
+                    Auth::Accept
+                } else {
+                    Auth::reject()
+                })
+            }
+        }
+
+        const NETBIRD: &str = "SSH-2.0-NetBird-SSH-Server-test NetBird-JWT-Required";
+        let fp = host_key()
+            .public_key()
+            .fingerprint(HashAlg::Sha256)
+            .to_string();
+        for (banner, pin, token, expected_calls) in [
+            (NETBIRD, fp.as_str(), None, 0),
+            (NETBIRD, "wrong-pin", Some("test-token"), 0),
+            ("SSH-2.0-OpenSSH_9.9", fp.as_str(), Some("test-token"), 0),
+            (NETBIRD, fp.as_str(), Some("rejected-token"), 1),
+            (NETBIRD, fp.as_str(), Some("test-token"), 1),
+        ] {
+            let calls = Arc::new(AtomicU32::default());
+            let port = serve_one(
+                russh::server::Config {
+                    server_id: russh::SshId::Standard(banner.into()),
+                    ..Default::default()
+                },
+                Peer(calls.clone()),
+            )
+            .await;
+            let host = "127.0.0.1";
+            let known = Arc::new(KnownHostsStore::pinned(&[(host, port, &fp)]));
+            let mut handler = SshClient::new(host.into(), port, known);
+            handler.netbird_fingerprint = token.map(|_| pin.to_owned());
+            let id = handler.remote_sshid.clone();
+            match client::connect(Default::default(), (host, port), handler).await {
+                Ok(mut handle) => {
+                    assert_eq!(pin, fp);
+                    let login = token.map(|value| Credential {
+                        fingerprint: pin.to_owned(),
+                        token: value.to_owned().into(),
+                    });
+                    let auth = super::authenticate_terminal(
+                        &mut handle,
+                        &id,
+                        "alice",
+                        Some("vault-password"),
+                        None,
+                        None,
+                        login,
+                        std::future::pending(),
+                    )
+                    .await;
+                    if token.is_none() {
+                        assert_eq!(
+                            auth.unwrap_err().code(),
+                            Some(ErrorCode::SshNetbirdSsoRequired)
+                        );
+                    } else {
+                        assert_eq!(
+                            auth.is_ok(),
+                            banner == NETBIRD && token == Some("test-token")
+                        );
+                    }
+                }
+                Err(_) => assert_ne!(pin, fp),
+            }
+            assert_eq!(calls.load(Ordering::Relaxed), expected_calls);
+        }
+    }
+
+    #[tokio::test]
+    async fn netbird_without_jwt_can_accept_none_with_no_saved_credentials() {
+        let port = crate::port_forward::test_ssh::serve_one(
+            russh::server::Config {
+                server_id: russh::SshId::Standard("SSH-2.0-NetBird-SSH-Server-test".into()),
+                ..Default::default()
+            },
+            Relay,
+        )
+        .await;
+        let host = "127.0.0.1";
+        let known = Arc::new(KnownHostsStore::pinned(&[(host, port, &served_key())]));
+        let handler = SshClient::new(host.into(), port, known);
+        let id = handler.remote_sshid.clone();
+        let mut handle = client::connect(Default::default(), (host, port), handler)
+            .await
+            .unwrap();
+        super::authenticate_terminal(
+            &mut handle,
+            &id,
+            "alice",
+            None,
+            None,
+            None,
+            None,
+            std::future::pending(),
+        )
+        .await
+        .unwrap();
     }
 
     #[test]

@@ -44,6 +44,7 @@ impl Machine {
 }
 
 pub struct SessionManager {
+    pending_netbird: Mutex<HashMap<String, tokio_util::sync::CancellationToken>>,
     sessions: Arc<Mutex<HashMap<String, ConnectedSession>>>,
     /// Live handle per session id. Deliberately never pruned on disconnect: a
     /// reconnect disconnects and re-adds under the same id, and dropping the
@@ -55,8 +56,39 @@ pub struct SessionManager {
 impl SessionManager {
     pub fn new() -> Self {
         Self {
+            pending_netbird: Mutex::new(HashMap::new()),
             sessions: Arc::new(Mutex::new(HashMap::new())),
             handles: Arc::new(LiveCells::new()),
+        }
+    }
+
+    /// Closing the tab cancels a device grant, including the race between browser
+    /// approval and registering the connected SSH session.
+    pub async fn with_netbird_login(
+        &self,
+        id: &str,
+        connect: impl std::future::Future<Output = Result<(), crate::error::AppError>>,
+    ) -> Result<(), crate::error::AppError> {
+        use std::collections::hash_map::Entry;
+        let cancel = tokio_util::sync::CancellationToken::new();
+        match self.pending_netbird.lock().await.entry(id.to_owned()) {
+            Entry::Vacant(entry) => {
+                entry.insert(cancel.clone());
+            }
+            Entry::Occupied(_) => return Err("NetBird sign-in already in progress.".into()),
+        }
+        let result = tokio::select! {
+            biased;
+            _ = cancel.cancelled() => Err("NetBird sign-in cancelled.".into()),
+            result = connect => result,
+        };
+        self.pending_netbird.lock().await.remove(id);
+        result
+    }
+
+    pub async fn cancel_netbird_login(&self, id: &str) {
+        if let Some(cancel) = self.pending_netbird.lock().await.get(id) {
+            cancel.cancel();
         }
     }
 
@@ -342,6 +374,30 @@ fn normalize_distro(id: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{parse_distro, SessionManager};
+
+    #[tokio::test]
+    async fn closing_a_tab_cancels_netbird_login_and_allows_a_fresh_attempt() {
+        let manager = SessionManager::new();
+        let (started, ready) = tokio::sync::oneshot::channel();
+        let waiting = manager.with_netbird_login("tab", async {
+            started.send(()).unwrap();
+            std::future::pending().await
+        });
+        let close = async {
+            ready.await.unwrap();
+            assert!(manager
+                .with_netbird_login("tab", async { Ok(()) })
+                .await
+                .is_err());
+            manager.cancel_netbird_login("tab").await;
+        };
+        let (result, ()) = tokio::join!(waiting, close);
+        assert!(result.is_err());
+        manager
+            .with_netbird_login("tab", async { Ok(()) })
+            .await
+            .unwrap();
+    }
 
     #[test]
     fn parse_distro_reads_os_release_and_proxmox_markers() {

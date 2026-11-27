@@ -256,6 +256,21 @@ export interface ConnectRetryOverride {
   saveAs?: IdentitySaveAs;
 }
 
+/** Public device-flow configuration supplied by the NetBird administrator. */
+export interface NetbirdProfile {
+  issuer: string;
+  clientId: string;
+  scope: string;
+  audience: string;
+  tokenType: "access_token" | "id_token";
+  fingerprint: string;
+}
+
+export interface NetbirdChallenge {
+  verificationUri: string;
+  userCode: string;
+}
+
 export interface TerminalSession {
   /** Browser check for the current SSH attempt. Never persisted. */
   verificationUrl?: string;
@@ -276,6 +291,7 @@ export interface TerminalSession {
   /** Set when the failure was the vault itself, so the overlay can offer to unlock
    * rather than ask for credentials. The message is translated and cannot be matched. */
   errorCode?: BackendErrorCode;
+  netbirdChallenge?: NetbirdChallenge;
   identityPick?: IdentityPickIssue;
   skipIdentityPick?: boolean;
   connectedUsername?: string;

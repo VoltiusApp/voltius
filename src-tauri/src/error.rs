@@ -68,6 +68,7 @@ error_codes! {
     SshPromptUnanswerable,
     SshNoUsableAuthMethod,
     SshAuthTimeout,
+    SshNetbirdSsoRequired,
     // HTTP file servers (WebDAV).
     LoginRejected,
     ResourceLocked,

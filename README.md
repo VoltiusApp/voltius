@@ -27,6 +27,7 @@ No account required. Everything below is free, forever.
 
 **Terminal**
 - **SSH, your way** — Jump hosts, agent forwarding, SOCKS/HTTP proxies, port knocking, keyword highlighting. For Tailscale SSH checks on desktop and Android, open the verification link from the connection screen. The session continues when Tailscale approves it.
+- **NetBird SSH** — Sign in through your browser and keep the terminal in Voltius on desktop and Android. [Setup](#netbird-ssh)
 - **Persistent sessions** — tmux/screen on the host; tabs, splits and scrollback survive app restarts. [More →](https://voltius.app/blog/cross-device-session-pickup)
 - **Split panes, snippets & command palette** — Broadcast input to every pane; reusable commands with variables and sequences.
 - **Port forwarding** — Local, remote and dynamic (SOCKS).
@@ -234,6 +235,12 @@ on macOS and Windows after installation.
 
 ## 🛡️ Architecture & Security
 Voltius is built on a **Local-First, Zero-Knowledge** architecture. Your sensitive data (private keys, passwords, and server metadata) is encrypted on your machine before it ever touches a disk or a network.
+
+### NetBird SSH
+
+Connect to the peer’s NetBird address using its SSH port and remote username. If the peer requires a JWT, Voltius asks for your administrator’s OIDC issuer, public device-flow client ID, scopes, optional audience and token type. Enter the SSH host key’s SHA256 fingerprint obtained from your administrator through a trusted channel. Open the sign-in page, confirm the displayed code, then return to the same terminal tab.
+
+The identity provider must advertise device authorization and token endpoints on the issuer’s HTTPS origin and issue a JWT that the NetBird deployment accepts. Voltius remembers the public settings on this device and requests a fresh token for each sign-in.
 
 ### Account & Encryption Tiers
 We offer three levels of security to fit your workflow:

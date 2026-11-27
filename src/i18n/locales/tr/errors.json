@@ -22,6 +22,7 @@
     "ssh-password-expired": "Sunucu yeni bir parola istiyor — bir kez terminalden giriş yapıp parolayı orada değiştirin",
     "ssh-prompt-unanswerable": "Sunucu \"{{prompt}}\" diye sordu; bu soru otomatik olarak yanıtlanamaz",
     "ssh-no-usable-auth-method": "Kullanılabilir kimlik doğrulama yöntemi yok — sunucu yalnızca şunları kabul ediyor: {{methods}}",
+    "ssh-netbird-sso-required": "Bu eş NetBird SSH ile oturum açmanızı gerektiriyor.",
     "ssh-auth-timeout": "Kimlik doğrulama {{seconds}} sn sonra zaman aşımına uğradı — sunucu bağlantıyı kabul etti ama hiç yanıt vermedi. Bazı eski SSH sunucuları bu adımda takılır; sunucunun \"Eski algoritmalar\" seçeneğini ya da başka bir kimlik doğrulama yöntemini deneyin.",
     "login-rejected": "Sunucu kullanıcı adını veya parolayı reddetti",
     "resource-locked": "Dosya sunucuda kilitli — başka biri açmış olabilir",

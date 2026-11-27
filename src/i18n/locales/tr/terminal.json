@@ -244,6 +244,19 @@
         "open": "Tarayıcıda doğrula",
         "manual": "Yukarıdaki bağlantıyı kopyalayıp tarayıcınızda açın."
       },
+      "netbird": {
+        "setup": "Yöneticinizin verdiği genel OIDC istemci ayarlarını ve bağımsız olarak doğrulanmış SSH parmak izini girin. Ayarlar bu cihazda saklanır.",
+        "issuer": "OIDC sağlayıcısı (HTTPS)",
+        "clientId": "Genel istemci kimliği",
+        "fingerprint": "Eşin güvenilen parmak izi (SHA256)",
+        "scope": "Kapsamlar",
+        "audience": "Hedef kitle (isteğe bağlı)",
+        "tokenType": "NetBird tarafından kabul edilen belirteç",
+        "signIn": "NetBird ile oturum aç",
+        "verify": "Kimlik sağlayıcınızı açıp bu kodu onaylayın.",
+        "open": "Oturum açma sayfasını aç",
+        "manual": "Yukarıdaki adresi tarayıcınıza kopyalayın."
+      },
       "continue": "Devam et",
       "connectAndSave": "Bağlan ve kaydet",
       "continueAndSave": "Devam et ve kaydet",

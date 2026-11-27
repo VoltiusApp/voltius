@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import i18n from "@/i18n";
-import type { Connection, ConnectionFormData, ConnectRetryOverride, IdentitySaveAs, TerminalSession, SerialConnectParams, SerialLine } from "@/types";
+import type { Connection, NetbirdProfile, ConnectionFormData, ConnectRetryOverride, IdentitySaveAs, TerminalSession, SerialConnectParams, SerialLine } from "@/types";
 import { sshConnect, sshDisconnect, sshDisconnectForReconnect, sshDetectDistro, sshSendInput } from "@/services/ssh";
 import { resolveKeepalive } from "@/utils/keepalive";
 import { normalizeTabTitle } from "@/utils/sessionLabel";
@@ -75,7 +75,7 @@ interface SessionStore {
   markConnecting: (sessionId: string) => void;
   setReconnectWait: (sessionId: string, wait: ReconnectWait | undefined) => void;
   removeSession: (sessionId: string) => void;
-  reconnect: (sessionId: string, options?: { restore?: boolean; skipIdentityPick?: boolean }) => Promise<void>;
+  reconnect: (sessionId: string, options?: { restore?: boolean; skipIdentityPick?: boolean; netbird?: NetbirdProfile }) => Promise<void>;
   /** Silent reconnect for the auto-backoff loop: performs the same connect as
    * reconnect() but mutates no visible status, returning the outcome so the loop
    * can hold a single steady "reconnecting" state and decide what to surface. */
@@ -965,10 +965,19 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     try {
       await withSessionConnectLock(sessionId, async () => {
         await sshDisconnectForReconnect(sessionId);
-        credentials = await resolveSessionCredentials(connection, sessionId);
+        const profile = options?.netbird;
+        const resolved = profile
+          ? await resolveOverrideAuth(connection, connectOverrides.get(sessionId) ?? {})
+          : await resolveSessionCredentials(connection, sessionId);
+        credentials = profile ? { username: resolved.username } : resolved;
         const opts = await buildSshConnectOptions(connection, sessionId);
+        if (profile && !get().sessions.some((s) => s.id === sessionId)) throw new Error("Connection closed.");
         await sshConnect({
           sessionId,
+          netbird: profile ? {
+            profile,
+            onChallenge: (challenge) => patchSession(set, sessionId, { netbirdChallenge: challenge ?? undefined }),
+          } : undefined,
           host: connection.host,
           port: connection.port,
           username: credentials.username,
@@ -992,7 +1001,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         sessionEnded(sessionId);
         return;
       }
-      markSessionError(set, sessionId, identityPickIssueOf(err) ? err : msg);
+      markSessionError(set, sessionId, err);
     }
   },
 

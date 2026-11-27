@@ -166,6 +166,8 @@ function SessionConnectionOverlayPanel({ session, banner }: { session: TerminalS
       steps={getSshSteps(!!connection && knocksOnConnect(connection))}
       stepEventName={`ssh-step-${session.id}`}
       verificationUrl={session.verificationUrl}
+      netbirdChallenge={session.netbirdChallenge}
+      onNetbirdLogin={(netbird) => void reconnect(session.id, { netbird })}
       conflictEventName={`ssh-host-key-conflict-${session.id}`}
       onDismiss={onDismiss}
       onRetry={session.type === "ssh" ? onRetry : undefined}

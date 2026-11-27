@@ -242,6 +242,19 @@
         "open": "在浏览器中验证",
         "manual": "复制上方链接并在浏览器中打开。"
       },
+      "netbird": {
+        "setup": "请输入管理员提供的 OIDC 公共客户端配置以及经独立核实的 SSH 指纹。配置保存在此设备上。",
+        "issuer": "OIDC 签发机构（HTTPS）",
+        "clientId": "公共客户端 ID",
+        "fingerprint": "可信节点指纹（SHA256）",
+        "scope": "权限范围",
+        "audience": "受众（可选）",
+        "tokenType": "NetBird 接受的令牌类型",
+        "signIn": "开始 NetBird 登录",
+        "verify": "打开身份提供商的登录页并确认此代码。",
+        "open": "打开登录页",
+        "manual": "将上方网址复制到浏览器中。"
+      },
       "continue": "继续",
       "connectAndSave": "连接并保存",
       "continueAndSave": "继续并保存",

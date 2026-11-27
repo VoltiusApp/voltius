@@ -11,6 +11,7 @@ const FINAL_CODES: ReadonlySet<BackendErrorCode> = new Set<BackendErrorCode>([
   "vault-locked",
   "ssh-key-rejected",
   "ssh-password-rejected",
+  "ssh-netbird-sso-required",
   "ssh-password-expired",
   "ssh-prompt-unanswerable",
   "ssh-no-usable-auth-method",

@@ -22,6 +22,7 @@
     "ssh-password-expired": "Server vyžaduje nové heslo — přihlaste se jednou z terminálu a změňte ho tam",
     "ssh-prompt-unanswerable": "Server se zeptal „{{prompt}}“, na což nelze odpovědět automaticky",
     "ssh-no-usable-auth-method": "Žádná použitelná metoda ověření — server přijímá jen: {{methods}}",
+    "ssh-netbird-sso-required": "Tento protějšek vyžaduje přihlášení přes NetBird SSH.",
     "ssh-auth-timeout": "Časový limit ověření vypršel po {{seconds}} s — server připojení přijal, ale neodpověděl. Některé starší SSH servery se v tomto kroku zaseknou; zkuste u hostu volbu „Starší algoritmy“ nebo jinou metodu ověření.",
     "login-rejected": "Server odmítl uživatelské jméno nebo heslo",
     "resource-locked": "Soubor je na serveru zamčený — možná ho má otevřený někdo jiný",

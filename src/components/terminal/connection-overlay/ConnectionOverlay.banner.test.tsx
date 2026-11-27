@@ -79,3 +79,43 @@ describe("reconnect banner", () => {
     expect(container.textContent).toContain("terminal.overlay.connectionError.title");
   });
 });
+
+describe("NetBird SSH sign-in", () => {
+  test.each(["overlay", "banner"] as const)("keeps setup and browser verification in the %s view", async (variant) => {
+    const login = vi.fn();
+    const key = "netbird-ssh:c1";
+    localStorage.removeItem(key);
+    const { getByLabelText, getByText, findByRole, rerender } = render(
+      <ConnectionOverlay {...props} variant={variant} connectionId="c1" status="error"
+        errorCode="ssh-netbird-sso-required" onNetbirdLogin={login} />,
+    );
+    const fingerprint = "SHA256:" + "A".repeat(43);
+    const issuer = getByLabelText("terminal.overlay.netbird.issuer");
+    const submit = getByText("terminal.overlay.netbird.signIn");
+    fireEvent.change(issuer, { target: { value: "https://id.example?secret=bad" } });
+    fireEvent.change(getByLabelText("terminal.overlay.netbird.clientId"), { target: { value: "public" } });
+    fireEvent.change(getByLabelText("terminal.overlay.netbird.fingerprint"), { target: { value: fingerprint } });
+    fireEvent.click(submit);
+    expect(login).not.toHaveBeenCalled();
+    expect(localStorage.getItem(key)).toBeNull();
+
+    fireEvent.change(issuer, { target: { value: "https://id.example/tenant" } });
+    fireEvent.click(submit);
+    const expected = { issuer: "https://id.example/tenant", clientId: "public", fingerprint,
+      scope: "openid profile email", audience: "", tokenType: "access_token" };
+    expect(login).toHaveBeenCalledWith(expected);
+    expect(JSON.parse(localStorage.getItem(key)!)).toEqual(expected);
+
+    const challenge = { verificationUri: "https://id.example/device", userCode: "ABCD" };
+    rerender(<ConnectionOverlay {...props} variant={variant} status="connecting" netbirdChallenge={challenge} />);
+    expect(getByText(challenge.userCode)).toBeTruthy();
+    expect(getByText(challenge.verificationUri)).toBeTruthy();
+    expect(h.openUrl).not.toHaveBeenCalled();
+    h.openUrl.mockRejectedValueOnce(new Error("no browser"));
+    fireEvent.click(getByText("terminal.overlay.netbird.open"));
+    expect(h.openUrl).toHaveBeenCalledWith(challenge.verificationUri);
+    expect((await findByRole("alert")).textContent).toBe("terminal.overlay.netbird.manual");
+    fireEvent.click(getByText("common.action.cancel"));
+    expect(props.onDismiss).toHaveBeenCalled();
+  });
+});

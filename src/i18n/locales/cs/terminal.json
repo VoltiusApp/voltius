@@ -262,6 +262,19 @@
         "open": "Ověřit v prohlížeči",
         "manual": "Zkopírujte výše uvedený odkaz a otevřete ho v prohlížeči."
       },
+      "netbird": {
+        "setup": "Zadejte nastavení veřejného klienta OIDC od správce a nezávisle ověřený otisk SSH. Nastavení se uloží na tomto zařízení.",
+        "issuer": "Vydavatel OIDC (HTTPS)",
+        "clientId": "ID veřejného klienta",
+        "fingerprint": "Důvěryhodný otisk protějšku (SHA256)",
+        "scope": "Rozsahy",
+        "audience": "Cílové publikum (volitelné)",
+        "tokenType": "Token přijímaný službou NetBird",
+        "signIn": "Přihlásit se přes NetBird",
+        "verify": "Otevřete poskytovatele identity a potvrďte tento kód.",
+        "open": "Otevřít přihlášení",
+        "manual": "Zkopírujte výše uvedenou adresu do prohlížeče."
+      },
       "continue": "Pokračovat",
       "connectAndSave": "Připojit a uložit",
       "continueAndSave": "Pokračovat a uložit",

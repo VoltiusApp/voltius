@@ -45,6 +45,7 @@ vi.mock("@/services/auditContextResolver", () => ({ auditContextForVaultId: vi.f
 
 import { useSessionStore } from "./sessionStore";
 import { sshConnect } from "@/services/ssh";
+import { BackendError } from "@/services/backendErrors";
 import { VaultUnreadableError } from "@/services/vaultErrors";
 
 const session = (over: Partial<TerminalSession> = {}) =>
@@ -70,6 +71,30 @@ beforeEach(() => {
 });
 
 describe("session error state", () => {
+  test("a username-only host can request NetBird sign-in and finish in the same tab", async () => {
+    h.resolveConnectionCredentials.mockResolvedValue({ username: "root" });
+    const required = new BackendError("ssh-netbird-sso-required", "Sign in to NetBird");
+    vi.mocked(sshConnect).mockRejectedValueOnce(required);
+    await expect(useSessionStore.getState().connect("c1")).rejects.toBe(required);
+    expect(current().errorCode).toBe(required.code);
+    const sessionId = current().id;
+
+    const profile = { issuer: "https://id.example", clientId: "public", scope: "openid",
+      audience: "", tokenType: "id_token" as const, fingerprint: "SHA256:" + "A".repeat(43) };
+    h.resolveConnectionCredentials.mockResolvedValue({ username: "root", password: "unused-vault-secret" });
+    vi.mocked(sshConnect).mockImplementationOnce(async ({ netbird, password }) => {
+      expect(password).toBeUndefined();
+      expect(netbird?.profile).toEqual(profile);
+      const challenge = { verificationUri: "https://id.example/device", userCode: "ABCD" };
+      netbird!.onChallenge(challenge);
+      expect(current().netbirdChallenge).toEqual(challenge);
+      netbird!.onChallenge(null);
+    });
+    await useSessionStore.getState().reconnect(sessionId, { netbird: profile });
+    expect(current()).toMatchObject({ id: sessionId, status: "connected", connectedUsername: "root" });
+    expect(current().netbirdChallenge).toBeUndefined();
+  });
+
   test("markError records the message and the error status", () => {
     seed();
     useSessionStore.getState().markError("s1", "boom");

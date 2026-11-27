@@ -29,6 +29,7 @@ export const BACKEND_ERROR_CODES = [
   "ssh-prompt-unanswerable",
   "ssh-no-usable-auth-method",
   "ssh-auth-timeout",
+  "ssh-netbird-sso-required",
   "login-rejected",
   "resource-locked",
   "vault-locked",

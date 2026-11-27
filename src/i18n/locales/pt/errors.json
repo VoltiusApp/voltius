@@ -22,6 +22,7 @@
     "ssh-password-expired": "O servidor exige uma nova senha — faça login uma vez a partir de um terminal e altere-a lá",
     "ssh-prompt-unanswerable": "O servidor perguntou \"{{prompt}}\", que não pode ser respondido automaticamente",
     "ssh-no-usable-auth-method": "Nenhum método de autenticação utilizável — o servidor aceita apenas: {{methods}}",
+    "ssh-netbird-sso-required": "Este par requer autenticação NetBird SSH.",
     "ssh-auth-timeout": "Tempo de autenticação esgotado após {{seconds}}s — o servidor aceitou a conexão mas nunca respondeu. Alguns servidores SSH antigos travam aqui; tente a opção \"Algoritmos Legados\" do host, ou outro método de autenticação.",
     "login-rejected": "O servidor rejeitou o usuário ou a senha",
     "resource-locked": "O arquivo está bloqueado no servidor — outra pessoa pode tê-lo aberto",
