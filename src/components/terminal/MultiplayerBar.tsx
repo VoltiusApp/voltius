@@ -11,9 +11,9 @@ import { useDismissBlockedReason } from "@/hooks/useSessionLocked";
 import { greyedTapProps } from "@/components/mobile/tapOrExplain";
 
 const SIZES = {
-  pointer: { avatars: 5, avatar: 24, people: "gap-1.5", person: "", button: "px-2 py-1 rounded-md text-xs", leave: "px-2 py-1 rounded-md text-xs", icon: 12 },
+  pointer: { avatars: 5, avatar: 24, people: "gap-1.5", button: "px-2 py-1 rounded-md text-xs", leave: "px-2 py-1 rounded-md text-xs", icon: 12 },
   touch: {
-    avatars: 3, avatar: 26, people: "-space-x-2", person: "ring-2 ring-(--t-bg-terminal)",
+    avatars: 3, avatar: 26, people: "gap-1",
     button: "h-9 px-3 rounded-lg text-[13px]", leave: "h-9 w-9 justify-center rounded-lg", icon: 15,
   },
 };
@@ -95,7 +95,6 @@ export function MultiplayerBar({ localSessionId, touch }: MultiplayerBarProps) {
               handle={avatarLabel(who)}
               size={size.avatar}
               hasControl={p.user_id === mpState.controlHolder}
-              className={`${size.person}${p.user_id === mpState.controlHolder ? " z-10" : ""}`}
             />
           );
         })}

@@ -105,9 +105,9 @@
       "unknownDevice": "Bilinmeyen cihaz"
     },
     "teamSessions": {
-      "title": "Ekip oturumları",
+      "title": "Paylaşılan oturumlar",
       "joinByCode": "Kodla katıl",
-      "emptyHint": "Ekip arkadaşlarınızın paylaştığı terminaller burada görünür. Davet bağlantınız veya kodunuz mu var? “Kodla katıl”ı kullanın.",
+      "emptyHint": "Sizinle paylaşılan terminaller burada görünür. Davet bağlantınız veya kodunuz mu var? “Kodla katıl”ı kullanın.",
       "live": "CANLI",
       "sharedBy": "{{name}} paylaşıyor",
       "pasteInviteCode": "Özel bir oturuma katılmak için davet bağlantısını veya kodunu yapıştırın:",
