@@ -47,7 +47,9 @@ export function activateStep(
 /** The step a failure belongs to when the backend reports it before announcing that step. */
 export function failedStepFor(code: BackendErrorCode | undefined, stepConfigs: readonly StepConfig[]): string | null {
   const isNegotiation = code === "ssh-legacy-algorithms-required" || code === "ssh-no-common-algorithm";
-  return isNegotiation && stepConfigs.some((step) => step.id === "handshake") ? "handshake" : null;
+  const isAuth = code === "ssh-auth-timeout" || code?.startsWith("ssh-tailscale-check-");
+  const id = isNegotiation ? "handshake" : isAuth ? "authenticating" : null;
+  return stepConfigs.some((step) => step.id === id) ? id : null;
 }
 
 export function markErrorStep(currentSteps: Step[], lastActivatedId: string | null): Step[] {

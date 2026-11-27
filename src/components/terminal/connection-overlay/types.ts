@@ -50,7 +50,8 @@ export interface ConnectionOverlayProps {
   steps: readonly StepConfig[];
   stepEventName: string;
   conflictEventName?: string;
-  verificationUrl?: string;
+  tailscaleAuth?: TerminalSession["tailscaleAuth"];
+  autoOpenCheck?: boolean;
   netbirdChallenge?: NetbirdChallenge;
   /** The host's saved NetBird settings, prefilled when the peer asks for sign-in. */
   netbird?: NetbirdSettings;

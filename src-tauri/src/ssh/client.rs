@@ -47,7 +47,7 @@ pub struct SshClient {
     port: u16,
     known_hosts: Arc<KnownHostsStore>,
     conflict_prompt: Option<ConflictPrompt>,
-    check_link: watch::Sender<Option<String>>,
+    check_link: watch::Sender<TailscaleAuth>,
     netbird_pin: Option<Fingerprint>,
     /// Remote-forward route table: (bind_host, remote_port) → RemoteRoute.
     /// Populated by PortForwardManager before calling tcpip_forward.
@@ -68,7 +68,7 @@ impl SshClient {
             port,
             known_hosts,
             conflict_prompt: None,
-            check_link: watch::channel(None).0,
+            check_link: watch::channel(TailscaleAuth::Idle).0,
             netbird_pin: None,
             remote_routes: Arc::new(Mutex::new(HashMap::new())),
             remote_sshid: Arc::new(Mutex::new(None)),
@@ -88,26 +88,30 @@ impl SshClient {
     }
 }
 
-/// The Tailscale check link this connection's auth banner carried, if any.
+/// Only a validated auth banner can supply a browser URL. The SSH software ID
+/// lets the terminal show progress while the server consults its policy.
+#[derive(Clone, Debug, Serialize)]
+#[serde(tag = "state", rename_all = "camelCase")]
+pub enum TailscaleAuth {
+    Idle,
+    Authenticating,
+    Verify {
+        url: String,
+        #[serde(rename = "autoOpen")]
+        auto_open: bool,
+    },
+}
+
 #[derive(Clone)]
-pub struct CheckLink(watch::Receiver<Option<String>>);
+pub struct CheckLink(watch::Receiver<TailscaleAuth>);
 
 impl CheckLink {
     fn shown(&self) -> bool {
-        self.0.borrow().is_some()
-    }
-
-    async fn arrived(mut self) -> Option<String> {
-        self.0
-            .wait_for(Option::is_some)
-            .await
-            .ok()
-            .and_then(|url| url.clone())
+        matches!(*self.0.borrow(), TailscaleAuth::Verify { .. })
     }
 }
 
-/// Where a check link is shown. Without one, the link fails the attempt.
-pub type CheckSink<'a> = Option<&'a tauri::ipc::Channel<String>>;
+pub type CheckSink<'a> = Option<&'a tauri::ipc::Channel<TailscaleAuth>>;
 
 impl client::Handler for SshClient {
     type Error = HopError;
@@ -118,7 +122,16 @@ impl client::Handler for SshClient {
         _: &mut client::Session,
     ) -> Result<(), Self::Error> {
         if let Some(url) = tailscale_check_url(banner) {
-            self.check_link.send_replace(Some(url.to_owned()));
+            self.check_link.send_if_modified(|state| {
+                if matches!(state, TailscaleAuth::Verify { .. }) {
+                    return false;
+                }
+                *state = TailscaleAuth::Verify {
+                    url: url.to_owned(),
+                    auto_open: matches!(state, TailscaleAuth::Authenticating),
+                };
+                true
+            });
         }
         Ok(())
     }
@@ -132,7 +145,13 @@ impl client::Handler for SshClient {
         _names: &russh::Names,
         session: &mut client::Session,
     ) -> Result<(), Self::Error> {
-        *self.remote_sshid.lock().await = Some(session.remote_sshid().to_vec());
+        let id = session.remote_sshid();
+        if id.split(|b| b.is_ascii_whitespace()).next() == Some(b"SSH-2.0-Tailscale")
+            && matches!(*self.check_link.borrow(), TailscaleAuth::Idle)
+        {
+            self.check_link.send_replace(TailscaleAuth::Authenticating);
+        }
+        *self.remote_sshid.lock().await = Some(id.to_vec());
         Ok(())
     }
 
@@ -638,41 +657,54 @@ async fn wait_for_auth(
     link: CheckLink,
     sink: CheckSink<'_>,
 ) -> Result<(), AppError> {
-    tokio::pin!(auth);
-    tokio::select! {
-        biased;
-        result = &mut auth => result,
-        Some(url) = link.arrived() => {
-            let Some(sink) = sink else {
+    let mut updates = link.0;
+    let deadline = tokio::time::sleep(AUTH_TIMEOUT);
+    tokio::pin!(auth, deadline);
+    let mut notified = false;
+    let result = loop {
+        let state = updates.borrow_and_update().clone();
+        if !matches!(state, TailscaleAuth::Idle) {
+            if let Some(sink) = sink {
+                if !notified {
+                    deadline
+                        .as_mut()
+                        .reset(tokio::time::Instant::now() + CHECK_TIMEOUT);
+                    notified = true;
+                }
+                let _ = sink.send(state);
+            } else if matches!(state, TailscaleAuth::Verify { .. }) {
                 return Err(AppError::coded(
                     ErrorCode::SshTailscaleCheckRequired,
                     "Tailscale SSH needs a browser check for this host. Open a terminal to it, \
                      approve the check, then try again.",
                 ));
-            };
-            let _ = sink.send(url);
-            // Continue the same request: only the server can grant access.
-            let result = tokio::time::timeout(CHECK_TIMEOUT, auth).await;
-            let _ = sink.send(String::new());
-            result.unwrap_or_else(|_| {
-                let minutes = CHECK_TIMEOUT.as_secs() / 60;
-                Err(AppError::coded(
-                    ErrorCode::SshTailscaleCheckTimeout,
-                    format!("The Tailscale browser check was not completed within {minutes} minutes."),
-                )
-                .with_param("minutes", minutes))
-            })
+            }
         }
-        () = tokio::time::sleep(AUTH_TIMEOUT) => {
-            let seconds = AUTH_TIMEOUT.as_secs();
-            Err(AppError::coded(
-                ErrorCode::SshAuthTimeout,
-                format!("Authentication timed out after {seconds}s — the server accepted the connection \
-                         but never answered the authentication request. Some older SSH servers stall \
-                         here; try the host's \"Legacy algorithms\" option, or another authentication method."),
-            ).with_param("seconds", seconds))
+        // Keep the original userauth request pending. Only the server can grant access.
+        tokio::select! {
+            biased;
+            result = &mut auth => break result,
+            Ok(()) = updates.changed() => continue,
+            () = &mut deadline => {
+                if notified {
+                    let minutes = CHECK_TIMEOUT.as_secs() / 60;
+                    break Err(AppError::coded(ErrorCode::SshTailscaleCheckTimeout,
+                        format!("Tailscale SSH authentication did not finish within {minutes} minutes."))
+                        .with_param("minutes", minutes));
+                }
+                let seconds = AUTH_TIMEOUT.as_secs();
+                break Err(AppError::coded(ErrorCode::SshAuthTimeout,
+                    format!("Authentication timed out after {seconds}s — the server accepted the connection \
+                             but never answered the authentication request. Some older SSH servers stall \
+                             here; try the host's \"Legacy algorithms\" option, or another authentication method."))
+                    .with_param("seconds", seconds));
+            }
         }
+    };
+    if let Some(sink) = sink.filter(|_| notified) {
+        let _ = sink.send(TailscaleAuth::Idle);
     }
+    result
 }
 
 // Retry transient connect failures: busy/throttling sshd often RSTs new connections.
@@ -1017,7 +1049,7 @@ pub async fn connect(
     route: HopRoute,
     terminal_colors: Option<crate::ssh::control_mode::TerminalColors>,
     detached_ttl_secs: Option<u64>,
-    on_verification: Option<tauri::ipc::Channel<String>>,
+    on_verification: Option<tauri::ipc::Channel<TailscaleAuth>>,
     netbird: Option<super::netbird::Login>,
 ) -> Result<ConnectedSession, AppError> {
     let terminal_colors =
@@ -1738,12 +1770,12 @@ mod tests {
     }
 
     fn no_link() -> super::CheckLink {
-        super::CheckLink(tokio::sync::watch::channel(None).1)
+        super::CheckLink(tokio::sync::watch::channel(super::TailscaleAuth::Idle).1)
     }
 
     /// A sink that forwards each JSON message it is sent.
     fn recording_sink() -> (
-        tauri::ipc::Channel<String>,
+        tauri::ipc::Channel<super::TailscaleAuth>,
         tokio::sync::mpsc::UnboundedReceiver<String>,
     ) {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
@@ -2033,9 +2065,12 @@ mod tests {
 
         let (sink, mut sent) = recording_sink();
         for (shown, sink) in [(false, Some(&sink)), (true, Some(&sink)), (true, None)] {
-            let (tx, rx) = tokio::sync::watch::channel(None);
+            let (tx, rx) = tokio::sync::watch::channel(super::TailscaleAuth::Idle);
             if shown {
-                tx.send_replace(Some("https://login.tailscale.com/a/x".to_owned()));
+                tx.send_replace(super::TailscaleAuth::Verify {
+                    url: "https://login.tailscale.com/a/x".to_owned(),
+                    auto_open: false,
+                });
             }
             let start = Instant::now();
             let err = super::wait_for_auth(pending(), super::CheckLink(rx), sink)
@@ -2050,7 +2085,43 @@ mod tests {
             assert_eq!(start.elapsed(), elapsed);
         }
         let messages: Vec<_> = std::iter::from_fn(|| sent.try_recv().ok()).collect();
-        assert_eq!(messages, [r#""https://login.tailscale.com/a/x""#, r#""""#]);
+        assert_eq!(
+            messages,
+            [
+                r#"{"state":"verify","url":"https://login.tailscale.com/a/x","autoOpen":false}"#,
+                r#"{"state":"idle"}"#
+            ]
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_tailscale_peer_can_supply_its_check_after_the_normal_auth_timeout() {
+        use super::TailscaleAuth;
+        let (tx, rx) = tokio::sync::watch::channel(TailscaleAuth::Authenticating);
+        let (sink, mut sent) = recording_sink();
+        let (approved, gate) = tokio::sync::oneshot::channel();
+        let task = tokio::spawn(async move {
+            super::wait_for_auth(
+                async { gate.await.unwrap() },
+                super::CheckLink(rx),
+                Some(&sink),
+            )
+            .await
+        });
+        assert_eq!(sent.recv().await.unwrap(), r#"{"state":"authenticating"}"#);
+        tokio::time::advance(AUTH_TIMEOUT + std::time::Duration::from_secs(1)).await;
+        tx.send_replace(TailscaleAuth::Verify {
+            url: "https://login.tailscale.com/a/test".into(),
+            auto_open: true,
+        });
+        assert_eq!(
+            sent.recv().await.unwrap(),
+            r#"{"state":"verify","url":"https://login.tailscale.com/a/test","autoOpen":true}"#
+        );
+        assert!(!task.is_finished());
+        approved.send(Ok(())).unwrap();
+        task.await.unwrap().unwrap();
+        assert_eq!(sent.recv().await.unwrap(), r#"{"state":"idle"}"#);
     }
 
     #[tokio::test]
@@ -2077,9 +2148,23 @@ mod tests {
             }
         }
 
-        for approve in [false, true] {
+        for (approve, tailscale) in [(false, true), (true, true), (true, false)] {
             let (decision, gate) = oneshot::channel();
-            let port = serve_one(Default::default(), CheckServer(gate)).await;
+            let port = serve_one(
+                russh::server::Config {
+                    server_id: russh::SshId::Standard(
+                        if tailscale {
+                            "SSH-2.0-Tailscale"
+                        } else {
+                            "SSH-2.0-Other"
+                        }
+                        .into(),
+                    ),
+                    ..Default::default()
+                },
+                CheckServer(gate),
+            )
+            .await;
             let host = "127.0.0.1";
             let fp = host_key()
                 .public_key()
@@ -2096,7 +2181,13 @@ mod tests {
             tokio::pin!(auth);
             tokio::select! {
                 result = &mut auth => panic!("authentication finished before verification: {result:?}"),
-                url = sent.recv() => assert_eq!(url.unwrap(), format!("{URL:?}")),
+                () = async {
+                    if tailscale {
+                        assert_eq!(sent.recv().await.unwrap(), r#"{"state":"authenticating"}"#);
+                    }
+                    let message: serde_json::Value = serde_json::from_str(&sent.recv().await.unwrap()).unwrap();
+                    assert_eq!(message, serde_json::json!({"state":"verify","url":URL,"autoOpen":tailscale}));
+                } => {},
             }
             decision.send(approve).unwrap();
             let result = auth.await;

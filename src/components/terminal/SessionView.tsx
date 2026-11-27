@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSessionStore } from "@/stores/sessionStore";
 import { wakeBackoff } from "@/stores/reconnectBackoffCore";
@@ -88,14 +88,20 @@ export function HostAwareTerminalView({
 }
 
 /** `banner`: a session that was already connected reconnects under a slim bar instead of the full overlay. */
-export function SessionConnectionOverlay({ session, banner }: { session: TerminalSession; banner?: boolean }) {
+type SessionOverlayProps = { session: TerminalSession; banner?: boolean; autoOpenCheck?: boolean };
+
+export function SessionConnectionOverlay({ session, banner, autoOpenCheck }: SessionOverlayProps) {
   if (!needsConnectionOverlay(session)) return null;
-  return <SessionConnectionOverlayPanel session={session} banner={banner} />;
+  return <SessionConnectionOverlayPanel session={session} banner={banner} autoOpenCheck={autoOpenCheck} />;
 }
 
-function SessionConnectionOverlayPanel({ session, banner }: { session: TerminalSession; banner?: boolean }) {
+function SessionConnectionOverlayPanel({ session, banner, autoOpenCheck }: SessionOverlayProps) {
   const { t } = useTranslation();
   const connection = useConnection(session.connectionId);
+  const serial = session.type === "serial";
+  const knocks = !!connection && knocksOnConnect(connection);
+  // A new array resets the step listener. Rebuild only when its labels or steps change.
+  const steps = useMemo(() => serial ? getSerialSteps() : getSshSteps(knocks), [serial, knocks, t]);
   const { plan } = useCredentialPlan(connection ?? NO_CONNECTION);
   const connectSerialEphemeralFinalize = useSessionStore((s) => s.connectSerialEphemeralFinalize);
   const resetSerialEphemeral = useSessionStore((s) => s.resetSerialEphemeral);
@@ -140,7 +146,7 @@ function SessionConnectionOverlayPanel({ session, banner }: { session: TerminalS
         name={session.connectionName}
         subtitle={subtitle}
         icon="lucide:ethernet-port"
-        steps={getSerialSteps()}
+        steps={steps}
         stepEventName={`serial-step-${session.id}`}
         onDismiss={onDismiss}
         onRetry={isEphemeral ? () => resetSerialEphemeral(session.id) : onRetry}
@@ -163,9 +169,10 @@ function SessionConnectionOverlayPanel({ session, banner }: { session: TerminalS
       icon={icon}
       vaultId={connection?.vault_id}
       connectionId={connection?.id}
-      steps={getSshSteps(!!connection && knocksOnConnect(connection))}
+      steps={steps}
       stepEventName={`ssh-step-${session.id}`}
-      verificationUrl={session.verificationUrl}
+      tailscaleAuth={session.tailscaleAuth}
+      autoOpenCheck={autoOpenCheck}
       netbirdChallenge={session.netbirdChallenge}
       netbird={connection?.netbird}
       onNetbirdLogin={session.type === "ssh" ? (netbird) => void reconnectWithHostPatch(session.id, { netbird }) : undefined}

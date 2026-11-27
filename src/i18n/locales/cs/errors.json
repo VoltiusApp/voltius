@@ -35,7 +35,7 @@
     "ssh-netbird-pin-mismatch": "Klíč hostitele SSH protějšku {{fingerprint}} neodpovídá otisku NetBird uloženému u tohoto hostitele. Ověřte otisk u správce.",
     "ssh-auth-timeout": "Časový limit ověření vypršel po {{seconds}} s — server připojení přijal, ale neodpověděl. Některé starší SSH servery se v tomto kroku zaseknou; zkuste u hostu volbu „Starší algoritmy“ nebo jinou metodu ověření.",
     "ssh-tailscale-check-denied": "Tailscale tuto relaci SSH neschválil. Zkontrolujte zásady Tailscale SSH, nebo to zkuste znovu a ověření v prohlížeči schvalte.",
-    "ssh-tailscale-check-timeout": "Ověření Tailscale v prohlížeči nebylo dokončeno do {{minutes}} minut. Zkuste to znovu a schvalte ho v prohlížeči.",
+    "ssh-tailscale-check-timeout": "Ověření Tailscale SSH nebylo dokončeno do {{minutes}} minut. Zkuste se připojit znovu.",
     "ssh-tailscale-check-required": "Tailscale SSH vyžaduje pro tohoto hostitele ověření v prohlížeči. Otevřete k němu terminál, ověření schvalte a pak to zkuste znovu.",
     "login-rejected": "Server odmítl uživatelské jméno nebo heslo",
     "resource-locked": "Soubor je na serveru zamčený — možná ho má otevřený někdo jiný",

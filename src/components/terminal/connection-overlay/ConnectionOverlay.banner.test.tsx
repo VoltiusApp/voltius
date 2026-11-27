@@ -68,7 +68,7 @@ describe("reconnect banner", () => {
   test.each([undefined, "banner"] as const)("browser verification waits for a click (%s)", (variant) => {
     const url = "https://login.tailscale.com/a/test";
     const { getByRole, queryByRole, rerender } = render(
-      <ConnectionOverlay {...props} variant={variant} status="connecting" verificationUrl={url} />,
+      <ConnectionOverlay {...props} variant={variant} status="connecting" tailscaleAuth={{ state: "verify", url, autoOpen: true }} />,
     );
     const verify = { name: "terminal.overlay.tailscaleCheck.open" };
     expect(h.openUrl).not.toHaveBeenCalled();
@@ -78,8 +78,35 @@ describe("reconnect banner", () => {
     expect(h.writeClipboard).toHaveBeenCalledExactlyOnceWith(url);
     fireEvent.click(getByRole("button", { name: "common.action.cancel" }));
     expect(props.onDismiss).toHaveBeenCalledOnce();
-    rerender(<ConnectionOverlay {...props} variant={variant} status="connected" verificationUrl={url} />);
+    rerender(<ConnectionOverlay {...props} variant={variant} status="connected" tailscaleAuth={{ state: "verify", url, autoOpen: true }} />);
     expect(queryByRole("button", verify)).toBeNull();
+  });
+
+  test("only the visible phone terminal opens the check, once, and can retry a failed launch", async () => {
+    const url = "https://login.tailscale.com/a/test";
+    const verify = { state: "verify", url, autoOpen: true } as const;
+    const view = (autoOpenCheck: boolean) =>
+      <ConnectionOverlay {...props} status="connecting" autoOpenCheck={autoOpenCheck} tailscaleAuth={verify} />;
+    const { rerender, getByRole, queryByRole, getByText, findByRole } = render(
+      <ConnectionOverlay {...props} status="connecting" autoOpenCheck tailscaleAuth={{ state: "authenticating" }} />,
+    );
+    expect(getByText("Tailscale SSH")).toBeTruthy();
+    expect(getByText("terminal.overlay.steps.authenticating")).toBeTruthy();
+    const button = { name: "terminal.overlay.tailscaleCheck.open" };
+    expect(queryByRole("button", button)).toBeNull();
+    rerender(<ConnectionOverlay {...props} status="connecting" autoOpenCheck tailscaleAuth={{ ...verify, autoOpen: false }} />);
+    rerender(view(false));
+    expect(h.openUrl).not.toHaveBeenCalled();
+    h.openUrl.mockRejectedValueOnce(new Error("no browser"));
+    rerender(view(true));
+    expect(h.openUrl).toHaveBeenCalledExactlyOnceWith(url);
+    expect((await findByRole("alert")).textContent).toBe("terminal.overlay.tailscaleCheck.manual");
+    rerender(view(false));
+    rerender(view(true));
+    fireEvent(document, new Event("visibilitychange"));
+    expect(h.openUrl).toHaveBeenCalledTimes(1);
+    fireEvent.click(getByRole("button", button));
+    expect(h.openUrl).toHaveBeenCalledTimes(2);
   });
 
   test("a failed reconnect shows the full error overlay", () => {
@@ -111,7 +138,7 @@ describe("NetBird SSH sign-in", () => {
       fingerprint: `SHA256:${body}`, scope: "openid profile email", audience: "", token_type: "access_token" });
 
     const challenge = { verificationUri: "https://id.example/device", userCode: "ABCD" };
-    rerender(<ConnectionOverlay {...props} variant={variant} status="connecting" netbirdChallenge={challenge} />);
+    rerender(<ConnectionOverlay {...props} variant={variant} status="connecting" autoOpenCheck netbirdChallenge={challenge} />);
     expect(getByText(challenge.userCode)).toBeTruthy();
     expect(getByText(challenge.verificationUri)).toBeTruthy();
     expect(h.openUrl).not.toHaveBeenCalled();

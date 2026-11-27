@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import i18n from "@/i18n";
-import type { Connection, ConnectionFormData, NetbirdChallenge, NetbirdSettings, ConnectRetryOverride, IdentitySaveAs, TerminalSession, SerialConnectParams, SerialLine } from "@/types";
+import type { Connection, ConnectionFormData, NetbirdChallenge, NetbirdSettings, TailscaleAuth, ConnectRetryOverride, IdentitySaveAs, TerminalSession, SerialConnectParams, SerialLine } from "@/types";
 import { sshConnect, sshDisconnect, sshDisconnectForReconnect, sshDetectDistro, sshSendInput } from "@/services/ssh";
 import { resolveKeepalive } from "@/utils/keepalive";
 import { normalizeTabTitle } from "@/utils/sessionLabel";
@@ -147,7 +147,7 @@ async function buildSshConnectOptions(
   connection: Connection,
   sessionId: string,
 ): Promise<{
-  onVerification: (url?: string) => void;
+  onVerification: (state?: TailscaleAuth) => void;
   netbird: NetbirdSettings | undefined;
   onNetbirdChallenge: (challenge?: NetbirdChallenge) => void;
   jumpHosts: Awaited<ReturnType<typeof resolveJumpHosts>> | undefined;
@@ -179,7 +179,7 @@ async function buildSshConnectOptions(
   }
 
   return {
-    onVerification: (verificationUrl) => patchSession(useSessionStore.setState, sessionId, { verificationUrl }),
+    onVerification: (tailscaleAuth) => patchSession(useSessionStore.setState, sessionId, { tailscaleAuth }),
     netbird: connection.netbird,
     onNetbirdChallenge: (netbirdChallenge) => patchSession(useSessionStore.setState, sessionId, { netbirdChallenge }),
     jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,

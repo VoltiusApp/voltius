@@ -31,7 +31,8 @@ export default function ConnectionOverlay({
   steps: stepConfigs,
   stepEventName,
   conflictEventName,
-  verificationUrl,
+  tailscaleAuth,
+  autoOpenCheck,
   netbirdChallenge,
   netbird,
   onNetbirdLogin,
@@ -74,10 +75,11 @@ export default function ConnectionOverlay({
   const showUsernamePrompt = prompting && isMissingUsernameError(errorMessage) && !!onRetryWithAuth;
   const showAuthPrompt = prompting && isNoAuthError(errorMessage) && !!onRetryWithAuth;
   const legacyFix = isError && errorCode === "ssh-legacy-algorithms-required" ? onEnableLegacyAlgorithms : undefined;
-  const checkUrl = isConnecting && (netbirdChallenge?.verificationUri ?? verificationUrl);
+  const checking = isConnecting && (netbirdChallenge || tailscaleAuth);
+  const checkUrl = netbirdChallenge?.verificationUri ?? (tailscaleAuth?.state === "verify" ? tailscaleAuth.url : undefined);
   const setupNetbird = isError && errorCode === "ssh-netbird-sso-required" && onNetbirdLogin;
   const showSpecialPanel =
-    setupNetbird || checkUrl || (conflict && !isError) || showIdentityPick || showChooser || showVaultError || showPassphrasePrompt || showUsernamePrompt || showAuthPrompt;
+    setupNetbird || checking || (conflict && !isError) || showIdentityPick || showChooser || showVaultError || showPassphrasePrompt || showUsernamePrompt || showAuthPrompt;
 
   if (variant === "banner" && isConnecting && !showSpecialPanel) {
     return (
@@ -101,11 +103,12 @@ export default function ConnectionOverlay({
 
           {conflict && !isError ? (
             <HostKeyConflictPanel conflict={conflict} resolving={resolving} onResolve={(action) => void resolveConflict(action)} />
-          ) : checkUrl ? (
+          ) : checking ? (
             <BrowserCheckPanel
               key={checkUrl}
               kind={netbirdChallenge ? "netbird" : "tailscaleCheck"}
               url={checkUrl}
+              autoOpen={autoOpenCheck && !netbirdChallenge && tailscaleAuth?.state === "verify" && tailscaleAuth.autoOpen}
               code={netbirdChallenge?.userCode}
               onCancel={onDismiss}
             />

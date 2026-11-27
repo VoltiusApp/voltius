@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
+import type { BackendErrorCode } from "@/services/backendErrors";
 import { renderHook } from "@testing-library/react";
 
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
@@ -9,7 +10,7 @@ const { useConnectionSteps } = await import("./hooks");
 
 type Status = "connecting" | "error";
 
-function failWith(errorCode: "ssh-legacy-algorithms-required" | "ssh-no-common-algorithm" | undefined, configs = getSshSteps()) {
+function failWith(errorCode: BackendErrorCode | undefined, configs = getSshSteps()) {
   const { result, rerender } = renderHook(
     ({ status }: { status: Status }) => useConnectionSteps({ status, errorCode, stepConfigs: configs, stepEventName: "ssh-step-s1" }),
     { initialProps: { status: "connecting" as Status } },
@@ -28,6 +29,14 @@ describe("negotiation failure step", () => {
       ["opening_shell", "pending"],
     ]);
   });
+
+  test.each(["ssh-auth-timeout", "ssh-tailscale-check-timeout", "ssh-tailscale-check-denied"] as const)(
+    "%s marks authentication when the overlay missed the live step events", (code) => {
+      expect(failWith(code).slice(0, 3)).toEqual([
+        ["tcp_connected", "done"], ["handshake", "done"], ["authenticating", "error"],
+      ]);
+    },
+  );
 
   test("the SFTP steps blame the handshake too", () => {
     expect(failWith("ssh-no-common-algorithm", getSftpSteps()).slice(0, 2)).toEqual([

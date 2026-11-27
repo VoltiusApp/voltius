@@ -269,6 +269,8 @@ export interface ConnectRetryOverride {
   saveAs?: IdentitySaveAs;
 }
 
+export type TailscaleAuth = { state: "authenticating" } | { state: "verify"; url: string; autoOpen: boolean };
+
 export interface NetbirdChallenge {
   verificationUri: string;
   userCode: string;
@@ -276,7 +278,7 @@ export interface NetbirdChallenge {
 
 export interface TerminalSession {
   /** Browser check for the current SSH attempt. Never persisted. */
-  verificationUrl?: string;
+  tailscaleAuth?: TailscaleAuth;
   id: string;
   connectionId: string;
   connectionName: string;
