@@ -3,7 +3,7 @@ import type { NetbirdSettings } from "@/types";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { formIdentifierProps, formInputClass, formInputStyle, formLabelClass, formLabelStyle } from "@/components/shared/Panel";
 import { netbirdComplete, normalizeNetbird } from "@/services/netbirdSettings";
-import { FormHint } from "./formShared";
+import { FormHint } from "@/components/shared/FormHint";
 
 type TextField = Exclude<keyof NetbirdSettings, "token_type">;
 

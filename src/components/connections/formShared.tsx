@@ -22,6 +22,7 @@ import { ListRowContext } from "@/components/shared/listRowContext";
 import { useIsMobile } from "@/utils/platform";
 import { ManagedNote, ManagedWhen } from "@/components/shared/ManagedNote";
 import { FormSelect, type FormSelectOption } from "@/components/shared/FormSelect";
+import { FormHint } from "@/components/shared/FormHint";
 
 export interface ConnectionFormProps {
   initial?: Connection;
@@ -219,9 +220,7 @@ export function SectionLabel({ children, className = "" }: { children: ReactNode
   return <p className={`${className} text-[10px] font-semibold uppercase tracking-wide text-(--t-text-dim)`.trim()}>{children}</p>;
 }
 
-export function FormHint({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <p className={`${className} text-xs text-(--t-text-dim)`.trim()}>{children}</p>;
-}
+export { FormHint };
 
 interface HostCommandFieldsProps {
   connectionId?: string;
