@@ -12,6 +12,7 @@ pub mod cli;
 pub mod cli_state;
 mod clock;
 mod commands;
+mod connect_cancel;
 mod crypto;
 mod device_files;
 mod docker;
@@ -320,6 +321,7 @@ pub fn run() {
         .manage(ProcessStreamManager::new())
         .manage(commands::host_exec::HostExecs::default())
         .manage(SessionManager::new())
+        .manage(connect_cancel::ConnectCancels::default())
         .manage(LocalSessionManager::new())
         .manage(terminal_output::TerminalOutputs::default())
         .manage(SecretsStore::new())
