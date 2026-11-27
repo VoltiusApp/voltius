@@ -184,6 +184,19 @@ describe("drag-selects-text over an app holding the mouse", () => {
     expect(h.protocol()).toBe("VT200");
   });
 
+  it("sends both clicks to the app when xterm selects a word on the second press", () => {
+    const h = harness();
+    press(h.screen, { buttons: 1 });
+    release();
+    press(h.screen, { detail: 2, buttons: 1 });
+    h.selection.text = "Documents";
+    release({ detail: 2 });
+    expect(h.appEvents).toEqual(["mousedown", "mouseup", "mousedown", "mouseup"]);
+    expect(h.clip.selectionText()).toBe("");
+    expect(writeClipboard).not.toHaveBeenCalled();
+    h.clip.dispose();
+  });
+
   it("leaves a modified press to the app", () => {
     const h = harness();
     press(h.screen, { ctrlKey: true });
