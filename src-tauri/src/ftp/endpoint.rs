@@ -1,18 +1,20 @@
 //! The FTP backend as one side of the copy engine: REST resumes a download,
 //! APPE an upload.
 
-use super::{call, failed, mtime_of, refused, FtpBackend};
+use super::{call, failed, mtime_of, refused, FtpBackend, Loan, Session, Stream};
 use crate::commands::sftp::resume::endpoint::{Endpoint, Listed, Reader, Stat, Writer};
-use crate::commands::sftp::resume::pipe::piped;
+use crate::commands::sftp::resume::pipe::{piped, Piped};
 use crate::commands::sftp::CHUNK_SIZE;
 use crate::error::{AppError, ErrorCode};
 use crate::sftp::link::{wait_for_link, LINK_PROBE};
 use crate::sftp::FileBackend;
 use async_trait::async_trait;
+use std::future::Future;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use suppaftp::list::File as FtpFile;
 use suppaftp::Status;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream};
 use tokio::net::TcpStream;
 use tokio::time::{timeout, Duration, Instant};
 use tokio_util::sync::CancellationToken;
@@ -74,9 +76,44 @@ fn cancelled() -> AppError {
 impl FtpBackend {
     async fn revive(&self) -> bool {
         match timeout(LINK_PROBE, self.conn.lock()).await {
-            Ok(mut conn) => self.answers(&mut conn).await.is_ok(),
+            Ok(mut conn) => self.probe(&mut conn).await,
             Err(_) => false,
         }
+    }
+
+    /// Whether the server still answers; a pane whose logins are all streaming can only be reached.
+    async fn probe(&self, conn: &mut Option<Stream>) -> bool {
+        if conn.is_none() && self.lent.out.load(Ordering::SeqCst) > 0 {
+            return self.reachable().await;
+        }
+        self.answers(conn).await.is_ok()
+    }
+
+    /// Runs `stream` on the session's control connection with the pane free for other
+    /// commands; the login returns to the pane once the stream's final reply is read.
+    fn lend<F, Fut>(&self, s: &mut Session, stream: F) -> Piped
+    where
+        F: FnOnce(Option<Stream>, DuplexStream) -> Fut + Send + 'static,
+        Fut: Future<Output = Result<Option<Stream>, AppError>> + Send + 'static,
+    {
+        let control = s.take();
+        self.lent.out.fetch_add(1, Ordering::SeqCst);
+        let (pane, loan) = (self.clone(), Loan(Arc::clone(&self.lent)));
+        piped(move |pipe, cancel| async move {
+            let control = tokio::select! {
+                r = stream(control, pipe) => r?,
+                _ = cancel.cancelled() => return Err(cancelled()),
+                _ = pane.closed.cancelled() => return Err(cancelled()),
+            };
+            if let Some(ftp) = control.filter(|_| !pane.closed.is_cancelled()) {
+                pane.spare
+                    .lock()
+                    .unwrap()
+                    .push((ftp, std::time::Instant::now()));
+            }
+            drop(loan);
+            Ok(())
+        })
     }
 
     async fn reachable(&self) -> bool {
@@ -161,22 +198,15 @@ impl Endpoint for FtpBackend {
         }
         let mut data =
             call!(*s, |ftp| ftp.retr_as_stream(path)).map_err(|e| failed("download", e))?;
-        // The final FTP reply belongs to this data stream. Take its control
-        // connection and release the pane lock before streaming the bytes.
-        let mut control = s.take();
-        drop(s);
-        let pane = self.clone();
-        Ok(Box::new(piped(move |mut tx, cancel| async move {
-            tokio::select! {
-                r = copy_data(&mut data, &mut tx, true) => r?,
-                _ = cancel.cancelled() => return Err(cancelled()),
-                _ = pane.closed.cancelled() => return Err(cancelled()),
-            }
-            call!(control, |ftp| ftp.finalize_retr_stream(data))
-                .map_err(|e| failed("download", e))?;
-            pane.recycle(control);
-            Ok(())
-        })))
+        Ok(Box::new(self.lend(
+            &mut s,
+            move |mut control, mut tx| async move {
+                copy_data(&mut data, &mut tx, true).await?;
+                call!(control, |ftp| ftp.finalize_retr_stream(data))
+                    .map_err(|e| failed("download", e))?;
+                Ok(control)
+            },
+        )))
     }
 
     async fn open_write(&self, path: &str, offset: u64, _len: u64) -> Result<Writer, AppError> {
@@ -187,19 +217,15 @@ impl Endpoint for FtpBackend {
             call!(*s, |ftp| ftp.append_with_stream(path))
         }
         .map_err(|e| failed("upload", e))?;
-        let mut control = s.take();
-        drop(s);
-        let pane = self.clone();
-        Ok(Box::new(piped(move |mut rx, cancel| async move {
-            tokio::select! {
-                r = copy_data(&mut rx, &mut data, false) => r?,
-                _ = cancel.cancelled() => return Err(cancelled()),
-                _ = pane.closed.cancelled() => return Err(cancelled()),
-            }
-            call!(control, |ftp| ftp.finalize_put_stream(data)).map_err(|e| failed("upload", e))?;
-            pane.recycle(control);
-            Ok(())
-        })))
+        Ok(Box::new(self.lend(
+            &mut s,
+            move |mut control, mut rx| async move {
+                copy_data(&mut rx, &mut data, false).await?;
+                call!(control, |ftp| ftp.finalize_put_stream(data))
+                    .map_err(|e| failed("upload", e))?;
+                Ok(control)
+            },
+        )))
     }
 
     /// An empty APPE: servers such as proftpd refuse appends unless configured to allow them.
@@ -261,7 +287,7 @@ impl Endpoint for FtpBackend {
     /// A busy connection is mid-transfer: then the server being reachable is all we can tell.
     async fn link_dead(&self) -> bool {
         match timeout(LINK_PROBE, Arc::clone(&self.conn).lock_owned()).await {
-            Ok(mut conn) => self.answers(&mut conn).await.is_err(),
+            Ok(mut conn) => !self.probe(&mut conn).await,
             Err(_) => !self.reachable().await,
         }
     }
