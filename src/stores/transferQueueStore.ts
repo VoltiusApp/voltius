@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { transferLimit, useSftpSettingsStore } from "./sftpSettingsStore";
 import i18n from "@/i18n";
 import { describeError } from "@/services/backendErrors";
 import {
@@ -53,6 +54,34 @@ interface TransferQueueStore {
 
 const MAX_TRANSFERS = 30;
 
+// Share slots across panes, retries and both directions. Equal filenames are
+// kept in submission order so a multi-selection cannot race its own overwrite.
+const activeNames = new Set<string>();
+const queued = new Map<string, { name: string; admit: (run: boolean) => void }>();
+
+function startQueued() {
+  const limit = transferLimit(useSftpSettingsStore.getState().parallelTransfers);
+  for (const [id, job] of queued) {
+    if (activeNames.size >= limit) break;
+    if (activeNames.has(job.name)) continue;
+    queued.delete(id);
+    activeNames.add(job.name);
+    job.admit(true);
+  }
+}
+
+useSftpSettingsStore.subscribe((s, prev) => {
+  if (s.parallelTransfers !== prev.parallelTransfers) startQueued();
+});
+
+// The history cap can evict finished rows only. Even large selections must
+// keep their queued and in-flight rows visible and cancellable.
+function trimHistory(rows: Transfer[]) {
+  if (rows.length <= MAX_TRANSFERS) return rows;
+  let keep = MAX_TRANSFERS - rows.filter((row) => !row.settled).length;
+  return rows.filter((row) => !row.settled || keep-- > 0);
+}
+
 export const useTransferQueueStore = create<TransferQueueStore>((set, get) => ({
   transfers: [],
   pending: null,
@@ -86,37 +115,50 @@ export const useTransferQueueStore = create<TransferQueueStore>((set, get) => ({
     const tid = genId();
     const entry: Transfer = {
       id: tid, label, direction, transferred: 0, total: 0, status: "running",
-      accel, owner, rerun: { fn, onDone },
+      queued: true, accel, owner, rerun: { fn, onDone },
     };
-    set((s) => ({ transfers: [entry, ...s.transfers.slice(0, MAX_TRANSFERS - 1)] }));
     const update = (f: (t: Transfer) => Transfer) =>
       set((s) => ({ transfers: s.transfers.map((t) => (t.id === tid ? f(t) : t)) }));
+    const name = label.normalize().toLowerCase();
+    const admitted = await new Promise<boolean>((admit) => {
+      queued.set(tid, { name, admit });
+      set((s) => ({ transfers: trimHistory([entry, ...s.transfers]) }));
+      startQueued();
+    });
+    if (!admitted) return;
+    update((t) => ({ ...t, queued: false }));
     // Speed counts from the first progress after the start, a resume, or a wait.
     let base: { at: number; bytes: number } | null = null;
-    const unlisten = await Promise.all([
-      onTransferProgress(tid, (p) => {
-        base ??= { at: Date.now(), bytes: p.transferred };
-        const elapsed = (Date.now() - base.at) / 1000;
-        const speed = elapsed > 0.5 ? (p.transferred - base.bytes) / elapsed : undefined;
-        const eta = speed && p.total > p.transferred ? Math.round((p.total - p.transferred) / speed) : undefined;
-        update((t) => ({ ...t, transferred: p.transferred, total: p.total, speed, eta }));
-      }),
-      onTransferSkipped(tid, (path) => update((t) => ({ ...t, skipped: [...(t.skipped ?? []), path] }))),
-      onTransferResumed(tid, (offset) => {
-        base = null;
-        update((t) => ({ ...t, resumedAt: offset, transferred: offset }));
-      }),
-      onTransferWaiting(tid, (waiting) => {
-        base = null;
-        update((t) => ({ ...t, waiting, speed: undefined, eta: undefined }));
-      }),
-      onTransferAccel(tid, (a) => update((t) => ({ ...t, accel: a }))),
-    ]);
+    const unlisten: (() => void)[] = [];
     try {
+      const subscriptions = await Promise.allSettled([
+        onTransferProgress(tid, (p) => {
+          base ??= { at: Date.now(), bytes: p.transferred };
+          const elapsed = (Date.now() - base.at) / 1000;
+          const speed = elapsed > 0.5 ? (p.transferred - base.bytes) / elapsed : undefined;
+          const eta = speed && p.total > p.transferred ? Math.round((p.total - p.transferred) / speed) : undefined;
+          update((t) => ({ ...t, transferred: p.transferred, total: p.total, speed, eta }));
+        }),
+        onTransferSkipped(tid, (path) => update((t) => ({ ...t, skipped: [...(t.skipped ?? []), path] }))),
+        onTransferResumed(tid, (offset) => {
+          base = null;
+          update((t) => ({ ...t, resumedAt: offset, transferred: offset }));
+        }),
+        onTransferWaiting(tid, (waiting) => {
+          base = null;
+          update((t) => ({ ...t, waiting, speed: undefined, eta: undefined }));
+        }),
+        onTransferAccel(tid, (a) => update((t) => ({ ...t, accel: a }))),
+      ]);
+      for (const sub of subscriptions) if (sub.status === "fulfilled") unlisten.push(sub.value);
+      const failure = subscriptions.find((sub) => sub.status === "rejected");
+      if (failure) throw failure.reason;
       if (opts?.resume) await sftpMarkResume(tid).catch(() => {});
       await fn(tid);
-      update((t) => ({ ...t, status: "done" }));
-      onDone?.();
+      if (get().transfers.find((t) => t.id === tid)?.status === "running") {
+        update((t) => ({ ...t, status: "done" }));
+        onDone?.();
+      }
     } catch (e) {
       const msg = String(e);
       const wasCancelled = msg.toLowerCase().includes("cancel");
@@ -127,7 +169,9 @@ export const useTransferQueueStore = create<TransferQueueStore>((set, get) => ({
           : { ...t, status: "error", waiting: false, error: describeError(e, i18n.t) };
       });
     } finally {
-      update((t) => ({ ...t, settled: true }));
+      activeNames.delete(name);
+      set((s) => ({ transfers: trimHistory(s.transfers.map((t) => t.id === tid ? { ...t, settled: true } : t)) }));
+      startQueued();
       for (const off of unlisten) off();
     }
   },
@@ -135,19 +179,23 @@ export const useTransferQueueStore = create<TransferQueueStore>((set, get) => ({
   cancelTransfer: (id) => {
     const tr = get().transfers.find((t) => t.id === id);
     if (!tr || tr.status !== "running") return false;
-    sftpCancelTransfer(id).catch(() => {});
+    const job = queued.get(id);
+    if (job) {
+      queued.delete(id);
+      job.admit(false);
+    } else {
+      sftpCancelTransfer(id).catch(() => {});
+    }
     set((s) => ({
-      transfers: s.transfers.map((t) => (t.id === id ? { ...t, status: "cancelled" } : t)),
+      transfers: trimHistory(s.transfers.map((t) => t.id === id
+        ? { ...t, status: "cancelled", queued: false, settled: job ? true : t.settled }
+        : t)),
     }));
     return true;
   },
 
   cancelAll: () => {
-    const running = get().transfers.filter((t) => t.status === "running");
-    for (const t of running) sftpCancelTransfer(t.id).catch(() => {});
-    set((s) => ({
-      transfers: s.transfers.map((t) => (t.status === "running" ? { ...t, status: "cancelled" } : t)),
-    }));
+    for (const t of get().transfers) if (t.status === "running") get().cancelTransfer(t.id);
   },
 
   clearCompleted: () =>
@@ -158,9 +206,7 @@ export const useTransferQueueStore = create<TransferQueueStore>((set, get) => ({
   retryTransfer: (id) => {
     if (!get().canRetry(id)) return;
     const tr = get().transfers.find((t) => t.id === id)!;
-    // runTransfer's cap logic evicts whatever is currently last. If the row being
-    // retried sits there (a full queue, oldest-first at the tail), bump it forward
-    // so the prepend-and-slice below drops a different row instead of this one.
+    // Keep the retried row alongside its new attempt when history is full.
     set((s) => {
       if (s.transfers.length < MAX_TRANSFERS || s.transfers[s.transfers.length - 1]?.id !== id) return s;
       const rest = s.transfers.filter((t) => t.id !== id);

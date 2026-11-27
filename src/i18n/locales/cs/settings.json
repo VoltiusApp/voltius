@@ -1380,6 +1380,7 @@
       },
       "transfers": {
         "title": "Přenosy",
+        "parallel": "Souběžné přenosy",
         "tarAcceleration": {
           "title": "Zrychlení přes tar",
           "desc": "Před přenosem zabalí složky do jednoho tar.gz — mnohem rychlejší pro mnoho malých souborů. Vyžaduje <code>tar</code> na obou stranách."

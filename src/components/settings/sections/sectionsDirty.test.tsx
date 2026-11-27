@@ -50,6 +50,7 @@ afterEach(cleanup);
 const OTHER: Record<string, unknown> = {
   "terminal.scrollbackLines": 100_000,
   "terminal.cursorStyle": "block",
+  "sftp.parallelTransfers": 2,
   "sftp.autoRefreshIntervalMs": 5_000,
   "hosts.pollIntervalMs": 120_000,
   "hosts.activePollIntervalMs": 10_000,
@@ -74,7 +75,7 @@ const ROWS: [string, ComponentType, string[]][] = [
     "toggles.select-to-copy", "toggles.drag-selects-text", "toggles.ignore-bracketed-paste",
     "toggles.paste-image-as-path", "toggles.command-history", "toggles.keyword-highlight",
   ]],
-  ["sftp", SFTPSection, ["toggles.sftp-tar", "toggles.sftp-autorefresh", "sftp.autoRefreshIntervalMs", "sftp.editorAutoSave"]],
+  ["sftp", SFTPSection, ["toggles.sftp-tar", "sftp.parallelTransfers", "toggles.sftp-autorefresh", "sftp.autoRefreshIntervalMs", "sftp.editorAutoSave"]],
   ["portForwarding", PortForwardingSection, ["toggles.auto-forward", "toggles.forwarding-notifications"]],
   ["hosts", HostsSection, [
     "toggles.reachability", "hosts.pollIntervalMs", "hosts.activePollIntervalMs", "connectivity.keepalivePreset",

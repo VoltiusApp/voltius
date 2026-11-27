@@ -42,7 +42,8 @@ export default function SFTPSection() {
         </SettingsGroup>
       )}
 
-      <SettingsGroup title={t("settings.sftp.transfers.title")}>
+      <SettingsGroup title={t("settings.sftp.transfers.title")} divided>
+        <Setting id="sftp.parallelTransfers" />
         <Setting id="toggles.sftp-tar" />
       </SettingsGroup>
       <SettingsGroup title={t("settings.sftp.filePanel.title")} divided>

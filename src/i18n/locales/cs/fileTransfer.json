@@ -159,6 +159,7 @@
       "moveSourceNotDeleted": "Zkopírováno, ale původní položky se nepodařilo odstranit: {{names}}. Chyba: {{error}}"
     },
     "queue": {
+      "queued": "Ve frontě",
       "title": "Přenosy",
       "transferCount_one": "{{count}} přenos",
       "transferCount_few": "{{count}} přenosy",

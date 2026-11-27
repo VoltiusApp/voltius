@@ -63,15 +63,26 @@ pub fn nest(outer: Option<&str>, inner: String) -> String {
     }
 }
 
+const CHANNEL_REFUSED: &str = "The SSH server refused another channel";
+
+/// Whether `open_exec` failed because the server turned the channel down (MaxSessions).
+pub fn channel_refused(e: &str) -> bool {
+    e.starts_with(CHANNEL_REFUSED)
+}
+
+pub(crate) fn channel_error(e: russh::Error) -> String {
+    match e {
+        russh::Error::ChannelOpenFailure(why) => format!("{CHANNEL_REFUSED} ({why:?})"),
+        e => format!("Channel error: {e}"),
+    }
+}
+
 /// Open a session channel on `handle` and start `cmd` on it.
 pub async fn open_exec<H: russh::client::Handler>(
     handle: &Handle<H>,
     cmd: &str,
 ) -> Result<Channel<Msg>, String> {
-    let channel = handle
-        .channel_open_session()
-        .await
-        .map_err(|e| format!("Channel error: {e}"))?;
+    let channel = handle.channel_open_session().await.map_err(channel_error)?;
     channel
         .exec(true, cmd)
         .await
@@ -382,6 +393,20 @@ mod tests {
             String::from_utf8_lossy(&out.stdout),
             "[sh][-c][printf '%s' \"$1\"][x][a b'c]"
         );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_channel_the_server_turns_down_reads_as_refused() {
+        use crate::ssh::test_proc_server::{proc_server, ProcOptions};
+        let refusing = ProcOptions {
+            refuse_channels: 1,
+            ..Default::default()
+        };
+        let (handle, _) = proc_server(refusing).await;
+        let e = open_exec(&handle, "true").await.unwrap_err();
+        assert!(channel_refused(&e), "{e}");
+        assert!(open_exec(&handle, "true").await.is_ok());
     }
 
     #[cfg(unix)]

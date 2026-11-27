@@ -1184,6 +1184,7 @@
       },
       "transfers": {
         "title": "传输",
+        "parallel": "同时传输数量",
         "tarAcceleration": {
           "title": "Tar 加速",
           "desc": "在传输前将目录打包为单个 tar.gz——对于许多小文件要快得多。需要两端都有 <code>tar</code>。"

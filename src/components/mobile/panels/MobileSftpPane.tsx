@@ -110,7 +110,7 @@ export default function MobileSftpPane({
   const attempt = (op: () => Promise<unknown>) => op().catch((e) => fail(e, op));
 
   // Selection actions end selection mode, like any M3 contextual action.
-  const downloadSelected = async () => { const items = selected; clearSelection(); for (const f of items) await download(f); };
+  const downloadSelected = async () => { const items = selected; clearSelection(); await download(items); };
   const deleteSelected = async () => {
     const items = selected;
     setConfirmBatchDelete(false); clearSelection(); haptic("confirm");
@@ -147,12 +147,8 @@ export default function MobileSftpPane({
     if (el) el.scrollLeft = el.scrollWidth;
   }, [cwd]);
 
-  const download = async (f: FileEntry) => {
+  const download = async (files: FileEntry[]) => {
     if (!sftpId) return;
-    const mode = f.isDir ? await tarMode([sftpId]) : "off";
-    const fetchTo = (localPath: string, transferId: string) => transferItem({
-      from: "remote", to: "local", srcSftpId: sftpId, srcPath: f.path, dstPath: localPath, isDir: f.isDir, useTar: mode === "tar", transferId,
-    });
     // Android: stream to a temp path, then publish into the user's SAF download folder
     // (picked once, persisted) so the file lands somewhere visible to the system Files app.
     // iOS: same path; the folder is always the app's Documents (Files › Voltius SSH), no picker.
@@ -164,17 +160,21 @@ export default function MobileSftpPane({
           if (needsPicker(dir)) return; // user cancelled the folder picker
         }
       } catch (e) {
-        fail(e, () => download(f));
+        fail(e, () => download(files));
         return;
       }
-      await runTransfer(f.name, "←", async (tid) => {
-        const tmp = await downloadTempPath(tid, f.name);
-        await fetchTo(tmp, tid);
-        await downloadPublish(tmp, f.name);
-      }, undefined, accelFor(mode, f.isDir));
-      return;
     }
-    await runTransfer(f.name, "←", async (tid) => fetchTo(joinPath(await appCacheDir(), f.name), tid), undefined, accelFor(mode, f.isDir));
+    await Promise.all(files.map(async (f) => {
+      const mode = f.isDir ? await tarMode([sftpId]) : "off";
+      await runTransfer(f.name, "←", async (tid) => {
+        const localPath = isPhone ? await downloadTempPath(tid, f.name) : joinPath(await appCacheDir(), f.name);
+        await transferItem({
+          from: "remote", to: "local", srcSftpId: sftpId, srcPath: f.path, dstPath: localPath,
+          isDir: f.isDir, useTar: mode === "tar", transferId: tid,
+        });
+        if (isPhone) await downloadPublish(localPath, f.name);
+      }, undefined, accelFor(mode, f.isDir));
+    }));
   };
 
   const upload = async (pick: () => Promise<ContentFile[]> = uploadPick) => {
@@ -330,7 +330,7 @@ export default function MobileSftpPane({
             <SheetItem attr="edit" icon="lucide:file-pen-line" label={t("common.action.edit")}
               onTap={() => { const f = sheetFor; setSheetFor(null); openEditorFile({ sftpId, path: f.path, hostLabel: hostName, readOnly: !!readOnlyTip }); }} />
           )}
-          <SheetItem icon="lucide:download" label={t("mobile.sftp.download")} onTap={() => { const f = sheetFor; setSheetFor(null); void download(f); }} />
+          <SheetItem icon="lucide:download" label={t("mobile.sftp.download")} onTap={() => { const f = sheetFor; setSheetFor(null); void download([f]); }} />
           {canShareFiles && !sheetFor.isDir && (
             <SheetItem attr="share" icon="lucide:share-2" label={t("mobile.share.action")} onTap={() => { const f = sheetFor; setSheetFor(null); void share([f]); }} />
           )}
