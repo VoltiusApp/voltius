@@ -61,13 +61,16 @@ error_codes! {
     // SSH key exchange. Params: `offered`, the server's list for the failed kind.
     SshLegacyAlgorithmsRequired,
     SshNoCommonAlgorithm,
-    // SSH authentication. Params: `prompt` / `methods` / `seconds`.
+    // SSH authentication. Params: `prompt` / `methods` / `seconds` / `minutes`.
     SshKeyRejected,
     SshPasswordRejected,
     SshPasswordExpired,
     SshPromptUnanswerable,
     SshNoUsableAuthMethod,
     SshAuthTimeout,
+    SshTailscaleCheckDenied,
+    SshTailscaleCheckTimeout,
+    SshTailscaleCheckRequired,
     // HTTP file servers (WebDAV).
     LoginRejected,
     ResourceLocked,

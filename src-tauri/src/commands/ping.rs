@@ -95,17 +95,24 @@ async fn ping_via_chain(
     }
 
     let first = &jump_hosts[0];
-    let Ok((mut current, _)) = first
+    let Ok((mut current, _, link)) = first
         .connect_first(&config, &HopRoute { proxy, knock: None }, &known_hosts, 1)
         .await
     else {
         return false;
     };
-    if first.authenticate(&mut current).await.is_err() {
+    if first.authenticate(&mut current, link, None).await.is_err() {
         return false;
     }
-    let Ok((current, _passed)) =
-        chain_jumps(current, &jump_hosts[1..], &config, &known_hosts, |_| {}).await
+    let Ok((current, _passed)) = chain_jumps(
+        current,
+        &jump_hosts[1..],
+        &config,
+        &known_hosts,
+        None,
+        |_| {},
+    )
+    .await
     else {
         return false;
     };

@@ -325,7 +325,7 @@ impl SftpManager {
         legacy_algorithms: bool,
         route: HopRoute,
         relink: Option<&str>,
-    ) -> Result<String, String> {
+    ) -> Result<String, AppError> {
         let config = Arc::new(client_config(
             keepalive_interval_secs,
             keepalive_max,
@@ -334,20 +334,21 @@ impl SftpManager {
 
         let mut jump_handles: Vec<Arc<Handle<SshClient>>> = Vec::new();
 
-        let mut final_handle: Handle<SshClient> = if jump_hosts.is_empty() {
-            let (h, via) = connect_first_hop_plain(&config, &route, &known_hosts, host, port, 1)
-                .await
-                .map_err(|e| e.describe("SSH connection failed"))?;
+        let (mut final_handle, final_link) = if jump_hosts.is_empty() {
+            let (h, via, link) =
+                connect_first_hop_plain(&config, &route, &known_hosts, host, port, 1)
+                    .await
+                    .map_err(|e| e.describe("SSH connection failed"))?;
             emit_step(
                 app,
                 connect_id,
                 SftpStep::TcpConnected,
                 hop_detail(host, port, "", via.as_deref()),
             );
-            h
+            (h, link)
         } else {
             let first = &jump_hosts[0];
-            let (mut current_handle, via) = first
+            let (mut current_handle, via, link) = first
                 .connect_first(&config, &route, &known_hosts, 1)
                 .await?;
             emit_step(
@@ -356,18 +357,20 @@ impl SftpManager {
                 SftpStep::TcpConnected,
                 hop_detail(&first.host, first.port, " (jump 1)", via.as_deref()),
             );
-            first.authenticate(&mut current_handle).await?;
+            first.authenticate(&mut current_handle, link, None).await?;
             let (current_handle, passed) = chain_jumps(
                 current_handle,
                 &jump_hosts[1..],
                 &config,
                 &known_hosts,
+                None,
                 |detail| emit_step(app, connect_id, SftpStep::TcpConnected, detail),
             )
             .await?;
             jump_handles.extend(passed);
 
             let final_client = SshClient::new(host.to_string(), port, Arc::clone(&known_hosts));
+            let link = final_client.check_link();
             let h = tunnel_hop(&current_handle, &config, "final host", final_client).await?;
             jump_handles.push(Arc::new(current_handle));
             emit_step(
@@ -376,7 +379,7 @@ impl SftpManager {
                 SftpStep::TcpConnected,
                 format!("{}:{}", host, port),
             );
-            h
+            (h, link)
         };
 
         emit_step(
@@ -397,6 +400,8 @@ impl SftpManager {
             password,
             private_key,
             passphrase,
+            final_link,
+            None,
         )
         .await?;
 

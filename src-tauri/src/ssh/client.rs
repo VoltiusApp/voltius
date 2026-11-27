@@ -9,12 +9,11 @@ use russh::keys::{PrivateKeyWithHashAlg, PublicKeyOrCertificate};
 use russh::{MethodKind, MethodSet};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::future::{pending, Future};
 use std::sync::Arc;
 use tauri::AppHandle;
 use tauri::Emitter;
 use tokio::net::TcpStream;
-use tokio::sync::{oneshot, Mutex};
+use tokio::sync::{watch, Mutex};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -48,7 +47,7 @@ pub struct SshClient {
     port: u16,
     known_hosts: Arc<KnownHostsStore>,
     conflict_prompt: Option<ConflictPrompt>,
-    verification: Option<oneshot::Sender<String>>,
+    check_link: watch::Sender<Option<String>>,
     /// Remote-forward route table: (bind_host, remote_port) → RemoteRoute.
     /// Populated by PortForwardManager before calling tcpip_forward.
     pub remote_routes: RemoteRouteMap,
@@ -68,13 +67,39 @@ impl SshClient {
             port,
             known_hosts,
             conflict_prompt: None,
-            verification: None,
+            check_link: watch::channel(None).0,
             remote_routes: Arc::new(Mutex::new(HashMap::new())),
             remote_sshid: Arc::new(Mutex::new(None)),
             agent_forwarding: false,
         }
     }
+
+    /// Take before the handshake consumes the handler.
+    pub fn check_link(&self) -> CheckLink {
+        CheckLink(self.check_link.subscribe())
+    }
 }
+
+/// The Tailscale check link this connection's auth banner carried, if any.
+#[derive(Clone)]
+pub struct CheckLink(watch::Receiver<Option<String>>);
+
+impl CheckLink {
+    fn shown(&self) -> bool {
+        self.0.borrow().is_some()
+    }
+
+    async fn arrived(mut self) -> Option<String> {
+        self.0
+            .wait_for(Option::is_some)
+            .await
+            .ok()
+            .and_then(|url| url.clone())
+    }
+}
+
+/// Where a check link is shown. Without one, the link fails the attempt.
+pub type CheckSink<'a> = Option<&'a tauri::ipc::Channel<String>>;
 
 impl client::Handler for SshClient {
     type Error = HopError;
@@ -85,9 +110,7 @@ impl client::Handler for SshClient {
         _: &mut client::Session,
     ) -> Result<(), Self::Error> {
         if let Some(url) = tailscale_check_url(banner) {
-            if let Some(tx) = self.verification.take() {
-                let _ = tx.send(url.to_owned());
-            }
+            self.check_link.send_replace(Some(url.to_owned()));
         }
         Ok(())
     }
@@ -319,7 +342,7 @@ fn emit_step(app: &AppHandle, session_id: &str, step: SshStep, detail: impl Into
 /// "Authenticating" forever — every other blocking step here is already bounded.
 const AUTH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
-const VERIFICATION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5 * 60);
+const CHECK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5 * 60);
 
 /// Forward only a complete, canonical Tailscale check link. Banners are server-controlled.
 fn tailscale_check_url(banner: &str) -> Option<&str> {
@@ -520,11 +543,18 @@ async fn authenticate_handle_inner<H: client::Handler>(
     password: Option<&str>,
     private_key: Option<&str>,
     passphrase: Option<&str>,
+    link: &CheckLink,
 ) -> Result<(), AppError> {
     let Some(mut remaining) = rejected(handle.authenticate_none(username).await.map_err(auth_err)?)
     else {
         return Ok(());
     };
+    if link.shown() {
+        return Err(AppError::coded(
+            ErrorCode::SshTailscaleCheckDenied,
+            "Tailscale did not approve this SSH session.",
+        ));
+    }
     if password.is_none() && private_key.is_none() {
         return Err("No authentication method provided".into());
     }
@@ -579,25 +609,43 @@ pub async fn authenticate_handle<H: client::Handler>(
     password: Option<&str>,
     private_key: Option<&str>,
     passphrase: Option<&str>,
+    link: CheckLink,
+    sink: CheckSink<'_>,
 ) -> Result<(), AppError> {
-    wait_for_auth(
-        authenticate_handle_inner(handle, username, password, private_key, passphrase),
-        pending(),
-    )
-    .await
+    let auth =
+        authenticate_handle_inner(handle, username, password, private_key, passphrase, &link);
+    wait_for_auth(auth, link.clone(), sink).await
 }
 
 async fn wait_for_auth(
-    auth: impl Future<Output = Result<(), AppError>>,
-    verification_shown: impl Future<Output = Option<()>>,
+    auth: impl std::future::Future<Output = Result<(), AppError>>,
+    link: CheckLink,
+    sink: CheckSink<'_>,
 ) -> Result<(), AppError> {
     tokio::pin!(auth);
     tokio::select! {
+        biased;
         result = &mut auth => result,
-        Some(()) = verification_shown => {
-            // Continue the same request. Only the server can grant SSH access.
-            tokio::time::timeout(VERIFICATION_TIMEOUT, auth).await
-                .map_err(|_| AppError::from("Tailscale SSH browser verification timed out."))?
+        Some(url) = link.arrived() => {
+            let Some(sink) = sink else {
+                return Err(AppError::coded(
+                    ErrorCode::SshTailscaleCheckRequired,
+                    "Tailscale SSH needs a browser check for this host. Open a terminal to it, \
+                     approve the check, then try again.",
+                ));
+            };
+            let _ = sink.send(url);
+            // Continue the same request: only the server can grant access.
+            let result = tokio::time::timeout(CHECK_TIMEOUT, auth).await;
+            let _ = sink.send(String::new());
+            result.unwrap_or_else(|_| {
+                let minutes = CHECK_TIMEOUT.as_secs() / 60;
+                Err(AppError::coded(
+                    ErrorCode::SshTailscaleCheckTimeout,
+                    format!("The Tailscale browser check was not completed within {minutes} minutes."),
+                )
+                .with_param("minutes", minutes))
+            })
         }
         () = tokio::time::sleep(AUTH_TIMEOUT) => {
             let seconds = AUTH_TIMEOUT.as_secs();
@@ -775,15 +823,13 @@ pub(crate) async fn connect_first_hop_plain(
     host: &str,
     port: u16,
     max_attempts: u32,
-) -> Result<(client::Handle<SshClient>, Option<String>), HopError> {
-    let (h, via, ()) = connect_first_hop_retrying(config, route, host, port, max_attempts, || {
-        (
-            SshClient::new(host.into(), port, Arc::clone(known_hosts)),
-            (),
-        )
+) -> Result<(client::Handle<SshClient>, Option<String>, CheckLink), HopError> {
+    connect_first_hop_retrying(config, route, host, port, max_attempts, || {
+        let c = SshClient::new(host.into(), port, Arc::clone(known_hosts));
+        let link = c.check_link();
+        (c, link)
     })
-    .await?;
-    Ok((h, via))
+    .await
 }
 
 /// Opens a direct-tcpip channel through `via` and runs `handler`'s handshake over it.
@@ -809,6 +855,7 @@ pub(crate) async fn chain_jumps(
     jumps: &[JumpHostConnect],
     config: &Arc<client::Config>,
     known_hosts: &Arc<KnownHostsStore>,
+    sink: CheckSink<'_>,
     mut reached: impl FnMut(String),
 ) -> Result<
     (
@@ -820,7 +867,9 @@ pub(crate) async fn chain_jumps(
     let mut current = first;
     let mut passed = Vec::new();
     for (i, jump) in jumps.iter().enumerate() {
-        let next = jump.reach_through(&current, config, known_hosts).await?;
+        let next = jump
+            .reach_through(&current, config, known_hosts, sink)
+            .await?;
         passed.push(Arc::new(std::mem::replace(&mut current, next)));
         reached(format!("{}:{} (jump {})", jump.host, jump.port, i + 2));
     }
@@ -834,7 +883,7 @@ impl JumpHostConnect {
         route: &HopRoute,
         known_hosts: &Arc<KnownHostsStore>,
         max_attempts: u32,
-    ) -> Result<(client::Handle<SshClient>, Option<String>), AppError> {
+    ) -> Result<(client::Handle<SshClient>, Option<String>, CheckLink), AppError> {
         connect_first_hop_plain(
             config,
             route,
@@ -855,6 +904,8 @@ impl JumpHostConnect {
     pub(crate) async fn authenticate(
         &self,
         handle: &mut client::Handle<SshClient>,
+        link: CheckLink,
+        sink: CheckSink<'_>,
     ) -> Result<(), String> {
         authenticate_handle(
             handle,
@@ -862,6 +913,8 @@ impl JumpHostConnect {
             self.password.as_deref(),
             self.private_key.as_deref(),
             self.passphrase.as_deref(),
+            link,
+            sink,
         )
         .await
         .map_err(|e| format!("Jump host {} auth failed: {e}", self.host))
@@ -872,12 +925,14 @@ impl JumpHostConnect {
         via: &client::Handle<SshClient>,
         config: &Arc<client::Config>,
         known_hosts: &Arc<KnownHostsStore>,
+        sink: CheckSink<'_>,
     ) -> Result<client::Handle<SshClient>, AppError> {
         let handler = SshClient::new(self.host.clone(), self.port, Arc::clone(known_hosts));
+        let link = handler.check_link();
         let mut handle = tunnel_hop(via, config, "jump host", handler)
             .await
             .map_err(|e| self.failed(e))?;
-        self.authenticate(&mut handle).await?;
+        self.authenticate(&mut handle, link, sink).await?;
         Ok(handle)
     }
 }
@@ -924,8 +979,8 @@ pub async fn connect(
     // Each hop opens a direct-tcpip channel to the next host, layering SSH over it.
     let mut jump_handles: Vec<Arc<client::Handle<SshClient>>> = Vec::new();
 
-    let final_client = || {
-        let (tx, rx) = oneshot::channel();
+    let sink = on_verification.as_ref();
+    let make_final_client = || {
         let client = SshClient {
             conflict_prompt: Some(ConflictPrompt::via_app(
                 app.clone(),
@@ -933,13 +988,13 @@ pub async fn connect(
                 session_id.clone(),
                 Arc::clone(&pending_conflicts),
             )),
-            verification: Some(tx),
             agent_forwarding,
             ..SshClient::new(host.to_owned(), port, Arc::clone(&known_hosts))
         };
         let routes = Arc::clone(&client.remote_routes);
         let sshid = Arc::clone(&client.remote_sshid);
-        (client, (routes, sshid, rx))
+        let link = client.check_link();
+        (client, (routes, sshid, link))
     };
 
     if let Some(spec) = &route.knock {
@@ -951,14 +1006,14 @@ pub async fn connect(
         );
     }
 
-    let (mut final_handle, (final_routes, final_sshid, verification)) = if jump_hosts.is_empty() {
+    let (mut final_handle, (final_routes, final_sshid, final_link)) = if jump_hosts.is_empty() {
         let (h, via, slots) = connect_first_hop_retrying(
             &config,
             &route,
             host,
             port,
             CONNECT_MAX_ATTEMPTS,
-            final_client,
+            make_final_client,
         )
         .await
         .map_err(|e| e.describe("Connection failed"))?;
@@ -971,7 +1026,7 @@ pub async fn connect(
         (h, slots)
     } else {
         let first = &jump_hosts[0];
-        let (mut current_handle, via) = first
+        let (mut current_handle, via, link) = first
             .connect_first(&config, &route, &known_hosts, CONNECT_MAX_ATTEMPTS)
             .await?;
         emit_step(
@@ -980,18 +1035,19 @@ pub async fn connect(
             SshStep::TcpConnected,
             hop_detail(&first.host, first.port, " (jump 1)", via.as_deref()),
         );
-        first.authenticate(&mut current_handle).await?;
+        first.authenticate(&mut current_handle, link, sink).await?;
         let (current_handle, passed) = chain_jumps(
             current_handle,
             &jump_hosts[1..],
             &config,
             &known_hosts,
+            sink,
             |detail| emit_step(&app, &session_id, SshStep::TcpConnected, detail),
         )
         .await?;
         jump_handles.extend(passed);
 
-        let (final_client, slots) = final_client();
+        let (final_client, slots) = make_final_client();
         let h = tunnel_hop(&current_handle, &config, "final host", final_client).await?;
 
         jump_handles.push(Arc::new(current_handle));
@@ -1019,15 +1075,14 @@ pub async fn connect(
         SshStep::Authenticating,
         format!("as {}", username),
     );
-    wait_for_auth(
-        authenticate_handle_inner(
-            &mut final_handle,
-            username,
-            password,
-            private_key,
-            passphrase,
-        ),
-        async { on_verification?.send(verification.await.ok()?).ok() },
+    authenticate_handle(
+        &mut final_handle,
+        username,
+        password,
+        private_key,
+        passphrase,
+        final_link,
+        sink,
     )
     .await?;
 
@@ -1340,15 +1395,24 @@ pub async fn connect_authenticated(
         client::Config::default().keepalive_max,
         legacy_algorithms,
     ));
-    let (mut handle, _via, sshid) =
+    let (mut handle, _via, (sshid, link)) =
         connect_first_hop_retrying(&config, route, host, port, 1, || {
             let c = SshClient::new(host.into(), port, Arc::clone(&known_hosts));
-            let sshid = Arc::clone(&c.remote_sshid);
-            (c, sshid)
+            let slots = (Arc::clone(&c.remote_sshid), c.check_link());
+            (c, slots)
         })
         .await
         .map_err(|e| e.describe("Connection failed"))?;
-    authenticate_handle(&mut handle, username, password, private_key, passphrase).await?;
+    authenticate_handle(
+        &mut handle,
+        username,
+        password,
+        private_key,
+        passphrase,
+        link,
+        None,
+    )
+    .await?;
     Ok((handle, platform_of(&sshid).await))
 }
 
@@ -1586,7 +1650,26 @@ mod tests {
         let mut handle = russh::client::connect(Default::default(), addr, TestClient)
             .await
             .unwrap();
-        authenticate_handle(&mut handle, "root", password, key, None).await
+        authenticate_handle(&mut handle, "root", password, key, None, no_link(), None).await
+    }
+
+    fn no_link() -> super::CheckLink {
+        super::CheckLink(tokio::sync::watch::channel(None).1)
+    }
+
+    /// A sink that forwards each JSON message it is sent.
+    fn recording_sink() -> (
+        tauri::ipc::Channel<String>,
+        tokio::sync::mpsc::UnboundedReceiver<String>,
+    ) {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        let sink = tauri::ipc::Channel::new(move |body| {
+            if let tauri::ipc::InvokeResponseBody::Json(json) = body {
+                let _ = tx.send(json);
+            }
+            Ok(())
+        });
+        (sink, rx)
     }
 
     #[tokio::test]
@@ -1722,24 +1805,30 @@ mod tests {
     }
 
     #[tokio::test(start_paused = true)]
-    async fn only_a_delivered_check_gets_the_longer_deadline() {
+    async fn a_check_link_needs_a_sink_and_gets_the_longer_deadline() {
         use std::future::pending;
-        use tokio::time::Instant;
+        use tokio::time::{Duration, Instant};
 
-        for shown in [None, Some(())] {
+        let (sink, mut sent) = recording_sink();
+        for (shown, sink) in [(false, Some(&sink)), (true, Some(&sink)), (true, None)] {
+            let (tx, rx) = tokio::sync::watch::channel(None);
+            if shown {
+                tx.send_replace(Some("https://login.tailscale.com/a/x".to_owned()));
+            }
             let start = Instant::now();
-            let err = super::wait_for_auth(pending(), async { shown })
+            let err = super::wait_for_auth(pending(), super::CheckLink(rx), sink)
                 .await
                 .unwrap_err();
-            let expected = if shown.is_some() {
-                assert!(err.to_string().contains("browser verification timed out"));
-                super::VERIFICATION_TIMEOUT
-            } else {
-                assert_eq!(err.code(), Some(ErrorCode::SshAuthTimeout));
-                AUTH_TIMEOUT
+            let (code, elapsed) = match (shown, sink) {
+                (false, _) => (ErrorCode::SshAuthTimeout, AUTH_TIMEOUT),
+                (true, Some(_)) => (ErrorCode::SshTailscaleCheckTimeout, super::CHECK_TIMEOUT),
+                (true, None) => (ErrorCode::SshTailscaleCheckRequired, Duration::ZERO),
             };
-            assert_eq!(start.elapsed(), expected);
+            assert_eq!(err.code(), Some(code));
+            assert_eq!(start.elapsed(), elapsed);
         }
+        let messages: Vec<_> = std::iter::from_fn(|| sent.try_recv().ok()).collect();
+        assert_eq!(messages, [r#""https://login.tailscale.com/a/x""#, r#""""#]);
     }
 
     #[tokio::test]
@@ -1775,17 +1864,18 @@ mod tests {
                 .fingerprint(HashAlg::Sha256)
                 .to_string();
             let known = Arc::new(KnownHostsStore::pinned(&[(host, port, &fp)]));
-            let mut handler = SshClient::new(host.into(), port, known);
-            let (tx, rx) = oneshot::channel();
-            handler.verification = Some(tx);
+            let handler = SshClient::new(host.into(), port, known);
+            let link = handler.check_link();
             let mut handle = client::connect(Default::default(), (host, port), handler)
                 .await
                 .unwrap();
-            let auth = authenticate_handle(&mut handle, "root", None, None, None);
+            let (sink, mut sent) = recording_sink();
+            let auth =
+                authenticate_handle(&mut handle, "root", None, None, None, link, Some(&sink));
             tokio::pin!(auth);
             tokio::select! {
                 result = &mut auth => panic!("authentication finished before verification: {result:?}"),
-                url = rx => assert_eq!(url.unwrap(), URL),
+                url = sent.recv() => assert_eq!(url.unwrap(), format!("{URL:?}")),
             }
             decision.send(approve).unwrap();
             let result = auth.await;
@@ -1793,8 +1883,8 @@ mod tests {
                 result.unwrap();
             } else {
                 assert_eq!(
-                    result.unwrap_err().to_string(),
-                    "No authentication method provided"
+                    result.unwrap_err().code(),
+                    Some(ErrorCode::SshTailscaleCheckDenied)
                 );
             }
         }
@@ -1997,11 +2087,11 @@ mod tests {
             private_key: None,
             passphrase: None,
         };
-        let (mut via, _) = jump
+        let (mut via, _, link) = jump
             .connect_first(&config, &HopRoute::default(), &known_hosts, 1)
             .await
             .unwrap();
-        jump.authenticate(&mut via).await.unwrap();
+        jump.authenticate(&mut via, link, None).await.unwrap();
 
         let target = SshClient::new("127.0.0.1".into(), target_port, Arc::clone(&known_hosts));
         let err = super::tunnel_hop(&via, &config, "final host", target)

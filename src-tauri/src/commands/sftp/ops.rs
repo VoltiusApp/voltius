@@ -49,7 +49,7 @@ pub async fn sftp_connect(
     proxy: Option<ProxySpec>,
     relink: Option<String>,
     knock: Option<KnockSpec>,
-) -> Result<String, String> {
+) -> Result<String, AppError> {
     sftp_state
         .connect(
             &app,
