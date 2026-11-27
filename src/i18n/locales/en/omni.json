@@ -11,7 +11,7 @@
     "sections": {
       "quickConnect": "Quick Connect",
       "activeConnections": "Active connections",
-      "teamSessions": "Team Sessions",
+      "teamSessions": "Shared Sessions",
       "recent": "Recent",
       "hosts": "Hosts",
       "local": "Local",

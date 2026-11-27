@@ -50,7 +50,7 @@ export async function sshConnect(params: {
   onVerification?: (url?: string) => void;
 }): Promise<void> {
   const { netbird: login, onVerification } = params;
-  const channel = !login && onVerification ? new Channel<string>(onVerification) : null;
+  const channel = onVerification ? new Channel<string>((url) => onVerification(url || undefined)) : null;
   const progress = login ? new Channel<NetbirdChallenge | null>(login.onChallenge) : null;
   return invoke<void>("ssh_connect", {
     onVerification: channel,

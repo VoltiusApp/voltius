@@ -1,4 +1,3 @@
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ConnectionHeader } from "./ConnectionHeader";
@@ -8,6 +7,7 @@ import { NetbirdSetup } from "./NetbirdPanel";
 import { HostKeyConflictPanel } from "./HostKeyConflictPanel";
 import { IdentityUnavailablePanel } from "./IdentityUnavailablePanel";
 import { PassphrasePromptPanel } from "./PassphrasePromptPanel";
+import { SshVerificationPanel } from "./SshVerificationPanel";
 import { AuthPromptPanel } from "./AuthPromptPanel";
 import { UsernamePromptPanel } from "./UsernamePromptPanel";
 import { VaultErrorPanel } from "./VaultErrorPanel";
@@ -55,8 +55,6 @@ export default function ConnectionOverlay({
     conflictEventName,
   });
 
-  const [browserFailed, setBrowserFailed] = useState(false);
-  useEffect(() => setBrowserFailed(false), [verificationUrl, netbirdChallenge]);
   const [choosing, setChoosing] = useState(false);
   useEffect(() => setChoosing(false), [identityPick]);
 
@@ -76,7 +74,6 @@ export default function ConnectionOverlay({
   const showAuthPrompt = prompting && isNoAuthError(errorMessage) && !!onRetryWithAuth;
   const legacyFix = isError && errorCode === "ssh-legacy-algorithms-required" ? onEnableLegacyAlgorithms : undefined;
   const checkUrl = isConnecting && (netbirdChallenge?.verificationUri ?? verificationUrl);
-  const verificationText = netbirdChallenge ? "terminal.overlay.netbird" : "terminal.overlay.tailscaleCheck";
   const setupNetbird = isError && errorCode === "ssh-netbird-sso-required" && onNetbirdLogin;
   const showSpecialPanel =
     setupNetbird || checkUrl || (conflict && !isError) || showIdentityPick || showChooser || showVaultError || showPassphrasePrompt || showUsernamePrompt || showAuthPrompt;
@@ -104,22 +101,7 @@ export default function ConnectionOverlay({
           {conflict && !isError ? (
             <HostKeyConflictPanel conflict={conflict} resolving={resolving} onResolve={(action) => void resolveConflict(action)} />
           ) : checkUrl ? (
-            <div className="w-full space-y-3">
-              <p className="text-sm text-text-secondary">{t(netbirdChallenge ? "terminal.overlay.netbird.verify" : "terminal.overlay.tailscaleCheck.description")}</p>
-              {netbirdChallenge && <p className="select-all break-all font-mono">{netbirdChallenge.userCode}</p>}
-              <p className="select-all break-all font-mono text-xs text-text-muted">{checkUrl}</p>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => void openUrl(checkUrl).catch(() => setBrowserFailed(true))}
-              >
-                {t(`${verificationText}.open`)}
-              </button>
-              {browserFailed && <p role="alert">{t(`${verificationText}.manual`)}</p>}
-              {netbirdChallenge && onDismiss && (
-                <button className="btn btn-ghost" disabled={!!dismissBlocked} onClick={onDismiss}>{t("common.action.cancel")}</button>
-              )}
-            </div>
+            <SshVerificationPanel key={checkUrl} url={checkUrl} netbird={netbirdChallenge} onCancel={onDismiss} />
           ) : setupNetbird ? (
             <NetbirdSetup key={connectionId ?? sessionId} connectionId={connectionId} onSubmit={setupNetbird} />
           ) : showIdentityPick ? (

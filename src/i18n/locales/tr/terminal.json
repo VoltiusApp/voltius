@@ -240,9 +240,12 @@
     },
     "overlay": {
       "tailscaleCheck": {
+        "title": "Tailscale SSH doğrulaması",
         "description": "Tailscale bu SSH oturumu için doğrulama istiyor.",
         "open": "Tarayıcıda doğrula",
-        "manual": "Yukarıdaki bağlantıyı kopyalayıp tarayıcınızda açın."
+        "copy": "Bağlantıyı kopyala",
+        "copied": "Bağlantı kopyalandı",
+        "manual": "Tarayıcı açılamadı. Bağlantıyı kopyalayıp tarayıcınızda açın."
       },
       "netbird": {
         "setup": "Yöneticinizin verdiği genel OIDC istemci ayarlarını ve bağımsız olarak doğrulanmış SSH parmak izini girin. Ayarlar bu cihazda saklanır.",

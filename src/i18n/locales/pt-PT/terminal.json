@@ -249,9 +249,12 @@
     },
     "overlay": {
       "tailscaleCheck": {
+        "title": "Verificação do Tailscale SSH",
         "description": "O Tailscale requer verificação para estabelecer esta ligação SSH.",
         "open": "Verificar no navegador",
-        "manual": "Copie a ligação acima e abra-a no navegador."
+        "copy": "Copiar ligação",
+        "copied": "Ligação copiada",
+        "manual": "Não foi possível abrir um navegador. Copie a ligação e abra-a no seu navegador."
       },
       "netbird": {
         "setup": "Introduza a configuração do cliente público OIDC fornecida pelo administrador e a impressão digital SSH verificada de forma independente. A configuração é guardada neste dispositivo.",
