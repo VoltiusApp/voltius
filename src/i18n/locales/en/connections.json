@@ -262,6 +262,19 @@
       "serverTooOld": "This Voltius server is too old to store knock sequences for team vault hosts. Ask its administrator to update the server to use port knocking here.",
       "sequenceUnavailable": "The knock sequence for this host isn't available on this device.",
       "sequenceInvalid": "This host's knock sequence is invalid. Fix it in the host's Port Knocking settings."
+    },
+    "netbird": {
+      "title": "NetBird SSH",
+      "enable": "Sign in with NetBird",
+      "hint": "For NetBird peers that require a JWT. Use the settings from your NetBird administrator. Voltius opens your identity provider's device sign-in and sends the token only to a peer whose SSH host key matches the fingerprint.",
+      "issuer": "OIDC issuer (HTTPS)",
+      "clientId": "Public client ID",
+      "fingerprint": "Peer SSH host key (SHA256)",
+      "scope": "Scopes",
+      "audience": "Audience (optional)",
+      "tokenType": "Token accepted by NetBird",
+      "incomplete": "Enter an HTTPS issuer, a client ID and the peer's SHA256 host key fingerprint.",
+      "unsupported": "Google can't be used: its device and token endpoints are on another origin than its issuer."
     }
   }
 }

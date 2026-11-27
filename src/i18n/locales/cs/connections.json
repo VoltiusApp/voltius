@@ -262,6 +262,19 @@
       "serverTooOld": "Tento server Voltius je příliš starý na to, aby ukládal sekvence klepání pro hosty v týmovém trezoru. Požádejte jeho správce o aktualizaci serveru, abyste zde mohli klepání na porty používat.",
       "sequenceUnavailable": "Sekvence klepání pro tento host není na tomto zařízení k dispozici.",
       "sequenceInvalid": "Sekvence klepání pro tento host je neplatná. Opravte ji v nastavení tohoto hostu v části Klepání na porty."
+    },
+    "netbird": {
+      "title": "NetBird SSH",
+      "enable": "Přihlašovat se přes NetBird",
+      "hint": "Pro protějšky NetBird, které vyžadují JWT. Použijte nastavení od správce NetBird. Voltius otevře přihlášení zařízení u poskytovatele identity a token odešle jen protějšku, jehož klíč hostitele SSH odpovídá otisku.",
+      "issuer": "Vydavatel OIDC (HTTPS)",
+      "clientId": "ID veřejného klienta",
+      "fingerprint": "Klíč hostitele SSH protějšku (SHA256)",
+      "scope": "Rozsahy",
+      "audience": "Cílové publikum (volitelné)",
+      "tokenType": "Token přijímaný službou NetBird",
+      "incomplete": "Zadejte vydavatele HTTPS, ID klienta a otisk SHA256 klíče hostitele protějšku.",
+      "unsupported": "Google použít nelze: jeho koncové body pro zařízení a tokeny jsou na jiném původu než vydavatel."
     }
   }
 }

@@ -78,6 +78,26 @@ pub struct PortKnock {
     pub window_secs: Option<u64>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum NetbirdTokenType {
+    AccessToken,
+    IdToken,
+}
+
+/// Public device-flow settings from the NetBird administrator; the token is never stored.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NetbirdSsh {
+    pub issuer: String,
+    pub client_id: String,
+    #[serde(default)]
+    pub scope: String,
+    #[serde(default)]
+    pub audience: String,
+    pub token_type: NetbirdTokenType,
+    pub fingerprint: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JumpHost {
     pub id: String,
@@ -212,6 +232,8 @@ pub struct Connection {
     /// Plain knock settings; the port sequence lives in the secret store.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub port_knock: Option<PortKnock>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub netbird: Option<NetbirdSsh>,
     #[serde(default)]
     pub connection_type: ConnectionType,
     #[serde(default)]
@@ -304,6 +326,8 @@ pub struct ConnectionFormData {
     pub proxy: Option<ProxyOverride>,
     #[serde(default)]
     pub port_knock: Option<PortKnock>,
+    #[serde(default)]
+    pub netbird: Option<NetbirdSsh>,
     #[serde(default)]
     pub connection_type: ConnectionType,
     #[serde(default)]
@@ -1176,6 +1200,7 @@ mod tests {
             persist_session: None,
             proxy: None,
             port_knock: None,
+            netbird: None,
             connection_type: ConnectionType::Ssh,
             serial_port: Some("/dev/ttyU0".into()),
             serial_baud: Some(9600),

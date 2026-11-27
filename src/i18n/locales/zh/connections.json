@@ -262,6 +262,19 @@
       "serverTooOld": "此 Voltius 服务器版本过旧，无法为团队保险库中的主机存储端口敲门序列。请让管理员更新服务器后再在此使用端口敲门。",
       "sequenceUnavailable": "此设备上没有该主机的敲门序列。",
       "sequenceInvalid": "此主机的敲门序列无效。请在该主机的“端口敲门”设置中修正。"
+    },
+    "netbird": {
+      "title": "NetBird SSH",
+      "enable": "使用 NetBird 登录",
+      "hint": "适用于要求 JWT 的 NetBird 节点。请使用 NetBird 管理员提供的设置。Voltius 会打开身份提供商的设备登录，并且只会把令牌发送给 SSH 主机密钥与指纹一致的节点。",
+      "issuer": "OIDC 签发机构（HTTPS）",
+      "clientId": "公共客户端 ID",
+      "fingerprint": "节点 SSH 主机密钥（SHA256）",
+      "scope": "权限范围",
+      "audience": "受众（可选）",
+      "tokenType": "NetBird 接受的令牌类型",
+      "incomplete": "请输入 HTTPS 签发机构、客户端 ID 以及节点主机密钥的 SHA256 指纹。",
+      "unsupported": "无法使用 Google：其设备端点和令牌端点与签发机构不在同一来源。"
     }
   }
 }

@@ -1,7 +1,7 @@
 import { forwardRef, type RefAttributes, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import type { ConnectionFormData, AuthType, JumpHost, EnvVar, ProxyOverride, ConnectionType, PortKnockSettings } from "@/types";
+import type { ConnectionFormData, AuthType, JumpHost, EnvVar, ProxyOverride, ConnectionType, PortKnockSettings, NetbirdSettings } from "@/types";
 import { parseWebdavUrl, webDefaultPort } from "@/utils/connectionType";
 import type { KeepalivePreset } from "@/utils/keepalive";
 import { useKeepaliveSelect } from "@/hooks/useKeepaliveSelect";
@@ -10,6 +10,8 @@ import { useKeyStore } from "@/stores/keyStore";
 import JumpHostsPanel from "./JumpHostsPanel";
 import EnvVarsPanel from "./EnvVarsPanel";
 import PortKnockPanel, { knockPanelIssues, type KnockStepRow } from "./PortKnockPanel";
+import NetbirdPanel from "./NetbirdPanel";
+import { netbirdComplete, normalizeNetbird } from "@/services/netbirdSettings";
 import { SlideOver } from "@/components/shared/slideOver";
 import { useUIStore } from "@/stores/uiStore";
 import { getSecret } from "@/services/vault";
@@ -136,6 +138,8 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   const [portKnock, setPortKnock] = useState<PortKnockSettings>(initial?.port_knock ?? { enabled: false });
   const [knockSteps, setKnockSteps] = useState<KnockStepRow[]>([]);
   const [showKnock, setShowKnock] = useState(false);
+  const [netbird, setNetbird] = useState<NetbirdSettings | undefined>(initial?.netbird);
+  const [showNetbird, setShowNetbird] = useState(false);
   const [agentForwarding, setAgentForwarding] = useState(initial?.agent_forwarding ?? false);
   const [legacyAlgorithms, setLegacyAlgorithms] = useState(initial?.legacy_algorithms ?? false);
   const [pingDisabled, setPingDisabled] = useState(initial?.ping_disabled ?? false);
@@ -162,7 +166,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
   const [showDistroPicker, setShowDistroPicker] = useState(false);
   const [detectingDistro, setDetectingDistro] = useState(false);
   const [distroError, setDistroError] = useState("");
-  const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.pre_snippet_id || initial?.post_snippet_id || initial?.terminal_encoding || initial?.agent_forwarding || initial?.legacy_algorithms || initial?.ping_disabled || initial?.shell_integration !== undefined || initial?.keepalive_preset || initial?.persist_session !== undefined || initial?.proxy || initial?.port_knock?.enabled);
+  const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.pre_snippet_id || initial?.post_snippet_id || initial?.terminal_encoding || initial?.agent_forwarding || initial?.legacy_algorithms || initial?.ping_disabled || initial?.shell_integration !== undefined || initial?.keepalive_preset || initial?.persist_session !== undefined || initial?.proxy || initial?.port_knock?.enabled || initial?.netbird);
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
   const shell = useConnectionFormShell(initial, placement);
   const { vaultId, pickVault, folderId, keepSavedOnCancel, isPinned, togglePin } = shell;
@@ -247,6 +251,13 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
     return formatKnockSequence(knockSteps);
   };
 
+  // Half-typed settings keep the saved ones: an invalid pin would stop every connect to this host.
+  const submittedNetbird = () => {
+    if (!netbird) return undefined;
+    const normalized = normalizeNetbird(netbird);
+    return netbirdComplete(normalized) ? normalized : initial?.netbird;
+  };
+
   const buildSubmit = () => {
     if (fileOnly) {
       return {
@@ -311,6 +322,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
         persist_session: persistSession === "" ? undefined : persistSession === "on",
         proxy: proxyOverride ?? undefined,
         port_knock: initial?.port_knock || portKnock.enabled || knockSteps.length ? portKnock : undefined,
+        netbird: submittedNetbird(),
         notes: normalizeNotes(notes),
       } as ConnectionFormData,
       secrets: {
@@ -337,7 +349,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, host, port, username, protocol, ftpSecure, webSecure, webdavUrl, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, legacyAlgorithms, hostCommands.preCommand, hostCommands.postCommand, hostCommands.preSnippetId, hostCommands.postSnippetId, hostCommands.askVarsEachTime, hostCommands.terminalEncoding, distro, icon, pingDisabled, shellIntegration, keepalivePreset, persistSession, proxyOverride, proxyPassword, portKnock, knockSteps, notes]);
+  useEffect(() => schedule(), [name, host, port, username, protocol, ftpSecure, webSecure, webdavUrl, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, legacyAlgorithms, hostCommands.preCommand, hostCommands.postCommand, hostCommands.preSnippetId, hostCommands.postSnippetId, hostCommands.askVarsEachTime, hostCommands.terminalEncoding, distro, icon, pingDisabled, shellIntegration, keepalivePreset, persistSession, proxyOverride, proxyPassword, portKnock, knockSteps, netbird, notes]);
 
   // Left on, a switch whose sequence the server refused fails every teammate's connect.
   useEffect(() => {
@@ -631,7 +643,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
             <AdvancedDisclosure
               open={showAdvanced}
               onToggle={() => setShowAdvanced((v) => !v)}
-              hasValues={!!(jumpHosts.length > 0 || envVars.length > 0 || hostCommandFieldsSet(hostCommands) || agentForwarding || legacyAlgorithms || pingDisabled || shellIntegration || keepalivePreset || persistSession || proxyOverride || portKnock.enabled)}
+              hasValues={!!(jumpHosts.length > 0 || envVars.length > 0 || hostCommandFieldsSet(hostCommands) || agentForwarding || legacyAlgorithms || pingDisabled || shellIntegration || keepalivePreset || persistSession || proxyOverride || portKnock.enabled || netbird)}
             >
                 <DrillInRow icon="lucide:waypoints" label={t("connections.common.hostsChaining")} count={jumpHosts.length} onClick={() => setShowChaining(true)} locked={locks("jump_hosts")} />
                 <DrillInRow
@@ -640,6 +652,7 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
                   count={portKnock.enabled ? knockSteps.length : 0}
                   onClick={() => setShowKnock(true)}
                 />
+                <DrillInRow icon="lucide:bird" label={t("connections.netbird.title")} count={netbird ? 1 : 0} onClick={() => setShowNetbird(true)} />
                 <DrillInRow icon="lucide:file-terminal" label={t("connections.common.environmentVariables")} count={envVars.length} onClick={() => setShowEnvVars(true)} />
                 <HostCommandFields connectionId={initial?.id} fields={hostCommands} markDirty={markDirty} />
                 <SettingRow icon="lucide:key-round" label={t("connections.form.agentForwarding")}>
@@ -882,6 +895,14 @@ const ConnectionFormEditor = forwardRef<ConnectionFormHandle, Props & EditAccess
           effectiveProxyMode={proxyOverride?.mode ?? globalProxy.mode}
           bastionName={bastionName}
           onBack={() => setShowKnock(false)}
+        />
+      </SlideOver>
+
+      <SlideOver open={showNetbird}>
+        <NetbirdPanel
+          settings={netbird}
+          onChange={(next) => { markDirty(); setNetbird(next); }}
+          onBack={() => setShowNetbird(false)}
         />
       </SlideOver>
 

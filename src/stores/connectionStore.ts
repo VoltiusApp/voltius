@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { assertNotPreviewing } from "@/services/previewGuard";
-import type { Connection, ConnectionFormData } from "@/types";
+import type { Connection, ConnectionFormData, NetbirdSettings } from "@/types";
+import { migrateLegacyNetbird } from "@/services/netbirdSettings";
 import * as api from "@/services/connections";
 import { syncAfterEdit } from "@/stores/syncAfterEdit";
 import { useHistoryStore } from "@/stores/historyStore";
@@ -51,6 +52,7 @@ export function connectionToFormData(c: Connection): ConnectionFormData {
     webdav_url: c.webdav_url,
     notes: c.notes,
     port_knock: c.port_knock,
+    netbird: c.netbird,
   };
 }
 
@@ -95,6 +97,9 @@ export function connectionFromForm(
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
+const saveMigratedNetbird = (c: Connection, netbird: NetbirdSettings) =>
+  useConnectionStore.getState().updateConnection(c.id, { ...connectionToFormData(c), netbird });
+
 interface ConnectionStore {
   connections: Connection[];
   loading: boolean;
@@ -122,10 +127,13 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     set({ loading: true });
     const connections = await api.listConnections();
     set({ connections, loading: false });
+    void migrateLegacyNetbird(connections, saveMigratedNetbird);
   },
 
-  setTeamConnections: (teamId, items) =>
-    set((s) => ({ teamConnections: setTeamMapEntry(s.teamConnections, teamId, items) })),
+  setTeamConnections: (teamId, items) => {
+    set((s) => ({ teamConnections: setTeamMapEntry(s.teamConnections, teamId, items) }));
+    void migrateLegacyNetbird(items, saveMigratedNetbird);
+  },
 
   clearTeamConnections: (teamId) =>
     set((s) => ({ teamConnections: clearTeamMapEntry(s.teamConnections, teamId) })),

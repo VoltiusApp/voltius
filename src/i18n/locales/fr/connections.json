@@ -262,6 +262,19 @@
       "serverTooOld": "Ce serveur Voltius est trop ancien pour stocker les séquences de port knocking des hôtes d'un coffre d'équipe. Demandez à son administrateur de mettre le serveur à jour pour utiliser le port knocking ici.",
       "sequenceUnavailable": "La séquence de knock de cet hôte n'est pas disponible sur cet appareil.",
       "sequenceInvalid": "La séquence de knock de cet hôte n'est pas valide. Corrigez-la dans les réglages Port knocking de l'hôte."
+    },
+    "netbird": {
+      "title": "NetBird SSH",
+      "enable": "Se connecter avec NetBird",
+      "hint": "Pour les pairs NetBird qui exigent un JWT. Utilisez les paramètres fournis par votre administrateur NetBird. Voltius ouvre la connexion par appareil de votre fournisseur d’identité et n’envoie le jeton qu’à un pair dont la clé d’hôte SSH correspond à l’empreinte.",
+      "issuer": "Émetteur OIDC (HTTPS)",
+      "clientId": "Identifiant du client public",
+      "fingerprint": "Clé d’hôte SSH du pair (SHA256)",
+      "scope": "Portées",
+      "audience": "Audience (facultatif)",
+      "tokenType": "Jeton accepté par NetBird",
+      "incomplete": "Saisissez un émetteur HTTPS, un identifiant client et l’empreinte SHA256 de la clé d’hôte du pair.",
+      "unsupported": "Google n’est pas pris en charge : ses points de terminaison d’appareil et de jeton sont sur une autre origine que son émetteur."
     }
   }
 }

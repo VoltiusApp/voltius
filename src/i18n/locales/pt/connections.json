@@ -262,6 +262,19 @@
       "serverTooOld": "Este servidor Voltius é muito antigo para armazenar sequências de batida para hosts do cofre da equipe. Peça ao seu administrador para atualizar o servidor para usar port knocking aqui.",
       "sequenceUnavailable": "A sequência de batida para este host não está disponível neste dispositivo.",
       "sequenceInvalid": "A sequência de batida deste host é inválida. Corrija-a nas configurações de Port Knocking do host."
+    },
+    "netbird": {
+      "title": "NetBird SSH",
+      "enable": "Entrar com NetBird",
+      "hint": "Para pares NetBird que exigem um JWT. Use as configurações fornecidas pelo administrador do NetBird. O Voltius abre o login por dispositivo do seu provedor de identidade e envia o token somente a um par cuja chave de host SSH corresponda à impressão digital.",
+      "issuer": "Emissor OIDC (HTTPS)",
+      "clientId": "ID do cliente público",
+      "fingerprint": "Chave de host SSH do par (SHA256)",
+      "scope": "Escopos",
+      "audience": "Público (opcional)",
+      "tokenType": "Token aceito pelo NetBird",
+      "incomplete": "Informe um emissor HTTPS, um ID de cliente e a impressão digital SHA256 da chave de host do par.",
+      "unsupported": "O Google não pode ser usado: os endpoints de dispositivo e de token ficam em outra origem que não a do emissor."
     }
   }
 }

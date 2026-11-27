@@ -113,6 +113,17 @@ export interface PortKnockSettings {
   window_secs?: number;
 }
 
+/** Public device-flow settings from the NetBird administrator. */
+export interface NetbirdSettings {
+  issuer: string;
+  client_id: string;
+  scope: string;
+  audience: string;
+  token_type: "access_token" | "id_token";
+  /** SHA256 fingerprint of the peer's SSH host key, checked before any token is sent. */
+  fingerprint: string;
+}
+
 export interface ProxyOverride {
   mode: ProxyMode;
   host?: string;
@@ -159,6 +170,7 @@ export interface Connection {
   webdav_url?: string;
   web_secure?: boolean;
   port_knock?: PortKnockSettings;
+  netbird?: NetbirdSettings;
   notes?: string;
   serial_port?: string;
   serial_baud?: number;
@@ -206,6 +218,7 @@ export interface ConnectionFormData {
   webdav_url?: string;
   web_secure?: boolean;
   port_knock?: PortKnockSettings;
+  netbird?: NetbirdSettings;
   notes?: string;
   serial_port?: string;
   serial_baud?: number;
@@ -256,16 +269,6 @@ export interface ConnectRetryOverride {
   saveAs?: IdentitySaveAs;
 }
 
-/** Public device-flow configuration supplied by the NetBird administrator. */
-export interface NetbirdProfile {
-  issuer: string;
-  clientId: string;
-  scope: string;
-  audience: string;
-  tokenType: "access_token" | "id_token";
-  fingerprint: string;
-}
-
 export interface NetbirdChallenge {
   verificationUri: string;
   userCode: string;
@@ -291,6 +294,7 @@ export interface TerminalSession {
   /** Set when the failure was the vault itself, so the overlay can offer to unlock
    * rather than ask for credentials. The message is translated and cannot be matched. */
   errorCode?: BackendErrorCode;
+  /** NetBird device code for the current SSH attempt. Never persisted. */
   netbirdChallenge?: NetbirdChallenge;
   identityPick?: IdentityPickIssue;
   skipIdentityPick?: boolean;
