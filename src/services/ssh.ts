@@ -1,4 +1,5 @@
-import { invoke } from "@/lib/invoke";
+import type { NetbirdChallenge, NetbirdSettings } from "@/types";
+import { Channel, invoke } from "@/lib/invoke";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import type { ProxySpec } from "@/services/proxy";
 import { onTerminalClosed, onTerminalOutput } from "@/services/terminalOutput";
@@ -45,8 +46,19 @@ export async function sshConnect(params: {
   initialCwd?: string;
   proxy?: ProxySpec | null;
   knock?: KnockSpec | null;
+  onVerification?: (url?: string) => void;
+  netbird?: NetbirdSettings;
+  onNetbirdChallenge?: (challenge?: NetbirdChallenge) => void;
 }): Promise<void> {
-  return invoke("ssh_connect", {
+  const { onVerification, netbird, onNetbirdChallenge } = params;
+  const channel = onVerification ? new Channel<string>((url) => onVerification(url || undefined)) : null;
+  const challenges = netbird && onNetbirdChallenge
+    ? new Channel<NetbirdChallenge | null>((challenge) => onNetbirdChallenge(challenge ?? undefined))
+    : null;
+  return invoke<void>("ssh_connect", {
+    onVerification: channel,
+    netbird: challenges ? netbird : null,
+    onNetbirdChallenge: challenges,
     sessionId: params.sessionId,
     host: params.host,
     port: params.port,
@@ -74,6 +86,10 @@ export async function sshConnect(params: {
     proxy: params.proxy ?? null,
     knock: params.knock ?? null,
     terminalColors: currentTerminalColors(),
+  }).finally(() => {
+    for (const c of [channel, challenges]) if (c) c.onmessage = () => {};
+    onVerification?.();
+    onNetbirdChallenge?.();
   });
 }
 

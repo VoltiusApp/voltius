@@ -63,6 +63,7 @@ export type Transfer = {
   resumedAt?: number;
   /** Link down; the backend is waiting for the session to reconnect. */
   waiting?: boolean;
+  queued?: boolean;
   /** Set when an MCP client started this transfer; absent for the user's own.
    *  Deliberately NOT mcpOwnershipStore: that store's keepOnly() reaper filters
    *  its records against live SESSION ids and would sweep every transfer, and

@@ -135,6 +135,7 @@
       "moveSourceNotDeleted": "Copied, but could not remove the original of {{names}}: {{error}}"
     },
     "queue": {
+      "queued": "Queued",
       "title": "Transfers",
       "transferCount_one": "{{count}} transfer",
       "transferCount_other": "{{count}} transfers",

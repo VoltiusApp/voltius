@@ -52,18 +52,16 @@ async function uploadEntries(files: FileEntry[], target: UploadTarget): Promise<
     return;
   }
 
-  for (const file of files) {
-    await runTransfer(file.name, "→", (tid) => transferItem({
-      from: "local",
-      to: target.isLocal ? "local" : "remote",
-      dstSftpId: target.sftpId ?? undefined,
-      srcPath: file.path,
-      dstPath: joinPath(target.cwd, file.name),
-      isDir: file.isDir,
-      useTar,
-      transferId: tid,
-    }), target.onRefresh, accelFor(mode, file.isDir));
-  }
+  await Promise.all(files.map((file) => runTransfer(file.name, "→", (tid) => transferItem({
+    from: "local",
+    to: target.isLocal ? "local" : "remote",
+    dstSftpId: target.sftpId ?? undefined,
+    srcPath: file.path,
+    dstPath: joinPath(target.cwd, file.name),
+    isDir: file.isDir,
+    useTar,
+    transferId: tid,
+  }), target.onRefresh, accelFor(mode, file.isDir))));
 }
 
 /** Ask for a local folder, then queue the download of `files` into it. */
@@ -83,18 +81,16 @@ export async function downloadToLocal(files: FileEntry[], sftpId: string, localD
     return;
   }
 
-  for (const file of files) {
-    await runTransfer(file.name, "←", (tid) => transferItem({
-      from: "remote",
-      to: "local",
-      srcSftpId: sftpId,
-      srcPath: file.path,
-      dstPath: joinPath(localDir, file.name),
-      isDir: file.isDir,
-      useTar,
-      transferId: tid,
-    }), undefined, accelFor(mode, file.isDir));
-  }
+  await Promise.all(files.map((file) => runTransfer(file.name, "←", (tid) => transferItem({
+    from: "remote",
+    to: "local",
+    srcSftpId: sftpId,
+    srcPath: file.path,
+    dstPath: joinPath(localDir, file.name),
+    isDir: file.isDir,
+    useTar,
+    transferId: tid,
+  }), undefined, accelFor(mode, file.isDir))));
 }
 
 /**

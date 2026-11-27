@@ -160,6 +160,7 @@
       "moveSourceNotDeleted": "Скопировано, но не удалось удалить исходный файл {{names}}: {{error}}"
     },
     "queue": {
+      "queued": "В очереди",
       "title": "Передачи",
       "transferCount_one": "{{count}} передача",
       "transferCount_few": "{{count}} передачи",

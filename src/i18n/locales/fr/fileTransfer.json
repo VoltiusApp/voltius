@@ -146,6 +146,7 @@
       "moveSourceNotDeleted": "Copié, mais impossible de supprimer l’original de {{names}} : {{error}}"
     },
     "queue": {
+      "queued": "En attente",
       "title": "Transferts",
       "transferCount_one": "{{count}} transfert",
       "transferCount_many": "{{count}} transferts",

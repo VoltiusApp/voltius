@@ -262,6 +262,19 @@
       "serverTooOld": "Bu Voltius sunucusu, ekip kasasındaki sunucuların port vuruşu dizilerini saklamak için çok eski. Burada port vuruşunu kullanmak için yöneticisinden Voltius sunucusunu güncellemesini isteyin.",
       "sequenceUnavailable": "Bu sunucunun vuruş dizisi bu cihazda kullanılamıyor.",
       "sequenceInvalid": "Bu sunucunun vuruş dizisi geçersiz. Sunucunun Port vuruşu ayarlarından düzeltin."
+    },
+    "netbird": {
+      "title": "NetBird SSH",
+      "enable": "NetBird ile oturum aç",
+      "hint": "JWT isteyen NetBird eşleri için. NetBird yöneticinizden aldığınız ayarları kullanın. Voltius kimlik sağlayıcınızın cihaz oturum açma sayfasını açar ve belirteci yalnızca SSH ana bilgisayar anahtarı parmak iziyle eşleşen bir eşe gönderir.",
+      "issuer": "OIDC sağlayıcısı (HTTPS)",
+      "clientId": "Genel istemci kimliği",
+      "fingerprint": "Eşin SSH ana bilgisayar anahtarı (SHA256)",
+      "scope": "Kapsamlar",
+      "audience": "Hedef kitle (isteğe bağlı)",
+      "tokenType": "NetBird tarafından kabul edilen belirteç",
+      "incomplete": "Bir HTTPS sağlayıcısı, istemci kimliği ve eşin SHA256 ana bilgisayar anahtarı parmak izini girin.",
+      "unsupported": "Google kullanılamaz: cihaz ve belirteç uç noktaları, sağlayıcıdan farklı bir kaynakta bulunur."
     }
   }
 }

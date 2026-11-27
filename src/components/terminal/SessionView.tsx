@@ -102,7 +102,7 @@ function SessionConnectionOverlayPanel({ session, banner }: { session: TerminalS
   const reconnect = useSessionStore((s) => s.reconnect);
   const reconnectWithPassphrase = useSessionStore((s) => s.reconnectWithPassphrase);
   const retryConnect = useSessionStore((s) => s.retryConnect);
-  const enableLegacyAlgorithms = useSessionStore((s) => s.enableLegacyAlgorithms);
+  const reconnectWithHostPatch = useSessionStore((s) => s.reconnectWithHostPatch);
   const onDismiss = () => closeSessionTabs([session.id]);
   const onRetry = () => void reconnect(session.id);
   const reconnectProps = {
@@ -165,6 +165,10 @@ function SessionConnectionOverlayPanel({ session, banner }: { session: TerminalS
       connectionId={connection?.id}
       steps={getSshSteps(!!connection && knocksOnConnect(connection))}
       stepEventName={`ssh-step-${session.id}`}
+      verificationUrl={session.verificationUrl}
+      netbirdChallenge={session.netbirdChallenge}
+      netbird={connection?.netbird}
+      onNetbirdLogin={session.type === "ssh" ? (netbird) => void reconnectWithHostPatch(session.id, { netbird }) : undefined}
       conflictEventName={`ssh-host-key-conflict-${session.id}`}
       onDismiss={onDismiss}
       onRetry={session.type === "ssh" ? onRetry : undefined}
@@ -177,7 +181,7 @@ function SessionConnectionOverlayPanel({ session, banner }: { session: TerminalS
       onRetryWithAuth={
         session.type === "ssh" ? (override: ConnectRetryOverride, save) => void retryConnect(session.id, override, save) : undefined
       }
-      onEnableLegacyAlgorithms={session.type === "ssh" ? () => void enableLegacyAlgorithms(session.id) : undefined}
+      onEnableLegacyAlgorithms={session.type === "ssh" ? () => void reconnectWithHostPatch(session.id, { legacy_algorithms: true }) : undefined}
     />
   );
 }

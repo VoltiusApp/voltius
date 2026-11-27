@@ -88,18 +88,20 @@ describe("iOS upload", () => {
     await vi.waitFor(() => expect(ctrl.refresh).toHaveBeenCalledTimes(2));
 
     const chunks = chunkCalls();
-    const [big, empty] = [...new Set(chunks.map((c) => c.id))];
-    expect(chunks.map((c) => [c.id, c.offset, c.bytes])).toEqual([
-      [big, "0", 4 * MB], [big, String(4 * MB), 4 * MB], [big, String(8 * MB), MB],
-      [empty, "0", 0],
+    const big = chunks.find((c) => c.bytes === 4 * MB)!.id;
+    const empty = chunks.find((c) => c.bytes === 0)!.id;
+    expect(big).not.toBe(empty);
+    expect(chunks.filter((c) => c.id === big).map((c) => [c.offset, c.bytes])).toEqual([
+      ["0", 4 * MB], [String(4 * MB), 4 * MB], [String(8 * MB), MB],
     ]);
-    expect(calls("sftp_upload").map((a) => [a.localPath, a.remotePath])).toEqual([
+    expect(chunks.filter((c) => c.id === empty).map((c) => [c.offset, c.bytes])).toEqual([["0", 0]]);
+    expect(calls("sftp_upload").map((a) => [a.localPath, a.remotePath]).sort()).toEqual([
       [`/cache/voltius-uploads/${big}/upload`, `${CWD}/big.iso`],
       [`/cache/voltius-uploads/${empty}/upload`, `${CWD}/empty.txt`],
-    ]);
+    ].sort());
     expect(calls("upload_stage")).toEqual([]);
     expect(calls("upload_pick")).toEqual([]);
-    expect(calls("upload_stage_clear").map((a) => a.transferId)).toEqual([big, empty]);
+    expect(calls("upload_stage_clear").map((a) => a.transferId).sort()).toEqual([big, empty].sort());
     expect(document.querySelector('input[type="file"]')).toBeNull();
   });
 

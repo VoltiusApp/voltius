@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import i18n from "@/i18n";
-import type { Connection, ConnectionFormData, ConnectRetryOverride, IdentitySaveAs, TerminalSession, SerialConnectParams, SerialLine } from "@/types";
+import type { Connection, ConnectionFormData, NetbirdChallenge, NetbirdSettings, ConnectRetryOverride, IdentitySaveAs, TerminalSession, SerialConnectParams, SerialLine } from "@/types";
 import { sshConnect, sshDisconnect, sshDisconnectForReconnect, sshDetectDistro, sshSendInput } from "@/services/ssh";
 import { resolveKeepalive } from "@/utils/keepalive";
 import { normalizeTabTitle } from "@/utils/sessionLabel";
@@ -82,8 +82,8 @@ interface SessionStore {
   reconnectAttempt: (sessionId: string, options?: { restore?: boolean }) => Promise<ReconnectAttemptResult>;
   reconnectWithPassphrase: (sessionId: string, passphrase: string, save: boolean) => Promise<void>;
   retryConnect: (sessionId: string, override: ConnectRetryOverride, save: boolean) => Promise<void>;
-  /** Saves Legacy Algorithms on the session's host, then reconnects. */
-  enableLegacyAlgorithms: (sessionId: string) => Promise<void>;
+  /** Saves settings on the session's host, e.g. Legacy Algorithms or NetBird, then reconnects. */
+  reconnectWithHostPatch: (sessionId: string, patch: Partial<ConnectionFormData>) => Promise<void>;
   restoreSessions: (sessions: TerminalSession[], activeSessionId: string | null) => void;
   markConnected: (sessionId: string) => void;
   markError: (sessionId: string, message: string, code?: BackendErrorCode, identityPick?: IdentityPickIssue) => void;
@@ -147,6 +147,9 @@ async function buildSshConnectOptions(
   connection: Connection,
   sessionId: string,
 ): Promise<{
+  onVerification: (url?: string) => void;
+  netbird: NetbirdSettings | undefined;
+  onNetbirdChallenge: (challenge?: NetbirdChallenge) => void;
   jumpHosts: Awaited<ReturnType<typeof resolveJumpHosts>> | undefined;
   envVars: [string, string][] | undefined;
   agentForwarding: boolean;
@@ -176,6 +179,9 @@ async function buildSshConnectOptions(
   }
 
   return {
+    onVerification: (verificationUrl) => patchSession(useSessionStore.setState, sessionId, { verificationUrl }),
+    netbird: connection.netbird,
+    onNetbirdChallenge: (netbirdChallenge) => patchSession(useSessionStore.setState, sessionId, { netbirdChallenge }),
     jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
     envVars: envVars.length > 0 ? envVars : undefined,
     agentForwarding: connection.agent_forwarding ?? false,
@@ -270,28 +276,6 @@ function createSshSession(
 }
 
 /**
- * Validate that a host has the minimum needed to attempt an SSH connection.
- * Returns a sentinel error message (detected by the connection overlay to show
- * the username / auth prompt) or null when the connection can proceed.
- *
- * `hasConfiguredAuth` lets a host that references a keychain identity or key be
- * treated as having auth even if the secret momentarily resolves empty (e.g.
- * identities not yet loaded). In that case we proceed and let the backend be the
- * authority — it returns "No authentication method provided" if there's truly
- * nothing, which surfaces the same prompt without false positives.
- */
-function preflightConnect(
-  username: string | undefined,
-  password?: string,
-  privateKey?: string,
-  hasConfiguredAuth = false,
-): string | null {
-  if (!username || !username.trim()) return "No username provided";
-  if (!password && !privateKey && !hasConfiguredAuth) return "No authentication method provided";
-  return null;
-}
-
-/**
  * Serialize connect attempts per session id. The backoff loop's in-flight
  * attempt, a manual reconnect, and workspace restore can otherwise issue
  * concurrent sshConnect for one session — and if the remote `screen` is briefly
@@ -312,6 +296,19 @@ function withSessionConnectLock<T>(sessionId: string, fn: () => Promise<T>): Pro
   return next;
 }
 
+// Credentials can resolve after the tab closed, too late for the backend's early-close window.
+function sshConnectOpen(params: Parameters<typeof sshConnect>[0]): Promise<void> {
+  if (!useSessionStore.getState().sessions.some((s) => s.id === params.sessionId)) {
+    return Promise.reject(new Error("Connection cancelled."));
+  }
+  return sshConnect(params);
+}
+
+// A username is enough to try SSH's none method. The server decides whether it needs credentials.
+function requireSshUsername(username: string) {
+  if (!username?.trim()) throw new Error("No username provided");
+}
+
 async function connectSshSession(
   set: SessionSetter,
   connection: Connection,
@@ -320,17 +317,11 @@ async function connectSshSession(
   initialCwd?: string,
 ) {
   const { password, privateKey, passphrase } = credentials;
-  const hasConfiguredAuth = !!connection.identity_id || !!connection.key_id;
-  const preflightError = preflightConnect(connection.username, password, privateKey, hasConfiguredAuth);
-  if (preflightError) {
-    markSessionError(set, sessionId, preflightError);
-    throw new Error(preflightError);
-  }
-
   try {
+    requireSshUsername(connection.username);
     const opts = await buildSshConnectOptions(connection, sessionId);
     await withSessionConnectLock(sessionId, () =>
-      sshConnect({
+      sshConnectOpen({
         sessionId,
         host: connection.host,
         port: connection.port,
@@ -691,6 +682,30 @@ async function connectConnection(
   return sessionId;
 }
 
+/** Never throws: the session is already connected, so a failed save leaves it on the quick-connect host. */
+async function adoptSavedConnection(
+  set: SessionSetter,
+  sessionId: string,
+  connection: Connection,
+  override: ConnectRetryOverride,
+): Promise<Connection> {
+  try {
+    const target = await materializeSavedConnection(connection, override);
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId
+          ? { ...sess, connectionId: target.id, connectionName: target.name?.trim() || sess.connectionName }
+          : sess,
+      ),
+    }));
+    dropEphemeralConnection(connection.id);
+    return target;
+  } catch (err) {
+    notifyError(err);
+    return connection;
+  }
+}
+
 async function saveIdentityChoice(connection: Connection, saveAs: IdentitySaveAs, identityId: string): Promise<void> {
   const picks = useIdentityPickStore.getState();
   if (saveAs === "pick") return picks.setHostPick(connection.id, identityId);
@@ -988,7 +1003,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         await sshDisconnectForReconnect(sessionId);
         credentials = await resolveSessionCredentials(connection, sessionId);
         const opts = await buildSshConnectOptions(connection, sessionId);
-        await sshConnect({
+        await sshConnectOpen({
           sessionId,
           host: connection.host,
           port: connection.port,
@@ -1013,7 +1028,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         sessionEnded(sessionId);
         return;
       }
-      markSessionError(set, sessionId, identityPickIssueOf(err) ? err : msg);
+      markSessionError(set, sessionId, err);
     }
   },
 
@@ -1037,7 +1052,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         await sshDisconnectForReconnect(sessionId);
         credentials = await resolveConnectionCredentials(connection);
         const opts = await buildSshConnectOptions(connection, sessionId);
-        await sshConnect({
+        await sshConnectOpen({
           sessionId,
           host: connection.host,
           port: connection.port,
@@ -1083,7 +1098,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         if (target) await storeSecret(target, passphrase).catch(reportUploadFailure("reconnectWithPassphrase"));
 
         const opts = await buildSshConnectOptions(connection, sessionId);
-        await sshConnect({
+        await sshConnectOpen({
           sessionId,
           host: connection.host,
           port: connection.port,
@@ -1105,12 +1120,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }
   },
 
-  enableLegacyAlgorithms: async (sessionId) => {
+  reconnectWithHostPatch: async (sessionId, patch) => {
     const session = get().sessions.find((s) => s.id === sessionId);
     const connection = session && connectionForSession(session);
     if (!connection) return;
     try {
-      await patchConnection(connection, { legacy_algorithms: true });
+      await patchConnection(connection, patch);
     } catch (err) {
       markSessionError(set, sessionId, err);
       return;
@@ -1121,7 +1136,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   retryConnect: async (sessionId, override, save) => {
     const session = get().sessions.find((s) => s.id === sessionId);
     if (!session || session.type !== "ssh") return;
-    let connection = findConnection(session.connectionId);
+    const connection = findConnection(session.connectionId);
     if (!connection) return;
     setSkipPick(set, sessionId, false);
 
@@ -1142,58 +1157,33 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       const resolved = await resolveOverrideAuth(connection, merged);
       const { username, password, privateKey, passphrase } = resolved;
 
-      // Still missing something — re-surface the appropriate prompt and keep the
-      // accumulated overrides for the next step. Persist the username now if the
-      // user asked to save it, so the intent survives into the auth step.
-      const preflightError = preflightConnect(username, password, privateKey);
-      if (preflightError) {
-        if (save && merged.username?.trim()) {
-          await persistConnectAuth(connection, { username: merged.username }).catch(() => {});
-        }
-        markSessionError(set, sessionId, preflightError);
-        return;
-      }
+      requireSshUsername(username);
 
+      // A quick-connect host becomes a saved one only once the server has let us in.
+      const materialize = save && !(merged.saveAs && merged.identityId) && ephemeralConnections.has(connection.id);
       if (save && merged.saveAs && merged.identityId) {
         await saveIdentityChoice(connection, merged.saveAs, merged.identityId).catch(notifyError);
-      } else if (save) {
-        if (ephemeralConnections.has(connection.id)) {
-          // Intentionally not caught (unlike the saved-host path below): a failed
-          // create must surface as a connect error rather than let the session
-          // proceed pointing at the now-stale ephemeral id.
-          const oldId = connection.id;
-          const target = await materializeSavedConnection(connection, merged);
-          set((s) => ({
-            sessions: s.sessions.map((sess) =>
-              sess.id === sessionId
-                ? { ...sess, connectionId: target.id, connectionName: target.name?.trim() || sess.connectionName }
-                : sess,
-            ),
-          }));
-          dropEphemeralConnection(oldId);
-          connection = target;
-        } else {
-          await persistConnectAuth(connection, merged).catch(() => {});
-        }
+      } else if (save && !materialize) {
+        await persistConnectAuth(connection, merged).catch(() => {});
       }
 
-      const conn = connection;
-      const opts = await buildSshConnectOptions(conn, sessionId);
+      const opts = await buildSshConnectOptions(connection, sessionId);
       await withSessionConnectLock(sessionId, () =>
-        sshConnect({
+        sshConnectOpen({
           sessionId,
-          host: conn.host,
-          port: conn.port,
+          host: connection.host,
+          port: connection.port,
           username,
           password,
           privateKey,
           passphrase,
-          connectionId: conn.id,
+          connectionId: connection.id,
           attachOnly: !!(session.persist && session.everConnected),
           ...opts,
         }),
       );
       connectOverrides.delete(sessionId);
+      const conn = materialize ? await adoptSavedConnection(set, sessionId, connection, merged) : connection;
       // The overrides map is session-scoped and just went away. For an unsaved
       // quick-connect host nothing else holds this auth, so hand it to the
       // connection-scoped memory cache: duplicate and reconnect resolve

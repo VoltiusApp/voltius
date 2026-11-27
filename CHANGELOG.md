@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.87.0] - 2026-11-27
+
+### Added
+
+- Tailscale SSH check mode: when a server asks you to approve the connection in your browser, Voltius shows the link with Open, Copy and Cancel and waits for approval, also through jump hosts; username-only hosts can connect (#957)
+- NetBird SSH: hosts that require NetBird sign-in run your identity provider's device sign-in (verification link and code) and send the token only to the pinned host key; settings live in the host form (#958)
+- File uploads and downloads run concurrently, four at a time by default, adjustable from 1 to 10 in Settings → SFTP; FTP servers that limit logins wait for a free one (#960)
+
+### Fixed
+
+- The window size, position and maximized state, and whether the right panel is open, are restored after a restart (#952)
+- Closing a tab while it connects cancels the connection instead of leaving it running in the background (#957)
+- A quick-connect host is saved only once the connection succeeds (#957)
+- Mobile shared terminals: avatars in the control bar no longer overlap, and the Hosts strip is called Shared Sessions since it also lists direct shares (#959)
+
 ## [0.86.0] - 2026-11-26
 
 ### Added

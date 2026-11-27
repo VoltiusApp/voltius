@@ -11,6 +11,7 @@ use crate::sftp::link::LINK_PROBE;
 use crate::sftp::FileBackend;
 use async_trait::async_trait;
 use std::io;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex as StdMutex, OnceLock};
 use std::time::{Instant, UNIX_EPOCH};
 use suppaftp::list::File as FtpFile;
@@ -18,7 +19,7 @@ use suppaftp::tokio::{AsyncRustlsConnector, AsyncRustlsFtpStream};
 use suppaftp::types::FileType;
 use suppaftp::{FtpError, Mode, Status};
 use tokio::io::AsyncWriteExt;
-use tokio::sync::{Mutex, OwnedMutexGuard};
+use tokio::sync::{Mutex, Notify, OwnedMutexGuard};
 use tokio::time::{timeout, Duration};
 use tokio_rustls::TlsConnector;
 use tokio_util::sync::CancellationToken;
@@ -44,6 +45,24 @@ fn resolve_password<'a>(username: &str, password: Option<&'a str>) -> &'a str {
     }
 }
 
+/// Logins a running data stream holds; `returned` counts the ones that came back or closed.
+#[derive(Default)]
+struct Lent {
+    out: AtomicUsize,
+    returned: AtomicU64,
+    freed: Notify,
+}
+
+struct Loan(Arc<Lent>);
+
+impl Drop for Loan {
+    fn drop(&mut self) {
+        self.0.out.fetch_sub(1, Ordering::SeqCst);
+        self.0.returned.fetch_add(1, Ordering::SeqCst);
+        self.0.freed.notify_waiters();
+    }
+}
+
 struct Login {
     host: String,
     port: u16,
@@ -63,6 +82,8 @@ pub struct FtpBackend {
     /// Whether the server lets APPE add to a file, once a resume has asked.
     appends: Arc<OnceLock<bool>>,
     used: Arc<StdMutex<Instant>>,
+    spare: Arc<StdMutex<Vec<(Stream, Instant)>>>,
+    lent: Arc<Lent>,
     closed: CancellationToken,
 }
 
@@ -128,6 +149,8 @@ pub async fn connect(
         mfmt: feat.contains_key("MFMT"),
         appends: Arc::default(),
         used: Arc::new(StdMutex::new(Instant::now())),
+        spare: Arc::default(),
+        lent: Arc::default(),
         closed: CancellationToken::new(),
     })
 }
@@ -217,15 +240,53 @@ impl FtpBackend {
     }
 
     /// The control connection, checked first after `STALE` idle since servers drop idle ones.
+    /// A login the server refuses waits for a running stream to hand its own back.
     async fn session(&self) -> Result<Session, AppError> {
-        let mut conn = Arc::clone(&self.conn).lock_owned().await;
-        let idle = std::mem::replace(&mut *self.used.lock().unwrap(), Instant::now()).elapsed();
-        if conn.is_none() || idle > STALE {
-            self.answers(&mut conn)
-                .await
-                .map_err(|e| AppError::coded(ErrorCode::ConnectionLost, e))?;
+        loop {
+            let mut conn = Arc::clone(&self.conn).lock_owned().await;
+            if self.closed.is_cancelled() {
+                return Err("FTP session closed".into());
+            }
+            let mut idle =
+                std::mem::replace(&mut *self.used.lock().unwrap(), Instant::now()).elapsed();
+            if conn.is_none() {
+                if let Some((ftp, at)) = self.spare.lock().unwrap().pop() {
+                    *conn = Some(ftp);
+                    idle = at.elapsed();
+                }
+            }
+            if conn.is_some() && idle <= STALE {
+                return Ok(conn);
+            }
+            let returned = self.lent.returned.load(Ordering::SeqCst);
+            let why = match self.answers(&mut conn).await {
+                Ok(()) => return Ok(conn),
+                Err(e) => e,
+            };
+            drop(conn);
+            if !self.login_freed(returned).await {
+                return Err(AppError::coded(ErrorCode::ConnectionLost, why));
+            }
         }
-        Ok(conn)
+    }
+
+    /// Whether a login came back since `returned`, waiting for one while a stream holds any.
+    async fn login_freed(&self, returned: u64) -> bool {
+        let freed = self.lent.freed.notified();
+        tokio::pin!(freed);
+        freed.as_mut().enable();
+        if self.lent.returned.load(Ordering::SeqCst) != returned
+            || !self.spare.lock().unwrap().is_empty()
+        {
+            return true;
+        }
+        if self.lent.out.load(Ordering::SeqCst) == 0 {
+            return false;
+        }
+        tokio::select! {
+            _ = freed => true,
+            _ = self.closed.cancelled() => false,
+        }
     }
 
     /// Each entry of `dir`, from MLSD when the server has it (exact times), else LIST.
@@ -419,6 +480,7 @@ impl FileBackend for FtpBackend {
 
     async fn close(&self) {
         self.closed.cancel();
+        self.spare.lock().unwrap().clear();
         if let Some(mut ftp) = self.conn.lock().await.take() {
             let _ = timeout(Duration::from_secs(2), ftp.quit()).await;
         }
@@ -488,3 +550,6 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod parallel_test;
