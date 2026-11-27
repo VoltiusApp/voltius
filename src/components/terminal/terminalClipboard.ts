@@ -187,12 +187,12 @@ export function attachTerminalClipboard(
 
   // The app was skipped on press, so it gets the press now: with its release for
   // a click that never became a drag, alone for a drag it takes over.
-  const replayToApp = (src: MouseEvent, withRelease: boolean) => {
+  const replayToApp = (src: MouseEvent, release?: MouseEvent) => {
     const target = src.target as HTMLElement | null;
     if (!target) return;
     replaying = true;
     target.dispatchEvent(cloneMouse("mousedown", src));
-    if (withRelease) document.dispatchEvent(cloneMouse("mouseup", src));
+    if (release) document.dispatchEvent(cloneMouse("mouseup", release));
     replaying = false;
   };
 
@@ -207,7 +207,7 @@ export function attachTerminalClipboard(
     term.clearSelection();
     paneSelection.clear();
     unpark();
-    replayToApp(press, false);
+    replayToApp(press);
   };
   const handlePaneDrag = (e: MouseEvent) => {
     if (!paneDrag || !(e.buttons & 1)) return;
@@ -250,13 +250,17 @@ export function attachTerminalClipboard(
     if (paneDrag) setNativeSelection(!appHoldsMouse());
     paneDrag = false;
     if (!press && !dragging) return;
-    const sel = selectionText();
     if (press) {
       const moved = Math.abs(e.clientX - press.clientX) + Math.abs(e.clientY - press.clientY) >= 4;
-      if (!moved && !sel) replayToApp(press, true);
+      if (!moved) {
+        // xterm selects a word on the second press even without a drag.
+        if (press.detail === 2) term.clearSelection();
+        if (!selectionText()) replayToApp(press, e);
+      }
     }
     if (!dragging) return;
     dragging = false;
+    const sel = selectionText();
     // Copy-on-select is opt-out: when the "Select to Copy" toggle is off, a
     // selection must NOT touch the clipboard (#50). Explicit Ctrl+Shift+C still
     // copies regardless.

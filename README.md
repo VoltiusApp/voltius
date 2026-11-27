@@ -31,6 +31,7 @@ No account required. Everything below is free, forever.
 - **Split panes, snippets & command palette** — Broadcast input to every pane; reusable commands with variables and sequences.
 - **Port forwarding** — Local, remote and dynamic (SOCKS).
 - **Local terminal & serial console** — Bash, Zsh, Fish, PowerShell, WSL and more; serial ports on desktop.
+- **Mouse support** — Double-click a folder in Midnight Commander to open it, or drag to select terminal text with “Drag selects text” enabled.
 - **Containers & monitoring** — Docker and Proxmox LXC, live CPU/memory/disk stats, a process manager.
 
 **Files**
