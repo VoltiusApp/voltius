@@ -30,6 +30,8 @@ mod lan_sync;
 #[cfg(target_os = "linux")]
 mod linux_gfx;
 mod local;
+#[cfg(desktop)]
+mod main_window;
 pub mod mcp;
 mod metrics;
 mod network_watch;
@@ -228,7 +230,8 @@ pub fn run() {
     {
         builder = builder
             .plugin(tauri_plugin_updater::Builder::new().build())
-            .plugin(tauri_plugin_notification::init());
+            .plugin(tauri_plugin_notification::init())
+            .plugin(main_window::state_plugin());
     }
 
     builder
@@ -269,6 +272,9 @@ pub fn run() {
 
             // Verbose logging auto-reverts on every launch: always start at Info.
             log::set_max_level(log::LevelFilter::Info);
+
+            #[cfg(desktop)]
+            main_window::restore_and_show(app.handle());
 
             #[cfg(target_os = "ios")]
             {
