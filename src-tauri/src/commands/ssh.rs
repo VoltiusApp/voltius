@@ -6,17 +6,11 @@ use crate::port_forward::PortForwardManager;
 use crate::proxy::ProxySpec;
 use crate::ssh::{
     client::{self, HopRoute, JumpHostConnect},
-    netbird::{Credential, Profile},
+    netbird::Login,
     session::SessionManager,
 };
 use std::sync::Arc;
 use tauri::AppHandle;
-
-#[derive(serde::Deserialize)]
-pub struct NetbirdLogin {
-    profile: Profile,
-    progress: tauri::ipc::JavaScriptChannelId,
-}
 
 #[tauri::command]
 pub async fn ssh_connect(
@@ -55,23 +49,18 @@ pub async fn ssh_connect(
     knock: Option<KnockSpec>,
     detached_ttl_secs: Option<u64>,
     on_verification: Option<tauri::ipc::JavaScriptChannelId>,
-    netbird: Option<NetbirdLogin>,
+    netbird: Option<crate::storage::config::NetbirdSsh>,
+    on_netbird_challenge: Option<tauri::ipc::JavaScriptChannelId>,
 ) -> Result<(), AppError> {
     let attempt = cancels.begin(&session_id);
-    let connect = async {
-        let credential = if let Some(login) = netbird {
-            let token = login
-                .profile
-                .authorize(&login.progress.channel_on(webview.clone()))
-                .await?;
-            Some(Credential {
-                fingerprint: login.profile.fingerprint,
-                token,
-            })
-        } else {
-            None
-        };
-        client::connect(
+    let netbird = netbird
+        .zip(on_netbird_challenge)
+        .map(|(settings, id)| Login {
+            settings,
+            progress: id.channel_on(webview.clone()),
+        });
+    let connected = attempt
+        .run(client::connect(
             app,
             session_id.clone(),
             &host,
@@ -100,11 +89,9 @@ pub async fn ssh_connect(
             terminal_colors,
             detached_ttl_secs,
             on_verification.map(|id| id.channel_on(webview)),
-            credential,
-        )
-        .await
-    };
-    let connected = attempt.run(connect).await?;
+            netbird,
+        ))
+        .await?;
 
     state.add(session_id.clone(), connected).await;
     if let Some(cancelled) = attempt.cancelled() {
@@ -152,7 +139,6 @@ pub async fn ssh_disconnect(
     } else {
         cancels.cancel(&session_id);
     }
-    state.cancel_netbird_login(&session_id).await;
     // A reconnect drops the SSH connection and immediately dials again under the
     // same session id, so the terminal is not leaving its host — the forwards
     // stay up and `ssh_connect` re-arms them. Tearing them down here is what used

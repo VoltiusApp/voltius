@@ -71,7 +71,18 @@ error_codes! {
     SshTailscaleCheckDenied,
     SshTailscaleCheckTimeout,
     SshTailscaleCheckRequired,
+    // NetBird SSH sign-in. Params: `fingerprint` for SshNetbirdPinMismatch.
     SshNetbirdSsoRequired,
+    SshNetbirdSettingsInvalid,
+    SshNetbirdEndpointOrigin,
+    SshNetbirdProviderUnreachable,
+    SshNetbirdProviderError,
+    SshNetbirdDeviceFlowDeclined,
+    SshNetbirdExpired,
+    SshNetbirdDenied,
+    SshNetbirdRejected,
+    SshNetbirdAuthFailed,
+    SshNetbirdPinMismatch,
     // HTTP file servers (WebDAV).
     LoginRejected,
     ResourceLocked,
@@ -233,6 +244,7 @@ impl Classify for crate::ssh::client::HopError {
             H::AfterKnock(e) => e.error_code(),
             H::Proxy(e) => e.error_code(),
             H::Ssh(e) => e.error_code(),
+            H::Coded(e) => e.code(),
             H::HostKey(_) => None,
         }
     }
@@ -243,7 +255,7 @@ impl Classify for crate::ssh::client::HopError {
             H::AfterKnock(e) => e.error_params(),
             H::Proxy(e) => e.error_params(),
             H::Ssh(e) => e.error_params(),
-            H::Knock(_) | H::HostKey(_) => Vec::new(),
+            H::Knock(_) | H::HostKey(_) | H::Coded(_) => Vec::new(),
         }
     }
 }

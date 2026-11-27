@@ -21,6 +21,7 @@ vi.mock("@/services/ssh", () => ({
 const h = vi.hoisted(() => ({
   resolveConnectionCredentials: vi.fn(async () => ({ username: "root", password: "pw" }) as unknown),
   saveConnection: vi.fn(async (data: object) => ({ ...data, id: "saved" })),
+  updateConnection: vi.fn(async (_id: string, _data: object) => {}),
 }));
 
 vi.mock("@/services/credentials", () => ({
@@ -34,7 +35,7 @@ vi.mock("@/stores/connectionStore", () => ({
       teamConnections: {},
       setLastUsed: vi.fn(async () => {}),
       saveConnection: h.saveConnection,
-      updateConnection: vi.fn(async () => {}),
+      updateConnection: h.updateConnection,
     }),
   },
   connectionToFormData: vi.fn(() => ({})),
@@ -52,7 +53,6 @@ vi.mock("@/services/auditContextResolver", () => ({ auditContextForVaultId: vi.f
 
 import { useSessionStore } from "./sessionStore";
 import { sshConnect } from "@/services/ssh";
-import { BackendError } from "@/services/backendErrors";
 import { VaultUnreadableError } from "@/services/vaultErrors";
 
 const session = (over: Partial<TerminalSession> = {}) =>
@@ -78,28 +78,45 @@ beforeEach(() => {
 });
 
 describe("session error state", () => {
-  test("a username-only host can request NetBird sign-in and finish in the same tab", async () => {
-    h.resolveConnectionCredentials.mockResolvedValue({ username: "root" });
-    const required = new BackendError("ssh-netbird-sso-required", "Sign in to NetBird");
-    vi.mocked(sshConnect).mockRejectedValueOnce(required);
-    await expect(useSessionStore.getState().connect("c1")).rejects.toBe(required);
-    expect(current().errorCode).toBe(required.code);
-    const sessionId = current().id;
-
-    const profile = { issuer: "https://id.example", clientId: "public", scope: "openid",
-      audience: "", tokenType: "id_token" as const, fingerprint: "SHA256:" + "A".repeat(43) };
-    h.resolveConnectionCredentials.mockResolvedValue({ username: "root", password: "unused-vault-secret" });
-    vi.mocked(sshConnect).mockImplementationOnce(async ({ netbird, password }) => {
-      expect(password).toBeUndefined();
-      expect(netbird?.profile).toEqual(profile);
-      const challenge = { verificationUri: "https://id.example/device", userCode: "ABCD" };
-      netbird!.onChallenge(challenge);
+  test("a NetBird host's settings reach the connect and its device code shows until the attempt ends", async () => {
+    const netbird = { issuer: "https://id.example", client_id: "public", scope: "openid", audience: "",
+      token_type: "id_token" as const, fingerprint: "SHA256:" + "A".repeat(43) };
+    connection.netbird = netbird;
+    const challenge = { verificationUri: "https://id.example/device", userCode: "ABCD" };
+    vi.mocked(sshConnect).mockImplementationOnce(async (params) => {
+      expect(params.netbird).toEqual(netbird);
+      params.onNetbirdChallenge!(challenge);
       expect(current().netbirdChallenge).toEqual(challenge);
-      netbird!.onChallenge(null);
+      params.onNetbirdChallenge!();
     });
-    await useSessionStore.getState().reconnect(sessionId, { netbird: profile });
-    expect(current()).toMatchObject({ id: sessionId, status: "connected", connectedUsername: "root" });
+    try {
+      await useSessionStore.getState().connect("c1");
+    } finally {
+      delete connection.netbird;
+    }
+    expect(current()).toMatchObject({ status: "connected", connectedUsername: "root" });
     expect(current().netbirdChallenge).toBeUndefined();
+  });
+
+  test("settings entered on the connection screen are saved to the host before it reconnects", async () => {
+    seed({ status: "error", errorCode: "ssh-netbird-sso-required" });
+    const netbird = { issuer: "https://id.example", client_id: "public", scope: "", audience: "",
+      token_type: "access_token" as const, fingerprint: "SHA256:" + "A".repeat(43) };
+    await useSessionStore.getState().reconnectWithHostPatch("s1", { netbird });
+    expect(h.updateConnection).toHaveBeenCalledWith("c1", expect.objectContaining({ netbird }));
+    expect(sshConnect).toHaveBeenCalledOnce();
+  });
+
+  test("a tab closed while its credentials resolve never dials", async () => {
+    seed({ status: "error" });
+    let resolve!: (creds: unknown) => void;
+    h.resolveConnectionCredentials.mockReturnValueOnce(new Promise((r) => { resolve = r; }));
+    const reconnecting = useSessionStore.getState().reconnect("s1");
+    await vi.waitFor(() => expect(h.resolveConnectionCredentials).toHaveBeenCalled());
+    useSessionStore.setState({ sessions: [] });
+    resolve({ username: "root", password: "pw" });
+    await reconnecting;
+    expect(sshConnect).not.toHaveBeenCalled();
   });
 
   test("markError records the message and the error status", () => {

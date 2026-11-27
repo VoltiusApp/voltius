@@ -248,17 +248,14 @@
         "manual": "Couldn't open a browser. Copy the link and open it in your browser."
       },
       "netbird": {
-        "setup": "Use your administrator’s public OIDC client settings and independently verified SSH fingerprint. These settings are saved on this device.",
-        "issuer": "OIDC issuer (HTTPS)",
-        "clientId": "Public client ID",
-        "fingerprint": "Trusted peer fingerprint (SHA256)",
-        "scope": "Scopes",
-        "audience": "Audience (optional)",
-        "tokenType": "Token accepted by NetBird",
-        "signIn": "Start NetBird sign-in",
-        "verify": "Open your identity provider and confirm this code.",
+        "title": "NetBird SSH sign-in",
+        "description": "Open your identity provider and confirm this code. The session continues once you approve it.",
         "open": "Open sign-in page",
-        "manual": "Copy the URL above into your browser."
+        "copy": "Copy link",
+        "copied": "Link copied",
+        "manual": "Couldn't open a browser. Copy the link and open it in your browser.",
+        "setup": "This NetBird peer requires sign-in. Enter the settings from your NetBird administrator. They are saved to this host.",
+        "signIn": "Save and sign in"
       },
       "continue": "Continue",
       "connectAndSave": "Connect & Save",

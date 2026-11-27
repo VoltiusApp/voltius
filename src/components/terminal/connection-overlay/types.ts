@@ -1,6 +1,6 @@
 import type { IdentityPickIssue } from "@/services/credentialPlan";
 import type { ReactNode } from "react";
-import type { ConnectRetryOverride, KnownHost, NetbirdChallenge, NetbirdProfile, TerminalSession } from "@/types";
+import type { ConnectRetryOverride, KnownHost, NetbirdChallenge, NetbirdSettings, TerminalSession } from "@/types";
 import type { BackendErrorCode } from "@/services/backendErrors";
 
 export type StepStatus = "pending" | "active" | "done" | "error";
@@ -52,7 +52,9 @@ export interface ConnectionOverlayProps {
   conflictEventName?: string;
   verificationUrl?: string;
   netbirdChallenge?: NetbirdChallenge;
-  onNetbirdLogin?: (profile: NetbirdProfile) => void;
+  /** The host's saved NetBird settings, prefilled when the peer asks for sign-in. */
+  netbird?: NetbirdSettings;
+  onNetbirdLogin?: (settings: NetbirdSettings) => void;
   className?: string;
   onDismiss?: () => void;
   onRetry?: () => void;

@@ -257,17 +257,14 @@
         "manual": "Não foi possível abrir um navegador. Copie o link e abra-o no seu navegador."
       },
       "netbird": {
-        "setup": "Introduza a configuração do cliente público OIDC fornecida pelo administrador e a impressão digital SSH verificada de forma independente. A configuração é guardada neste dispositivo.",
-        "issuer": "Emissor OIDC (HTTPS)",
-        "clientId": "ID do cliente público",
-        "fingerprint": "Impressão digital de confiança do par (SHA256)",
-        "scope": "Âmbitos",
-        "audience": "Audiência (opcional)",
-        "tokenType": "Token aceite pelo NetBird",
-        "signIn": "Iniciar sessão com NetBird",
-        "verify": "Abra o fornecedor de identidade e confirme este código.",
-        "open": "Abrir página de início de sessão",
-        "manual": "Copie o URL acima para o navegador."
+        "title": "Login NetBird SSH",
+        "description": "Abra o seu provedor de identidade e confirme este código. A sessão continua assim que você aprovar.",
+        "open": "Abrir página de login",
+        "copy": "Copiar link",
+        "copied": "Link copiado",
+        "manual": "Não foi possível abrir um navegador. Copie o link e abra-o no seu navegador.",
+        "setup": "Este par NetBird exige login. Informe as configurações fornecidas pelo administrador do NetBird. Elas são salvas neste host.",
+        "signIn": "Salvar e entrar"
       },
       "continue": "Continuar",
       "connectAndSave": "Conectar e salvar",

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import i18n from "@/i18n";
-import type { Connection, NetbirdProfile, ConnectionFormData, ConnectRetryOverride, IdentitySaveAs, TerminalSession, SerialConnectParams, SerialLine } from "@/types";
+import type { Connection, ConnectionFormData, NetbirdChallenge, NetbirdSettings, ConnectRetryOverride, IdentitySaveAs, TerminalSession, SerialConnectParams, SerialLine } from "@/types";
 import { sshConnect, sshDisconnect, sshDisconnectForReconnect, sshDetectDistro, sshSendInput } from "@/services/ssh";
 import { resolveKeepalive } from "@/utils/keepalive";
 import { normalizeTabTitle } from "@/utils/sessionLabel";
@@ -75,15 +75,15 @@ interface SessionStore {
   markConnecting: (sessionId: string) => void;
   setReconnectWait: (sessionId: string, wait: ReconnectWait | undefined) => void;
   removeSession: (sessionId: string) => void;
-  reconnect: (sessionId: string, options?: { restore?: boolean; skipIdentityPick?: boolean; netbird?: NetbirdProfile }) => Promise<void>;
+  reconnect: (sessionId: string, options?: { restore?: boolean; skipIdentityPick?: boolean }) => Promise<void>;
   /** Silent reconnect for the auto-backoff loop: performs the same connect as
    * reconnect() but mutates no visible status, returning the outcome so the loop
    * can hold a single steady "reconnecting" state and decide what to surface. */
   reconnectAttempt: (sessionId: string, options?: { restore?: boolean }) => Promise<ReconnectAttemptResult>;
   reconnectWithPassphrase: (sessionId: string, passphrase: string, save: boolean) => Promise<void>;
   retryConnect: (sessionId: string, override: ConnectRetryOverride, save: boolean) => Promise<void>;
-  /** Saves Legacy Algorithms on the session's host, then reconnects. */
-  enableLegacyAlgorithms: (sessionId: string) => Promise<void>;
+  /** Saves settings on the session's host, e.g. Legacy Algorithms or NetBird, then reconnects. */
+  reconnectWithHostPatch: (sessionId: string, patch: Partial<ConnectionFormData>) => Promise<void>;
   restoreSessions: (sessions: TerminalSession[], activeSessionId: string | null) => void;
   markConnected: (sessionId: string) => void;
   markError: (sessionId: string, message: string, code?: BackendErrorCode, identityPick?: IdentityPickIssue) => void;
@@ -148,6 +148,8 @@ async function buildSshConnectOptions(
   sessionId: string,
 ): Promise<{
   onVerification: (url?: string) => void;
+  netbird: NetbirdSettings | undefined;
+  onNetbirdChallenge: (challenge?: NetbirdChallenge) => void;
   jumpHosts: Awaited<ReturnType<typeof resolveJumpHosts>> | undefined;
   envVars: [string, string][] | undefined;
   agentForwarding: boolean;
@@ -178,6 +180,8 @@ async function buildSshConnectOptions(
 
   return {
     onVerification: (verificationUrl) => patchSession(useSessionStore.setState, sessionId, { verificationUrl }),
+    netbird: connection.netbird,
+    onNetbirdChallenge: (netbirdChallenge) => patchSession(useSessionStore.setState, sessionId, { netbirdChallenge }),
     jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
     envVars: envVars.length > 0 ? envVars : undefined,
     agentForwarding: connection.agent_forwarding ?? false,
@@ -292,6 +296,14 @@ function withSessionConnectLock<T>(sessionId: string, fn: () => Promise<T>): Pro
   return next;
 }
 
+// Credentials can resolve after the tab closed, too late for the backend's early-close window.
+function sshConnectOpen(params: Parameters<typeof sshConnect>[0]): Promise<void> {
+  if (!useSessionStore.getState().sessions.some((s) => s.id === params.sessionId)) {
+    return Promise.reject(new Error("Connection cancelled."));
+  }
+  return sshConnect(params);
+}
+
 // A username is enough to try SSH's none method. The server decides whether it needs credentials.
 function requireSshUsername(username: string) {
   if (!username?.trim()) throw new Error("No username provided");
@@ -309,7 +321,7 @@ async function connectSshSession(
     requireSshUsername(connection.username);
     const opts = await buildSshConnectOptions(connection, sessionId);
     await withSessionConnectLock(sessionId, () =>
-      sshConnect({
+      sshConnectOpen({
         sessionId,
         host: connection.host,
         port: connection.port,
@@ -989,19 +1001,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     try {
       await withSessionConnectLock(sessionId, async () => {
         await sshDisconnectForReconnect(sessionId);
-        const profile = options?.netbird;
-        const resolved = profile
-          ? await resolveOverrideAuth(connection, connectOverrides.get(sessionId) ?? {})
-          : await resolveSessionCredentials(connection, sessionId);
-        credentials = profile ? { username: resolved.username } : resolved;
+        credentials = await resolveSessionCredentials(connection, sessionId);
         const opts = await buildSshConnectOptions(connection, sessionId);
-        if (profile && !get().sessions.some((s) => s.id === sessionId)) throw new Error("Connection closed.");
-        await sshConnect({
+        await sshConnectOpen({
           sessionId,
-          netbird: profile ? {
-            profile,
-            onChallenge: (challenge) => patchSession(set, sessionId, { netbirdChallenge: challenge ?? undefined }),
-          } : undefined,
           host: connection.host,
           port: connection.port,
           username: credentials.username,
@@ -1049,7 +1052,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         await sshDisconnectForReconnect(sessionId);
         credentials = await resolveConnectionCredentials(connection);
         const opts = await buildSshConnectOptions(connection, sessionId);
-        await sshConnect({
+        await sshConnectOpen({
           sessionId,
           host: connection.host,
           port: connection.port,
@@ -1095,7 +1098,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         if (target) await storeSecret(target, passphrase).catch(reportUploadFailure("reconnectWithPassphrase"));
 
         const opts = await buildSshConnectOptions(connection, sessionId);
-        await sshConnect({
+        await sshConnectOpen({
           sessionId,
           host: connection.host,
           port: connection.port,
@@ -1117,12 +1120,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }
   },
 
-  enableLegacyAlgorithms: async (sessionId) => {
+  reconnectWithHostPatch: async (sessionId, patch) => {
     const session = get().sessions.find((s) => s.id === sessionId);
     const connection = session && connectionForSession(session);
     if (!connection) return;
     try {
-      await patchConnection(connection, { legacy_algorithms: true });
+      await patchConnection(connection, patch);
     } catch (err) {
       markSessionError(set, sessionId, err);
       return;
@@ -1166,7 +1169,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
       const opts = await buildSshConnectOptions(connection, sessionId);
       await withSessionConnectLock(sessionId, () =>
-        sshConnect({
+        sshConnectOpen({
           sessionId,
           host: connection.host,
           port: connection.port,

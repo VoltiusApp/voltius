@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ConnectionHeader } from "./ConnectionHeader";
 import { ConnectionErrorPanel, ReconnectBanner, ReconnectWaitPanel } from "./ConnectionStatusPanel";
 import { ConnectionSteps } from "./ConnectionSteps";
-import { NetbirdSetup } from "./NetbirdPanel";
+import { NetbirdSetupPanel } from "./NetbirdSetupPanel";
 import { HostKeyConflictPanel } from "./HostKeyConflictPanel";
 import { IdentityUnavailablePanel } from "./IdentityUnavailablePanel";
 import { PassphrasePromptPanel } from "./PassphrasePromptPanel";
@@ -33,6 +33,7 @@ export default function ConnectionOverlay({
   conflictEventName,
   verificationUrl,
   netbirdChallenge,
+  netbird,
   onNetbirdLogin,
   className,
   onDismiss,
@@ -109,7 +110,7 @@ export default function ConnectionOverlay({
               onCancel={onDismiss}
             />
           ) : setupNetbird ? (
-            <NetbirdSetup key={connectionId ?? sessionId} connectionId={connectionId} onSubmit={setupNetbird} />
+            <NetbirdSetupPanel key={connectionId ?? sessionId} initial={netbird} onSubmit={setupNetbird} onCancel={onDismiss} />
           ) : showIdentityPick ? (
             <IdentityUnavailablePanel
               issue={identityPick}

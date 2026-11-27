@@ -1,4 +1,4 @@
-import type { NetbirdChallenge, NetbirdProfile } from "@/types";
+import type { NetbirdChallenge, NetbirdSettings } from "@/types";
 import { Channel, invoke } from "@/lib/invoke";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import type { ProxySpec } from "@/services/proxy";
@@ -17,7 +17,6 @@ export interface JumpHostConnect {
 
 export async function sshConnect(params: {
   sessionId: string;
-  netbird?: { profile: NetbirdProfile; onChallenge: (challenge: NetbirdChallenge | null) => void };
   host: string;
   port: number;
   username: string;
@@ -48,13 +47,18 @@ export async function sshConnect(params: {
   proxy?: ProxySpec | null;
   knock?: KnockSpec | null;
   onVerification?: (url?: string) => void;
+  netbird?: NetbirdSettings;
+  onNetbirdChallenge?: (challenge?: NetbirdChallenge) => void;
 }): Promise<void> {
-  const { netbird: login, onVerification } = params;
-  const channel = !login && onVerification ? new Channel<string>((url) => onVerification(url || undefined)) : null;
-  const progress = login ? new Channel<NetbirdChallenge | null>(login.onChallenge) : null;
+  const { onVerification, netbird, onNetbirdChallenge } = params;
+  const channel = onVerification ? new Channel<string>((url) => onVerification(url || undefined)) : null;
+  const challenges = netbird && onNetbirdChallenge
+    ? new Channel<NetbirdChallenge | null>((challenge) => onNetbirdChallenge(challenge ?? undefined))
+    : null;
   return invoke<void>("ssh_connect", {
     onVerification: channel,
-    netbird: login ? { profile: login.profile, progress } : null,
+    netbird: challenges ? netbird : null,
+    onNetbirdChallenge: challenges,
     sessionId: params.sessionId,
     host: params.host,
     port: params.port,
@@ -83,10 +87,9 @@ export async function sshConnect(params: {
     knock: params.knock ?? null,
     terminalColors: currentTerminalColors(),
   }).finally(() => {
-    if (channel) channel.onmessage = () => {};
+    for (const c of [channel, challenges]) if (c) c.onmessage = () => {};
     onVerification?.();
-    if (progress) progress.onmessage = () => {};
-    login?.onChallenge(null);
+    onNetbirdChallenge?.();
   });
 }
 
