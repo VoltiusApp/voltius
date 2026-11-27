@@ -6,6 +6,7 @@ use crate::port_forward::PortForwardManager;
 use crate::proxy::ProxySpec;
 use crate::ssh::{
     client::{self, HopRoute, JumpHostConnect},
+    netbird::Login,
     session::SessionManager,
 };
 use std::sync::Arc;
@@ -48,8 +49,16 @@ pub async fn ssh_connect(
     knock: Option<KnockSpec>,
     detached_ttl_secs: Option<u64>,
     on_verification: Option<tauri::ipc::JavaScriptChannelId>,
+    netbird: Option<crate::storage::config::NetbirdSsh>,
+    on_netbird_challenge: Option<tauri::ipc::JavaScriptChannelId>,
 ) -> Result<(), AppError> {
     let attempt = cancels.begin(&session_id);
+    let netbird = netbird
+        .zip(on_netbird_challenge)
+        .map(|(settings, id)| Login {
+            settings,
+            progress: id.channel_on(webview.clone()),
+        });
     let connected = attempt
         .run(client::connect(
             app,
@@ -80,6 +89,7 @@ pub async fn ssh_connect(
             terminal_colors,
             detached_ttl_secs,
             on_verification.map(|id| id.channel_on(webview)),
+            netbird,
         ))
         .await?;
 

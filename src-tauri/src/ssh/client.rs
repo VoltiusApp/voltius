@@ -4,7 +4,7 @@ use crate::known_hosts::{ConflictPrompt, KnownHostsStore, PendingConflicts};
 use crate::port_forward::{RemoteRoute, RemoteRouteMap};
 use crate::proxy::{self, ProxyError, ProxySpec};
 use russh::client::{self, AuthResult, KeyboardInteractiveAuthResponse, Prompt};
-use russh::keys::ssh_key::HashAlg;
+use russh::keys::ssh_key::{Fingerprint, HashAlg};
 use russh::keys::{PrivateKeyWithHashAlg, PublicKeyOrCertificate};
 use russh::{MethodKind, MethodSet};
 use serde::{Deserialize, Serialize};
@@ -48,6 +48,7 @@ pub struct SshClient {
     known_hosts: Arc<KnownHostsStore>,
     conflict_prompt: Option<ConflictPrompt>,
     check_link: watch::Sender<Option<String>>,
+    netbird_pin: Option<Fingerprint>,
     /// Remote-forward route table: (bind_host, remote_port) → RemoteRoute.
     /// Populated by PortForwardManager before calling tcpip_forward.
     pub remote_routes: RemoteRouteMap,
@@ -68,6 +69,7 @@ impl SshClient {
             known_hosts,
             conflict_prompt: None,
             check_link: watch::channel(None).0,
+            netbird_pin: None,
             remote_routes: Arc::new(Mutex::new(HashMap::new())),
             remote_sshid: Arc::new(Mutex::new(None)),
             agent_forwarding: false,
@@ -146,10 +148,18 @@ impl client::Handler for SshClient {
         else {
             return Ok(false);
         };
-        let fp = server_public_key.fingerprint(HashAlg::Sha256).to_string();
+        let fp = server_public_key.fingerprint(HashAlg::Sha256);
+        if self.netbird_pin.is_some_and(|pin| pin != fp) {
+            return Err(HopError::Coded(super::netbird::pin_mismatch(&fp)));
+        }
 
         self.known_hosts
-            .verify_or_prompt(&self.host, self.port, fp, self.conflict_prompt.as_ref())
+            .verify_or_prompt(
+                &self.host,
+                self.port,
+                fp.to_string(),
+                self.conflict_prompt.as_ref(),
+            )
             .await
             .map(|()| true)
             .map_err(HopError::HostKey)
@@ -708,6 +718,8 @@ pub enum HopError {
     Ssh(russh::Error),
     /// Shown verbatim and never retried; the frontend matches on its text.
     HostKey(String),
+    /// A refusal that already carries its code; never retried.
+    Coded(AppError),
 }
 
 impl From<russh::Error> for HopError {
@@ -724,6 +736,7 @@ impl std::fmt::Display for HopError {
             Self::Proxy(e) => write!(f, "{e}"),
             Self::Ssh(e) => write!(f, "{e}"),
             Self::HostKey(reason) => f.write_str(reason),
+            Self::Coded(e) => write!(f, "{e}"),
         }
     }
 }
@@ -735,7 +748,7 @@ impl HopError {
             Self::AfterKnock(e) => e.is_transient(),
             Self::Proxy(e) => e.is_transient(),
             Self::Ssh(e) => is_transient_connect_error(e),
-            Self::HostKey(_) => false,
+            Self::HostKey(_) | Self::Coded(_) => false,
         }
     }
 
@@ -744,7 +757,8 @@ impl HopError {
     pub(crate) fn describe(self, context: &str) -> AppError {
         match self {
             Self::HostKey(reason) => AppError::Msg(reason),
-            Self::AfterKnock(inner) if matches!(*inner, Self::HostKey(_)) => {
+            Self::Coded(e) => e,
+            Self::AfterKnock(inner) if matches!(*inner, Self::HostKey(_) | Self::Coded(_)) => {
                 inner.describe(context)
             }
             e => AppError::caused(context, &e),
@@ -941,6 +955,40 @@ impl JumpHostConnect {
     }
 }
 
+async fn authenticate_terminal(
+    handle: &mut client::Handle<SshClient>,
+    sshid: &Mutex<Option<Vec<u8>>>,
+    username: &str,
+    password: Option<&str>,
+    private_key: Option<&str>,
+    passphrase: Option<&str>,
+    netbird_token: Option<&str>,
+    link: CheckLink,
+    sink: CheckSink<'_>,
+) -> Result<(), AppError> {
+    let jwt = sshid
+        .lock()
+        .await
+        .as_deref()
+        .is_some_and(super::netbird::requires_jwt);
+    match (jwt, netbird_token) {
+        (true, Some(token)) => super::netbird::authenticate(handle, username, token).await,
+        (true, None) => Err(super::netbird::required()),
+        (false, _) => {
+            authenticate_handle(
+                handle,
+                username,
+                password,
+                private_key,
+                passphrase,
+                link,
+                sink,
+            )
+            .await
+        }
+    }
+}
+
 pub async fn connect(
     app: AppHandle,
     session_id: String,
@@ -970,6 +1018,7 @@ pub async fn connect(
     terminal_colors: Option<crate::ssh::control_mode::TerminalColors>,
     detached_ttl_secs: Option<u64>,
     on_verification: Option<tauri::ipc::Channel<String>>,
+    netbird: Option<super::netbird::Login>,
 ) -> Result<ConnectedSession, AppError> {
     let terminal_colors =
         terminal_colors.filter(crate::ssh::control_mode::TerminalColors::is_valid);
@@ -984,6 +1033,10 @@ pub async fn connect(
     let mut jump_handles: Vec<Arc<client::Handle<SshClient>>> = Vec::new();
 
     let sink = on_verification.as_ref();
+    let netbird_pin = netbird
+        .as_ref()
+        .map(|login| super::netbird::pin(&login.settings))
+        .transpose()?;
     let make_final_client = || {
         let client = SshClient {
             conflict_prompt: Some(ConflictPrompt::via_app(
@@ -992,6 +1045,7 @@ pub async fn connect(
                 session_id.clone(),
                 Arc::clone(&pending_conflicts),
             )),
+            netbird_pin,
             agent_forwarding,
             ..SshClient::new(host.to_owned(), port, Arc::clone(&known_hosts))
         };
@@ -1010,85 +1064,111 @@ pub async fn connect(
         );
     }
 
-    let (mut final_handle, (final_routes, final_sshid, final_link)) = if jump_hosts.is_empty() {
-        let (h, via, slots) = connect_first_hop_retrying(
-            &config,
-            &route,
-            host,
-            port,
-            CONNECT_MAX_ATTEMPTS,
-            make_final_client,
-        )
-        .await
-        .map_err(|e| e.describe("Connection failed"))?;
-        emit_step(
-            &app,
-            &session_id,
-            SshStep::TcpConnected,
-            hop_detail(host, port, "", via.as_deref()),
-        );
-        (h, slots)
-    } else {
-        let first = &jump_hosts[0];
-        let (mut current_handle, via, link) = first
-            .connect_first(&config, &route, &known_hosts, CONNECT_MAX_ATTEMPTS)
+    // A NetBird peer drops unauthenticated connections after a minute, so a device flow
+    // that outlasts it dials again with the token.
+    let mut netbird_token: Option<zeroize::Zeroizing<String>> = None;
+    let (final_handle, final_routes, final_sshid) = loop {
+        jump_handles.clear();
+        let (mut final_handle, (final_routes, final_sshid, final_link)) = if jump_hosts.is_empty() {
+            let (h, via, slots) = connect_first_hop_retrying(
+                &config,
+                &route,
+                host,
+                port,
+                CONNECT_MAX_ATTEMPTS,
+                &make_final_client,
+            )
+            .await
+            .map_err(|e| e.describe("Connection failed"))?;
+            emit_step(
+                &app,
+                &session_id,
+                SshStep::TcpConnected,
+                hop_detail(host, port, "", via.as_deref()),
+            );
+            (h, slots)
+        } else {
+            let first = &jump_hosts[0];
+            let (mut current_handle, via, link) = first
+                .connect_first(&config, &route, &known_hosts, CONNECT_MAX_ATTEMPTS)
+                .await?;
+            emit_step(
+                &app,
+                &session_id,
+                SshStep::TcpConnected,
+                hop_detail(&first.host, first.port, " (jump 1)", via.as_deref()),
+            );
+            first.authenticate(&mut current_handle, link, sink).await?;
+            let (current_handle, passed) = chain_jumps(
+                current_handle,
+                &jump_hosts[1..],
+                &config,
+                &known_hosts,
+                sink,
+                |detail| emit_step(&app, &session_id, SshStep::TcpConnected, detail),
+            )
             .await?;
+            jump_handles.extend(passed);
+
+            let (final_client, slots) = make_final_client();
+            let h = tunnel_hop(&current_handle, &config, "final host", final_client).await?;
+
+            jump_handles.push(Arc::new(current_handle));
+            emit_step(
+                &app,
+                &session_id,
+                SshStep::TcpConnected,
+                format!("{}:{}", host, port),
+            );
+            (h, slots)
+        };
+
         emit_step(
             &app,
             &session_id,
-            SshStep::TcpConnected,
-            hop_detail(&first.host, first.port, " (jump 1)", via.as_deref()),
+            SshStep::Handshake,
+            "Negotiating encryption",
         );
-        first.authenticate(&mut current_handle, link, sink).await?;
-        let (current_handle, passed) = chain_jumps(
-            current_handle,
-            &jump_hosts[1..],
-            &config,
-            &known_hosts,
+        emit_step(
+            &app,
+            &session_id,
+            SshStep::Authenticating,
+            format!("as {}", username),
+        );
+        let mut auth = authenticate_terminal(
+            &mut final_handle,
+            &final_sshid,
+            username,
+            password,
+            private_key,
+            passphrase,
+            netbird_token.as_deref().map(String::as_str),
+            final_link,
             sink,
-            |detail| emit_step(&app, &session_id, SshStep::TcpConnected, detail),
         )
-        .await?;
-        jump_handles.extend(passed);
-
-        let (final_client, slots) = make_final_client();
-        let h = tunnel_hop(&current_handle, &config, "final host", final_client).await?;
-
-        jump_handles.push(Arc::new(current_handle));
-        emit_step(
-            &app,
-            &session_id,
-            SshStep::TcpConnected,
-            format!("{}:{}", host, port),
-        );
-        (h, slots)
+        .await;
+        let sign_in = match (&auth, &netbird) {
+            (Err(e), Some(login))
+                if netbird_token.is_none()
+                    && e.code() == Some(ErrorCode::SshNetbirdSsoRequired) =>
+            {
+                Some(login)
+            }
+            _ => None,
+        };
+        if let Some(login) = sign_in {
+            let token = netbird_token.insert(login.sign_in().await?);
+            if final_handle.is_closed() {
+                continue;
+            }
+            auth = super::netbird::authenticate(&mut final_handle, username, token.as_str()).await;
+            if auth.is_err() && final_handle.is_closed() {
+                continue;
+            }
+        }
+        auth?;
+        break (final_handle, final_routes, final_sshid);
     };
-
-    // Key exchange is done by russh internally during connect()
-    emit_step(
-        &app,
-        &session_id,
-        SshStep::Handshake,
-        "Negotiating encryption",
-    );
-
-    // Authentication on the final host
-    emit_step(
-        &app,
-        &session_id,
-        SshStep::Authenticating,
-        format!("as {}", username),
-    );
-    authenticate_handle(
-        &mut final_handle,
-        username,
-        password,
-        private_key,
-        passphrase,
-        final_link,
-        sink,
-    )
-    .await?;
 
     // The bootstraps and env injection below are POSIX shell; without one they leave a blank terminal.
     let platform = platform_of(&final_sshid).await;
@@ -1786,6 +1866,144 @@ mod tests {
     fn silent_server_gets_sha256_then_falls_back() {
         // No server-sig-algs at all: optimistic, with the caller's ssh-rsa retry behind it.
         assert_eq!(choose_rsa_hash(None), Some(HashAlg::Sha256));
+    }
+
+    #[tokio::test]
+    async fn netbird_only_sends_the_token_to_the_pinned_jwt_peer() {
+        use crate::port_forward::test_ssh::{host_key, serve_one};
+        use russh::keys::ssh_key::Fingerprint;
+
+        type Seen = Arc<std::sync::Mutex<Vec<String>>>;
+        struct Peer(Seen);
+        impl russh::server::Handler for Peer {
+            type Error = russh::Error;
+
+            async fn auth_password(
+                &mut self,
+                user: &str,
+                password: &str,
+            ) -> Result<Auth, Self::Error> {
+                self.0.lock().unwrap().push(password.to_owned());
+                Ok(if user == "alice" && password == "test-token" {
+                    Auth::Accept
+                } else {
+                    Auth::reject()
+                })
+            }
+        }
+
+        const NETBIRD: &str = "SSH-2.0-NetBird-SSH-Server-test NetBird-JWT-Required";
+        const OPENSSH: &str = "SSH-2.0-OpenSSH_9.9";
+        let fp = host_key().public_key().fingerprint(HashAlg::Sha256);
+        let fp_text = fp.to_string();
+        let other = Fingerprint::Sha256([1; 32]);
+        type Case<'a> = (
+            &'a str,
+            Fingerprint,
+            Option<&'a str>,
+            Result<(), Option<ErrorCode>>,
+            &'a [&'a str],
+        );
+        let cases: [Case; 5] = [
+            (
+                NETBIRD,
+                fp,
+                None,
+                Err(Some(ErrorCode::SshNetbirdSsoRequired)),
+                &[],
+            ),
+            (
+                NETBIRD,
+                other,
+                Some("test-token"),
+                Err(Some(ErrorCode::SshNetbirdPinMismatch)),
+                &[],
+            ),
+            (
+                OPENSSH,
+                fp,
+                Some("test-token"),
+                Err(Some(ErrorCode::SshPasswordRejected)),
+                &["vault-password"],
+            ),
+            (
+                NETBIRD,
+                fp,
+                Some("rejected-token"),
+                Err(Some(ErrorCode::SshNetbirdRejected)),
+                &["rejected-token"],
+            ),
+            (NETBIRD, fp, Some("test-token"), Ok(()), &["test-token"]),
+        ];
+        for (banner, pin, token, result, sent) in cases {
+            let seen = Seen::default();
+            let port = serve_one(
+                russh::server::Config {
+                    server_id: russh::SshId::Standard(banner.into()),
+                    ..Default::default()
+                },
+                Peer(seen.clone()),
+            )
+            .await;
+            let host = "127.0.0.1";
+            let known = Arc::new(KnownHostsStore::pinned(&[(host, port, fp_text.as_str())]));
+            let mut handler = SshClient::new(host.into(), port, known);
+            handler.netbird_pin = Some(pin);
+            let id = handler.remote_sshid.clone();
+            let link = handler.check_link();
+            let outcome = match client::connect(Default::default(), (host, port), handler).await {
+                Ok(mut handle) => {
+                    super::authenticate_terminal(
+                        &mut handle,
+                        &id,
+                        "alice",
+                        Some("vault-password"),
+                        None,
+                        None,
+                        token,
+                        link,
+                        None,
+                    )
+                    .await
+                }
+                Err(e) => Err(e.describe("Connection failed")),
+            };
+            assert_eq!(outcome.map_err(|e| e.code()), result, "{banner} {pin}");
+            assert_eq!(*seen.lock().unwrap(), sent, "{banner} {pin}");
+        }
+    }
+
+    #[tokio::test]
+    async fn netbird_without_jwt_can_accept_none_with_no_saved_credentials() {
+        let port = crate::port_forward::test_ssh::serve_one(
+            russh::server::Config {
+                server_id: russh::SshId::Standard("SSH-2.0-NetBird-SSH-Server-test".into()),
+                ..Default::default()
+            },
+            Relay,
+        )
+        .await;
+        let host = "127.0.0.1";
+        let known = Arc::new(KnownHostsStore::pinned(&[(host, port, &served_key())]));
+        let handler = SshClient::new(host.into(), port, known);
+        let id = handler.remote_sshid.clone();
+        let link = handler.check_link();
+        let mut handle = client::connect(Default::default(), (host, port), handler)
+            .await
+            .unwrap();
+        super::authenticate_terminal(
+            &mut handle,
+            &id,
+            "alice",
+            None,
+            None,
+            None,
+            None,
+            link,
+            None,
+        )
+        .await
+        .unwrap();
     }
 
     #[test]

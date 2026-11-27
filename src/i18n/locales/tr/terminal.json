@@ -247,6 +247,16 @@
         "copied": "Bağlantı kopyalandı",
         "manual": "Tarayıcı açılamadı. Bağlantıyı kopyalayıp tarayıcınızda açın."
       },
+      "netbird": {
+        "title": "NetBird SSH oturum açma",
+        "description": "Kimlik sağlayıcınızı açıp bu kodu onaylayın. Onayladığınızda oturum devam eder.",
+        "open": "Oturum açma sayfasını aç",
+        "copy": "Bağlantıyı kopyala",
+        "copied": "Bağlantı kopyalandı",
+        "manual": "Tarayıcı açılamadı. Bağlantıyı kopyalayıp tarayıcınızda açın.",
+        "setup": "Bu NetBird eşi oturum açmanızı gerektiriyor. NetBird yöneticinizden aldığınız ayarları girin. Ayarlar bu ana bilgisayara kaydedilir.",
+        "signIn": "Kaydet ve oturum aç"
+      },
       "continue": "Devam et",
       "connectAndSave": "Bağlan ve kaydet",
       "continueAndSave": "Devam et ve kaydet",

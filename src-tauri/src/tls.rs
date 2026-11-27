@@ -218,7 +218,7 @@ pub(crate) mod pin_tests {
         roots
     }
 
-    pub(crate) async fn serve_tls(leaf: &Leaf) -> u16 {
+    pub(crate) fn test_acceptor(leaf: &Leaf) -> TlsAcceptor {
         let config = ServerConfig::builder_with_provider(provider())
             .with_safe_default_protocol_versions()
             .unwrap()
@@ -228,7 +228,11 @@ pub(crate) mod pin_tests {
                 PrivatePkcs8KeyDer::from(leaf.key.clone()).into(),
             )
             .unwrap();
-        let acceptor = TlsAcceptor::from(Arc::new(config));
+        TlsAcceptor::from(Arc::new(config))
+    }
+
+    pub(crate) async fn serve_tls(leaf: &Leaf) -> u16 {
+        let acceptor = test_acceptor(leaf);
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
         tokio::spawn(async move {

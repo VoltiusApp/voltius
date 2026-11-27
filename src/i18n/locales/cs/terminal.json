@@ -265,6 +265,16 @@
         "copied": "Odkaz zkopírován",
         "manual": "Prohlížeč se nepodařilo otevřít. Zkopírujte odkaz a otevřete ho v prohlížeči."
       },
+      "netbird": {
+        "title": "Přihlášení NetBird SSH",
+        "description": "Otevřete poskytovatele identity a potvrďte tento kód. Po schválení relace pokračuje.",
+        "open": "Otevřít přihlášení",
+        "copy": "Kopírovat odkaz",
+        "copied": "Odkaz zkopírován",
+        "manual": "Prohlížeč se nepodařilo otevřít. Zkopírujte odkaz a otevřete ho v prohlížeči.",
+        "setup": "Tento protějšek NetBird vyžaduje přihlášení. Zadejte nastavení od správce NetBird. Uloží se k tomuto hostiteli.",
+        "signIn": "Uložit a přihlásit"
+      },
       "continue": "Pokračovat",
       "connectAndSave": "Připojit a uložit",
       "continueAndSave": "Pokračovat a uložit",

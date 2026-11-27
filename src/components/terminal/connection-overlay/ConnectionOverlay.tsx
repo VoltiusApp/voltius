@@ -3,10 +3,11 @@ import { useTranslation } from "react-i18next";
 import { ConnectionHeader } from "./ConnectionHeader";
 import { ConnectionErrorPanel, ReconnectBanner, ReconnectWaitPanel } from "./ConnectionStatusPanel";
 import { ConnectionSteps } from "./ConnectionSteps";
+import { NetbirdSetupPanel } from "./NetbirdSetupPanel";
 import { HostKeyConflictPanel } from "./HostKeyConflictPanel";
 import { IdentityUnavailablePanel } from "./IdentityUnavailablePanel";
 import { PassphrasePromptPanel } from "./PassphrasePromptPanel";
-import { TailscaleCheckPanel } from "./TailscaleCheckPanel";
+import { BrowserCheckPanel } from "./BrowserCheckPanel";
 import { AuthPromptPanel } from "./AuthPromptPanel";
 import { UsernamePromptPanel } from "./UsernamePromptPanel";
 import { VaultErrorPanel } from "./VaultErrorPanel";
@@ -31,6 +32,9 @@ export default function ConnectionOverlay({
   stepEventName,
   conflictEventName,
   verificationUrl,
+  netbirdChallenge,
+  netbird,
+  onNetbirdLogin,
   className,
   onDismiss,
   onRetry,
@@ -70,9 +74,10 @@ export default function ConnectionOverlay({
   const showUsernamePrompt = prompting && isMissingUsernameError(errorMessage) && !!onRetryWithAuth;
   const showAuthPrompt = prompting && isNoAuthError(errorMessage) && !!onRetryWithAuth;
   const legacyFix = isError && errorCode === "ssh-legacy-algorithms-required" ? onEnableLegacyAlgorithms : undefined;
-  const checkUrl = isConnecting && verificationUrl;
+  const checkUrl = isConnecting && (netbirdChallenge?.verificationUri ?? verificationUrl);
+  const setupNetbird = isError && errorCode === "ssh-netbird-sso-required" && onNetbirdLogin;
   const showSpecialPanel =
-    (conflict && !isError) || checkUrl || showIdentityPick || showChooser || showVaultError || showPassphrasePrompt || showUsernamePrompt || showAuthPrompt;
+    setupNetbird || checkUrl || (conflict && !isError) || showIdentityPick || showChooser || showVaultError || showPassphrasePrompt || showUsernamePrompt || showAuthPrompt;
 
   if (variant === "banner" && isConnecting && !showSpecialPanel) {
     return (
@@ -97,7 +102,15 @@ export default function ConnectionOverlay({
           {conflict && !isError ? (
             <HostKeyConflictPanel conflict={conflict} resolving={resolving} onResolve={(action) => void resolveConflict(action)} />
           ) : checkUrl ? (
-            <TailscaleCheckPanel key={checkUrl} url={checkUrl} onCancel={onDismiss} />
+            <BrowserCheckPanel
+              key={checkUrl}
+              kind={netbirdChallenge ? "netbird" : "tailscaleCheck"}
+              url={checkUrl}
+              code={netbirdChallenge?.userCode}
+              onCancel={onDismiss}
+            />
+          ) : setupNetbird ? (
+            <NetbirdSetupPanel key={connectionId ?? sessionId} initial={netbird} onSubmit={setupNetbird} onCancel={onDismiss} />
           ) : showIdentityPick ? (
             <IdentityUnavailablePanel
               issue={identityPick}

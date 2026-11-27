@@ -29,3 +29,20 @@ it("clears the verification link when the check settles or the attempt ends, and
   channel!.onmessage(url);
   expect(onVerification.mock.calls).toEqual([[url], [undefined], []]);
 });
+
+it("sends NetBird settings only with a challenge channel and clears the code when the attempt ends", async () => {
+  const netbird = { issuer: "https://id.example", client_id: "public", scope: "", audience: "",
+    token_type: "id_token" as const, fingerprint: "SHA256:" + "A".repeat(43) };
+  const onNetbirdChallenge = vi.fn();
+  const challenge = { verificationUri: "https://id.example/device", userCode: "ABCD" };
+  invoke.mockImplementationOnce(async (_command, args) => {
+    expect(args.netbird).toEqual(netbird);
+    args.onNetbirdChallenge.onmessage(challenge);
+    args.onNetbirdChallenge.onmessage(null);
+  });
+  await sshConnect({ ...base, netbird, onNetbirdChallenge });
+  expect(onNetbirdChallenge.mock.calls).toEqual([[challenge], [undefined], []]);
+
+  invoke.mockImplementationOnce(async (_command, args) => expect(args.netbird).toBeNull());
+  await sshConnect({ ...base, netbird });
+});

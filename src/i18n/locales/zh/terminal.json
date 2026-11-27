@@ -245,6 +245,16 @@
         "copied": "链接已复制",
         "manual": "无法打开浏览器。请复制链接并在浏览器中打开。"
       },
+      "netbird": {
+        "title": "NetBird SSH 登录",
+        "description": "打开身份提供商并确认此代码。批准后会话将继续。",
+        "open": "打开登录页",
+        "copy": "复制链接",
+        "copied": "链接已复制",
+        "manual": "无法打开浏览器。请复制链接并在浏览器中打开。",
+        "setup": "此 NetBird 节点要求登录。请输入 NetBird 管理员提供的设置，它们会保存到此主机。",
+        "signIn": "保存并登录"
+      },
       "continue": "继续",
       "connectAndSave": "连接并保存",
       "continueAndSave": "继续并保存",

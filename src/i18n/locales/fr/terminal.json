@@ -256,6 +256,16 @@
         "copied": "Lien copié",
         "manual": "Impossible d'ouvrir un navigateur. Copiez le lien et ouvrez-le dans votre navigateur."
       },
+      "netbird": {
+        "title": "Connexion NetBird SSH",
+        "description": "Ouvrez votre fournisseur d’identité et confirmez ce code. La session reprend dès que vous l’approuvez.",
+        "open": "Ouvrir la page de connexion",
+        "copy": "Copier le lien",
+        "copied": "Lien copié",
+        "manual": "Impossible d'ouvrir un navigateur. Copiez le lien et ouvrez-le dans votre navigateur.",
+        "setup": "Ce pair NetBird exige une connexion. Saisissez les paramètres fournis par votre administrateur NetBird. Ils sont enregistrés sur cet hôte.",
+        "signIn": "Enregistrer et se connecter"
+      },
       "continue": "Continuer",
       "connectAndSave": "Connecter et enregistrer",
       "continueAndSave": "Continuer et enregistrer",

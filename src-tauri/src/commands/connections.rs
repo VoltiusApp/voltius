@@ -59,6 +59,7 @@ fn merge_form_into_connection(existing: &Connection, data: ConnectionFormData) -
         persist_session: data.persist_session,
         proxy: data.proxy,
         port_knock: data.port_knock,
+        netbird: data.netbird,
         connection_type: data.connection_type,
         serial_port: data.serial_port,
         serial_baud: data.serial_baud,
@@ -128,7 +129,7 @@ connection_clocks! {
         folder_id, vault_id, agent_forwarding, legacy_algorithms, pre_command, post_command,
         pre_snippet_id, post_snippet_id, ask_vars_each_time,
         terminal_encoding, distro, icon, ping_disabled,
-        shell_integration, keepalive_preset, persist_session, proxy, port_knock, connection_type, serial_port, serial_baud,
+        shell_integration, keepalive_preset, persist_session, proxy, port_knock, netbird, connection_type, serial_port, serial_baud,
         serial_data_bits, serial_parity, serial_stop_bits, serial_flow_control,
         serial_auto_reconnect, ftp_secure, webdav_url, web_secure,
         notes,
@@ -199,6 +200,7 @@ fn build_connection(
         persist_session: data.persist_session,
         proxy: data.proxy,
         port_knock: data.port_knock,
+        netbird: data.netbird,
         connection_type: data.connection_type,
         serial_port: data.serial_port,
         serial_baud: data.serial_baud,
@@ -311,8 +313,8 @@ vault_delete_command!(connection_delete, load_connections, save_connections);
 mod tests {
     use super::*;
     use crate::storage::config::{
-        AuthType, Connection, ConnectionFormData, ConnectionType, EnvVar, JumpHost, PortKnock,
-        ProxyMode, ProxyOverride,
+        AuthType, Connection, ConnectionFormData, ConnectionType, EnvVar, JumpHost, NetbirdSsh,
+        NetbirdTokenType, PortKnock, ProxyMode, ProxyOverride,
     };
     use std::collections::HashMap;
 
@@ -363,6 +365,7 @@ mod tests {
             persist_session: None,
             proxy: None,
             port_knock: None,
+            netbird: None,
             connection_type: ConnectionType::Ssh,
             serial_port: Some("/dev/ttyU0".into()),
             serial_baud: Some(9600),
@@ -433,6 +436,14 @@ mod tests {
                 delay_ms: Some(200),
                 settle_ms: None,
                 window_secs: Some(60),
+            }),
+            netbird: Some(NetbirdSsh {
+                issuer: "https://id.example".into(),
+                client_id: "public".into(),
+                scope: "openid".into(),
+                audience: String::new(),
+                token_type: NetbirdTokenType::IdToken,
+                fingerprint: format!("SHA256:{}", "A".repeat(43)),
             }),
             connection_type: ConnectionType::Serial,
             serial_port: Some("/dev/ttyU1".into()),
@@ -651,7 +662,7 @@ mod tests {
     }
 
     /// Pins the exact set of fields `bump_changed_clocks` tracks when everything
-    /// changes (40 fields, incl. `agent_forwarding`, `legacy_algorithms`, `ping_disabled`,
+    /// changes (41 fields, incl. `agent_forwarding`, `legacy_algorithms`, `ping_disabled`,
     /// `shell_integration`, `keepalive_preset`, `persist_session`, `proxy`, `port_knock`;
     /// `pinned` is excluded as device-local).
     /// Since Phase 1, create-time init and update-time bump both derive from the
@@ -683,6 +694,7 @@ mod tests {
             "key_id",
             "legacy_algorithms",
             "name",
+            "netbird",
             "notes",
             "persist_session",
             "ping_disabled",
@@ -710,7 +722,7 @@ mod tests {
         ];
         expected.sort();
         assert_eq!(keys, expected);
-        assert_eq!(keys.len(), 40);
+        assert_eq!(keys.len(), 41);
     }
 
     /// Phase 1 reconciliation: the clocks seeded for a brand-new connection
@@ -730,6 +742,6 @@ mod tests {
         let bumpable: HashSet<String> = new.clocks.into_keys().collect();
 
         assert_eq!(seeded, bumpable);
-        assert_eq!(seeded.len(), 40);
+        assert_eq!(seeded.len(), 41);
     }
 }

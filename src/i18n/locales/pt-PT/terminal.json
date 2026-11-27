@@ -256,6 +256,16 @@
         "copied": "Ligação copiada",
         "manual": "Não foi possível abrir um navegador. Copie a ligação e abra-a no seu navegador."
       },
+      "netbird": {
+        "title": "Início de sessão NetBird SSH",
+        "description": "Abra o seu fornecedor de identidade e confirme este código. A sessão continua assim que o aprovar.",
+        "open": "Abrir página de início de sessão",
+        "copy": "Copiar ligação",
+        "copied": "Ligação copiada",
+        "manual": "Não foi possível abrir um navegador. Copie a ligação e abra-a no seu navegador.",
+        "setup": "Este par NetBird exige início de sessão. Introduza as definições fornecidas pelo administrador do NetBird. São guardadas neste anfitrião.",
+        "signIn": "Guardar e iniciar sessão"
+      },
       "continue": "Continuar",
       "connectAndSave": "Conectar e guardar",
       "continueAndSave": "Continuar e guardar",
