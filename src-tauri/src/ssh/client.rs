@@ -1067,7 +1067,7 @@ pub async fn connect(
     // A NetBird peer drops unauthenticated connections after a minute, so a device flow
     // that outlasts it dials again with the token.
     let mut netbird_token: Option<zeroize::Zeroizing<String>> = None;
-    let (mut final_handle, final_routes, final_sshid) = loop {
+    let (final_handle, final_routes, final_sshid) = loop {
         jump_handles.clear();
         let (mut final_handle, (final_routes, final_sshid, final_link)) = if jump_hosts.is_empty() {
             let (h, via, slots) = connect_first_hop_retrying(
