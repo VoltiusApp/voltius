@@ -670,6 +670,30 @@ async function connectConnection(
   return sessionId;
 }
 
+/** Never throws: the session is already connected, so a failed save leaves it on the quick-connect host. */
+async function adoptSavedConnection(
+  set: SessionSetter,
+  sessionId: string,
+  connection: Connection,
+  override: ConnectRetryOverride,
+): Promise<Connection> {
+  try {
+    const target = await materializeSavedConnection(connection, override);
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId
+          ? { ...sess, connectionId: target.id, connectionName: target.name?.trim() || sess.connectionName }
+          : sess,
+      ),
+    }));
+    dropEphemeralConnection(connection.id);
+    return target;
+  } catch (err) {
+    notifyError(err);
+    return connection;
+  }
+}
+
 async function saveIdentityChoice(connection: Connection, saveAs: IdentitySaveAs, identityId: string): Promise<void> {
   const picks = useIdentityPickStore.getState();
   if (saveAs === "pick") return picks.setHostPick(connection.id, identityId);
@@ -1109,7 +1133,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   retryConnect: async (sessionId, override, save) => {
     const session = get().sessions.find((s) => s.id === sessionId);
     if (!session || session.type !== "ssh") return;
-    let connection = findConnection(session.connectionId);
+    const connection = findConnection(session.connectionId);
     if (!connection) return;
     setSkipPick(set, sessionId, false);
 
@@ -1132,46 +1156,31 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
       requireSshUsername(username);
 
+      // A quick-connect host becomes a saved one only once the server has let us in.
+      const materialize = save && !(merged.saveAs && merged.identityId) && ephemeralConnections.has(connection.id);
       if (save && merged.saveAs && merged.identityId) {
         await saveIdentityChoice(connection, merged.saveAs, merged.identityId).catch(notifyError);
-      } else if (save) {
-        if (ephemeralConnections.has(connection.id)) {
-          // Intentionally not caught (unlike the saved-host path below): a failed
-          // create must surface as a connect error rather than let the session
-          // proceed pointing at the now-stale ephemeral id.
-          const oldId = connection.id;
-          const target = await materializeSavedConnection(connection, merged);
-          set((s) => ({
-            sessions: s.sessions.map((sess) =>
-              sess.id === sessionId
-                ? { ...sess, connectionId: target.id, connectionName: target.name?.trim() || sess.connectionName }
-                : sess,
-            ),
-          }));
-          dropEphemeralConnection(oldId);
-          connection = target;
-        } else {
-          await persistConnectAuth(connection, merged).catch(() => {});
-        }
+      } else if (save && !materialize) {
+        await persistConnectAuth(connection, merged).catch(() => {});
       }
 
-      const conn = connection;
-      const opts = await buildSshConnectOptions(conn, sessionId);
+      const opts = await buildSshConnectOptions(connection, sessionId);
       await withSessionConnectLock(sessionId, () =>
         sshConnect({
           sessionId,
-          host: conn.host,
-          port: conn.port,
+          host: connection.host,
+          port: connection.port,
           username,
           password,
           privateKey,
           passphrase,
-          connectionId: conn.id,
+          connectionId: connection.id,
           attachOnly: !!(session.persist && session.everConnected),
           ...opts,
         }),
       );
       connectOverrides.delete(sessionId);
+      const conn = materialize ? await adoptSavedConnection(set, sessionId, connection, merged) : connection;
       // The overrides map is session-scoped and just went away. For an unsaved
       // quick-connect host nothing else holds this auth, so hand it to the
       // connection-scoped memory cache: duplicate and reconnect resolve

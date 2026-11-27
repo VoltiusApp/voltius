@@ -1,3 +1,4 @@
+use crate::connect_cancel::ConnectCancels;
 use crate::error::AppError;
 use crate::knock::KnockSpec;
 use crate::known_hosts::{KnownHostsStore, PendingConflicts};
@@ -22,6 +23,7 @@ pub async fn ssh_connect(
     app: AppHandle,
     webview: tauri::Webview,
     state: tauri::State<'_, SessionManager>,
+    cancels: tauri::State<'_, ConnectCancels>,
     pf: tauri::State<'_, PortForwardManager>,
     known_hosts: tauri::State<'_, Arc<KnownHostsStore>>,
     pending_conflicts: tauri::State<'_, Arc<PendingConflicts>>,
@@ -55,7 +57,7 @@ pub async fn ssh_connect(
     on_verification: Option<tauri::ipc::JavaScriptChannelId>,
     netbird: Option<NetbirdLogin>,
 ) -> Result<(), AppError> {
-    let interactive_login = netbird.is_some();
+    let attempt = cancels.begin(&session_id);
     let connect = async {
         let credential = if let Some(login) = netbird {
             let token = login
@@ -69,7 +71,7 @@ pub async fn ssh_connect(
         } else {
             None
         };
-        let connected = client::connect(
+        client::connect(
             app,
             session_id.clone(),
             &host,
@@ -100,15 +102,14 @@ pub async fn ssh_connect(
             on_verification.map(|id| id.channel_on(webview)),
             credential,
         )
-        .await?;
-
-        state.add(session_id.clone(), connected).await;
-        Ok::<(), AppError>(())
+        .await
     };
-    if interactive_login {
-        state.with_netbird_login(&session_id, connect).await?;
-    } else {
-        connect.await?;
+    let connected = attempt.run(connect).await?;
+
+    state.add(session_id.clone(), connected).await;
+    if let Some(cancelled) = attempt.cancelled() {
+        let _ = state.disconnect(&session_id, None, false, false).await;
+        return Err(cancelled);
     }
 
     // Register this terminal under its host key so port forwarding is shared
@@ -138,6 +139,7 @@ pub async fn ssh_connect(
 #[tauri::command]
 pub async fn ssh_disconnect(
     state: tauri::State<'_, SessionManager>,
+    cancels: tauri::State<'_, ConnectCancels>,
     pf: tauri::State<'_, PortForwardManager>,
     session_id: String,
     post_command: Option<String>,
@@ -145,6 +147,11 @@ pub async fn ssh_disconnect(
     attached: Option<bool>,
     reconnecting: Option<bool>,
 ) -> Result<bool, String> {
+    if reconnecting.unwrap_or(false) {
+        cancels.rearm(&session_id);
+    } else {
+        cancels.cancel(&session_id);
+    }
     state.cancel_netbird_login(&session_id).await;
     // A reconnect drops the SSH connection and immediately dials again under the
     // same session id, so the terminal is not leaving its host — the forwards

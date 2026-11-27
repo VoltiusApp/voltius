@@ -11,7 +11,7 @@
     "sections": {
       "quickConnect": "快速连接",
       "activeConnections": "活跃连接",
-      "teamSessions": "团队会话",
+      "teamSessions": "共享会话",
       "recent": "最近",
       "hosts": "主机",
       "local": "本地",
