@@ -234,13 +234,13 @@ pub unsafe fn sid_string(sid: PSID) -> io::Result<String> {
     Ok(s)
 }
 
-fn with_process_token<T>(f: impl FnOnce(HANDLE) -> io::Result<T>) -> io::Result<T> {
+fn with_token<T>(process: HANDLE, f: impl FnOnce(HANDLE) -> io::Result<T>) -> io::Result<T> {
     use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::Security::TOKEN_QUERY;
-    use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+    use windows_sys::Win32::System::Threading::OpenProcessToken;
 
     let mut token: HANDLE = ptr::null_mut();
-    if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) } == 0 {
+    if unsafe { OpenProcessToken(process, TOKEN_QUERY, &mut token) } == 0 {
         return Err(io::Error::last_os_error());
     }
     let result = f(token);
@@ -248,11 +248,36 @@ fn with_process_token<T>(f: impl FnOnce(HANDLE) -> io::Result<T>) -> io::Result<
     result
 }
 
+fn with_process_token<T>(f: impl FnOnce(HANDLE) -> io::Result<T>) -> io::Result<T> {
+    with_token(
+        unsafe { windows_sys::Win32::System::Threading::GetCurrentProcess() },
+        f,
+    )
+}
+
 /// The process token's user SID in string form (`S-1-5-21-…`).
 pub fn current_user_sid() -> io::Result<String> {
+    with_process_token(token_user_sid)
+}
+
+/// The user SID another process runs as. Fails for a process this user may not query.
+pub fn process_user_sid(pid: u32) -> io::Result<String> {
+    use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+
+    let process = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+    if process.is_null() {
+        return Err(io::Error::last_os_error());
+    }
+    let result = with_token(process, token_user_sid);
+    unsafe { CloseHandle(process) };
+    result
+}
+
+fn token_user_sid(token: HANDLE) -> io::Result<String> {
     use windows_sys::Win32::Security::{GetTokenInformation, TokenUser, TOKEN_USER};
 
-    with_process_token(|token| unsafe {
+    unsafe {
         // Two calls, deliberately: the first learns the size. A single call
         // with a guessed size returns ERROR_INSUFFICIENT_BUFFER and no SID.
         let mut len = 0u32;
@@ -266,7 +291,7 @@ pub fn current_user_sid() -> io::Result<String> {
         }
         let user: *const TOKEN_USER = buf.as_ptr().cast();
         sid_string((*user).User.Sid)
-    })
+    }
 }
 
 pub fn is_elevated() -> bool {
@@ -301,7 +326,15 @@ pub fn program_data() -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::program_data;
+    use super::{current_user_sid, process_user_sid, program_data};
+
+    #[test]
+    fn this_process_runs_as_the_current_user() {
+        assert_eq!(
+            process_user_sid(std::process::id()).unwrap(),
+            current_user_sid().unwrap()
+        );
+    }
 
     struct EnvRestore(Option<std::ffi::OsString>);
 

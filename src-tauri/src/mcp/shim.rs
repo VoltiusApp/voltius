@@ -72,12 +72,18 @@ async fn connect_app() -> io::Result<(AppRead, AppWrite)> {
     let mut busy_waits = 0;
     loop {
         // The pipe namespace is global, so the server end may not be ours: identification-level
-        // QoS stops it impersonating us. It still receives the requests.
+        // QoS stops it impersonating us, and the owner check stops it reading our requests.
         match ClientOptions::new()
             .security_qos_flags(SECURITY_IDENTIFICATION)
             .open(&path)
         {
             Ok(pipe) => {
+                if !served_by_this_user(&pipe)? {
+                    return Err(io::Error::new(
+                        io::ErrorKind::PermissionDenied,
+                        "the MCP pipe is served by another user",
+                    ));
+                }
                 let (r, w) = tokio::io::split(pipe);
                 return Ok((Box::new(r), Box::new(w)));
             }
@@ -89,6 +95,20 @@ async fn connect_app() -> io::Result<(AppRead, AppWrite)> {
             Err(e) => return Err(e),
         }
     }
+}
+
+#[cfg(windows)]
+fn served_by_this_user(
+    pipe: &tokio::net::windows::named_pipe::NamedPipeClient,
+) -> io::Result<bool> {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::System::Pipes::GetNamedPipeServerProcessId;
+
+    let mut pid = 0u32;
+    if unsafe { GetNamedPipeServerProcessId(pipe.as_raw_handle(), &mut pid) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(crate::win_security::process_user_sid(pid)? == crate::win_security::current_user_sid()?)
 }
 
 struct Link {
