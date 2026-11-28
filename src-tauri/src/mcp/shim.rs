@@ -128,8 +128,11 @@ fn id_where(line: &str, keep: impl Fn(&Value) -> bool) -> Option<Value> {
     keep(&v).then(|| id.clone())
 }
 
-/// The id of a client message the app owes an answer to.
+/// The id of a client message the app owes an answer to. The app answers an oversized line with a null id.
 fn asks(line: &str) -> Option<Value> {
+    if line.len() >= super::transport::MAX_LINE_BYTES {
+        return None;
+    }
     id_where(line, |v| {
         v.get("result").is_none() && v.get("error").is_none()
     })
@@ -218,23 +221,23 @@ pub(crate) async fn relay<C, F>(
                     owed.insert(id.to_string(), id);
                 }
                 if send_line(&mut link.to_app, &line).await.is_err() {
-                    app = None;
-                    went_offline(&stdout, &mut owed, initialize.is_some());
+                    if let Some(id) = asks(&line) {
+                        owed.remove(&id.to_string());
+                    }
+                    if let Some(resp) = offline_reply(&line) {
+                        emit(&stdout, &resp);
+                    }
+                    let gone = app.take().expect("connected");
+                    went_offline(gone, &stdout, &mut owed, initialize.is_some()).await;
                 }
             }
             line = async { app.as_mut().expect("guarded").from_app.recv().await }, if app.is_some() => {
                 let Some(line) = line else {
-                    app = None;
-                    went_offline(&stdout, &mut owed, initialize.is_some());
+                    let gone = app.take().expect("connected");
+                    went_offline(gone, &stdout, &mut owed, initialize.is_some()).await;
                     continue;
                 };
-                if let Some(id) = answers(&line) {
-                    if id == json!(REPLAY_ID) {
-                        continue;
-                    }
-                    owed.remove(&id.to_string());
-                }
-                let _ = stdout.send(line);
+                deliver(line, &stdout, &mut owed);
             }
             _ = redial.tick(), if app.is_none() && stdin_open => {
                 let Ok(conn) = connect().await else { continue };
@@ -252,13 +255,30 @@ pub(crate) async fn relay<C, F>(
     }
 }
 
-/// Requests the app took but never answered get an error, and a client past `initialize`
-/// re-lists to find the tools gone.
-fn went_offline(
+fn deliver(line: String, stdout: &UnboundedSender<String>, owed: &mut HashMap<String, Value>) {
+    if let Some(id) = answers(&line) {
+        if id == json!(REPLAY_ID) {
+            return;
+        }
+        owed.remove(&id.to_string());
+    }
+    let _ = stdout.send(line);
+}
+
+/// Passes on what the app sent before it went, errors what it still owed, and has a client
+/// past `initialize` re-list to find the tools gone.
+async fn went_offline(
+    mut gone: Link,
     stdout: &UnboundedSender<String>,
     owed: &mut HashMap<String, Value>,
     initialized: bool,
 ) {
+    let _ = tokio::time::timeout(Duration::from_secs(1), async {
+        while let Some(line) = gone.from_app.recv().await {
+            deliver(line, stdout, owed);
+        }
+    })
+    .await;
     for (_, id) in owed.drain() {
         emit(
             stdout,
