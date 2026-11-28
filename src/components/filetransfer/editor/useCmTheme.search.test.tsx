@@ -23,9 +23,9 @@ it("the search panel stays open when the editor re-renders", async () => {
   render(<Editor />);
   const view = EditorView.findFromDOM(document.querySelector(".cm-editor") as HTMLElement)!;
   act(() => { openSearchPanel(view); });
-  expect(document.querySelector(".cm-search")).toBeTruthy();
+  expect(document.querySelector(".cm-voltius-find input")).toBeTruthy();
 
   await act(async () => { rerender(); });
 
-  expect(document.querySelector(".cm-search")).toBeTruthy();
+  expect(document.querySelector(".cm-voltius-find input")).toBeTruthy();
 });

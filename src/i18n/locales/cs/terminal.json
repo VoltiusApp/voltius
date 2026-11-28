@@ -254,7 +254,11 @@
       "useRegex": "Regulární výraz (Alt+R)",
       "previousMatch": "Předchozí shoda (Shift+Enter)",
       "nextMatch": "Další shoda (Enter)",
-      "closeTitle": "Zavřít (Escape)"
+      "closeTitle": "Zavřít (Escape)",
+      "toggleReplace": "Přepnout nahrazování",
+      "replacePlaceholder": "Nahradit",
+      "replace": "Nahradit (Enter)",
+      "replaceAll": "Nahradit vše"
     },
     "overlay": {
       "tailscaleCheck": {

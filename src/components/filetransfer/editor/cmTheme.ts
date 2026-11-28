@@ -62,6 +62,8 @@ export function cmTheme(theme: AppTheme): Extension[] {
       },
       ".cm-selectionMatch": { backgroundColor: ui.bgElevated },
       ".cm-panels": { backgroundColor: ui.bgToolbar, color: fg },
+      ".cm-panels-top": { borderBottom: "none" },
+      ".cm-voltius-find": { position: "relative", height: "0" },
       ".cm-searchMatch": {
         backgroundColor: term.yellow + "33",
         outline: `1px solid ${term.yellow}`,

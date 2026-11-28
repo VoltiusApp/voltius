@@ -234,7 +234,11 @@
       "useRegex": "使用正则表达式 (Alt+R)",
       "previousMatch": "上一个匹配 (Shift+Enter)",
       "nextMatch": "下一个匹配 (Enter)",
-      "closeTitle": "关闭 (Escape)"
+      "closeTitle": "关闭 (Escape)",
+      "toggleReplace": "切换替换",
+      "replacePlaceholder": "替换",
+      "replace": "替换 (Enter)",
+      "replaceAll": "全部替换"
     },
     "overlay": {
       "tailscaleCheck": {

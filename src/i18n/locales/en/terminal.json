@@ -236,7 +236,11 @@
       "useRegex": "Use Regular Expression (Alt+R)",
       "previousMatch": "Previous Match (Shift+Enter)",
       "nextMatch": "Next Match (Enter)",
-      "closeTitle": "Close (Escape)"
+      "closeTitle": "Close (Escape)",
+      "toggleReplace": "Toggle Replace",
+      "replacePlaceholder": "Replace",
+      "replace": "Replace (Enter)",
+      "replaceAll": "Replace All"
     },
     "overlay": {
       "tailscaleCheck": {

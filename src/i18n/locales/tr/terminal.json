@@ -236,7 +236,11 @@
       "useRegex": "Düzenli ifade kullan (Alt+R)",
       "previousMatch": "Önceki eşleşme (Shift+Enter)",
       "nextMatch": "Sonraki eşleşme (Enter)",
-      "closeTitle": "Kapat (Escape)"
+      "closeTitle": "Kapat (Escape)",
+      "toggleReplace": "Değiştirmeyi aç/kapat",
+      "replacePlaceholder": "Değiştir",
+      "replace": "Değiştir (Enter)",
+      "replaceAll": "Tümünü değiştir"
     },
     "overlay": {
       "tailscaleCheck": {

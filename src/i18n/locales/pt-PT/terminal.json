@@ -245,7 +245,11 @@
       "useRegex": "Usar expressão regular (Alt+R)",
       "previousMatch": "Correspondência anterior (Shift+Enter)",
       "nextMatch": "Próxima correspondência (Enter)",
-      "closeTitle": "Fechar (Escape)"
+      "closeTitle": "Fechar (Escape)",
+      "toggleReplace": "Alternar substituição",
+      "replacePlaceholder": "Substituir",
+      "replace": "Substituir (Enter)",
+      "replaceAll": "Substituir tudo"
     },
     "overlay": {
       "tailscaleCheck": {
