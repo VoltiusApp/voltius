@@ -56,6 +56,9 @@ importers:
       '@codemirror/merge':
         specifier: ^6.12.2
         version: 6.12.2
+      '@codemirror/search':
+        specifier: ^6.7.1
+        version: 6.7.1
       '@codemirror/state':
         specifier: ^6.6.0
         version: 6.7.4
