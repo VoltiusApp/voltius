@@ -468,7 +468,7 @@ mod tests {
         app_reads(&mut app_r).await;
         drop((app_r, app_w));
 
-        let mut seen = vec![h.next().await, h.next().await];
+        let mut seen = [h.next().await, h.next().await];
         seen.sort_by_key(|v| v.get("id").is_none());
         assert_eq!(seen[0]["id"], json!(2));
         assert!(seen[0]["error"].is_object());
