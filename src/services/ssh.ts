@@ -1,4 +1,4 @@
-import type { NetbirdChallenge, NetbirdSettings } from "@/types";
+import type { NetbirdChallenge, NetbirdSettings, TailscaleAuth } from "@/types";
 import { Channel, invoke } from "@/lib/invoke";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import type { ProxySpec } from "@/services/proxy";
@@ -46,12 +46,12 @@ export async function sshConnect(params: {
   initialCwd?: string;
   proxy?: ProxySpec | null;
   knock?: KnockSpec | null;
-  onVerification?: (url?: string) => void;
+  onVerification?: (state?: TailscaleAuth) => void;
   netbird?: NetbirdSettings;
   onNetbirdChallenge?: (challenge?: NetbirdChallenge) => void;
 }): Promise<void> {
   const { onVerification, netbird, onNetbirdChallenge } = params;
-  const channel = onVerification ? new Channel<string>((url) => onVerification(url || undefined)) : null;
+  const channel = onVerification ? new Channel<TailscaleAuth | { state: "idle" }>((msg) => onVerification(msg.state === "idle" ? undefined : msg)) : null;
   const challenges = netbird && onNetbirdChallenge
     ? new Channel<NetbirdChallenge | null>((challenge) => onNetbirdChallenge(challenge ?? undefined))
     : null;

@@ -18,16 +18,19 @@ const base = {
 it("clears the verification link when the check settles or the attempt ends, and ignores late messages", async () => {
   const onVerification = vi.fn();
   const url = "https://login.tailscale.com/a/test";
-  let channel: { onmessage: (url: string) => void };
+  const verifying = { state: "verify", url, banner: `Visit ${url}`, autoOpen: true };
+  const pending = { state: "authenticating" };
+  let channel: { onmessage: (message: object) => void };
   invoke.mockImplementationOnce(async (_command, args) => {
     channel = args.onVerification;
-    channel.onmessage(url);
-    channel.onmessage("");
+    channel.onmessage(pending);
+    channel.onmessage(verifying);
+    channel.onmessage({ state: "idle" });
     throw new Error("disconnected");
   });
   await expect(sshConnect({ ...base, onVerification })).rejects.toThrow("disconnected");
-  channel!.onmessage(url);
-  expect(onVerification.mock.calls).toEqual([[url], [undefined], []]);
+  channel!.onmessage(verifying);
+  expect(onVerification.mock.calls).toEqual([[pending], [verifying], [undefined], []]);
 });
 
 it("sends NetBird settings only with a challenge channel and clears the code when the attempt ends", async () => {

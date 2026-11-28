@@ -35,7 +35,7 @@
     "ssh-netbird-pin-mismatch": "A chave de host SSH do par {{fingerprint}} não corresponde à impressão digital NetBird salva para este host. Confirme a impressão digital com o administrador.",
     "ssh-auth-timeout": "Tempo de autenticação esgotado após {{seconds}}s — o servidor aceitou a conexão mas nunca respondeu. Alguns servidores SSH antigos travam aqui; tente a opção \"Algoritmos Legados\" do host, ou outro método de autenticação.",
     "ssh-tailscale-check-denied": "O Tailscale não aprovou esta sessão SSH. Verifique sua política do Tailscale SSH, ou tente novamente e aprove a verificação no navegador.",
-    "ssh-tailscale-check-timeout": "A verificação do Tailscale no navegador não foi concluída em {{minutes}} minutos. Tente novamente e aprove-a no seu navegador.",
+    "ssh-tailscale-check-timeout": "A autenticação do Tailscale SSH não foi concluída em {{minutes}} minutos. Tente se conectar novamente.",
     "ssh-tailscale-check-required": "O Tailscale SSH exige uma verificação no navegador para este host. Abra um terminal para ele, aprove a verificação e tente novamente.",
     "login-rejected": "O servidor rejeitou o usuário ou a senha",
     "resource-locked": "O arquivo está bloqueado no servidor — outra pessoa pode tê-lo aberto",

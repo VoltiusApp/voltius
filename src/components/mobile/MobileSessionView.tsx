@@ -12,7 +12,7 @@ export default function MobileSessionView({ session, active, visible }: { sessio
   );
   return (
     <div className="absolute inset-0 bg-(--t-bg-terminal)" style={{ overflow: "clip", overscrollBehavior: "contain" }}>
-      <SessionConnectionOverlay session={session} banner />
+      <SessionConnectionOverlay session={session} banner autoOpenCheck={visible} />
       {session.type === "multiplayer" ? (
         <MultiplayerSessionView localSessionId={session.id} active={active} visible={visible} touch overlay={gestures} />
       ) : (
