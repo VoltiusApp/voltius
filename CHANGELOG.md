@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.88.0] - 2026-11-28
+
+### Added
+
+- `voltius mcp` no longer fails in MCP clients that start while Voltius is closed. It answers with no tools, connects once the app starts and tells the client its tools changed, and falls back to no tools if the app quits (#965)
+- When Tailscale SSH asks for a browser check, the connection steps show the server's message and the check link under Authenticating. On Android the visible terminal opens the link in the browser (#964)
+
+### Security
+
+- On Windows, `voltius mcp` only connects to an MCP pipe served by the same user, so another user's process holding the pipe name cannot receive requests
+
 ## [0.87.2] - 2026-11-28
 
 ### Fixed
