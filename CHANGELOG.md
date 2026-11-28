@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.88.1] - 2026-11-28
+
+### Changed
+
+- Ctrl+F in the file editor, notes and code fields opens the same find bar as the terminal, translated, with match count, case / whole word / regex toggles and a replace row for editable files
+
 ## [0.88.0] - 2026-11-28
 
 ### Added
