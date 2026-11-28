@@ -1,213 +1,480 @@
-/// `voltius mcp`: a byte relay between this process's stdio and the running
-/// app's socket. Deliberately dumb — it parses nothing, so the protocol lives
-/// in exactly one place.
-#[cfg(unix)]
-pub fn run_shim() -> std::io::Result<()> {
-    use std::io::{BufRead, BufReader, Write};
-    use std::os::unix::net::UnixStream;
-    use std::sync::atomic::{AtomicBool, Ordering};
-    use std::sync::Arc;
+//! `voltius mcp`: relays the MCP client's stdio to the app's socket. While the app is unreachable
+//! it answers the handshake with no tools, keeps dialling, and has the client re-list once it answers.
 
-    let sock = UnixStream::connect(super::transport::socket_path()).map_err(|e| {
-        eprintln!("voltius: the app is not running, or its MCP server is off ({e})");
-        e
-    })?;
-    let mut to_app = sock.try_clone()?;
-    let from_app = sock;
+use super::protocol;
+use serde_json::{json, Value};
+use std::collections::HashMap;
+use std::future::Future;
+use std::io;
+use std::time::Duration;
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
-    // Set right before we half-close our write side below, so the reader
-    // thread can tell "the app finished answering everything and closed
-    // cleanly" (this flag is set, just join) apart from "the app went away
-    // on its own — disabled, crashed — while stdin was still open" (flag
-    // unset, the main thread is stuck in a blocking stdin read that nothing
-    // else can interrupt, so force the process to exit instead of hanging).
-    let draining = Arc::new(AtomicBool::new(false));
-    let draining_reader = draining.clone();
+pub(crate) type AppRead = Box<dyn AsyncRead + Unpin + Send>;
+pub(crate) type AppWrite = Box<dyn AsyncWrite + Unpin + Send>;
 
-    // App → stdout on its own thread; stdin → app on this one.
-    let reader_thread = std::thread::spawn(move || {
-        let mut reader = BufReader::new(from_app);
-        let mut buf = String::new();
-        let stdout = std::io::stdout();
-        while reader.read_line(&mut buf).unwrap_or(0) > 0 {
-            let mut lock = stdout.lock();
-            let _ = lock.write_all(buf.as_bytes());
-            let _ = lock.flush();
-            buf.clear();
-        }
-        if !draining_reader.load(Ordering::SeqCst) {
-            std::process::exit(0);
-        }
-    });
+const RECONNECT_EVERY: Duration = Duration::from_secs(2);
+/// Answers still owed when stdin closes get this long, so a stray id cannot keep the process alive.
+const EOF_DRAIN_LIMIT: Duration = Duration::from_secs(super::transport::CALL_TIMEOUT.as_secs() + 5);
+const REPLAY_ID: &str = "voltius-mcp-shim-replay";
+const OFFLINE: &str = "Voltius is not running, or its MCP server is off. Open Voltius, turn on the MCP server in Settings, then try again.";
 
-    let stdin = std::io::stdin();
-    for line in stdin.lock().lines() {
-        let line = line?;
-        to_app.write_all(line.as_bytes())?;
-        to_app.write_all(b"\n")?;
-        to_app.flush()?;
-    }
-    // stdin is closed: no more requests will be sent. Half-close our write
-    // side so the app sees EOF once it has answered everything already
-    // written — its per-connection loop is sequential, so this cannot cut
-    // off a response that was already queued. Then wait for the reader
-    // thread so every already-in-flight response gets printed before this
-    // process exits, instead of racing it on stdin closing early.
-    draining.store(true, Ordering::SeqCst);
-    let _ = to_app.shutdown(std::net::Shutdown::Write);
-    let _ = reader_thread.join();
-    Ok(())
-}
-
-/// `voltius mcp` on Windows. Same relay as the unix shim, but a duplex named
-/// pipe cannot half-close, so stdin EOF starts a quiet-period drain instead:
-/// keep printing until the pipe has been idle for DRAIN_QUIET_PERIOD, then
-/// exit.
-///
-/// The pipe is driven by tokio, not `std::fs`. `OpenOptions` yields a
-/// *synchronous* file object, and Windows serializes I/O on one of those even
-/// across duplicated handles: a blocking `ReadFile` waiting for the app's
-/// reply holds the lock, and every request `WriteFile` queues behind it
-/// forever. `ClientOptions` opens with FILE_FLAG_OVERLAPPED, so the two halves
-/// really are independent.
-#[cfg(windows)]
-pub fn run_shim() -> std::io::Result<()> {
+pub fn run_shim() -> io::Result<()> {
     use std::io::{BufRead, Write};
-    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-    use std::sync::Arc;
-    use std::time::{Duration, Instant};
-    use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
-    use tokio::net::windows::named_pipe::ClientOptions;
-    use windows_sys::Win32::Foundation::ERROR_PIPE_BUSY;
-    use windows_sys::Win32::Storage::FileSystem::SECURITY_IDENTIFICATION;
 
-    // Mandated by the design. Long enough to drain a burst of quick replies;
-    // not long enough to wait out a slow tool call (SSH/SFTP routinely exceed
-    // it) — a reply that arrives after the drain closes is lost.
-    const DRAIN_QUIET_PERIOD: Duration = Duration::from_secs(2);
-
-    // This process relays bytes and nothing else, so one thread is plenty.
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
 
-    rt.block_on(async move {
-        // The pipe name is predictable and the named-pipe namespace is global,
-        // so the server end may not be ours. SECURITY_IDENTIFICATION caps what
-        // it can do with `ImpersonateNamedPipeClient` to identification level —
-        // it can ask who we are, it cannot act as us. (It is also tokio's
-        // default; set explicitly so a future edit cannot drop it silently.)
-        //
-        // Deferred: verifying the server end runs as this same user (e.g.
-        // `GetNamedPipeServerProcessId` on the opened handle). Until then a
-        // squatter still receives the request stream; this only protects our
-        // token.
-        let path = super::transport::socket_path();
-        let mut busy_waits = 0;
-        let pipe = loop {
-            match ClientOptions::new()
-                .security_qos_flags(SECURITY_IDENTIFICATION)
-                .open(&path)
-            {
-                Ok(pipe) => break pipe,
-                // The server creates its next instance before handing the
-                // connected one to a handler, but a client can still land in
-                // that window. Bounded so a permanently busy pipe still fails.
-                Err(e) if e.raw_os_error() == Some(ERROR_PIPE_BUSY as i32) && busy_waits < 20 => {
-                    busy_waits += 1;
-                    tokio::time::sleep(Duration::from_millis(50)).await;
-                }
-                Err(e) => {
-                    eprintln!("voltius: the app is not running, or its MCP server is off ({e})");
-                    return Err(e);
-                }
+    // stdin and stdout stay on blocking threads so a client that stops reading cannot park the runtime.
+    let (stdin_tx, stdin_rx) = unbounded_channel();
+    std::thread::spawn(move || {
+        for line in io::stdin().lock().lines() {
+            let Ok(line) = line else { break };
+            if stdin_tx.send(line).is_err() {
+                break;
             }
-        };
-        let (from_app, mut to_app) = tokio::io::split(pipe);
-
-        let start = Instant::now();
-        let last_activity = Arc::new(AtomicU64::new(0));
-        let activity_writer = last_activity.clone();
-
-        // stdin and stdout stay on dedicated blocking threads: a stdout write
-        // to a client that has stopped reading would otherwise park the whole
-        // runtime, stalling pipe I/O — the same coupling this rewrite removes.
-        let (stdin_tx, mut stdin_rx) = tokio::sync::mpsc::unbounded_channel();
-        std::thread::spawn(move || {
-            let stdin = std::io::stdin();
-            for line in stdin.lock().lines() {
-                if stdin_tx.send(line).is_err() {
-                    break;
-                }
-            }
-        });
-
-        let (stdout_tx, stdout_rx) = std::sync::mpsc::channel::<String>();
-        let stdout_thread = std::thread::spawn(move || {
-            let stdout = std::io::stdout();
-            for line in stdout_rx {
-                // Recorded before the write so the quiet-period check below can
-                // never see stale activity while a write is still in flight and
-                // tear the process down mid-line.
-                activity_writer.store(start.elapsed().as_millis() as u64, Ordering::SeqCst);
-                let mut lock = stdout.lock();
-                let _ = lock.write_all(line.as_bytes());
-                let _ = lock.flush();
-            }
-        });
-
-        // Mirrors the unix arm's `draining` flag: distinguishes "the app closed
-        // the pipe because we're past the drain and about to exit anyway" (flag
-        // set, nothing to do) from "the app went away on its own while stdin was
-        // still open" (flag unset, nothing will ever end the stdin read, so
-        // force the process to exit instead of hanging forever as an orphaned
-        // child of the MCP client).
-        let draining = Arc::new(AtomicBool::new(false));
-        let draining_reader = draining.clone();
-
-        tokio::spawn(async move {
-            let mut reader = tokio::io::BufReader::new(from_app);
-            let mut buf = String::new();
-            while matches!(reader.read_line(&mut buf).await, Ok(n) if n > 0) {
-                if stdout_tx.send(std::mem::take(&mut buf)).is_err() {
-                    break;
-                }
-            }
-            // Hand the queue over before deciding to exit, or a reply the app
-            // managed to send just before dying dies with it.
-            drop(stdout_tx);
-            let _ = stdout_thread.join();
-            if !draining_reader.load(Ordering::SeqCst) {
-                std::process::exit(0);
-            }
-        });
-
-        while let Some(line) = stdin_rx.recv().await {
-            let line = line?;
-            to_app.write_all(line.as_bytes()).await?;
-            to_app.write_all(b"\n").await?;
-            to_app.flush().await?;
-            last_activity.store(start.elapsed().as_millis() as u64, Ordering::SeqCst);
         }
-
-        // stdin is closed: no more requests. Wait until the pipe has been quiet
-        // for DRAIN_QUIET_PERIOD, then exit. The reader task is not awaited: it
-        // blocks on a pipe that never reaches EOF while the app holds its end,
-        // so awaiting it would hang forever.
-        draining.store(true, Ordering::SeqCst);
-        loop {
-            // saturating: `impl Sub for Duration` panics on underflow in
-            // release too, and the two clocks are read at different instants.
-            let idle = start
-                .elapsed()
-                .saturating_sub(Duration::from_millis(last_activity.load(Ordering::SeqCst)));
-            if idle >= DRAIN_QUIET_PERIOD {
-                return Ok(());
-            }
-            tokio::time::sleep(Duration::from_millis(50)).await;
+    });
+    let (stdout_tx, mut stdout_rx) = unbounded_channel::<String>();
+    let stdout_thread = std::thread::spawn(move || {
+        let stdout = io::stdout();
+        while let Some(line) = stdout_rx.blocking_recv() {
+            let mut lock = stdout.lock();
+            let _ = lock.write_all(line.as_bytes());
+            let _ = lock.write_all(b"\n");
+            let _ = lock.flush();
         }
+    });
+
+    rt.block_on(relay(connect_app, stdin_rx, stdout_tx, RECONNECT_EVERY));
+    let _ = stdout_thread.join();
+    Ok(())
+}
+
+#[cfg(unix)]
+async fn connect_app() -> io::Result<(AppRead, AppWrite)> {
+    let (r, w) = tokio::net::UnixStream::connect(super::transport::socket_path())
+        .await?
+        .into_split();
+    Ok((Box::new(r), Box::new(w)))
+}
+
+/// The pipe goes through tokio, not `std::fs`: a synchronous handle serializes a pending read
+/// with every write, so requests would queue behind the read waiting for the app's reply.
+#[cfg(windows)]
+async fn connect_app() -> io::Result<(AppRead, AppWrite)> {
+    use tokio::net::windows::named_pipe::ClientOptions;
+    use windows_sys::Win32::Foundation::ERROR_PIPE_BUSY;
+    use windows_sys::Win32::Storage::FileSystem::SECURITY_IDENTIFICATION;
+
+    let path = super::transport::socket_path();
+    let mut busy_waits = 0;
+    loop {
+        // The pipe namespace is global, so the server end may not be ours: identification-level
+        // QoS stops it impersonating us. It still receives the requests.
+        match ClientOptions::new()
+            .security_qos_flags(SECURITY_IDENTIFICATION)
+            .open(&path)
+        {
+            Ok(pipe) => {
+                let (r, w) = tokio::io::split(pipe);
+                return Ok((Box::new(r), Box::new(w)));
+            }
+            // A client can land between the server accepting one instance and creating the next.
+            Err(e) if e.raw_os_error() == Some(ERROR_PIPE_BUSY as i32) && busy_waits < 20 => {
+                busy_waits += 1;
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+}
+
+struct Link {
+    to_app: AppWrite,
+    from_app: UnboundedReceiver<String>,
+}
+
+fn link((r, w): (AppRead, AppWrite)) -> Link {
+    let (tx, rx) = unbounded_channel();
+    tokio::spawn(async move {
+        let mut lines = BufReader::new(r).lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            if tx.send(line).is_err() {
+                break;
+            }
+        }
+    });
+    Link {
+        to_app: w,
+        from_app: rx,
+    }
+}
+
+async fn send_line(w: &mut AppWrite, line: &str) -> io::Result<()> {
+    w.write_all(line.as_bytes()).await?;
+    w.write_all(b"\n").await?;
+    w.flush().await
+}
+
+fn emit(stdout: &UnboundedSender<String>, v: &Value) {
+    let _ = stdout.send(v.to_string());
+}
+
+fn id_where(line: &str, keep: impl Fn(&Value) -> bool) -> Option<Value> {
+    let v: Value = serde_json::from_str(line).ok()?;
+    let id = v.get("id").filter(|i| !i.is_null())?;
+    keep(&v).then(|| id.clone())
+}
+
+/// The id of a client message the app owes an answer to. The app answers an oversized line with a null id.
+fn asks(line: &str) -> Option<Value> {
+    if line.len() >= super::transport::MAX_LINE_BYTES {
+        return None;
+    }
+    id_where(line, |v| {
+        v.get("result").is_none() && v.get("error").is_none()
     })
 }
 
-// The shim's end-to-end regression test spawns the compiled binary, so it lives
-// in `src-tauri/tests/mcp_shim.rs` — see the comment there.
+/// The id of an app message answering the client.
+fn answers(line: &str) -> Option<Value> {
+    id_where(line, |v| v.get("method").is_none())
+}
+
+fn is_initialize(line: &str) -> bool {
+    protocol::parse_request(line).is_ok_and(|r| r.method == "initialize")
+}
+
+/// The client's own `initialize`, re-sent under an id the shim swallows, so the app learns its name.
+fn replay_initialize(line: &str) -> Option<String> {
+    let mut v: Value = serde_json::from_str(line).ok()?;
+    v.as_object_mut()?.insert("id".into(), json!(REPLAY_ID));
+    Some(v.to_string())
+}
+
+fn offline_reply(line: &str) -> Option<Value> {
+    let req = match protocol::parse_request(line) {
+        Ok(r) => r,
+        Err(resp) => return Some(resp),
+    };
+    let id = req.id?;
+    Some(match req.method.as_str() {
+        "initialize" => protocol::success(Some(id), protocol::initialize_result()),
+        "ping" => protocol::success(Some(id), json!({})),
+        "tools/list" => protocol::success(Some(id), json!({ "tools": [] })),
+        "tools/call" => protocol::success(
+            Some(id),
+            json!({ "content": [{ "type": "text", "text": OFFLINE }], "isError": true }),
+        ),
+        _ => protocol::error(Some(id), -32601, "method not found"),
+    })
+}
+
+pub(crate) async fn relay<C, F>(
+    mut connect: C,
+    mut stdin: UnboundedReceiver<String>,
+    stdout: UnboundedSender<String>,
+    retry: Duration,
+) where
+    C: FnMut() -> F,
+    F: Future<Output = io::Result<(AppRead, AppWrite)>>,
+{
+    let mut app = match connect().await {
+        Ok(conn) => Some(link(conn)),
+        Err(e) => {
+            eprintln!("voltius: the app is not running, or its MCP server is off ({e}); serving no tools until it is");
+            None
+        }
+    };
+    let mut initialize: Option<String> = None;
+    let mut owed: HashMap<String, Value> = HashMap::new();
+    let mut stdin_open = true;
+    let drain_deadline = tokio::time::sleep(Duration::MAX);
+    tokio::pin!(drain_deadline);
+    let mut redial = tokio::time::interval(retry);
+    redial.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    redial.tick().await;
+
+    loop {
+        if !stdin_open && (app.is_none() || owed.is_empty()) {
+            break;
+        }
+        tokio::select! {
+            line = stdin.recv(), if stdin_open => {
+                let Some(line) = line else {
+                    stdin_open = false;
+                    drain_deadline.as_mut().reset(tokio::time::Instant::now() + EOF_DRAIN_LIMIT);
+                    continue;
+                };
+                if is_initialize(&line) {
+                    initialize = Some(line.clone());
+                }
+                let Some(link) = app.as_mut() else {
+                    if let Some(resp) = offline_reply(&line) {
+                        emit(&stdout, &resp);
+                    }
+                    continue;
+                };
+                if let Some(id) = asks(&line) {
+                    owed.insert(id.to_string(), id);
+                }
+                if send_line(&mut link.to_app, &line).await.is_err() {
+                    if let Some(id) = asks(&line) {
+                        owed.remove(&id.to_string());
+                    }
+                    if let Some(resp) = offline_reply(&line) {
+                        emit(&stdout, &resp);
+                    }
+                    let gone = app.take().expect("connected");
+                    went_offline(gone, &stdout, &mut owed, initialize.is_some()).await;
+                }
+            }
+            line = async { app.as_mut().expect("guarded").from_app.recv().await }, if app.is_some() => {
+                let Some(line) = line else {
+                    let gone = app.take().expect("connected");
+                    went_offline(gone, &stdout, &mut owed, initialize.is_some()).await;
+                    continue;
+                };
+                deliver(line, &stdout, &mut owed);
+            }
+            _ = redial.tick(), if app.is_none() && stdin_open => {
+                let Ok(conn) = connect().await else { continue };
+                let mut link = link(conn);
+                if let Some(replay) = initialize.as_deref().and_then(replay_initialize) {
+                    if send_line(&mut link.to_app, &replay).await.is_err() {
+                        continue;
+                    }
+                    emit(&stdout, &protocol::tools_changed_notification());
+                }
+                app = Some(link);
+            }
+            _ = &mut drain_deadline => break,
+        }
+    }
+}
+
+fn deliver(line: String, stdout: &UnboundedSender<String>, owed: &mut HashMap<String, Value>) {
+    if let Some(id) = answers(&line) {
+        if id == json!(REPLAY_ID) {
+            return;
+        }
+        owed.remove(&id.to_string());
+    }
+    let _ = stdout.send(line);
+}
+
+/// Passes on what the app sent before it went, errors what it still owed, and has a client
+/// past `initialize` re-list to find the tools gone.
+async fn went_offline(
+    mut gone: Link,
+    stdout: &UnboundedSender<String>,
+    owed: &mut HashMap<String, Value>,
+    initialized: bool,
+) {
+    let _ = tokio::time::timeout(Duration::from_secs(1), async {
+        while let Some(line) = gone.from_app.recv().await {
+            deliver(line, stdout, owed);
+        }
+    })
+    .await;
+    for (_, id) in owed.drain() {
+        emit(
+            stdout,
+            &protocol::error(Some(id), -32603, "Voltius closed before answering"),
+        );
+    }
+    if initialized {
+        emit(stdout, &protocol::tools_changed_notification());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Arc, Mutex};
+    use tokio::io::DuplexStream;
+
+    type Slot = Arc<Mutex<Option<DuplexStream>>>;
+
+    fn dialer(slot: Slot) -> impl FnMut() -> std::future::Ready<io::Result<(AppRead, AppWrite)>> {
+        move || {
+            std::future::ready(match slot.lock().unwrap().take() {
+                Some(s) => {
+                    let (r, w) = tokio::io::split(s);
+                    Ok((Box::new(r) as AppRead, Box::new(w) as AppWrite))
+                }
+                None => Err(io::ErrorKind::NotFound.into()),
+            })
+        }
+    }
+
+    struct Harness {
+        stdin: Option<UnboundedSender<String>>,
+        stdout: UnboundedReceiver<String>,
+        slot: Slot,
+        done: tokio::task::JoinHandle<()>,
+    }
+
+    fn start() -> Harness {
+        let slot: Slot = Arc::new(Mutex::new(None));
+        let (stdin_tx, stdin_rx) = unbounded_channel();
+        let (stdout_tx, stdout_rx) = unbounded_channel();
+        let done = tokio::spawn(relay(
+            dialer(slot.clone()),
+            stdin_rx,
+            stdout_tx,
+            Duration::from_millis(10),
+        ));
+        Harness {
+            stdin: Some(stdin_tx),
+            stdout: stdout_rx,
+            slot,
+            done,
+        }
+    }
+
+    impl Harness {
+        fn send(&self, v: Value) {
+            self.stdin.as_ref().unwrap().send(v.to_string()).unwrap();
+        }
+        async fn next(&mut self) -> Value {
+            let line = tokio::time::timeout(Duration::from_secs(5), self.stdout.recv())
+                .await
+                .expect("no output")
+                .expect("stdout closed");
+            serde_json::from_str(&line).unwrap()
+        }
+        /// Plugs in a fake app and returns its side of the socket.
+        fn app_starts(
+            &self,
+        ) -> (
+            BufReader<tokio::io::ReadHalf<DuplexStream>>,
+            tokio::io::WriteHalf<DuplexStream>,
+        ) {
+            let (ours, theirs) = tokio::io::duplex(64 * 1024);
+            *self.slot.lock().unwrap() = Some(ours);
+            let (r, w) = tokio::io::split(theirs);
+            (BufReader::new(r), w)
+        }
+    }
+
+    fn init(id: i64) -> Value {
+        json!({ "jsonrpc": "2.0", "id": id, "method": "initialize", "params": { "clientInfo": { "name": "Claude Desktop" } } })
+    }
+
+    fn req(id: i64, method: &str) -> Value {
+        json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": {} })
+    }
+
+    async fn app_reads(r: &mut BufReader<tokio::io::ReadHalf<DuplexStream>>) -> Value {
+        let mut line = String::new();
+        tokio::time::timeout(Duration::from_secs(5), r.read_line(&mut line))
+            .await
+            .unwrap()
+            .unwrap();
+        serde_json::from_str(&line).unwrap()
+    }
+
+    #[tokio::test]
+    async fn without_the_app_the_handshake_succeeds_with_no_tools() {
+        let mut h = start();
+        h.send(init(1));
+        assert_eq!(
+            h.next().await["result"]["capabilities"]["tools"]["listChanged"],
+            json!(true)
+        );
+        h.send(json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }));
+        h.send(req(2, "tools/list"));
+        let list = h.next().await;
+        assert_eq!(list["id"], json!(2));
+        assert_eq!(list["result"]["tools"], json!([]));
+        h.send(req(3, "tools/call"));
+        let call = h.next().await;
+        assert_eq!(call["result"]["isError"], json!(true));
+        assert!(call["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("not running"));
+        h.stdin = None;
+        tokio::time::timeout(Duration::from_secs(5), h.done)
+            .await
+            .unwrap()
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn the_app_starting_later_announces_its_tools_and_takes_over() {
+        let mut h = start();
+        h.send(init(1));
+        h.next().await;
+        let (mut app_r, mut app_w) = h.app_starts();
+
+        let replay = app_reads(&mut app_r).await;
+        assert_eq!(replay["method"], json!("initialize"));
+        assert_eq!(
+            replay["params"]["clientInfo"]["name"],
+            json!("Claude Desktop")
+        );
+        app_w
+            .write_all(
+                format!(
+                    "{}\n",
+                    protocol::success(Some(replay["id"].clone()), json!({}))
+                )
+                .as_bytes(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            h.next().await["method"],
+            json!("notifications/tools/list_changed")
+        );
+
+        h.send(req(2, "tools/list"));
+        assert_eq!(app_reads(&mut app_r).await["id"], json!(2));
+        app_w
+            .write_all(
+                format!(
+                    "{}\n",
+                    protocol::success(Some(json!(2)), json!({ "tools": [{ "name": "x" }] }))
+                )
+                .as_bytes(),
+            )
+            .await
+            .unwrap();
+        let listed = h.next().await;
+        assert_eq!(
+            listed["id"],
+            json!(2),
+            "the replayed initialize reply must not reach the client"
+        );
+        assert_eq!(listed["result"]["tools"][0]["name"], json!("x"));
+    }
+
+    #[tokio::test]
+    async fn the_app_quitting_fails_what_it_owed_and_falls_back_to_no_tools() {
+        let mut h = start();
+        let (mut app_r, mut app_w) = h.app_starts();
+        h.send(init(1));
+        app_reads(&mut app_r).await;
+        app_w
+            .write_all(format!("{}\n", protocol::success(Some(json!(1)), json!({}))).as_bytes())
+            .await
+            .unwrap();
+        assert_eq!(h.next().await["id"], json!(1));
+        h.send(req(2, "tools/call"));
+        app_reads(&mut app_r).await;
+        drop((app_r, app_w));
+
+        let mut seen = [h.next().await, h.next().await];
+        seen.sort_by_key(|v| v.get("id").is_none());
+        assert_eq!(seen[0]["id"], json!(2));
+        assert!(seen[0]["error"].is_object());
+        assert_eq!(seen[1]["method"], json!("notifications/tools/list_changed"));
+
+        h.send(req(3, "tools/list"));
+        assert_eq!(h.next().await["result"]["tools"], json!([]));
+    }
+}
