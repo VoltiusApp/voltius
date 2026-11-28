@@ -269,7 +269,7 @@ export interface ConnectRetryOverride {
   saveAs?: IdentitySaveAs;
 }
 
-export type TailscaleAuth = { state: "authenticating" } | { state: "verify"; url: string; autoOpen: boolean };
+export type TailscaleAuth = { state: "authenticating" } | { state: "verify"; url: string; banner: string; autoOpen: boolean };
 
 export interface NetbirdChallenge {
   verificationUri: string;

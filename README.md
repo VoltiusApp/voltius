@@ -26,7 +26,7 @@
 No account required. Everything below is free, forever.
 
 **Terminal**
-- **SSH, your way** — Jump hosts, agent forwarding, SOCKS/HTTP proxies, port knocking, keyword highlighting. On phones, the active terminal shows Tailscale SSH authentication progress and opens the browser when the server sends a verification link. Return to Voltius after approval to continue the same session.
+- **SSH, your way** — Jump hosts, agent forwarding, SOCKS/HTTP proxies, port knocking, keyword highlighting. When Tailscale SSH requests an additional check, the terminal shows the server’s message and verification link between authentication and opening the shell. On phones, the active terminal opens the verification link in the browser. Return to Voltius after approval to continue the same session.
 - **Persistent sessions** — tmux/screen on the host; tabs, splits and scrollback survive app restarts. [More →](https://voltius.app/blog/cross-device-session-pickup)
 - **Split panes, snippets & command palette** — Broadcast input to every pane; reusable commands with variables and sequences.
 - **Port forwarding** — Local, remote and dynamic (SOCKS).

@@ -11,7 +11,7 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("./hooks", () => ({
-  useConnectionSteps: () => ({ steps: [], visible: true }),
+  useConnectionSteps: ({ stepConfigs }: { stepConfigs: StepConfig[] }) => ({ steps: createSteps(stepConfigs), visible: true }),
   useHostKeyConflict: () => ({ conflict: h.conflict, resolving: false, resolveConflict: vi.fn() }),
 }));
 vi.mock("./HostKeyConflictPanel", () => ({ HostKeyConflictPanel: () => <div data-testid="conflict" /> }));
@@ -20,18 +20,24 @@ vi.mock("@/utils/clipboard", () => ({ writeClipboard: h.writeClipboard }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 
 import ConnectionOverlay from "./ConnectionOverlay";
+import { createSteps } from "./utils";
+import { getSshSteps } from "./constants";
+import type { StepConfig } from "./types";
 
 const props = {
   sessionId: "s1",
   name: "srv",
   icon: "lucide:monitor",
-  steps: [],
+  steps: getSshSteps(),
   stepEventName: "ssh-step-s1",
   onRetry: vi.fn(),
   onRetryNow: vi.fn(),
   onDismiss: vi.fn(),
   variant: "banner",
 } as const;
+
+const url = "https://login.tailscale.com/a/test";
+const check = { state: "verify", url, banner: `# Complete the check at ${url}`, autoOpen: true } as const;
 
 const banner = (c: HTMLElement) => c.querySelector("[data-reconnect-banner]");
 
@@ -66,9 +72,8 @@ describe("reconnect banner", () => {
   });
 
   test.each([undefined, "banner"] as const)("browser verification waits for a click (%s)", (variant) => {
-    const url = "https://login.tailscale.com/a/test";
     const { getByRole, queryByRole, rerender } = render(
-      <ConnectionOverlay {...props} variant={variant} status="connecting" tailscaleAuth={{ state: "verify", url, autoOpen: true }} />,
+      <ConnectionOverlay {...props} variant={variant} status="connecting" tailscaleAuth={check} />,
     );
     const verify = { name: "terminal.overlay.tailscaleCheck.open" };
     expect(h.openUrl).not.toHaveBeenCalled();
@@ -78,23 +83,30 @@ describe("reconnect banner", () => {
     expect(h.writeClipboard).toHaveBeenCalledExactlyOnceWith(url);
     fireEvent.click(getByRole("button", { name: "common.action.cancel" }));
     expect(props.onDismiss).toHaveBeenCalledOnce();
-    rerender(<ConnectionOverlay {...props} variant={variant} status="connected" tailscaleAuth={{ state: "verify", url, autoOpen: true }} />);
+    rerender(<ConnectionOverlay {...props} variant={variant} status="connected" tailscaleAuth={check} />);
     expect(queryByRole("button", verify)).toBeNull();
   });
 
+  test("keeps the verified link accessible when it falls beyond the displayed banner", () => {
+    const { getByRole } = render(
+      <ConnectionOverlay {...props} status="connecting" tailscaleAuth={{ ...check, banner: "x".repeat(2048) }} />,
+    );
+    fireEvent.click(getByRole("link", { name: url }));
+    expect(h.openUrl).toHaveBeenCalledExactlyOnceWith(url);
+  });
+
   test("only the visible phone terminal opens the check, once, and can retry a failed launch", async () => {
-    const url = "https://login.tailscale.com/a/test";
-    const verify = { state: "verify", url, autoOpen: true } as const;
     const view = (autoOpenCheck: boolean) =>
-      <ConnectionOverlay {...props} status="connecting" autoOpenCheck={autoOpenCheck} tailscaleAuth={verify} />;
+      <ConnectionOverlay {...props} status="connecting" autoOpenCheck={autoOpenCheck} tailscaleAuth={check} />;
     const { rerender, getByRole, queryByRole, getByText, findByRole } = render(
       <ConnectionOverlay {...props} status="connecting" autoOpenCheck tailscaleAuth={{ state: "authenticating" }} />,
     );
     expect(getByText("Tailscale SSH")).toBeTruthy();
-    expect(getByText("terminal.overlay.steps.authenticating")).toBeTruthy();
+    expect(getByText("Authenticating")).toBeTruthy();
+    expect(queryByRole("status")).toBeNull();
     const button = { name: "terminal.overlay.tailscaleCheck.open" };
     expect(queryByRole("button", button)).toBeNull();
-    rerender(<ConnectionOverlay {...props} status="connecting" autoOpenCheck tailscaleAuth={{ ...verify, autoOpen: false }} />);
+    rerender(<ConnectionOverlay {...props} status="connecting" autoOpenCheck tailscaleAuth={{ ...check, autoOpen: false }} />);
     rerender(view(false));
     expect(h.openUrl).not.toHaveBeenCalled();
     h.openUrl.mockRejectedValueOnce(new Error("no browser"));

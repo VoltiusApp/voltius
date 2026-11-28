@@ -97,6 +97,7 @@ pub enum TailscaleAuth {
     Authenticating,
     Verify {
         url: String,
+        banner: String,
         #[serde(rename = "autoOpen")]
         auto_open: bool,
     },
@@ -128,6 +129,7 @@ impl client::Handler for SshClient {
                 }
                 *state = TailscaleAuth::Verify {
                     url: url.to_owned(),
+                    banner: display_check_banner(banner),
                     auto_open: matches!(state, TailscaleAuth::Authenticating),
                 };
                 true
@@ -390,6 +392,20 @@ fn tailscale_check_url(banner: &str) -> Option<&str> {
                         .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
             })
     })
+}
+
+// Preserve the server's wording and line breaks in the verification step.
+fn display_check_banner(banner: &str) -> String {
+    banner
+        .trim()
+        .chars()
+        .take(2048)
+        .filter(|&c| {
+            matches!(c, '\n' | '\t')
+                || (!c.is_control()
+                    && !matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}'))
+        })
+        .collect()
 }
 
 /// Pick the RSA signature hash from what the server advertised in `server-sig-algs`
@@ -2058,6 +2074,18 @@ mod tests {
         }
     }
 
+    #[test]
+    fn check_banner_display_preserves_lines_and_limits_server_text() {
+        assert_eq!(
+            super::display_check_banner("first\r\nsecond\0\u{202e}\tend"),
+            "first\nsecond\tend"
+        );
+        assert_eq!(
+            super::display_check_banner(&"ä".repeat(3000)),
+            "ä".repeat(2048)
+        );
+    }
+
     #[tokio::test(start_paused = true)]
     async fn a_check_link_needs_a_sink_and_gets_the_longer_deadline() {
         use std::future::pending;
@@ -2069,6 +2097,7 @@ mod tests {
             if shown {
                 tx.send_replace(super::TailscaleAuth::Verify {
                     url: "https://login.tailscale.com/a/x".to_owned(),
+                    banner: "Check".into(),
                     auto_open: false,
                 });
             }
@@ -2088,7 +2117,7 @@ mod tests {
         assert_eq!(
             messages,
             [
-                r#"{"state":"verify","url":"https://login.tailscale.com/a/x","autoOpen":false}"#,
+                r#"{"state":"verify","url":"https://login.tailscale.com/a/x","banner":"Check","autoOpen":false}"#,
                 r#"{"state":"idle"}"#
             ]
         );
@@ -2112,11 +2141,12 @@ mod tests {
         tokio::time::advance(AUTH_TIMEOUT + std::time::Duration::from_secs(1)).await;
         tx.send_replace(TailscaleAuth::Verify {
             url: "https://login.tailscale.com/a/test".into(),
+            banner: "Check".into(),
             auto_open: true,
         });
         assert_eq!(
             sent.recv().await.unwrap(),
-            r#"{"state":"verify","url":"https://login.tailscale.com/a/test","autoOpen":true}"#
+            r#"{"state":"verify","url":"https://login.tailscale.com/a/test","banner":"Check","autoOpen":true}"#
         );
         assert!(!task.is_finished());
         approved.send(Ok(())).unwrap();
@@ -2186,7 +2216,10 @@ mod tests {
                         assert_eq!(sent.recv().await.unwrap(), r#"{"state":"authenticating"}"#);
                     }
                     let message: serde_json::Value = serde_json::from_str(&sent.recv().await.unwrap()).unwrap();
-                    assert_eq!(message, serde_json::json!({"state":"verify","url":URL,"autoOpen":tailscale}));
+                    assert_eq!(message, serde_json::json!({
+                        "state": "verify", "url": URL, "autoOpen": tailscale,
+                        "banner": format!("# Tailscale SSH requires an additional check.\n# To authenticate, visit:\n#     {URL}")
+                    }));
                 } => {},
             }
             decision.send(approve).unwrap();

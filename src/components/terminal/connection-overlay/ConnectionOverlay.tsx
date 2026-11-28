@@ -15,7 +15,7 @@ import { useConnectionSteps, useHostKeyConflict } from "./hooks";
 import { useDismissBlockedReason } from "@/hooks/useSessionLocked";
 import { DismissBlockedContext } from "./dismissBlocked";
 import type { ConnectionOverlayProps } from "./types";
-import { isMissingUsernameError, isNoAuthError, isPassphraseError } from "./utils";
+import { activateStep, isMissingUsernameError, isNoAuthError, isPassphraseError } from "./utils";
 import { isVaultErrorCode } from "@/services/vaultErrors";
 
 export default function ConnectionOverlay({
@@ -76,7 +76,14 @@ export default function ConnectionOverlay({
   const showAuthPrompt = prompting && isNoAuthError(errorMessage) && !!onRetryWithAuth;
   const legacyFix = isError && errorCode === "ssh-legacy-algorithms-required" ? onEnableLegacyAlgorithms : undefined;
   const checking = isConnecting && (netbirdChallenge || tailscaleAuth);
-  const checkUrl = netbirdChallenge?.verificationUri ?? (tailscaleAuth?.state === "verify" ? tailscaleAuth.url : undefined);
+  const verify = tailscaleAuth?.state === "verify" ? tailscaleAuth : undefined;
+  const checkUrl = netbirdChallenge?.verificationUri ?? verify?.url;
+  const authDetail = tailscaleAuth?.state === "authenticating"
+    ? "Tailscale SSH"
+    : steps.find((step) => step.id === "authenticating")?.detail;
+  const progressSteps = checking
+    ? activateStep(steps, stepConfigs, "authenticating", authDetail)
+    : steps;
   const setupNetbird = isError && errorCode === "ssh-netbird-sso-required" && onNetbirdLogin;
   const showSpecialPanel =
     setupNetbird || checking || (conflict && !isError) || showIdentityPick || showChooser || showVaultError || showPassphrasePrompt || showUsernamePrompt || showAuthPrompt;
@@ -92,7 +99,7 @@ export default function ConnectionOverlay({
   return (
     <DismissBlockedContext.Provider value={dismissBlocked}>
       <div className={className ?? "absolute inset-0 z-20 flex items-center justify-center bg-(--t-bg-terminal)"}>
-        <div className="flex flex-col items-center gap-6 w-80 text-center">
+        <div className={`flex flex-col items-center gap-6 w-80 max-w-full text-center ${checking ? "max-h-full overflow-y-auto px-2 py-3" : ""}`}>
           <ConnectionHeader
             icon={icon}
             name={name}
@@ -103,15 +110,6 @@ export default function ConnectionOverlay({
 
           {conflict && !isError ? (
             <HostKeyConflictPanel conflict={conflict} resolving={resolving} onResolve={(action) => void resolveConflict(action)} />
-          ) : checking ? (
-            <BrowserCheckPanel
-              key={checkUrl}
-              kind={netbirdChallenge ? "netbird" : "tailscaleCheck"}
-              url={checkUrl}
-              autoOpen={autoOpenCheck && !netbirdChallenge && tailscaleAuth?.state === "verify" && tailscaleAuth.autoOpen}
-              code={netbirdChallenge?.userCode}
-              onCancel={onDismiss}
-            />
           ) : setupNetbird ? (
             <NetbirdSetupPanel key={connectionId ?? sessionId} initial={netbird} onSubmit={setupNetbird} onCancel={onDismiss} />
           ) : showIdentityPick ? (
@@ -156,9 +154,19 @@ export default function ConnectionOverlay({
             />
           ) : (
             <>
-              <ConnectionSteps steps={steps} />
+              <ConnectionSteps steps={progressSteps} authPrompt={checking && (
+                <BrowserCheckPanel
+                  key={checkUrl}
+                  kind={netbirdChallenge ? "netbird" : "tailscaleCheck"}
+                  url={checkUrl}
+                  banner={netbirdChallenge ? undefined : verify?.banner}
+                  autoOpen={autoOpenCheck && !netbirdChallenge && verify?.autoOpen}
+                  code={netbirdChallenge?.userCode}
+                  onCancel={onDismiss}
+                />
+              )} />
 
-              {isConnecting && reconnectWait && (
+              {isConnecting && !checking && reconnectWait && (
                 <ReconnectWaitPanel wait={reconnectWait} onRetryNow={onRetryNow} onDismiss={onDismiss} />
               )}
 

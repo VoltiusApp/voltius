@@ -1,23 +1,27 @@
+import type { ReactNode } from "react";
 import type { Step, StepStatus } from "./types";
 import { getStepTextClass } from "./utils";
 
-export function ConnectionSteps({ steps }: { steps: Step[] }) {
+export function ConnectionSteps({ steps, authPrompt }: { steps: Step[]; authPrompt?: ReactNode }) {
   return (
     <div className="w-full space-y-2.5 text-left">
       {steps.map((step) => (
-        <div
-          key={step.id}
-          className={`flex items-center gap-3 transition-opacity duration-200 ${
-            step.status === "pending" ? "opacity-25" : "opacity-100"
-          }`}
-        >
-          <StepIcon status={step.status} />
-          <div className="min-w-0">
-            <span className={`text-sm ${getStepTextClass(step.status)}`}>{step.label}</span>
-            {step.detail && step.status !== "pending" && (
-              <p className="text-text-muted text-xs truncate">{step.detail}</p>
-            )}
+        <div key={step.id}>
+          <div
+            aria-current={step.status === "active" ? "step" : undefined}
+            className={`flex items-center gap-3 transition-opacity duration-200 ${
+              step.status === "pending" ? "opacity-25" : "opacity-100"
+            }`}
+          >
+            <StepIcon status={step.status} />
+            <div className="min-w-0">
+              <span className={`text-sm ${getStepTextClass(step.status)}`}>{step.label}</span>
+              {step.detail && step.status !== "pending" && (
+                <p className="text-text-muted text-xs truncate">{step.detail}</p>
+              )}
+            </div>
           </div>
+          {step.id === "authenticating" && authPrompt}
         </div>
       ))}
     </div>
