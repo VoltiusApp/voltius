@@ -245,7 +245,11 @@
       "useRegex": "Utiliser une expression régulière (Alt+R)",
       "previousMatch": "Occurrence précédente (Maj+Entrée)",
       "nextMatch": "Occurrence suivante (Entrée)",
-      "closeTitle": "Fermer (Échap)"
+      "closeTitle": "Fermer (Échap)",
+      "toggleReplace": "Afficher le remplacement",
+      "replacePlaceholder": "Remplacer",
+      "replace": "Remplacer (Entrée)",
+      "replaceAll": "Tout remplacer"
     },
     "overlay": {
       "tailscaleCheck": {

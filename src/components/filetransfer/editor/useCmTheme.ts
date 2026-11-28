@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import type { Extension } from "@codemirror/state";
 import { useThemeStore } from "@/stores/themeStore";
 import type { AppTheme } from "@/themes/types";
-import { search } from "@codemirror/search";
+import { cmFind } from "./cmFind";
 import { cmTheme, inlineSyntax, type InlineSyntax } from "./cmTheme";
 
 function useActiveThemeDerived<T>(derive: (theme: AppTheme) => T): T {
@@ -14,7 +14,7 @@ function useActiveThemeDerived<T>(derive: (theme: AppTheme) => T): T {
 }
 
 // basicSetup only appends search on Ctrl+F, and react-codemirror's reconfigure on re-render dropped it.
-const cmBase = (theme: AppTheme): Extension[] => [...cmTheme(theme), search()];
+const cmBase = (theme: AppTheme): Extension[] => [...cmTheme(theme), cmFind];
 
 export const useCmTheme = (): Extension[] => useActiveThemeDerived(cmBase);
 export const useInlineSyntax = (): InlineSyntax => useActiveThemeDerived(inlineSyntax);

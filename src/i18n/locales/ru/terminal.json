@@ -254,7 +254,11 @@
       "useRegex": "Регулярное выражение (Alt+R)",
       "previousMatch": "Предыдущее совпадение (Shift+Enter)",
       "nextMatch": "Следующее совпадение (Enter)",
-      "closeTitle": "Закрыть (Escape)"
+      "closeTitle": "Закрыть (Escape)",
+      "toggleReplace": "Показать замену",
+      "replacePlaceholder": "Заменить",
+      "replace": "Заменить (Enter)",
+      "replaceAll": "Заменить все"
     },
     "overlay": {
       "tailscaleCheck": {
