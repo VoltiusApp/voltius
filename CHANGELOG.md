@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.87.2] - 2026-11-28
+
+### Fixed
+
+- Ctrl+F search in the file editor, notes and code fields no longer closes a moment after it opens (#963)
+
 ## [0.87.1] - 2026-11-27
 
 ### Fixed
