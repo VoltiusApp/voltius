@@ -1,4 +1,5 @@
 mod shared;
+pub(crate) use shared::CALL_TIMEOUT;
 pub use shared::{dispatch_line, socket_path};
 
 #[cfg(unix)]
